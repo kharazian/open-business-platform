@@ -1,0 +1,7 @@
+name: open-business-platform
+
+services: {}
+
+# Add concrete services once the API and web stacks exist. Suggested service names:
+# - api: backend service rooted at ./src/api
+# - web: frontend service rooted at ./src/web
