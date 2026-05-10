@@ -100,6 +100,6 @@ export const themePages: ThemePage[] = [
 ];
 
 export const themeNavigation: NavigationItem[] = [
-  ...themePages.map(({ label, path, icon }) => ({ label, path, icon })),
-  { label: "Back to App", path: "/", icon: Boxes, external: true }
+  ...themePages.map(({ label, path, icon, group }) => ({ label, path, icon, section: group })),
+  { label: "Back to App", path: "/", icon: Boxes, section: "Links", external: true }
 ];

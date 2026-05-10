@@ -4,6 +4,7 @@ export type NavigationItem = {
   label: string;
   path: string;
   icon?: typeof Home;
+  section?: string;
   external?: boolean;
 };
 

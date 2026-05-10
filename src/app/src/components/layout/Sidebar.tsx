@@ -6,6 +6,21 @@ import type { NavigationItem } from "../../config/appNavigation";
 import { useDesignTheme } from "../../context/useDesignTheme";
 import { Button } from "../ui/Button";
 
+function getNavigationSections(navigation: NavigationItem[]) {
+  return navigation.reduce<Array<{ label: string; items: NavigationItem[] }>>((sections, item) => {
+    const label = item.section ?? "";
+    const currentSection = sections[sections.length - 1];
+
+    if (currentSection?.label === label) {
+      currentSection.items.push(item);
+      return sections;
+    }
+
+    sections.push({ label, items: [item] });
+    return sections;
+  }, []);
+}
+
 export function Sidebar({
   collapsed,
   navigation,
@@ -28,6 +43,8 @@ export function Sidebar({
   className?: HTMLAttributes<HTMLElement>["className"];
 }) {
   const { palette, density } = useDesignTheme();
+  const navigationSections = getNavigationSections(navigation);
+  const hasSectionLabels = navigation.some((item) => item.section);
 
   return (
     <aside
@@ -61,31 +78,38 @@ export function Sidebar({
       ) : null}
 
       <nav className="mt-5 grid gap-1" aria-label={ariaLabel}>
-        {navigation.map((item) => {
-          const Icon = item.icon;
+        {navigationSections.map((section, sectionIndex) => (
+          <div className={cn("grid gap-1", sectionIndex > 0 && (collapsed ? "mt-2" : "mt-4"))} key={`${section.label}-${sectionIndex}`}>
+            {hasSectionLabels && section.label && !collapsed ? (
+              <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">{section.label}</p>
+            ) : null}
+            {section.items.map((item) => {
+              const Icon = item.icon;
 
-          return (
-            <NavLink
-              className={({ isActive }) =>
-                cn(
-                  "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                  density === "compact" && "min-h-10",
-                  collapsed && "justify-center px-0",
-                  isActive
-                    ? `${palette.activeNavBg} ${palette.activeNavText}`
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )
-              }
-              end={item.path === "/" || item.path === "/theme"}
-              key={item.path}
-              title={collapsed ? item.label : undefined}
-              to={item.path}
-            >
-              {Icon ? <Icon className="size-4 shrink-0" /> : null}
-              {!collapsed ? <span className="truncate">{item.label}</span> : null}
-            </NavLink>
-          );
-        })}
+              return (
+                <NavLink
+                  className={({ isActive }) =>
+                    cn(
+                      "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
+                      density === "compact" && "min-h-10",
+                      collapsed && "justify-center px-0",
+                      isActive
+                        ? `${palette.activeNavBg} ${palette.activeNavText}`
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )
+                  }
+                  end={item.path === "/" || item.path === "/theme"}
+                  key={item.path}
+                  title={collapsed ? item.label : undefined}
+                  to={item.path}
+                >
+                  {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                  {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {onToggleCollapsed ? (
