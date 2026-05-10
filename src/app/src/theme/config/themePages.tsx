@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import {
   BarChart3,
   Boxes,
+  ClipboardList,
   Component,
   KeyRound,
   LayoutDashboard,
@@ -10,6 +11,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  Table2,
   UserCircle,
   Users
 } from "lucide-react";
@@ -17,6 +19,7 @@ import type { NavigationItem } from "../../config/appNavigation";
 import { ThemeAuditLogs } from "../pages/ThemeAuditLogs";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
+import { ThemeForms } from "../pages/ThemeForms";
 import { ThemeLayouts } from "../pages/ThemeLayouts";
 import { ThemeLogin } from "../pages/ThemeLogin";
 import { ThemePermissions } from "../pages/ThemePermissions";
@@ -24,9 +27,10 @@ import { ThemeProfile } from "../pages/ThemeProfile";
 import { ThemeReports } from "../pages/ThemeReports";
 import { ThemeRoles } from "../pages/ThemeRoles";
 import { ThemeSettings } from "../pages/ThemeSettings";
+import { ThemeTables } from "../pages/ThemeTables";
 import { ThemeUsers } from "../pages/ThemeUsers";
 
-export type ThemePageGroup = "Dashboard" | "Workspace" | "Theme" | "Authentication";
+export type ThemePageGroup = "Dashboard" | "Workspace" | "Foundation" | "Theme" | "Authentication";
 
 export type ThemePage = {
   label: string;
@@ -102,6 +106,22 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: UserCircle,
     element: <ThemeProfile />
+  },
+  {
+    label: "Forms",
+    path: "/theme/forms",
+    routePath: "forms",
+    group: "Foundation",
+    icon: ClipboardList,
+    element: <ThemeForms />
+  },
+  {
+    label: "Tables",
+    path: "/theme/tables",
+    routePath: "tables",
+    group: "Foundation",
+    icon: Table2,
+    element: <ThemeTables />
   },
   {
     label: "Login",

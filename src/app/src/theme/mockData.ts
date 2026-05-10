@@ -2,9 +2,11 @@ import {
   sampleActivities,
   sampleComponentRows,
   sampleAuditLogs,
+  sampleFormFields,
   samplePermissions,
   sampleReports,
   sampleRoles,
+  sampleTableViews,
   sampleTrendHeights,
   sampleUsers,
   sampleWorkflowActions
@@ -21,6 +23,10 @@ export const themeRoles = sampleRoles;
 export const themePermissions = samplePermissions;
 
 export const themeAuditLogs = sampleAuditLogs;
+
+export const themeFormFields = sampleFormFields;
+
+export const themeTableViews = sampleTableViews;
 
 export const themeTrendHeights = sampleTrendHeights;
 

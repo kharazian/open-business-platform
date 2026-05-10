@@ -64,6 +64,21 @@ export const sampleAuditLogs = [
   { event: "Failed sign-in blocked", actor: "System", module: "Authentication", severity: "Critical", time: "2 hrs ago" }
 ];
 
+export const sampleFormFields = [
+  { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
+  { name: "Support email", type: "Email", required: true, owner: "Settings" },
+  { name: "Default module", type: "Select", required: false, owner: "Navigation" },
+  { name: "Audit retention", type: "Select", required: true, owner: "Governance" },
+  { name: "Enable notifications", type: "Switch", required: false, owner: "Notifications" }
+];
+
+export const sampleTableViews = [
+  { name: "User directory", rows: 1284, columns: 6, status: "Ready", owner: "Identity" },
+  { name: "Role matrix", rows: 12, columns: 8, status: "Review", owner: "Access" },
+  { name: "Audit stream", rows: 9421, columns: 5, status: "Ready", owner: "Governance" },
+  { name: "Report library", rows: 38, columns: 5, status: "Draft", owner: "Analytics" }
+];
+
 export const sampleDashboardStats = [
   { label: "Active users", value: "1,284", change: "+12.8%", tone: "teal" },
   { label: "Open reports", value: "38", change: "+4 this week", tone: "indigo" },
