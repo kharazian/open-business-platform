@@ -142,6 +142,54 @@ export const sampleCalendarEvents = [
   }
 ];
 
+export const sampleTasks = [
+  {
+    title: "Finalize user import",
+    owner: "Maya Chen",
+    area: "Users",
+    priority: "High",
+    status: "Todo",
+    due: "May 12",
+    progress: 20
+  },
+  {
+    title: "Review manager role policy",
+    owner: "Omar Patel",
+    area: "Roles",
+    priority: "Critical",
+    status: "In Progress",
+    due: "May 13",
+    progress: 55
+  },
+  {
+    title: "Publish audit summary",
+    owner: "Nora Wells",
+    area: "Reports",
+    priority: "Normal",
+    status: "In Progress",
+    due: "May 15",
+    progress: 70
+  },
+  {
+    title: "Update notification defaults",
+    owner: "Leo Morgan",
+    area: "Settings",
+    priority: "Normal",
+    status: "Done",
+    due: "May 16",
+    progress: 100
+  },
+  {
+    title: "Validate MFA recovery flow",
+    owner: "Security",
+    area: "Authentication",
+    priority: "High",
+    status: "Todo",
+    due: "May 17",
+    progress: 10
+  }
+];
+
 export const sampleFormFields = [
   { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
   { name: "Support email", type: "Email", required: true, owner: "Settings" },

@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardList,
   Component,
+  Kanban,
   KeyRound,
   LayoutDashboard,
   LogIn,
@@ -39,6 +40,7 @@ import { ThemeResetPassword } from "../pages/ThemeResetPassword";
 import { ThemeRoles } from "../pages/ThemeRoles";
 import { ThemeSettings } from "../pages/ThemeSettings";
 import { ThemeTables } from "../pages/ThemeTables";
+import { ThemeTasks } from "../pages/ThemeTasks";
 import { ThemeUtilityPages } from "../pages/ThemeUtilityPages";
 import { ThemeUsers } from "../pages/ThemeUsers";
 
@@ -110,6 +112,14 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: CalendarDays,
     element: <ThemeCalendar />
+  },
+  {
+    label: "Tasks",
+    path: "/theme/tasks",
+    routePath: "tasks",
+    group: "Workspace",
+    icon: Kanban,
+    element: <ThemeTasks />
   },
   {
     label: "Reports",

@@ -9,6 +9,7 @@ import {
   sampleReports,
   sampleRoles,
   sampleTableViews,
+  sampleTasks,
   sampleTrendHeights,
   sampleUsers,
   sampleWorkflowActions
@@ -29,6 +30,8 @@ export const themeAuditLogs = sampleAuditLogs;
 export const themeNotifications = sampleNotifications;
 
 export const themeCalendarEvents = sampleCalendarEvents;
+
+export const themeTasks = sampleTasks;
 
 export const themeFormFields = sampleFormFields;
 
