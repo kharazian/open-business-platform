@@ -1,0 +1,61 @@
+export const sampleUsers = [
+  { name: "Maya Chen", email: "maya@company.test", role: "Admin", status: "Active", team: "Operations" },
+  { name: "Omar Patel", email: "omar@company.test", role: "Manager", status: "Active", team: "Finance" },
+  { name: "Nora Wells", email: "nora@company.test", role: "Analyst", status: "Invited", team: "Reports" },
+  { name: "Leo Morgan", email: "leo@company.test", role: "Viewer", status: "Suspended", team: "Support" }
+];
+
+export const sampleActivities = [
+  {
+    event: "User invited",
+    actor: "Maya Chen",
+    time: "8 min ago",
+    status: "Completed",
+    summary: "Maya invited a finance reviewer"
+  },
+  {
+    event: "Role updated",
+    actor: "Omar Patel",
+    time: "32 min ago",
+    status: "Review",
+    summary: "Omar updated manager permissions"
+  },
+  {
+    event: "Report exported",
+    actor: "Nora Wells",
+    time: "1 hr ago",
+    status: "Completed",
+    summary: "Nora exported the audit activity report"
+  },
+  {
+    event: "Policy synced",
+    actor: "System",
+    time: "2 hrs ago",
+    status: "Completed",
+    summary: "System completed the nightly audit sync"
+  }
+];
+
+export const sampleReports = [
+  { name: "Operations overview", owner: "Analytics", type: "Daily", status: "Ready", updated: "Today" },
+  { name: "User access review", owner: "Security", type: "Weekly", status: "Draft", updated: "Yesterday" },
+  { name: "Audit event export", owner: "Compliance", type: "Monthly", status: "Ready", updated: "2 days ago" },
+  { name: "Customer health", owner: "Success", type: "Quarterly", status: "Scheduled", updated: "May 1" }
+];
+
+export const sampleDashboardStats = [
+  { label: "Active users", value: "1,284", change: "+12.8%", tone: "teal" },
+  { label: "Open reports", value: "38", change: "+4 this week", tone: "indigo" },
+  { label: "Audit events", value: "9,421", change: "99.9% captured", tone: "amber" },
+  { label: "Permission sets", value: "24", change: "6 modules", tone: "rose" }
+];
+
+export const sampleTrendHeights = [36, 58, 44, 70, 62, 86, 74, 92, 81, 98];
+
+export const sampleWorkflowActions = ["Invite user", "Create role", "Run audit", "Open settings"];
+
+export const sampleComponentRows = [
+  { component: "Button", status: "Stable", usage: "Primary actions and secondary controls" },
+  { component: "Card", status: "Stable", usage: "Grouped content and metrics" },
+  { component: "Modal", status: "Preview", usage: "Focused flows and confirmations" }
+];

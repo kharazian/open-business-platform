@@ -104,8 +104,8 @@ export function ThemeComponents() {
 
         <Card title="Tabs and dropdown">
           <Tabs tabs={["Overview", "Usage", "Access"]} activeTab={tab} onChange={setTab} />
-          <div className="mt-5 flex items-center justify-between rounded-2xl bg-slate-50 p-4 dark:bg-slate-900">
-            <p className="text-sm text-slate-600 dark:text-slate-300">Current tab: {tab}</p>
+          <div className="mt-5 flex items-center justify-between rounded-xl bg-muted/45 p-4">
+            <p className="text-sm text-muted-foreground">Current tab: {tab}</p>
             <Dropdown
               trigger={<span>Actions</span>}
               items={[
@@ -178,7 +178,7 @@ export function ThemeComponents() {
         onClose={() => setModalOpen(false)}
         footer={<Button onClick={() => setModalOpen(false)}>Done</Button>}
       >
-        <p className="text-sm text-slate-600 dark:text-slate-300">
+        <p className="text-sm text-muted-foreground">
           This modal uses the same border, shadow, typography, and action styling as the rest of the theme.
         </p>
       </Modal>

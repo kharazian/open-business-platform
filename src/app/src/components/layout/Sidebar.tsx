@@ -11,16 +11,20 @@ export function Sidebar({
   navigation,
   onToggleCollapsed,
   variant = "default",
+  logoText = "OBP",
   title = "Theme Lab",
   subtitle = "Admin demo",
+  ariaLabel = "Navigation",
   className
 }: {
   collapsed: boolean;
   navigation: NavigationItem[];
   onToggleCollapsed?: () => void;
   variant?: "default" | "hybrid";
+  logoText?: string;
   title?: string;
   subtitle?: string;
+  ariaLabel?: string;
   className?: HTMLAttributes<HTMLElement>["className"];
 }) {
   const { palette, density } = useDesignTheme();
@@ -35,7 +39,7 @@ export function Sidebar({
     >
       <div className={cn("flex items-center gap-3 px-1 py-2", collapsed && "justify-center")}>
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white", palette.primaryBg)}>
-          OBP
+          {logoText}
         </span>
         {!collapsed ? (
           <div className="min-w-0">
@@ -56,7 +60,7 @@ export function Sidebar({
         </div>
       ) : null}
 
-      <nav className="mt-5 grid gap-1" aria-label="Theme navigation">
+      <nav className="mt-5 grid gap-1" aria-label={ariaLabel}>
         {navigation.map((item) => {
           const Icon = item.icon;
 

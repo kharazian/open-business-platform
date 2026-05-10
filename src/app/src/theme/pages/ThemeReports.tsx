@@ -39,8 +39,10 @@ export function ThemeReports() {
           <Card key={report.name}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">{report.name}</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{report.owner} • {report.type}</p>
+                <p className="text-sm font-semibold text-foreground">{report.name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {report.owner} / {report.type}
+                </p>
               </div>
               <span className={cn("grid size-10 place-items-center rounded-xl", palette.softBg, palette.softText)}>
                 <FileText size={20} />

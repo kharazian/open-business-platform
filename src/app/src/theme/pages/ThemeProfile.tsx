@@ -22,8 +22,8 @@ export function ThemeProfile() {
         <Card>
           <div className="flex flex-col items-center text-center">
             <Avatar name="Maya Chen" size="lg" />
-            <h2 className="mt-4 text-xl font-bold text-slate-950 dark:text-white">Maya Chen</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Operations administrator</p>
+            <h2 className="mt-4 text-xl font-bold text-foreground">Maya Chen</h2>
+            <p className="text-sm text-muted-foreground">Operations administrator</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Badge tone="success">Active</Badge>
               <Badge tone="indigo">Admin</Badge>
@@ -35,7 +35,7 @@ export function ThemeProfile() {
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="First name" defaultValue="Maya" />
             <Input label="Last name" defaultValue="Chen" />
-            <Input label="Email" defaultValue="maya@northwind.io" icon={<Mail size={16} />} />
+            <Input label="Email" defaultValue="maya@company.test" icon={<Mail size={16} />} />
             <Input label="Title" defaultValue="Operations administrator" />
           </div>
           <div className="mt-5 flex justify-end">
@@ -63,9 +63,9 @@ export function ThemeProfile() {
               ["Member since", "January 2026"],
               ["Session policy", "MFA required"],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 border-b border-slate-100 pb-3 dark:border-slate-800">
-                <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{value}</dd>
+              <div key={label} className="flex justify-between gap-4 border-b border-border pb-3">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium text-foreground">{value}</dd>
               </div>
             ))}
           </dl>

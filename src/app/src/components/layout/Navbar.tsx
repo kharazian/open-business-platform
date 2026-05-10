@@ -67,13 +67,20 @@ export function Navbar({
     <header className="sticky top-0 z-30 border-b border-border bg-background/84 px-3 py-3 backdrop-blur-xl sm:px-5 lg:px-6">
       <div className={cn("mx-auto flex items-center gap-3", density === "compact" && "gap-2", containerClassName)}>
         {showMobileMenuButton && onMenuClick ? (
-          <Button className="lg:hidden" variant="outline" onClick={onMenuClick} aria-label="Open menu">
+          <Button className="shrink-0 lg:hidden" variant="outline" onClick={onMenuClick} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
         ) : null}
 
         {onSidebarToggle ? (
-          <Button variant="outline" size="icon" onClick={onSidebarToggle} aria-label={sidebarToggleLabel} title={sidebarToggleLabel}>
+          <Button
+            className="shrink-0 max-lg:hidden"
+            variant="outline"
+            size="icon"
+            onClick={onSidebarToggle}
+            aria-label={sidebarToggleLabel}
+            title={sidebarToggleLabel}
+          >
             <Menu className="size-4" />
           </Button>
         ) : null}
@@ -93,20 +100,21 @@ export function Navbar({
           <Input className="rounded-full pl-10" placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
         </div>
 
-        <Button variant="outline" className="size-10 p-0" aria-label="Notifications" title="Notifications">
-          <Bell className="size-4" />
+        <Button variant="outline" size="icon" className="shrink-0" aria-label="Notifications" title="Notifications">
+          <Bell className="size-4 shrink-0" />
         </Button>
 
         {showSettingsButton ? <SettingsButton /> : null}
 
         {settingsHref ? (
           <Link
-            className="control-transition inline-flex size-10 items-center justify-center rounded-xl border border-border bg-card/90 text-foreground outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20"
+            className="control-transition inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-bold text-foreground shadow-soft outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20"
             to={settingsHref}
             aria-label="Open app settings"
             title="Settings"
           >
-            <Settings className="size-4" />
+            <Settings className="size-4 shrink-0 text-primary" />
+            <span className="hidden sm:inline">Settings</span>
           </Link>
         ) : null}
 

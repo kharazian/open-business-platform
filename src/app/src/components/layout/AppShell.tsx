@@ -1,9 +1,18 @@
-import type { CSSProperties, ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import type { NavigationItem } from "../../config/appNavigation";
 import { useAppTheme } from "../../context/AppThemeContext";
 import { cn } from "../../lib/cn";
+import { MobileDrawer } from "./MobileDrawer";
 import { Navbar } from "./Navbar";
+import { Sidebar } from "./Sidebar";
+
+type ShellLayout = "topbar" | "topnav" | "sidebar" | "collapsed" | "hybrid" | "minimal";
+
+type UserMenuLink = {
+  label: string;
+  to?: string;
+  onClick?: () => void;
+};
 
 type AppShellProps = {
   navigation: NavigationItem[];
@@ -13,11 +22,34 @@ type AppShellProps = {
   style?: CSSProperties;
   containerClassName?: string;
   mainClassName?: string;
-  sidebar?: ReactNode;
-  header?: ReactNode;
+  contentClassName?: string;
+  contentBefore?: ReactNode;
+  layout?: ShellLayout;
+  showTopNav?: boolean;
+  showMobileMenuButton?: boolean;
+  showSettingsButton?: boolean;
+  settingsHref?: string;
+  navbarTitle?: string;
+  navbarSubtitle?: string;
+  navbarLogoText?: string;
+  searchPlaceholder?: string;
+  sidebarTitle?: string;
+  sidebarSubtitle?: string;
+  sidebarLogoText?: string;
+  sidebarVariant?: "default" | "hybrid";
+  sidebarAriaLabel?: string;
+  onSidebarToggle?: () => void;
   theme?: "light" | "dark";
   onThemeToggle?: () => void;
+  userName?: string;
+  userEmail?: string;
+  userMenu?: UserMenuLink[];
 };
+
+function getAppLayout(layout: "topbar" | "sidebar" | "collapsed-sidebar"): ShellLayout {
+  if (layout === "collapsed-sidebar") return "collapsed";
+  return layout;
+}
 
 export function AppShell({
   navigation,
@@ -27,95 +59,120 @@ export function AppShell({
   style,
   containerClassName = "max-w-7xl",
   mainClassName,
-  sidebar,
-  header,
+  contentClassName,
+  contentBefore,
+  layout,
+  showTopNav,
+  showMobileMenuButton = true,
+  showSettingsButton = false,
+  settingsHref,
+  navbarTitle,
+  navbarSubtitle,
+  navbarLogoText = "OBP",
+  searchPlaceholder,
+  sidebarTitle,
+  sidebarSubtitle,
+  sidebarLogoText = "OBP",
+  sidebarVariant = "default",
+  sidebarAriaLabel,
+  onSidebarToggle,
   theme,
-  onThemeToggle
+  onThemeToggle,
+  userName,
+  userEmail,
+  userMenu
 }: AppShellProps) {
   const { appThemeSettings, savedAppThemeSettings, updateAppThemeSettings } = useAppTheme();
-  const hasAppSidebar = mode === "app" && (appThemeSettings.layout === "sidebar" || appThemeSettings.layout === "collapsed-sidebar");
-  const appSidebarCollapsed = appThemeSettings.layout === "collapsed-sidebar";
-  const sidebarPadding = appSidebarCollapsed ? "lg:pl-20" : "lg:pl-72";
-  const toggleAppSidebar = () => {
-    updateAppThemeSettings({ layout: appSidebarCollapsed ? "sidebar" : "collapsed-sidebar" });
-  };
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const effectiveLayout = layout ?? getAppLayout(appThemeSettings.layout);
+  const hasSidebar = effectiveLayout === "sidebar" || effectiveLayout === "collapsed" || effectiveLayout === "hybrid";
+  const sidebarCollapsed = effectiveLayout === "collapsed";
+  const sidebarPadding = sidebarCollapsed ? "lg:pl-20" : "lg:pl-72";
+  const resolvedSidebarTitle = sidebarTitle ?? (mode === "app" ? "Open Business Platform" : "Theme Lab");
+  const resolvedSidebarSubtitle = sidebarSubtitle ?? (mode === "app" ? "Main app" : "Admin demo");
+  const resolvedSidebarAriaLabel = sidebarAriaLabel ?? (mode === "app" ? "Main app navigation" : "Theme navigation");
+  const resolvedNavbarTitle = navbarTitle ?? (mode === "app" ? "Open Business Platform" : "Theme playground");
+  const resolvedNavbarSubtitle = navbarSubtitle ?? (mode === "app" ? (savedAppThemeSettings ? "Saved theme active" : "App preview") : undefined);
+  const resolvedSearchPlaceholder = searchPlaceholder ?? (mode === "app" ? "Search modules, users, reports..." : "Search...");
+  const resolvedSettingsHref = settingsHref ?? (mode === "app" ? "/settings" : undefined);
+  const resolvedShowTopNav = showTopNav ?? !hasSidebar;
+  const resolvedShowMobileMenuButton = showMobileMenuButton && navigation.length > 0;
+  const resolvedMainClassName = mainClassName ?? "px-4 py-6 sm:px-6 lg:px-8";
+  const resolvedContainerClassName = hasSidebar ? "w-full max-w-none" : containerClassName;
+  const resolvedSidebarVariant = effectiveLayout === "hybrid" ? "hybrid" : sidebarVariant;
+  const toggleSidebar =
+    onSidebarToggle ??
+    (mode === "app" && hasSidebar
+      ? () => {
+          updateAppThemeSettings({ layout: sidebarCollapsed ? "sidebar" : "collapsed-sidebar" });
+        }
+      : undefined);
 
-  if (mode === "playground") {
-    return (
-      <div className={className} style={style}>
-        {sidebar}
-        {header}
-        {children}
-      </div>
-    );
-  }
+  const openMobileMenu = () => setMobileOpen(true);
+  const closeMobileMenu = () => setMobileOpen(false);
 
-  return (
-    <div className={className} style={style}>
-      {hasAppSidebar ? (
-        <aside
-          className={cn(
-            "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-card/90 p-3 shadow-lifted backdrop-blur-xl lg:flex",
-            appSidebarCollapsed ? "w-20" : "w-72"
-          )}
-        >
-          <Link className={cn("flex items-center gap-3 px-1 py-2", appSidebarCollapsed && "justify-center")} to="/">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">OBP</span>
-            {!appSidebarCollapsed ? (
-              <div className="min-w-0">
-                <strong className="block truncate leading-tight text-foreground">Open Business Platform</strong>
-                <span className="text-sm text-muted-foreground">Main app</span>
-              </div>
-            ) : null}
-          </Link>
+  const shell = (
+    <>
+      <MobileDrawer
+        navigation={navigation}
+        onClose={closeMobileMenu}
+        open={mobileOpen}
+        sidebarAriaLabel={resolvedSidebarAriaLabel}
+        sidebarLogoText={sidebarLogoText}
+        sidebarSubtitle={resolvedSidebarSubtitle}
+        sidebarTitle={resolvedSidebarTitle}
+        sidebarVariant={resolvedSidebarVariant}
+      />
 
-          <nav className="mt-5 grid gap-1" aria-label="Main app navigation">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <NavLink
-                  className={({ isActive }) =>
-                    cn(
-                      "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                      appSidebarCollapsed && "justify-center px-0",
-                      isActive ? "bg-primary-soft text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )
-                  }
-                  end={item.path === "/"}
-                  key={item.path}
-                  title={appSidebarCollapsed ? item.label : undefined}
-                  to={item.path}
-                >
-                  {Icon ? <Icon className="size-4 shrink-0" /> : null}
-                  {!appSidebarCollapsed ? <span className="truncate">{item.label}</span> : null}
-                </NavLink>
-              );
-            })}
-          </nav>
-        </aside>
+      {hasSidebar ? (
+        <Sidebar
+          ariaLabel={resolvedSidebarAriaLabel}
+          className="fixed inset-y-0 left-0 z-40 hidden lg:flex"
+          collapsed={sidebarCollapsed}
+          logoText={sidebarLogoText}
+          navigation={navigation}
+          subtitle={resolvedSidebarSubtitle}
+          title={resolvedSidebarTitle}
+          variant={resolvedSidebarVariant}
+        />
       ) : null}
 
-      <div className={cn("min-h-screen transition-[padding] duration-200", hasAppSidebar && sidebarPadding)}>
+      <div className={cn("min-h-screen transition-[padding] duration-200", hasSidebar && sidebarPadding)}>
         <Navbar
-          brandClassName={hasAppSidebar ? "lg:hidden" : undefined}
-          containerClassName={hasAppSidebar ? "max-w-7xl" : containerClassName}
+          brandClassName={hasSidebar ? "lg:hidden" : undefined}
+          containerClassName={resolvedContainerClassName}
+          logoText={navbarLogoText}
           navigation={navigation}
-          onMenuClick={() => undefined}
-          onSidebarToggle={hasAppSidebar ? toggleAppSidebar : undefined}
-          searchPlaceholder="Search modules, users, reports..."
-          settingsHref="/settings"
-          showTopNav={!hasAppSidebar}
-          sidebarToggleLabel={appSidebarCollapsed ? "Expand main app sidebar" : "Collapse main app sidebar"}
-          subtitle={savedAppThemeSettings ? "Saved theme active" : "App preview"}
+          onMenuClick={openMobileMenu}
+          onSidebarToggle={hasSidebar && effectiveLayout !== "hybrid" ? toggleSidebar : undefined}
+          searchPlaceholder={resolvedSearchPlaceholder}
+          settingsHref={resolvedSettingsHref}
+          showMobileMenuButton={resolvedShowMobileMenuButton}
+          showSettingsButton={showSettingsButton}
+          showTopNav={resolvedShowTopNav}
+          sidebarToggleLabel={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          subtitle={resolvedNavbarSubtitle}
           theme={theme}
+          title={resolvedNavbarTitle}
+          userEmail={userEmail}
+          userMenu={userMenu}
+          userName={userName}
           onThemeToggle={onThemeToggle}
         />
 
-        <main className={cn("px-4 py-6 sm:px-6 lg:px-8", mainClassName)}>
-          <div className={cn("mx-auto", hasAppSidebar ? "max-w-7xl" : containerClassName)}>{children}</div>
+        <main className={resolvedMainClassName}>
+          <div className={cn(hasSidebar ? "w-full" : "mx-auto", resolvedContainerClassName, contentClassName)}>
+            {contentBefore}
+            {children}
+          </div>
         </main>
       </div>
+    </>
+  );
+
+  return (
+    <div className={className} style={style}>
+      {shell}
     </div>
   );
 }

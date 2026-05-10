@@ -3,7 +3,25 @@ import { Sidebar } from "./Sidebar";
 import { Button } from "../ui/Button";
 import type { NavigationItem } from "../../config/appNavigation";
 
-export function MobileDrawer({ open, navigation, onClose }: { open: boolean; navigation: NavigationItem[]; onClose: () => void }) {
+export function MobileDrawer({
+  open,
+  navigation,
+  onClose,
+  sidebarTitle,
+  sidebarSubtitle,
+  sidebarLogoText,
+  sidebarVariant = "default",
+  sidebarAriaLabel
+}: {
+  open: boolean;
+  navigation: NavigationItem[];
+  onClose: () => void;
+  sidebarTitle?: string;
+  sidebarSubtitle?: string;
+  sidebarLogoText?: string;
+  sidebarVariant?: "default" | "hybrid";
+  sidebarAriaLabel?: string;
+}) {
   if (!open) return null;
 
   return (
@@ -15,7 +33,15 @@ export function MobileDrawer({ open, navigation, onClose }: { open: boolean; nav
             <X className="size-4" />
           </Button>
         </div>
-        <Sidebar collapsed={false} navigation={navigation} />
+        <Sidebar
+          ariaLabel={sidebarAriaLabel}
+          collapsed={false}
+          logoText={sidebarLogoText}
+          navigation={navigation}
+          subtitle={sidebarSubtitle}
+          title={sidebarTitle}
+          variant={sidebarVariant}
+        />
       </div>
     </div>
   );

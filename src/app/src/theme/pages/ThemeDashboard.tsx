@@ -1,5 +1,5 @@
 import { ArrowUpRight, FileText, ShieldCheck, Users } from "lucide-react";
-import { themeActivities, themeReports, themeUsers } from "../mockData";
+import { themeActivities, themeReports, themeTrendHeights, themeUsers, themeWorkflowActions } from "../mockData";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -35,8 +35,8 @@ export function ThemeDashboard() {
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
         <Card title="Operations trend" description="Placeholder surface for future charts.">
-          <div className="flex h-72 items-end gap-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900/50">
-            {[36, 58, 44, 70, 62, 86, 74, 92, 81, 98].map((height, index) => (
+          <div className="flex h-72 items-end gap-3 rounded-xl border border-dashed border-border bg-muted/45 p-5">
+            {themeTrendHeights.map((height, index) => (
               <div key={index} className="flex flex-1 items-end">
                 <div
                   className={cn("w-full rounded-t-xl bg-gradient-to-t", palette.gradientFrom, palette.gradientTo)}
@@ -53,8 +53,8 @@ export function ThemeDashboard() {
               <div key={activity} className="flex gap-3">
                 <span className={cn("mt-1 size-2 rounded-full", palette.primaryBg)} />
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{activity}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{index + 1}h ago</p>
+                  <p className="text-sm font-medium text-foreground">{activity}</p>
+                  <p className="text-xs text-muted-foreground">{index + 1}h ago</p>
                 </div>
               </div>
             ))}
@@ -65,7 +65,7 @@ export function ThemeDashboard() {
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <Card title="Quick actions">
           <div className="grid gap-3 sm:grid-cols-2">
-            {["Invite user", "Create role", "Run audit", "Open settings"].map((action) => (
+            {themeWorkflowActions.map((action) => (
               <Button key={action} variant="outline" className="justify-start">
                 {action}
               </Button>
