@@ -7,6 +7,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogIn,
+  MailQuestion,
   MonitorCog,
   PanelsTopLeft,
   ScrollText,
@@ -14,18 +15,23 @@ import {
   ShieldCheck,
   Table2,
   UserCircle,
+  UserPlus,
   Users
 } from "lucide-react";
 import type { NavigationItem } from "../../config/appNavigation";
 import { ThemeAuditLogs } from "../pages/ThemeAuditLogs";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
+import { ThemeForgotPassword } from "../pages/ThemeForgotPassword";
 import { ThemeForms } from "../pages/ThemeForms";
 import { ThemeLayouts } from "../pages/ThemeLayouts";
 import { ThemeLogin } from "../pages/ThemeLogin";
+import { ThemeMfa } from "../pages/ThemeMfa";
 import { ThemePermissions } from "../pages/ThemePermissions";
 import { ThemeProfile } from "../pages/ThemeProfile";
+import { ThemeRegister } from "../pages/ThemeRegister";
 import { ThemeReports } from "../pages/ThemeReports";
+import { ThemeResetPassword } from "../pages/ThemeResetPassword";
 import { ThemeRoles } from "../pages/ThemeRoles";
 import { ThemeSettings } from "../pages/ThemeSettings";
 import { ThemeTables } from "../pages/ThemeTables";
@@ -140,6 +146,38 @@ export const themePages: ThemePage[] = [
     group: "Authentication",
     icon: LogIn,
     element: <ThemeLogin />
+  },
+  {
+    label: "Register",
+    path: "/theme/register",
+    routePath: "register",
+    group: "Authentication",
+    icon: UserPlus,
+    element: <ThemeRegister />
+  },
+  {
+    label: "Forgot Password",
+    path: "/theme/forgot-password",
+    routePath: "forgot-password",
+    group: "Authentication",
+    icon: MailQuestion,
+    element: <ThemeForgotPassword />
+  },
+  {
+    label: "Reset Password",
+    path: "/theme/reset-password",
+    routePath: "reset-password",
+    group: "Authentication",
+    icon: KeyRound,
+    element: <ThemeResetPassword />
+  },
+  {
+    label: "MFA",
+    path: "/theme/mfa",
+    routePath: "mfa",
+    group: "Authentication",
+    icon: ShieldCheck,
+    element: <ThemeMfa />
   },
   {
     label: "Layouts",
