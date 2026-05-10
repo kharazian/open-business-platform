@@ -64,6 +64,45 @@ export const sampleAuditLogs = [
   { event: "Failed sign-in blocked", actor: "System", module: "Authentication", severity: "Critical", time: "2 hrs ago" }
 ];
 
+export const sampleNotifications = [
+  {
+    title: "New access request",
+    sender: "Maya Chen",
+    channel: "Workspace",
+    priority: "High",
+    status: "Unread",
+    time: "4 min ago",
+    summary: "Maya requested access for a finance reviewer."
+  },
+  {
+    title: "Weekly report is ready",
+    sender: "Analytics",
+    channel: "Reports",
+    priority: "Normal",
+    status: "Unread",
+    time: "24 min ago",
+    summary: "The operations overview report finished generating."
+  },
+  {
+    title: "Role policy reviewed",
+    sender: "Omar Patel",
+    channel: "Access",
+    priority: "Normal",
+    status: "Read",
+    time: "1 hr ago",
+    summary: "Manager permissions were reviewed and approved."
+  },
+  {
+    title: "Audit threshold warning",
+    sender: "System",
+    channel: "Governance",
+    priority: "Critical",
+    status: "Unread",
+    time: "2 hrs ago",
+    summary: "Failed sign-in volume crossed the review threshold."
+  }
+];
+
 export const sampleFormFields = [
   { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
   { name: "Support email", type: "Email", required: true, owner: "Settings" },

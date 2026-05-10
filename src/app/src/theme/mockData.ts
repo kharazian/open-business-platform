@@ -3,6 +3,7 @@ import {
   sampleComponentRows,
   sampleAuditLogs,
   sampleFormFields,
+  sampleNotifications,
   samplePermissions,
   sampleReports,
   sampleRoles,
@@ -23,6 +24,8 @@ export const themeRoles = sampleRoles;
 export const themePermissions = samplePermissions;
 
 export const themeAuditLogs = sampleAuditLogs;
+
+export const themeNotifications = sampleNotifications;
 
 export const themeFormFields = sampleFormFields;
 

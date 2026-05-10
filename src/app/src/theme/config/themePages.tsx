@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import {
   BarChart3,
+  Bell,
   Boxes,
   ClipboardList,
   Component,
@@ -27,6 +28,7 @@ import { ThemeForms } from "../pages/ThemeForms";
 import { ThemeLayouts } from "../pages/ThemeLayouts";
 import { ThemeLogin } from "../pages/ThemeLogin";
 import { ThemeMfa } from "../pages/ThemeMfa";
+import { ThemeNotifications } from "../pages/ThemeNotifications";
 import { ThemePermissions } from "../pages/ThemePermissions";
 import { ThemeProfile } from "../pages/ThemeProfile";
 import { ThemeRegister } from "../pages/ThemeRegister";
@@ -90,6 +92,14 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: ScrollText,
     element: <ThemeAuditLogs />
+  },
+  {
+    label: "Notifications",
+    path: "/theme/notifications",
+    routePath: "notifications",
+    group: "Workspace",
+    icon: Bell,
+    element: <ThemeNotifications />
   },
   {
     label: "Reports",
