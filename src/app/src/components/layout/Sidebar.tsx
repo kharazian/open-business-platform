@@ -37,7 +37,7 @@ export function Sidebar({
   const sectionKeys = useMemo(() => navigationSections.map((section, index) => `${section.label}-${index}`), [navigationSections]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
 
-  const toggleSection = (sectionKey: string) => {
+  const toggleGroup = (sectionKey: string) => {
     setCollapsedSections((current) => {
       const next = new Set(current);
       if (next.has(sectionKey)) {
@@ -87,7 +87,7 @@ export function Sidebar({
               <button
                 className="flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 text-left text-xs font-bold uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
                 type="button"
-                onClick={() => toggleSection(sectionKeys[sectionIndex])}
+                onClick={() => toggleGroup(sectionKeys[sectionIndex])}
                 aria-expanded={!collapsedSections.has(sectionKeys[sectionIndex])}
               >
                 <span className="truncate">{section.label}</span>
@@ -98,6 +98,68 @@ export function Sidebar({
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const active = isNavigationItemActive(location.pathname, item);
+                const parentKey = `${sectionKeys[sectionIndex]}-${item.label}`;
+                const hasChildren = Boolean(item.children?.length);
+
+                if (hasChildren) {
+                  const parentOpen = active || !collapsedSections.has(parentKey);
+
+                  return (
+                    <div className="grid gap-1" key={parentKey}>
+                      <button
+                        className={cn(
+                          "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold",
+                          density === "compact" && "min-h-10",
+                          collapsed && "justify-center px-0",
+                          active
+                            ? `${palette.activeNavBg} ${palette.activeNavText}`
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                        type="button"
+                        onClick={() => toggleGroup(parentKey)}
+                        aria-expanded={parentOpen}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                        {!collapsed ? (
+                          <>
+                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                            <ChevronDown className={cn("size-4 shrink-0 transition-transform", !parentOpen && "-rotate-90")} />
+                          </>
+                        ) : null}
+                      </button>
+
+                      {!collapsed && parentOpen ? (
+                        <div className="ml-5 grid gap-1 border-l border-border pl-3">
+                          {item.children?.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive = isNavigationItemActive(location.pathname, child);
+
+                            return child.path ? (
+                              <NavLink
+                                className={cn(
+                                  "control-transition flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
+                                  childActive
+                                    ? `${palette.activeNavBg} ${palette.activeNavText}`
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                )}
+                                end={child.path === "/" || child.path === "/theme"}
+                                key={child.path}
+                                to={child.path}
+                                onClick={onNavigate}
+                              >
+                                {ChildIcon ? <ChildIcon className="size-4 shrink-0" /> : null}
+                                <span className="truncate">{child.label}</span>
+                              </NavLink>
+                            ) : null;
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                if (!item.path) return null;
 
                 return (
                   <NavLink

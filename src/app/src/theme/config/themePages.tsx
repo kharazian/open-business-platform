@@ -247,7 +247,17 @@ export const themePages: ThemePage[] = [
   }
 ];
 
+function getThemeNavigationChildren(group: ThemePageGroup) {
+  return themePages
+    .filter((page) => page.group === group)
+    .map(({ label, path, icon }) => ({ label, path, icon }));
+}
+
 export const themeNavigation: NavigationItem[] = [
-  ...themePages.map(({ label, path, icon, group }) => ({ label, path, icon, section: group })),
-  { label: "Back to App", path: "/", icon: Boxes, section: "Links", external: true }
+  { label: "Dashboard", path: "/theme", icon: LayoutDashboard },
+  { label: "Workspace", icon: Users, children: getThemeNavigationChildren("Workspace") },
+  { label: "Foundation", icon: ClipboardList, children: getThemeNavigationChildren("Foundation") },
+  { label: "Authentication", icon: ShieldCheck, children: getThemeNavigationChildren("Authentication") },
+  { label: "Theme", icon: MonitorCog, children: getThemeNavigationChildren("Theme") },
+  { label: "Back to App", path: "/", icon: Boxes, external: true }
 ];

@@ -16,6 +16,8 @@ export function getNavigationSections(navigation: NavigationItem[]) {
 }
 
 export function isNavigationItemActive(pathname: string, item: NavigationItem) {
+  if (item.children?.some((child) => isNavigationItemActive(pathname, child))) return true;
+  if (!item.path) return false;
   if (item.path === "/" || item.path === "/theme") return pathname === item.path;
   return pathname === item.path || pathname.startsWith(`${item.path}/`);
 }

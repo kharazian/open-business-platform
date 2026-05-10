@@ -10,6 +10,7 @@ import { getNavigationSections } from "./navigationGroups";
 
 function TopNavLink({ item, children }: { item: NavigationItem; children?: ReactNode }) {
   const { palette } = useDesignTheme();
+  if (!item.path) return null;
 
   return (
     <NavLink
@@ -62,9 +63,20 @@ export function TopNav({
                 >
                   <div className="grid min-w-48 gap-1">
                     {section.items.map((item) => (
-                      <TopNavLink item={item} key={item.path}>
-                        {item.label}
-                      </TopNavLink>
+                      item.children?.length ? (
+                        <div className="grid gap-1" key={item.label}>
+                          <p className="px-3 pt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                          {item.children.map((child) => (
+                            <TopNavLink item={child} key={child.path}>
+                              {child.label}
+                            </TopNavLink>
+                          ))}
+                        </div>
+                      ) : (
+                        <TopNavLink item={item} key={item.path ?? item.label}>
+                          {item.label}
+                        </TopNavLink>
+                      )
                     ))}
                   </div>
                 </Dropdown>
@@ -72,7 +84,29 @@ export function TopNav({
                 section.items.map((item) => <TopNavLink item={item} key={item.path} />)
               )
             )
-          : navigation.slice(0, 8).map((item) => <TopNavLink item={item} key={item.path} />)}
+          : navigation.slice(0, 8).map((item) =>
+              item.children?.length ? (
+                <Dropdown
+                  align="left"
+                  key={item.label}
+                  trigger={
+                    <span className="inline-flex min-h-10 items-center rounded-full px-3 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground">
+                      {item.label}
+                    </span>
+                  }
+                >
+                  <div className="grid min-w-48 gap-1">
+                    {item.children.map((child) => (
+                      <TopNavLink item={child} key={child.path}>
+                        {child.label}
+                      </TopNavLink>
+                    ))}
+                  </div>
+                </Dropdown>
+              ) : (
+                <TopNavLink item={item} key={item.path ?? item.label} />
+              )
+            )}
       </div>
       <div className="xl:hidden">
         <Dropdown
@@ -88,40 +122,90 @@ export function TopNav({
               ? navigationSections.map((section, index) => (
                   <div className="grid gap-1" key={`${section.label}-${index}`}>
                     {section.label ? <p className="px-3 pt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{section.label}</p> : null}
-                    {section.items.map((item) => (
-                      <NavLink
-                        className={({ isActive }) =>
-                          cn(
-                            "rounded-lg px-3 py-2 text-sm font-bold",
-                            isActive
-                              ? `${palette.activeNavBg} ${palette.activeNavText}`
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          )
-                        }
-                        end={item.path === "/" || item.path === "/theme"}
-                        key={item.path}
-                        to={item.path}
-                      >
-                        {item.label}
-                      </NavLink>
-                    ))}
+                    {section.items.map((item) =>
+                      item.children?.length ? (
+                        <div className="grid gap-1" key={item.label}>
+                          <p className="px-3 pt-2 text-xs font-bold text-muted-foreground">{item.label}</p>
+                          {item.children.map((child) => (
+                            child.path ? (
+                              <NavLink
+                                className={({ isActive }) =>
+                                  cn(
+                                    "rounded-lg px-3 py-2 text-sm font-bold",
+                                    isActive
+                                      ? `${palette.activeNavBg} ${palette.activeNavText}`
+                                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  )
+                                }
+                                end={child.path === "/" || child.path === "/theme"}
+                                key={child.path}
+                                to={child.path}
+                              >
+                                {child.label}
+                              </NavLink>
+                            ) : null
+                          ))}
+                        </div>
+                      ) : item.path ? (
+                        <NavLink
+                          className={({ isActive }) =>
+                            cn(
+                              "rounded-lg px-3 py-2 text-sm font-bold",
+                              isActive
+                                ? `${palette.activeNavBg} ${palette.activeNavText}`
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            )
+                          }
+                          end={item.path === "/" || item.path === "/theme"}
+                          key={item.path}
+                          to={item.path}
+                        >
+                          {item.label}
+                        </NavLink>
+                      ) : null
+                    )}
                   </div>
                 ))
-              : navigation.map((item) => (
-                  <NavLink
-                    className={({ isActive }) =>
-                      cn(
-                        "rounded-lg px-3 py-2 text-sm font-bold",
-                        isActive ? `${palette.activeNavBg} ${palette.activeNavText}` : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )
-                    }
-                    end={item.path === "/" || item.path === "/theme"}
-                    key={item.path}
-                    to={item.path}
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
+              : navigation.map((item) =>
+                  item.children?.length ? (
+                    <div className="grid gap-1" key={item.label}>
+                      <p className="px-3 pt-2 text-xs font-bold text-muted-foreground">{item.label}</p>
+                      {item.children.map((child) =>
+                        child.path ? (
+                          <NavLink
+                            className={({ isActive }) =>
+                              cn(
+                                "rounded-lg px-3 py-2 text-sm font-bold",
+                                isActive
+                                  ? `${palette.activeNavBg} ${palette.activeNavText}`
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              )
+                            }
+                            end={child.path === "/" || child.path === "/theme"}
+                            key={child.path}
+                            to={child.path}
+                          >
+                            {child.label}
+                          </NavLink>
+                        ) : null
+                      )}
+                    </div>
+                  ) : item.path ? (
+                    <NavLink
+                      className={({ isActive }) =>
+                        cn(
+                          "rounded-lg px-3 py-2 text-sm font-bold",
+                          isActive ? `${palette.activeNavBg} ${palette.activeNavText}` : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )
+                      }
+                      end={item.path === "/" || item.path === "/theme"}
+                      key={item.path}
+                      to={item.path}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ) : null
+                )}
           </div>
         </Dropdown>
       </div>

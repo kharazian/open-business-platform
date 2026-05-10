@@ -2,9 +2,10 @@ import { Home, LayoutDashboard, Settings, UserCircle, Palette } from "lucide-rea
 
 export type NavigationItem = {
   label: string;
-  path: string;
+  path?: string;
   icon?: typeof Home;
   section?: string;
+  children?: NavigationItem[];
   external?: boolean;
 };
 
