@@ -3,20 +3,26 @@ import {
   BarChart3,
   Boxes,
   Component,
+  KeyRound,
   LayoutDashboard,
   LogIn,
   MonitorCog,
+  ScrollText,
   Settings,
+  ShieldCheck,
   UserCircle,
   Users
 } from "lucide-react";
 import type { NavigationItem } from "../../config/appNavigation";
+import { ThemeAuditLogs } from "../pages/ThemeAuditLogs";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
 import { ThemeLayouts } from "../pages/ThemeLayouts";
 import { ThemeLogin } from "../pages/ThemeLogin";
+import { ThemePermissions } from "../pages/ThemePermissions";
 import { ThemeProfile } from "../pages/ThemeProfile";
 import { ThemeReports } from "../pages/ThemeReports";
+import { ThemeRoles } from "../pages/ThemeRoles";
 import { ThemeSettings } from "../pages/ThemeSettings";
 import { ThemeUsers } from "../pages/ThemeUsers";
 
@@ -48,6 +54,30 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: Users,
     element: <ThemeUsers />
+  },
+  {
+    label: "Roles",
+    path: "/theme/roles",
+    routePath: "roles",
+    group: "Workspace",
+    icon: ShieldCheck,
+    element: <ThemeRoles />
+  },
+  {
+    label: "Permissions",
+    path: "/theme/permissions",
+    routePath: "permissions",
+    group: "Workspace",
+    icon: KeyRound,
+    element: <ThemePermissions />
+  },
+  {
+    label: "Audit Logs",
+    path: "/theme/audit-logs",
+    routePath: "audit-logs",
+    group: "Workspace",
+    icon: ScrollText,
+    element: <ThemeAuditLogs />
   },
   {
     label: "Reports",

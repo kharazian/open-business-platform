@@ -1,7 +1,10 @@
 import {
   sampleActivities,
   sampleComponentRows,
+  sampleAuditLogs,
+  samplePermissions,
   sampleReports,
+  sampleRoles,
   sampleTrendHeights,
   sampleUsers,
   sampleWorkflowActions
@@ -12,6 +15,12 @@ export const themeUsers = sampleUsers;
 export const themeActivities = sampleActivities.map((activity) => activity.summary);
 
 export const themeReports = sampleReports;
+
+export const themeRoles = sampleRoles;
+
+export const themePermissions = samplePermissions;
+
+export const themeAuditLogs = sampleAuditLogs;
 
 export const themeTrendHeights = sampleTrendHeights;
 
