@@ -8,15 +8,8 @@ import { Profile } from "./pages/Profile";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
 import { Users } from "./pages/Users";
-import { ThemeComponents } from "./theme/pages/ThemeComponents";
-import { ThemeDashboard } from "./theme/pages/ThemeDashboard";
-import { ThemeLayouts } from "./theme/pages/ThemeLayouts";
-import { ThemeLogin } from "./theme/pages/ThemeLogin";
-import { ThemeProfile } from "./theme/pages/ThemeProfile";
-import { ThemeReports } from "./theme/pages/ThemeReports";
-import { ThemeSettings } from "./theme/pages/ThemeSettings";
-import { ThemeUsers } from "./theme/pages/ThemeUsers";
 import { AppThemeProvider } from "./context/AppThemeContext";
+import { themePages } from "./theme/config/themePages";
 
 type Theme = "light" | "dark";
 
@@ -55,14 +48,13 @@ function App() {
           <Route path="/profile" element={<Profile />} />
         </Route>
         <Route path="/theme" element={<ThemeLayout theme={theme} />}>
-          <Route index element={<ThemeDashboard />} />
-          <Route path="users" element={<ThemeUsers />} />
-          <Route path="reports" element={<ThemeReports />} />
-          <Route path="settings" element={<ThemeSettings />} />
-          <Route path="profile" element={<ThemeProfile />} />
-          <Route path="login" element={<ThemeLogin />} />
-          <Route path="layouts" element={<ThemeLayouts />} />
-          <Route path="components" element={<ThemeComponents />} />
+          {themePages.map((page) =>
+            page.index ? (
+              <Route index element={page.element} key={page.path} />
+            ) : (
+              <Route path={page.routePath} element={page.element} key={page.path} />
+            )
+          )}
         </Route>
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
