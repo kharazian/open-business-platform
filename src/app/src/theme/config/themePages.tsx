@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  CalendarDays,
   ClipboardList,
   Component,
   KeyRound,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import type { NavigationItem } from "../../config/appNavigation";
 import { ThemeAuditLogs } from "../pages/ThemeAuditLogs";
+import { ThemeCalendar } from "../pages/ThemeCalendar";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
 import { ThemeForgotPassword } from "../pages/ThemeForgotPassword";
@@ -100,6 +102,14 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: Bell,
     element: <ThemeNotifications />
+  },
+  {
+    label: "Calendar",
+    path: "/theme/calendar",
+    routePath: "calendar",
+    group: "Workspace",
+    icon: CalendarDays,
+    element: <ThemeCalendar />
   },
   {
     label: "Reports",

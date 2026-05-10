@@ -103,6 +103,45 @@ export const sampleNotifications = [
   }
 ];
 
+export const sampleCalendarEvents = [
+  {
+    title: "Access review",
+    owner: "Security",
+    date: "May 12",
+    time: "09:00",
+    type: "Review",
+    status: "Confirmed",
+    attendees: 8
+  },
+  {
+    title: "Operations standup",
+    owner: "Operations",
+    date: "May 13",
+    time: "10:30",
+    type: "Meeting",
+    status: "Confirmed",
+    attendees: 14
+  },
+  {
+    title: "Audit export",
+    owner: "Compliance",
+    date: "May 15",
+    time: "14:00",
+    type: "Task",
+    status: "Scheduled",
+    attendees: 3
+  },
+  {
+    title: "Release readiness",
+    owner: "Platform",
+    date: "May 17",
+    time: "11:00",
+    type: "Planning",
+    status: "Draft",
+    attendees: 6
+  }
+];
+
 export const sampleFormFields = [
   { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
   { name: "Support email", type: "Email", required: true, owner: "Settings" },

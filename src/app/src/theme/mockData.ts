@@ -1,5 +1,6 @@
 import {
   sampleActivities,
+  sampleCalendarEvents,
   sampleComponentRows,
   sampleAuditLogs,
   sampleFormFields,
@@ -26,6 +27,8 @@ export const themePermissions = samplePermissions;
 export const themeAuditLogs = sampleAuditLogs;
 
 export const themeNotifications = sampleNotifications;
+
+export const themeCalendarEvents = sampleCalendarEvents;
 
 export const themeFormFields = sampleFormFields;
 
