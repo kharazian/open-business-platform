@@ -190,6 +190,41 @@ export const sampleTasks = [
   }
 ];
 
+export const sampleInvoices = [
+  {
+    number: "INV-2048",
+    customer: "Northwind Operations",
+    plan: "Business",
+    amount: "$2,400",
+    issued: "May 1",
+    status: "Paid"
+  },
+  {
+    number: "INV-2049",
+    customer: "Contoso Finance",
+    plan: "Business",
+    amount: "$1,850",
+    issued: "May 3",
+    status: "Open"
+  },
+  {
+    number: "INV-2050",
+    customer: "Fabrikam Support",
+    plan: "Starter",
+    amount: "$680",
+    issued: "May 6",
+    status: "Overdue"
+  },
+  {
+    number: "INV-2051",
+    customer: "Tailspin Analytics",
+    plan: "Enterprise",
+    amount: "$4,900",
+    issued: "May 8",
+    status: "Draft"
+  }
+];
+
 export const sampleFormFields = [
   { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
   { name: "Support email", type: "Email", required: true, owner: "Settings" },

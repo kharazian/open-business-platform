@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardList,
   Component,
+  CreditCard,
   Kanban,
   KeyRound,
   LayoutDashboard,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 import type { NavigationItem } from "../../config/appNavigation";
 import { ThemeAuditLogs } from "../pages/ThemeAuditLogs";
+import { ThemeBilling } from "../pages/ThemeBilling";
 import { ThemeCalendar } from "../pages/ThemeCalendar";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
@@ -120,6 +122,14 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: Kanban,
     element: <ThemeTasks />
+  },
+  {
+    label: "Billing",
+    path: "/theme/billing",
+    routePath: "billing",
+    group: "Workspace",
+    icon: CreditCard,
+    element: <ThemeBilling />
   },
   {
     label: "Reports",
