@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Component,
   CreditCard,
+  FolderOpen,
   Kanban,
   KeyRound,
   LayoutDashboard,
@@ -28,6 +29,7 @@ import { ThemeBilling } from "../pages/ThemeBilling";
 import { ThemeCalendar } from "../pages/ThemeCalendar";
 import { ThemeComponents } from "../pages/ThemeComponents";
 import { ThemeDashboard } from "../pages/ThemeDashboard";
+import { ThemeDocuments } from "../pages/ThemeDocuments";
 import { ThemeForgotPassword } from "../pages/ThemeForgotPassword";
 import { ThemeForms } from "../pages/ThemeForms";
 import { ThemeLayouts } from "../pages/ThemeLayouts";
@@ -130,6 +132,14 @@ export const themePages: ThemePage[] = [
     group: "Workspace",
     icon: CreditCard,
     element: <ThemeBilling />
+  },
+  {
+    label: "Documents",
+    path: "/theme/documents",
+    routePath: "documents",
+    group: "Workspace",
+    icon: FolderOpen,
+    element: <ThemeDocuments />
   },
   {
     label: "Reports",

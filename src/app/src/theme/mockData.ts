@@ -3,6 +3,7 @@ import {
   sampleCalendarEvents,
   sampleComponentRows,
   sampleAuditLogs,
+  sampleDocuments,
   sampleFormFields,
   sampleInvoices,
   sampleNotifications,
@@ -35,6 +36,8 @@ export const themeCalendarEvents = sampleCalendarEvents;
 export const themeTasks = sampleTasks;
 
 export const themeInvoices = sampleInvoices;
+
+export const themeDocuments = sampleDocuments;
 
 export const themeFormFields = sampleFormFields;
 

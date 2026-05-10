@@ -225,6 +225,45 @@ export const sampleInvoices = [
   }
 ];
 
+export const sampleDocuments = [
+  {
+    name: "Access review checklist",
+    owner: "Security",
+    folder: "Governance",
+    type: "PDF",
+    size: "1.8 MB",
+    updated: "Today",
+    status: "Shared"
+  },
+  {
+    name: "Operations onboarding",
+    owner: "Maya Chen",
+    folder: "People",
+    type: "DOC",
+    size: "840 KB",
+    updated: "Yesterday",
+    status: "Private"
+  },
+  {
+    name: "May audit export",
+    owner: "Compliance",
+    folder: "Audit Logs",
+    type: "CSV",
+    size: "4.2 MB",
+    updated: "May 8",
+    status: "Shared"
+  },
+  {
+    name: "Billing reconciliation",
+    owner: "Finance",
+    folder: "Finance",
+    type: "XLS",
+    size: "2.6 MB",
+    updated: "May 6",
+    status: "Archived"
+  }
+];
+
 export const sampleFormFields = [
   { name: "Workspace name", type: "Text", required: true, owner: "Settings" },
   { name: "Support email", type: "Email", required: true, owner: "Settings" },
