@@ -7,6 +7,116 @@ import { useDesignTheme } from "../../context/useDesignTheme";
 import { Button } from "../ui/Button";
 import { getNavigationSections, isNavigationItemActive } from "./navigationGroups";
 
+type SidebarNavProps = {
+  active: boolean;
+  collapsed: boolean;
+  density: "comfortable" | "compact";
+  onNavigate?: () => void;
+};
+
+function getNavItemClassName({
+  active,
+  collapsed,
+  density,
+  nested,
+  palette
+}: SidebarNavProps & {
+  nested?: boolean;
+  palette: ReturnType<typeof useDesignTheme>["palette"];
+}) {
+  return cn(
+    "control-transition flex items-center gap-3 rounded-xl px-3 text-sm font-semibold",
+    nested ? "min-h-10" : "min-h-11",
+    density === "compact" && !nested && "min-h-10",
+    collapsed && "justify-center px-0",
+    active ? `${palette.activeNavBg} ${palette.activeNavText}` : "text-muted-foreground hover:bg-muted hover:text-foreground"
+  );
+}
+
+function SidebarLink({
+  item,
+  active,
+  collapsed,
+  density,
+  nested,
+  onNavigate
+}: SidebarNavProps & {
+  item: NavigationItem;
+  nested?: boolean;
+}) {
+  const { palette } = useDesignTheme();
+  const Icon = item.icon;
+  if (!item.path) return null;
+
+  return (
+    <NavLink
+      className={getNavItemClassName({ active, collapsed, density, nested, palette })}
+      end={item.path === "/" || item.path === "/theme"}
+      title={collapsed ? item.label : undefined}
+      to={item.path}
+      onClick={onNavigate}
+    >
+      {Icon ? <Icon className="size-4 shrink-0" /> : null}
+      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+    </NavLink>
+  );
+}
+
+function SidebarParentItem({
+  item,
+  active,
+  collapsed,
+  density,
+  open,
+  onNavigate,
+  onToggle,
+  pathname
+}: SidebarNavProps & {
+  item: NavigationItem;
+  open: boolean;
+  onToggle: () => void;
+  pathname: string;
+}) {
+  const { palette } = useDesignTheme();
+  const Icon = item.icon;
+
+  return (
+    <div className="grid gap-1">
+      <button
+        className={getNavItemClassName({ active, collapsed, density, palette })}
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        title={collapsed ? item.label : undefined}
+      >
+        {Icon ? <Icon className="size-4 shrink-0" /> : null}
+        {!collapsed ? (
+          <>
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            <ChevronDown className={cn("size-4 shrink-0 transition-transform", !open && "-rotate-90")} />
+          </>
+        ) : null}
+      </button>
+
+      {!collapsed && open ? (
+        <div className="ml-5 grid gap-1 border-l border-border pl-3">
+          {item.children?.map((child) => (
+            <SidebarLink
+              active={isNavigationItemActive(pathname, child)}
+              collapsed={false}
+              density={density}
+              item={child}
+              key={child.path ?? child.label}
+              nested
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function Sidebar({
   collapsed,
   navigation,
@@ -96,7 +206,6 @@ export function Sidebar({
             ) : null}
             <div className={cn("grid gap-1", hasSectionLabels && section.label && !collapsed && "pl-2", collapsedSections.has(sectionKeys[sectionIndex]) && !collapsed && "hidden")}>
               {section.items.map((item) => {
-                const Icon = item.icon;
                 const active = isNavigationItemActive(location.pathname, item);
                 const parentKey = `${sectionKeys[sectionIndex]}-${item.label}`;
                 const hasChildren = Boolean(item.children?.length);
@@ -105,81 +214,29 @@ export function Sidebar({
                   const parentOpen = active || !collapsedSections.has(parentKey);
 
                   return (
-                    <div className="grid gap-1" key={parentKey}>
-                      <button
-                        className={cn(
-                          "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold",
-                          density === "compact" && "min-h-10",
-                          collapsed && "justify-center px-0",
-                          active
-                            ? `${palette.activeNavBg} ${palette.activeNavText}`
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        )}
-                        type="button"
-                        onClick={() => toggleGroup(parentKey)}
-                        aria-expanded={parentOpen}
-                        title={collapsed ? item.label : undefined}
-                      >
-                        {Icon ? <Icon className="size-4 shrink-0" /> : null}
-                        {!collapsed ? (
-                          <>
-                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                            <ChevronDown className={cn("size-4 shrink-0 transition-transform", !parentOpen && "-rotate-90")} />
-                          </>
-                        ) : null}
-                      </button>
-
-                      {!collapsed && parentOpen ? (
-                        <div className="ml-5 grid gap-1 border-l border-border pl-3">
-                          {item.children?.map((child) => {
-                            const ChildIcon = child.icon;
-                            const childActive = isNavigationItemActive(location.pathname, child);
-
-                            return child.path ? (
-                              <NavLink
-                                className={cn(
-                                  "control-transition flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                                  childActive
-                                    ? `${palette.activeNavBg} ${palette.activeNavText}`
-                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                                end={child.path === "/" || child.path === "/theme"}
-                                key={child.path}
-                                to={child.path}
-                                onClick={onNavigate}
-                              >
-                                {ChildIcon ? <ChildIcon className="size-4 shrink-0" /> : null}
-                                <span className="truncate">{child.label}</span>
-                              </NavLink>
-                            ) : null;
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
+                    <SidebarParentItem
+                      active={active}
+                      collapsed={collapsed}
+                      density={density}
+                      item={item}
+                      key={parentKey}
+                      onNavigate={onNavigate}
+                      onToggle={() => toggleGroup(parentKey)}
+                      open={parentOpen}
+                      pathname={location.pathname}
+                    />
                   );
                 }
 
-                if (!item.path) return null;
-
                 return (
-                  <NavLink
-                    className={cn(
-                      "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
-                      density === "compact" && "min-h-10",
-                      collapsed && "justify-center px-0",
-                      active
-                        ? `${palette.activeNavBg} ${palette.activeNavText}`
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                    end={item.path === "/" || item.path === "/theme"}
-                    key={item.path}
-                    title={collapsed ? item.label : undefined}
-                    to={item.path}
-                    onClick={onNavigate}
-                  >
-                    {Icon ? <Icon className="size-4 shrink-0" /> : null}
-                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                  </NavLink>
+                  <SidebarLink
+                    active={active}
+                    collapsed={collapsed}
+                    density={density}
+                    item={item}
+                    key={item.path ?? item.label}
+                    onNavigate={onNavigate}
+                  />
                 );
               })}
             </div>
