@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogIn,
   MonitorCog,
+  PanelsTopLeft,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -28,6 +29,7 @@ import { ThemeReports } from "../pages/ThemeReports";
 import { ThemeRoles } from "../pages/ThemeRoles";
 import { ThemeSettings } from "../pages/ThemeSettings";
 import { ThemeTables } from "../pages/ThemeTables";
+import { ThemeUtilityPages } from "../pages/ThemeUtilityPages";
 import { ThemeUsers } from "../pages/ThemeUsers";
 
 export type ThemePageGroup = "Dashboard" | "Workspace" | "Foundation" | "Theme" | "Authentication";
@@ -122,6 +124,14 @@ export const themePages: ThemePage[] = [
     group: "Foundation",
     icon: Table2,
     element: <ThemeTables />
+  },
+  {
+    label: "Utility Pages",
+    path: "/theme/utility-pages",
+    routePath: "utility-pages",
+    group: "Foundation",
+    icon: PanelsTopLeft,
+    element: <ThemeUtilityPages />
   },
   {
     label: "Login",
