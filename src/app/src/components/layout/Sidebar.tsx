@@ -1,29 +1,16 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { HTMLAttributes } from "react";
-import { NavLink } from "react-router-dom";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState, type HTMLAttributes } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import type { NavigationItem } from "../../config/appNavigation";
 import { useDesignTheme } from "../../context/useDesignTheme";
 import { Button } from "../ui/Button";
-
-function getNavigationSections(navigation: NavigationItem[]) {
-  return navigation.reduce<Array<{ label: string; items: NavigationItem[] }>>((sections, item) => {
-    const label = item.section ?? "";
-    const currentSection = sections[sections.length - 1];
-
-    if (currentSection?.label === label) {
-      currentSection.items.push(item);
-      return sections;
-    }
-
-    sections.push({ label, items: [item] });
-    return sections;
-  }, []);
-}
+import { getNavigationSections, isNavigationItemActive } from "./navigationGroups";
 
 export function Sidebar({
   collapsed,
   navigation,
+  onNavigate,
   onToggleCollapsed,
   variant = "default",
   logoText = "OBP",
@@ -34,6 +21,7 @@ export function Sidebar({
 }: {
   collapsed: boolean;
   navigation: NavigationItem[];
+  onNavigate?: () => void;
   onToggleCollapsed?: () => void;
   variant?: "default" | "hybrid";
   logoText?: string;
@@ -43,8 +31,23 @@ export function Sidebar({
   className?: HTMLAttributes<HTMLElement>["className"];
 }) {
   const { palette, density } = useDesignTheme();
+  const location = useLocation();
   const navigationSections = getNavigationSections(navigation);
   const hasSectionLabels = navigation.some((item) => item.section);
+  const sectionKeys = useMemo(() => navigationSections.map((section, index) => `${section.label}-${index}`), [navigationSections]);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
+
+  const toggleSection = (sectionKey: string) => {
+    setCollapsedSections((current) => {
+      const next = new Set(current);
+      if (next.has(sectionKey)) {
+        next.delete(sectionKey);
+      } else {
+        next.add(sectionKey);
+      }
+      return next;
+    });
+  };
 
   return (
     <aside
@@ -77,37 +80,47 @@ export function Sidebar({
         </div>
       ) : null}
 
-      <nav className="mt-5 grid gap-1" aria-label={ariaLabel}>
+      <nav className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1" aria-label={ariaLabel}>
         {navigationSections.map((section, sectionIndex) => (
-          <div className={cn("grid gap-1", sectionIndex > 0 && (collapsed ? "mt-2" : "mt-4"))} key={`${section.label}-${sectionIndex}`}>
+          <div className={cn("grid gap-1", sectionIndex > 0 && (collapsed ? "mt-2" : "mt-4"))} key={sectionKeys[sectionIndex]}>
             {hasSectionLabels && section.label && !collapsed ? (
-              <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">{section.label}</p>
+              <button
+                className="flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 text-left text-xs font-bold uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
+                type="button"
+                onClick={() => toggleSection(sectionKeys[sectionIndex])}
+                aria-expanded={!collapsedSections.has(sectionKeys[sectionIndex])}
+              >
+                <span className="truncate">{section.label}</span>
+                <ChevronDown className={cn("size-4 shrink-0 transition-transform", collapsedSections.has(sectionKeys[sectionIndex]) && "-rotate-90")} />
+              </button>
             ) : null}
-            {section.items.map((item) => {
-              const Icon = item.icon;
+            <div className={cn("grid gap-1", hasSectionLabels && section.label && !collapsed && "pl-2", collapsedSections.has(sectionKeys[sectionIndex]) && !collapsed && "hidden")}>
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const active = isNavigationItemActive(location.pathname, item);
 
-              return (
-                <NavLink
-                  className={({ isActive }) =>
-                    cn(
+                return (
+                  <NavLink
+                    className={cn(
                       "control-transition flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold",
                       density === "compact" && "min-h-10",
                       collapsed && "justify-center px-0",
-                      isActive
+                      active
                         ? `${palette.activeNavBg} ${palette.activeNavText}`
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )
-                  }
-                  end={item.path === "/" || item.path === "/theme"}
-                  key={item.path}
-                  title={collapsed ? item.label : undefined}
-                  to={item.path}
-                >
-                  {Icon ? <Icon className="size-4 shrink-0" /> : null}
-                  {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                </NavLink>
-              );
-            })}
+                    )}
+                    end={item.path === "/" || item.path === "/theme"}
+                    key={item.path}
+                    title={collapsed ? item.label : undefined}
+                    to={item.path}
+                    onClick={onNavigate}
+                  >
+                    {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                  </NavLink>
+                );
+              })}
+            </div>
           </div>
         ))}
       </nav>

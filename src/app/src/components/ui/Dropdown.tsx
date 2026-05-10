@@ -53,7 +53,7 @@ export function Dropdown({
           <button className="fixed inset-0 z-20 cursor-default" type="button" aria-label="Close dropdown" onClick={() => setOpen(false)} />
           <div
             className={cn(
-              "absolute z-30 mt-2 min-w-48 rounded-xl border border-border bg-card p-2 shadow-lifted",
+              "absolute z-30 mt-2 max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
               align === "right" ? "right-0" : "left-0"
             )}
           >

@@ -38,6 +38,7 @@ export function MobileDrawer({
           collapsed={false}
           logoText={sidebarLogoText}
           navigation={navigation}
+          onNavigate={onClose}
           subtitle={sidebarSubtitle}
           title={sidebarTitle}
           variant={sidebarVariant}
