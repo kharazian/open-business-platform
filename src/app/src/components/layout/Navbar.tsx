@@ -109,6 +109,15 @@ function NavbarBrand({
   );
 }
 
+function NavbarSearch({ placeholder }: { placeholder: string }) {
+  return (
+    <div className="relative ml-auto hidden min-w-48 max-w-xl flex-1 md:block">
+      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input className="rounded-full pl-10" placeholder={placeholder} aria-label={placeholder} />
+    </div>
+  );
+}
+
 export function Navbar({
   navigation,
   onMenuClick,
@@ -176,10 +185,7 @@ export function Navbar({
 
         <NavbarBrand className={brandClassName} logoText={logoText} subtitle={subtitle} title={title} />
 
-        <div className="relative ml-auto hidden min-w-48 max-w-xl flex-1 md:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="rounded-full pl-10" placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
-        </div>
+        <NavbarSearch placeholder={searchPlaceholder} />
 
         <Button variant="outline" size="icon" className="shrink-0" aria-label="Notifications" title="Notifications">
           <Bell className="size-4 shrink-0" />
