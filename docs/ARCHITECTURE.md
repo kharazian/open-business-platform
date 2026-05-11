@@ -65,3 +65,13 @@ React + Vite dashboard with:
 - Roles page
 - Permissions page
 - Audit logs page
+
+## Theme Playground
+
+The theme playground is a sample-data-only admin UI used to preview reusable shell, navigation, and page patterns.
+
+- Keep the theme shell shared with the main app shell where possible.
+- Keep theme navigation generated from the theme page registry.
+- Use parent-child navigation groups for larger theme menus.
+- Keep settings controls in the settings popup interactive; route menus should close after route selection.
+- Validate frontend shell changes with `npm run build` from `src/app`.
