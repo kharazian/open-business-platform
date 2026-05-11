@@ -16,6 +16,75 @@ type UserMenuLink = {
   onClick?: () => void;
 };
 
+const defaultUserMenu: UserMenuLink[] = [
+  { label: "Profile", to: "/profile" },
+  { label: "Settings", to: "/settings" },
+  { label: "Sign out" }
+];
+
+function AppSettingsLink({ to }: { to: string }) {
+  return (
+    <Link
+      className="control-transition inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card p-0 text-sm font-bold text-foreground shadow-soft outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20 sm:w-auto sm:px-3"
+      to={to}
+      aria-label="Open app settings"
+      title="Settings"
+    >
+      <Settings className="size-4 shrink-0 text-primary" />
+      <span className="hidden sm:inline">Settings</span>
+    </Link>
+  );
+}
+
+function UserMenu({
+  userName,
+  userEmail,
+  userMenu
+}: {
+  userName: string;
+  userEmail: string;
+  userMenu: UserMenuLink[];
+}) {
+  return (
+    <Dropdown
+      ariaLabel="Open user menu"
+      closeOnContentClick
+      trigger={
+        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1 shadow-soft">
+          <Avatar name={userName} className="size-8" />
+          <span className="hidden pr-2 text-left sm:block">
+            <span className="block text-sm font-bold leading-tight text-foreground">{userName}</span>
+            <span className="block text-xs text-muted-foreground">{userEmail}</span>
+          </span>
+        </span>
+      }
+    >
+      <div className="grid gap-1">
+        {userMenu.map((item) =>
+          item.to ? (
+            <Link
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+              key={item.label}
+              to={item.to}
+            >
+              {item.label}
+            </Link>
+          ) : (
+            <button
+              className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+            >
+              {item.label}
+            </button>
+          )
+        )}
+      </div>
+    </Dropdown>
+  );
+}
+
 export function Navbar({
   navigation,
   onMenuClick,
@@ -35,11 +104,7 @@ export function Navbar({
   onThemeToggle,
   userName = "Admin User",
   userEmail = "admin@company.test",
-  userMenu = [
-    { label: "Profile", to: "/profile" },
-    { label: "Settings", to: "/settings" },
-    { label: "Sign out" }
-  ]
+  userMenu = defaultUserMenu
 }: {
   navigation: NavigationItem[];
   onMenuClick?: () => void;
@@ -106,17 +171,7 @@ export function Navbar({
 
         {showSettingsButton ? <SettingsButton /> : null}
 
-        {settingsHref ? (
-          <Link
-            className="control-transition inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card p-0 text-sm font-bold text-foreground shadow-soft outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20 sm:w-auto sm:px-3"
-            to={settingsHref}
-            aria-label="Open app settings"
-            title="Settings"
-          >
-            <Settings className="size-4 shrink-0 text-primary" />
-            <span className="hidden sm:inline">Settings</span>
-          </Link>
-        ) : null}
+        {settingsHref ? <AppSettingsLink to={settingsHref} /> : null}
 
         {theme && onThemeToggle ? (
           <Button variant="outline" size="icon" onClick={onThemeToggle} aria-label="Toggle app theme">
@@ -124,42 +179,7 @@ export function Navbar({
           </Button>
         ) : null}
 
-        <Dropdown
-          ariaLabel="Open user menu"
-          closeOnContentClick
-          trigger={
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1 shadow-soft">
-              <Avatar name={userName} className="size-8" />
-              <span className="hidden pr-2 text-left sm:block">
-                <span className="block text-sm font-bold leading-tight text-foreground">{userName}</span>
-                <span className="block text-xs text-muted-foreground">{userEmail}</span>
-              </span>
-            </span>
-          }
-        >
-          <div className="grid gap-1">
-            {userMenu.map((item) =>
-              item.to ? (
-                <Link
-                  className="rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                  key={item.label}
-                  to={item.to}
-                >
-                  {item.label}
-                </Link>
-              ) : (
-                <button
-                  className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
-                  key={item.label}
-                  type="button"
-                  onClick={item.onClick}
-                >
-                  {item.label}
-                </button>
-              )
-            )}
-          </div>
-        </Dropdown>
+        <UserMenu userName={userName} userEmail={userEmail} userMenu={userMenu} />
       </div>
 
       {showTopNav && onMenuClick ? (
