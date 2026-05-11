@@ -84,10 +84,9 @@ function SidebarParentItem({
   if (collapsed) {
     return (
       <Dropdown
-        align="left"
         ariaLabel={`Open ${item.label} menu`}
         closeOnContentClick
-        contentClassName="left-full top-0 ml-2 mt-0"
+        placement="right-start"
         trigger={
           <span className={getNavItemClassName({ active, collapsed, density, palette })} title={item.label}>
             {Icon ? <Icon className="size-4 shrink-0" /> : null}

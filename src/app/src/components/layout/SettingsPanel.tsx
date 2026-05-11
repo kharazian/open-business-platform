@@ -16,7 +16,7 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
 
 export function SettingsPanel() {
   return (
-    <div className="w-[min(24rem,calc(100vw-2rem))] space-y-5 p-2">
+    <div className="space-y-5 p-2">
       <div>
         <p className="text-sm font-bold text-foreground">Theme settings</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the playground layout, navigation, color, and display preferences.</p>

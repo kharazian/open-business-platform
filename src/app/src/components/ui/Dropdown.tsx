@@ -8,12 +8,21 @@ type DropdownItem = {
   onClick: () => void;
 };
 
+type DropdownPlacement = "bottom-left" | "bottom-right" | "right-start";
+
+const placementClasses: Record<DropdownPlacement, string> = {
+  "bottom-left": "left-0 mt-2",
+  "bottom-right": "right-0 mt-2",
+  "right-start": "left-full top-0 ml-2"
+};
+
 export function Dropdown({
   trigger,
   children,
   items,
   ariaLabel,
   align = "right",
+  placement,
   closeOnContentClick = false,
   contentClassName
 }: {
@@ -22,11 +31,13 @@ export function Dropdown({
   items?: DropdownItem[];
   ariaLabel?: string;
   align?: "left" | "right";
+  placement?: DropdownPlacement;
   closeOnContentClick?: boolean;
   contentClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { palette } = useDesignTheme();
+  const resolvedPlacement = placement ?? (align === "right" ? "bottom-right" : "bottom-left");
 
   useEffect(() => {
     if (!open) return;
@@ -57,8 +68,8 @@ export function Dropdown({
           <button className="fixed inset-0 z-20 cursor-default" type="button" aria-label="Close dropdown" onClick={() => setOpen(false)} />
           <div
             className={cn(
-              "absolute z-30 mt-2 max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
-              align === "right" ? "right-0" : "left-0",
+              "absolute z-30 max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
+              placementClasses[resolvedPlacement],
               contentClassName
             )}
             onClickCapture={closeOnContentClick ? () => setOpen(false) : undefined}
