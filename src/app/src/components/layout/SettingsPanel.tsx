@@ -14,6 +14,21 @@ function SettingsSection({ title, children }: { title: string; children: ReactNo
   );
 }
 
+const settingsSections: Array<{ title: string; content: ReactNode }> = [
+  { title: "Layout", content: <LayoutSwitcher /> },
+  { title: "Navigation", content: <TopNavVisibilitySwitcher /> },
+  { title: "Color", content: <PaletteSwitcher compact /> },
+  {
+    title: "Display",
+    content: (
+      <div className="grid gap-3">
+        <DensitySwitcher />
+        <ModeToggle />
+      </div>
+    )
+  }
+];
+
 export function SettingsPanel() {
   return (
     <div className="space-y-5 p-2">
@@ -22,24 +37,11 @@ export function SettingsPanel() {
         <p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the playground layout, navigation, color, and display preferences.</p>
       </div>
 
-      <SettingsSection title="Layout">
-        <LayoutSwitcher />
-      </SettingsSection>
-
-      <SettingsSection title="Navigation">
-        <TopNavVisibilitySwitcher />
-      </SettingsSection>
-
-      <SettingsSection title="Color">
-        <PaletteSwitcher compact />
-      </SettingsSection>
-
-      <SettingsSection title="Display">
-        <div className="grid gap-3">
-          <DensitySwitcher />
-          <ModeToggle />
-        </div>
-      </SettingsSection>
+      {settingsSections.map((section) => (
+        <SettingsSection key={section.title} title={section.title}>
+          {section.content}
+        </SettingsSection>
+      ))}
     </div>
   );
 }
