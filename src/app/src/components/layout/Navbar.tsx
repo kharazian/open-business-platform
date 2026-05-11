@@ -67,7 +67,7 @@ export function Navbar({
     <header className="sticky top-0 z-30 border-b border-border bg-background/84 px-3 py-3 backdrop-blur-xl sm:px-5 lg:px-6">
       <div className={cn("mx-auto flex items-center gap-3", density === "compact" && "gap-2", containerClassName)}>
         {showMobileMenuButton && onMenuClick ? (
-          <Button className="shrink-0 lg:hidden" variant="outline" onClick={onMenuClick} aria-label="Open menu">
+          <Button className="shrink-0 lg:hidden" variant="outline" size="icon" onClick={onMenuClick} aria-label="Open menu">
             <Menu className="size-4" />
           </Button>
         ) : null}
@@ -108,7 +108,7 @@ export function Navbar({
 
         {settingsHref ? (
           <Link
-            className="control-transition inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-bold text-foreground shadow-soft outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20"
+            className="control-transition inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-card p-0 text-sm font-bold text-foreground shadow-soft outline-none hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/20 sm:w-auto sm:px-3"
             to={settingsHref}
             aria-label="Open app settings"
             title="Settings"
