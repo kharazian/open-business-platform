@@ -5,6 +5,7 @@ import type { NavigationItem } from "../../config/appNavigation";
 import { Dropdown } from "../ui/Dropdown";
 import { Button } from "../ui/Button";
 import { useDesignTheme } from "../../context/useDesignTheme";
+import { NavigationMenuItems } from "./NavigationMenuItems";
 import { getNavigationSections } from "./navigationGroups";
 
 type LinkVariant = "pill" | "menu";
@@ -26,23 +27,6 @@ function NavigationLink({ item, variant = "menu" }: { item: NavigationItem; vari
     >
       {item.label}
     </NavLink>
-  );
-}
-
-function NavigationMenuItems({ items }: { items: NavigationItem[] }) {
-  return (
-    <div className="grid gap-1">
-      {items.map((item) =>
-        item.children?.length ? (
-          <div className="grid gap-1" key={item.label}>
-            <p className="px-3 pt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{item.label}</p>
-            <NavigationMenuItems items={item.children} />
-          </div>
-        ) : (
-          <NavigationLink item={item} key={item.path ?? item.label} />
-        )
-      )}
-    </div>
   );
 }
 
