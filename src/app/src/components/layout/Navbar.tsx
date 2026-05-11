@@ -126,6 +126,7 @@ export function Navbar({
 
         <Dropdown
           ariaLabel="Open user menu"
+          closeOnContentClick
           trigger={
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2 py-1 shadow-soft">
               <Avatar name={userName} className="size-8" />
