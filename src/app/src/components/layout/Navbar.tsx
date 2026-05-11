@@ -118,6 +118,44 @@ function NavbarSearch({ placeholder }: { placeholder: string }) {
   );
 }
 
+function NavbarActions({
+  onThemeToggle,
+  settingsHref,
+  showSettingsButton,
+  theme,
+  userEmail,
+  userMenu,
+  userName
+}: {
+  onThemeToggle?: () => void;
+  settingsHref?: string;
+  showSettingsButton: boolean;
+  theme?: "light" | "dark";
+  userEmail: string;
+  userMenu: UserMenuLink[];
+  userName: string;
+}) {
+  return (
+    <>
+      <Button variant="outline" size="icon" className="shrink-0" aria-label="Notifications" title="Notifications">
+        <Bell className="size-4 shrink-0" />
+      </Button>
+
+      {showSettingsButton ? <SettingsButton /> : null}
+
+      {settingsHref ? <AppSettingsLink to={settingsHref} /> : null}
+
+      {theme && onThemeToggle ? (
+        <Button variant="outline" size="icon" onClick={onThemeToggle} aria-label="Toggle app theme">
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
+      ) : null}
+
+      <UserMenu userName={userName} userEmail={userEmail} userMenu={userMenu} />
+    </>
+  );
+}
+
 export function Navbar({
   navigation,
   onMenuClick,
@@ -187,21 +225,15 @@ export function Navbar({
 
         <NavbarSearch placeholder={searchPlaceholder} />
 
-        <Button variant="outline" size="icon" className="shrink-0" aria-label="Notifications" title="Notifications">
-          <Bell className="size-4 shrink-0" />
-        </Button>
-
-        {showSettingsButton ? <SettingsButton /> : null}
-
-        {settingsHref ? <AppSettingsLink to={settingsHref} /> : null}
-
-        {theme && onThemeToggle ? (
-          <Button variant="outline" size="icon" onClick={onThemeToggle} aria-label="Toggle app theme">
-            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </Button>
-        ) : null}
-
-        <UserMenu userName={userName} userEmail={userEmail} userMenu={userMenu} />
+        <NavbarActions
+          onThemeToggle={onThemeToggle}
+          settingsHref={settingsHref}
+          showSettingsButton={showSettingsButton}
+          theme={theme}
+          userEmail={userEmail}
+          userMenu={userMenu}
+          userName={userName}
+        />
       </div>
 
       {showTopNav && onMenuClick ? (
