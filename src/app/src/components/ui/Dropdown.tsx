@@ -13,13 +13,17 @@ export function Dropdown({
   children,
   items,
   ariaLabel,
-  align = "right"
+  align = "right",
+  closeOnContentClick = false,
+  contentClassName
 }: {
   trigger: ReactNode;
   children?: ReactNode;
   items?: DropdownItem[];
   ariaLabel?: string;
   align?: "left" | "right";
+  closeOnContentClick?: boolean;
+  contentClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { palette } = useDesignTheme();
@@ -54,8 +58,10 @@ export function Dropdown({
           <div
             className={cn(
               "absolute z-30 mt-2 max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
-              align === "right" ? "right-0" : "left-0"
+              align === "right" ? "right-0" : "left-0",
+              contentClassName
             )}
+            onClickCapture={closeOnContentClick ? () => setOpen(false) : undefined}
           >
             {items
               ? items.map((item) => (

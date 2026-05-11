@@ -5,6 +5,7 @@ import { cn } from "../../lib/cn";
 import type { NavigationItem } from "../../config/appNavigation";
 import { useDesignTheme } from "../../context/useDesignTheme";
 import { Button } from "../ui/Button";
+import { Dropdown } from "../ui/Dropdown";
 import { getNavigationSections, isNavigationItemActive } from "./navigationGroups";
 
 type SidebarNavProps = {
@@ -79,6 +80,37 @@ function SidebarParentItem({
 }) {
   const { palette } = useDesignTheme();
   const Icon = item.icon;
+
+  if (collapsed) {
+    return (
+      <Dropdown
+        align="left"
+        ariaLabel={`Open ${item.label} menu`}
+        closeOnContentClick
+        contentClassName="left-full top-0 ml-2 mt-0"
+        trigger={
+          <span className={getNavItemClassName({ active, collapsed, density, palette })} title={item.label}>
+            {Icon ? <Icon className="size-4 shrink-0" /> : null}
+          </span>
+        }
+      >
+        <div className="grid min-w-56 gap-1">
+          <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">{item.label}</p>
+          {item.children?.map((child) => (
+            <SidebarLink
+              active={isNavigationItemActive(pathname, child)}
+              collapsed={false}
+              density={density}
+              item={child}
+              key={child.path ?? child.label}
+              nested
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      </Dropdown>
+    );
+  }
 
   return (
     <div className="grid gap-1">
