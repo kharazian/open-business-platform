@@ -85,6 +85,30 @@ function UserMenu({
   );
 }
 
+function NavbarBrand({
+  className,
+  logoText,
+  subtitle,
+  title
+}: {
+  className?: string;
+  logoText: string;
+  subtitle?: string;
+  title: string;
+}) {
+  return (
+    <div className={cn("flex min-w-0 items-center gap-3", className)}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">
+        {logoText}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold text-foreground">{title}</p>
+        {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 export function Navbar({
   navigation,
   onMenuClick,
@@ -150,15 +174,7 @@ export function Navbar({
           </Button>
         ) : null}
 
-        <div className={cn("flex min-w-0 items-center gap-3", brandClassName)}>
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">
-            {logoText}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-foreground">{title}</p>
-            {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
-          </div>
-        </div>
+        <NavbarBrand className={brandClassName} logoText={logoText} subtitle={subtitle} title={title} />
 
         <div className="relative ml-auto hidden min-w-48 max-w-xl flex-1 md:block">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
