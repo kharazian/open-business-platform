@@ -51,6 +51,34 @@ function getAppLayout(layout: "topbar" | "sidebar" | "collapsed-sidebar"): Shell
   return layout;
 }
 
+function hasSidebarLayout(layout: ShellLayout) {
+  return layout === "sidebar" || layout === "collapsed" || layout === "hybrid";
+}
+
+function getShellDefaults(mode: AppShellProps["mode"], hasSavedAppTheme: boolean) {
+  if (mode === "app") {
+    return {
+      navbarTitle: "Open Business Platform",
+      navbarSubtitle: hasSavedAppTheme ? "Saved theme active" : "App preview",
+      searchPlaceholder: "Search modules, users, reports...",
+      settingsHref: "/settings",
+      sidebarAriaLabel: "Main app navigation",
+      sidebarSubtitle: "Main app",
+      sidebarTitle: "Open Business Platform"
+    };
+  }
+
+  return {
+    navbarTitle: "Theme playground",
+    navbarSubtitle: undefined,
+    searchPlaceholder: "Search...",
+    settingsHref: undefined,
+    sidebarAriaLabel: "Theme navigation",
+    sidebarSubtitle: "Admin demo",
+    sidebarTitle: "Theme Lab"
+  };
+}
+
 export function AppShell({
   navigation,
   mode,
@@ -85,16 +113,17 @@ export function AppShell({
   const { appThemeSettings, savedAppThemeSettings, updateAppThemeSettings } = useAppTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const effectiveLayout = layout ?? getAppLayout(appThemeSettings.layout);
-  const hasSidebar = effectiveLayout === "sidebar" || effectiveLayout === "collapsed" || effectiveLayout === "hybrid";
+  const hasSidebar = hasSidebarLayout(effectiveLayout);
   const sidebarCollapsed = effectiveLayout === "collapsed";
   const sidebarPadding = sidebarCollapsed ? "lg:pl-20" : "lg:pl-72";
-  const resolvedSidebarTitle = sidebarTitle ?? (mode === "app" ? "Open Business Platform" : "Theme Lab");
-  const resolvedSidebarSubtitle = sidebarSubtitle ?? (mode === "app" ? "Main app" : "Admin demo");
-  const resolvedSidebarAriaLabel = sidebarAriaLabel ?? (mode === "app" ? "Main app navigation" : "Theme navigation");
-  const resolvedNavbarTitle = navbarTitle ?? (mode === "app" ? "Open Business Platform" : "Theme playground");
-  const resolvedNavbarSubtitle = navbarSubtitle ?? (mode === "app" ? (savedAppThemeSettings ? "Saved theme active" : "App preview") : undefined);
-  const resolvedSearchPlaceholder = searchPlaceholder ?? (mode === "app" ? "Search modules, users, reports..." : "Search...");
-  const resolvedSettingsHref = settingsHref ?? (mode === "app" ? "/settings" : undefined);
+  const shellDefaults = getShellDefaults(mode, Boolean(savedAppThemeSettings));
+  const resolvedSidebarTitle = sidebarTitle ?? shellDefaults.sidebarTitle;
+  const resolvedSidebarSubtitle = sidebarSubtitle ?? shellDefaults.sidebarSubtitle;
+  const resolvedSidebarAriaLabel = sidebarAriaLabel ?? shellDefaults.sidebarAriaLabel;
+  const resolvedNavbarTitle = navbarTitle ?? shellDefaults.navbarTitle;
+  const resolvedNavbarSubtitle = navbarSubtitle ?? shellDefaults.navbarSubtitle;
+  const resolvedSearchPlaceholder = searchPlaceholder ?? shellDefaults.searchPlaceholder;
+  const resolvedSettingsHref = settingsHref ?? shellDefaults.settingsHref;
   const resolvedShowTopNav = showTopNav ?? !hasSidebar;
   const resolvedShowMobileMenuButton = showMobileMenuButton && navigation.length > 0;
   const resolvedMainClassName = mainClassName ?? "px-4 py-6 sm:px-6 lg:px-8";
