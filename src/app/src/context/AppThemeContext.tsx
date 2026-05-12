@@ -5,7 +5,7 @@ import type { ThemeColorMode } from "./ThemeAppearanceContext";
 
 export type AppThemeRadius = "sm" | "md" | "lg" | "xl";
 export type AppThemeShadow = "none" | "sm" | "md" | "lg";
-export type AppThemeLayout = "topbar" | "sidebar" | "collapsed-sidebar";
+export type AppThemeLayout = "topbar" | "sidebar" | "collapsed-sidebar" | "hover-collapsed-sidebar";
 
 export type AppThemeSettings = {
   paletteId: ThemePaletteId;
@@ -54,7 +54,7 @@ function isAppThemeShadow(value: unknown): value is AppThemeShadow {
 }
 
 function isAppThemeLayout(value: unknown): value is AppThemeLayout {
-  return value === "topbar" || value === "sidebar" || value === "collapsed-sidebar";
+  return value === "topbar" || value === "sidebar" || value === "collapsed-sidebar" || value === "hover-collapsed-sidebar";
 }
 
 function normalizeStoredLayout(layout: unknown): AppThemeLayout {

@@ -9,14 +9,14 @@ import { cn } from "../../lib/cn";
 
 function LayoutPreview({ mode, active }: { mode: ThemeLayoutMode; active: boolean }) {
   const { palette } = useThemeAppearance();
-  const hasSidebar = mode === "sidebar" || mode === "collapsed" || mode === "hybrid";
+  const hasSidebar = mode === "sidebar" || mode === "collapsed" || mode === "hover-collapsed" || mode === "hybrid";
   const hasTopNav = mode === "topnav" || mode === "hybrid" || mode === "minimal";
 
   return (
     <div className="h-36 overflow-hidden rounded-xl border border-border bg-muted/45 p-3">
       {hasTopNav ? <div className={cn("mb-3 h-5 rounded-lg bg-gradient-to-r", palette.gradientFrom, palette.gradientTo)} /> : null}
       <div className="flex h-full gap-3">
-        {hasSidebar ? <div className={cn(mode === "collapsed" ? "w-8" : "w-16", "rounded-xl", active ? palette.primaryBg : "bg-muted-foreground")} /> : null}
+        {hasSidebar ? <div className={cn(mode === "collapsed" || mode === "hover-collapsed" ? "w-8" : "w-16", "rounded-xl", active ? palette.primaryBg : "bg-muted-foreground")} /> : null}
         <div className="grid flex-1 gap-2">
           <div className="rounded-xl bg-card" />
           <div className="grid grid-cols-3 gap-2">
@@ -38,7 +38,7 @@ export function ThemeLayouts() {
       <PageHeader
         eyebrow="Navigation patterns"
         title="Layouts"
-        description="Switch between sidebar, collapsed sidebar, top navigation, hybrid, and minimal modes. The selected mode persists after refresh."
+        description="Switch between sidebar, collapsed, hover-expand, top navigation, hybrid, and minimal modes. The selected mode persists after refresh."
       />
 
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">

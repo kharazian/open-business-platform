@@ -150,6 +150,7 @@ function SidebarParentItem({
 
 export function Sidebar({
   collapsed,
+  hoverExpand = false,
   navigation,
   onNavigate,
   onToggleCollapsed,
@@ -161,6 +162,7 @@ export function Sidebar({
   className
 }: {
   collapsed: boolean;
+  hoverExpand?: boolean;
   navigation: NavigationItem[];
   onNavigate?: () => void;
   onToggleCollapsed?: () => void;
@@ -176,7 +178,10 @@ export function Sidebar({
   const navigationSections = getNavigationSections(navigation);
   const hasSectionLabels = navigation.some((item) => item.section);
   const sectionKeys = useMemo(() => navigationSections.map((section, index) => `${section.label}-${index}`), [navigationSections]);
+  const [hovered, setHovered] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
+  const [openParentKey, setOpenParentKey] = useState<string | null>(null);
+  const displayCollapsed = collapsed && !(hoverExpand && hovered);
 
   const toggleGroup = (sectionKey: string) => {
     setCollapsedSections((current) => {
@@ -190,19 +195,26 @@ export function Sidebar({
     });
   };
 
+  const toggleParent = (parentKey: string) => {
+    setOpenParentKey((current) => (current === parentKey ? null : parentKey));
+  };
+
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-border bg-card/90 p-3 shadow-lifted backdrop-blur-xl transition-all",
-        collapsed ? "w-20" : "w-72",
+        "flex h-full flex-col border-r border-border bg-card/90 p-3 shadow-lifted backdrop-blur-xl transition-all duration-200",
+        displayCollapsed ? "w-20" : "w-72",
+        hoverExpand && collapsed && hovered && "z-50",
         className
       )}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className={cn("flex items-center gap-3 px-1 py-2", collapsed && "justify-center")}>
+      <div className={cn("flex items-center gap-3 px-1 py-2", displayCollapsed && "justify-center")}>
         <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white", palette.primaryBg)}>
           {logoText}
         </span>
-        {!collapsed ? (
+        {!displayCollapsed ? (
           <div className="min-w-0">
             <strong className="block truncate leading-tight text-foreground">
               {variant === "hybrid" ? "Sections" : title}
@@ -214,7 +226,7 @@ export function Sidebar({
         ) : null}
       </div>
 
-      {variant === "hybrid" && !collapsed ? (
+      {variant === "hybrid" && !displayCollapsed ? (
         <div className="mt-4 rounded-2xl border border-border bg-muted/50 p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Workspace</p>
           <p className="mt-1 truncate text-sm font-semibold text-foreground">Northwind Operations</p>
@@ -223,8 +235,8 @@ export function Sidebar({
 
       <nav className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1" aria-label={ariaLabel}>
         {navigationSections.map((section, sectionIndex) => (
-          <div className={cn("grid gap-1", sectionIndex > 0 && (collapsed ? "mt-2" : "mt-4"))} key={sectionKeys[sectionIndex]}>
-            {hasSectionLabels && section.label && !collapsed ? (
+          <div className={cn("grid gap-1", sectionIndex > 0 && (displayCollapsed ? "mt-2" : "mt-4"))} key={sectionKeys[sectionIndex]}>
+            {hasSectionLabels && section.label && !displayCollapsed ? (
               <button
                 className="flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 text-left text-xs font-bold uppercase tracking-wide text-muted-foreground hover:bg-muted hover:text-foreground"
                 type="button"
@@ -235,24 +247,24 @@ export function Sidebar({
                 <ChevronDown className={cn("size-4 shrink-0 transition-transform", collapsedSections.has(sectionKeys[sectionIndex]) && "-rotate-90")} />
               </button>
             ) : null}
-            <div className={cn("grid gap-1", hasSectionLabels && section.label && !collapsed && "pl-2", collapsedSections.has(sectionKeys[sectionIndex]) && !collapsed && "hidden")}>
+            <div className={cn("grid gap-1", hasSectionLabels && section.label && !displayCollapsed && "pl-2", collapsedSections.has(sectionKeys[sectionIndex]) && !displayCollapsed && "hidden")}>
               {section.items.map((item) => {
                 const active = isNavigationItemActive(location.pathname, item);
                 const parentKey = `${sectionKeys[sectionIndex]}-${item.label}`;
                 const hasChildren = Boolean(item.children?.length);
 
                 if (hasChildren) {
-                  const parentOpen = active || !collapsedSections.has(parentKey);
+                  const parentOpen = openParentKey ? openParentKey === parentKey : active;
 
                   return (
                     <SidebarParentItem
                       active={active}
-                      collapsed={collapsed}
+                      collapsed={displayCollapsed}
                       density={density}
                       item={item}
                       key={parentKey}
                       onNavigate={onNavigate}
-                      onToggle={() => toggleGroup(parentKey)}
+                      onToggle={() => toggleParent(parentKey)}
                       open={parentOpen}
                       pathname={location.pathname}
                     />
@@ -262,7 +274,7 @@ export function Sidebar({
                 return (
                   <SidebarLink
                     active={active}
-                    collapsed={collapsed}
+                    collapsed={displayCollapsed}
                     density={density}
                     item={item}
                     key={item.path ?? item.label}
@@ -277,8 +289,8 @@ export function Sidebar({
 
       {onToggleCollapsed ? (
         <Button className="mt-auto" variant="outline" onClick={onToggleCollapsed}>
-          {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-          {!collapsed ? "Collapse" : null}
+          {displayCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          {!displayCollapsed ? "Collapse" : null}
         </Button>
       ) : null}
     </aside>

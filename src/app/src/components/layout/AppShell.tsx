@@ -6,7 +6,7 @@ import { MobileDrawer } from "./MobileDrawer";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
 
-type ShellLayout = "topbar" | "topnav" | "sidebar" | "collapsed" | "hybrid" | "minimal";
+type ShellLayout = "topbar" | "topnav" | "sidebar" | "collapsed" | "hover-collapsed" | "hybrid" | "minimal";
 
 type UserMenuLink = {
   label: string;
@@ -46,13 +46,14 @@ type AppShellProps = {
   userMenu?: UserMenuLink[];
 };
 
-function getAppLayout(layout: "topbar" | "sidebar" | "collapsed-sidebar"): ShellLayout {
+function getAppLayout(layout: "topbar" | "sidebar" | "collapsed-sidebar" | "hover-collapsed-sidebar"): ShellLayout {
   if (layout === "collapsed-sidebar") return "collapsed";
+  if (layout === "hover-collapsed-sidebar") return "hover-collapsed";
   return layout;
 }
 
 function hasSidebarLayout(layout: ShellLayout) {
-  return layout === "sidebar" || layout === "collapsed" || layout === "hybrid";
+  return layout === "sidebar" || layout === "collapsed" || layout === "hover-collapsed" || layout === "hybrid";
 }
 
 function getShellDefaults(mode: AppShellProps["mode"], hasSavedAppTheme: boolean) {
@@ -114,7 +115,8 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const effectiveLayout = layout ?? getAppLayout(appThemeSettings.layout);
   const hasSidebar = hasSidebarLayout(effectiveLayout);
-  const sidebarCollapsed = effectiveLayout === "collapsed";
+  const sidebarCollapsed = effectiveLayout === "collapsed" || effectiveLayout === "hover-collapsed";
+  const sidebarHoverExpand = effectiveLayout === "hover-collapsed";
   const sidebarPadding = sidebarCollapsed ? "lg:pl-20" : "lg:pl-72";
   const shellDefaults = getShellDefaults(mode, Boolean(savedAppThemeSettings));
   const resolvedSidebarTitle = sidebarTitle ?? shellDefaults.sidebarTitle;
@@ -158,6 +160,7 @@ export function AppShell({
           ariaLabel={resolvedSidebarAriaLabel}
           className="fixed inset-y-0 left-0 z-40 hidden lg:flex"
           collapsed={sidebarCollapsed}
+          hoverExpand={sidebarHoverExpand}
           logoText={sidebarLogoText}
           navigation={navigation}
           subtitle={resolvedSidebarSubtitle}

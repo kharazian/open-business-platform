@@ -29,7 +29,9 @@ function ThemeLayoutShell() {
       navigation={themeNavigation}
       navbarSubtitle="Navigation and design system"
       navbarTitle="Theme playground"
-      onSidebarToggle={effectiveMode === "hybrid" ? undefined : () => setLayoutMode(effectiveMode === "collapsed" ? "sidebar" : "collapsed")}
+      onSidebarToggle={
+        effectiveMode === "hybrid" ? undefined : () => setLayoutMode(effectiveMode === "collapsed" || effectiveMode === "hover-collapsed" ? "sidebar" : "collapsed")
+      }
       searchPlaceholder="Search theme pages, users, reports..."
       showSettingsButton
       showTopNav={shouldShowTopNav(effectiveMode, topNavVisibility)}

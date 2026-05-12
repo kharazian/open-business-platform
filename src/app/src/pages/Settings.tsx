@@ -96,7 +96,8 @@ export function Settings() {
               options={[
                 { label: "Topbar", value: "topbar" },
                 { label: "Sidebar", value: "sidebar" },
-                { label: "Collapsed sidebar", value: "collapsed-sidebar" }
+                { label: "Collapsed sidebar", value: "collapsed-sidebar" },
+                { label: "Collapsed hover sidebar", value: "hover-collapsed-sidebar" }
               ]}
             />
             <Select
