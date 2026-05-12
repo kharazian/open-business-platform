@@ -1,77 +1,177 @@
 # Architecture
 
-## Style
+## Overview
 
-The project uses a Modular Monolith with practical Clean Architecture.
+The platform is a modular monolith.
 
-It is not a microservices system in the beginning.
+The current repository starts with:
 
-## Backend Structure
+- `src/api`: ASP.NET Core API host
+- `src/app`: React frontend
+- `docker-compose.yml`: PostgreSQL and Redis for local development
+- `docs`: product and architecture documentation
+- `tasks`: implementation tasks
 
-src/
-  ApiHost/
-  BuildingBlocks/
-  Modules/
-    Users/
-    AuditLogs/
-    Dashboard/
-    Forms/
-    Workflows/
+The product should grow module by module rather than through a single large builder or early microservices.
 
-## Module Structure
+Main modules:
 
-Each module may contain:
-
-- Domain
-- Application
-- Infrastructure
-- Api
-
-Example:
-
-Modules/
-  Users/
-    Domain/
-    Application/
-    Infrastructure/
-    Api/
-
-## Rules
-
-- Domain logic must not depend on database or web framework.
-- Modules should not directly access each other’s tables.
-- Cross-module communication should happen through contracts or events.
-- Keep abstractions simple.
-- Avoid unnecessary interfaces.
-- Avoid dynamic plugin loading in version 0.1.
-- Add advanced plugin loading later only when needed.
-
-## First Backend Modules
-
-- Users
-- Roles
+- Forms
+- Records
+- Reports
 - Permissions
-- Audit Logs
-- Dashboard
+- Triggers
+- Workflows
+- Printing
+- Audit
+- Notifications
 
-## First Frontend App
+Each module should have clear frontend, backend, and database responsibilities.
 
-React + Vite dashboard with:
+Do not add microservices, Native Federation, dynamic DLL plugin loading, or XYFlow in V1.
 
-- Login
-- Sidebar
-- Dashboard page
-- Users page
-- Roles page
-- Permissions page
-- Audit logs page
+## Frontend Architecture
 
-## Theme Playground
+Current shared structure:
 
-The theme playground is a sample-data-only admin UI used to preview reusable shell, navigation, and page patterns.
+```txt
+src/app/src/
+  components/
+    ui/
+    layout/
+  config/
+  context/
+  layouts/
+  pages/
+  theme/
+    pages/
+    config/
+    mockData.ts
+  lib/
+```
 
-- Keep the theme shell shared with the main app shell where possible.
-- Keep theme navigation generated from the theme page registry.
-- Use parent-child navigation groups for larger theme menus.
-- Keep settings controls in the settings popup interactive; route menus should close after route selection.
-- Validate frontend shell changes with `npm run build` from `src/app`.
+Future feature structure:
+
+```txt
+src/app/src/
+  features/
+    forms/
+      components/
+      hooks/
+      types/
+      api/
+      utils/
+    records/
+    reports/
+    permissions/
+    triggers/
+    workflows/
+    printing/
+    audit/
+    notifications/
+  lib/
+  types/
+```
+
+Important frontend separation:
+
+- `FormBuilder` edits draft form schema and layout.
+- `FormRenderer` renders published form versions and previews.
+- `RecordList` lists submitted records.
+- `ReportBuilder` configures report definitions.
+- `ReportViewer` displays configured reports.
+- `/theme` demonstrates shared UI/layout components with sample data only.
+- Real app pages should later use API/data services, not `/theme` mock data.
+
+## Backend Architecture
+
+Current backend structure:
+
+```txt
+src/api/
+  Modules/
+    Dashboard/
+  Program.cs
+```
+
+Future backend module structure:
+
+```txt
+src/api/
+  Modules/
+    Forms/
+    Records/
+    Reports/
+    Permissions/
+    Triggers/
+    Workflows/
+    Printing/
+    Audit/
+    Notifications/
+```
+
+Endpoint/controller responsibility:
+
+- Accept requests
+- Validate model binding
+- Call application service
+- Return response
+
+Application service responsibility:
+
+- Business logic
+- Permission checks
+- Transactions
+- Audit logs
+- Trigger dispatch
+
+Infrastructure responsibility:
+
+- EF Core DbContext
+- Repositories if used
+- Email provider
+- File storage
+- PDF generation later
+
+## Data Flow: Form Submission
+
+1. User opens published form.
+2. Frontend fetches published form version.
+3. FormRenderer renders fields from schema/layout.
+4. User submits values.
+5. Backend validates values against form version schema.
+6. Backend checks submit permission.
+7. Backend creates record with form version ID.
+8. Backend writes audit log.
+9. Backend dispatches trigger event later.
+10. Frontend shows success.
+
+## Data Flow: Record List
+
+1. User opens record list.
+2. Frontend requests records for form/report.
+3. Backend checks view permission.
+4. Backend applies record-level filters.
+5. Backend removes fields the user cannot see.
+6. Backend returns paginated records.
+7. Frontend displays table.
+
+## Data Flow: Trigger Later
+
+1. Record is created or updated.
+2. Backend commits transaction.
+3. Trigger dispatcher receives event.
+4. Trigger engine loads enabled triggers for the form/event.
+5. Conditions are evaluated.
+6. Actions are executed.
+7. Trigger logs are written.
+
+## Key Design Decisions
+
+- Store flexible schemas as JSONB.
+- Store common query fields as relational columns.
+- Use backend permission checks for every sensitive API.
+- Keep responsive form layout grid-based, not canvas-based.
+- Add XYFlow only for workflows later.
+- Keep shared UI in `src/app/src/components`.
+- Keep `/theme` as a playground, not as the owner of reusable UI.

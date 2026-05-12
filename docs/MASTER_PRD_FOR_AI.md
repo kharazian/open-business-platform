@@ -1,0 +1,799 @@
+# Master PRD / AI Project Context
+
+## 1. Product Summary
+
+This project is a low-code business form platform built on:
+
+- React frontend
+- .NET Core / ASP.NET Core backend
+- PostgreSQL database
+
+It is not only a form builder. It is a complete platform for:
+
+- Responsive form building
+- Record collection and management
+- Report creation
+- List and detail printing
+- Permissions by user, role, group, department, owner, and custom rule
+- Trigger-based automation
+- Workflow and approval processes
+- Future PDF generation, dashboards, and integrations
+
+The goal is to start simple and grow step by step into a comprehensive internal business application builder.
+
+## 1.1 Current Repository State
+
+The repository currently contains a working skeleton, not the full product:
+
+- `src/api`: ASP.NET Core API host targeting .NET 10
+- `src/app`: React/Vite/TypeScript/Tailwind frontend
+- `src/app/src/components`: shared UI and layout primitives
+- `src/app/src/theme`: sample-data theme playground
+- `docker-compose.yml`: PostgreSQL and Redis
+
+Treat existing dashboard/users/reports pages as starter UI. Build product modules through the task files under `tasks/`.
+
+## 2. Core Product Philosophy
+
+Keep the system modular.
+
+Do not build one huge visual builder that controls everything.
+
+The platform should be separated into these modules:
+
+- Form Builder
+- Responsive Layout Builder
+- Record Engine
+- Report Builder
+- Permission Engine
+- Trigger Engine
+- Workflow Builder
+- Print/PDF Engine
+- Audit Log Engine
+- Notification Engine
+
+Simple mental model:
+
+```txt
+Form defines fields.
+Layout defines how fields appear.
+Record stores submitted values.
+Report displays records.
+Permission controls who can do what.
+Trigger reacts when something changes.
+Workflow controls multi-step process.
+Print template controls printed output.
+```
+
+## 3. Important Architecture Decision
+
+Use a custom React responsive builder for form layout.
+
+Do not use XYFlow as the main form layout builder.
+
+XYFlow is good for:
+
+- Workflow diagrams
+- Approval flows
+- Automation flows
+- Conditional process maps
+- Visual trigger/workflow builder in later versions
+
+XYFlow is not good for:
+
+- Responsive form layout
+- Report table layout
+- Permission UI
+- Basic trigger UI
+
+Responsive form layout should be based on:
+
+- Page
+- Section
+- Row
+- Column
+- Field
+
+The layout should support mobile, tablet, and desktop widths.
+
+Example:
+
+```ts
+type Column = {
+  id: string;
+  span: {
+    mobile: number;
+    tablet: number;
+    desktop: number;
+  };
+  fields: string[];
+};
+```
+
+## 4. Core Modules
+
+### 4.1 Form Builder
+
+The Form Builder allows users to create and manage form fields, layout, validation, and publishing.
+
+Supported field types over time:
+
+- Text
+- Textarea
+- Number
+- Email
+- Phone
+- Date
+- Time
+- Date range
+- Select
+- Multi-select
+- Radio
+- Checkbox
+- File upload
+- Signature
+- Address
+- Currency
+- User picker
+- Department picker
+- Status
+- Hidden field
+- Calculated field
+
+V1 should support only the basic fields.
+
+### 4.2 Responsive Layout Builder
+
+The responsive layout builder should use 12-column grid logic.
+
+The layout model should be:
+
+- Page
+- Section
+- Row
+- Column
+- Field
+
+V1 can start with simple width options:
+
+- Full width
+- Half width
+- One third
+- Two thirds
+
+Internally these map to 12-column grid spans:
+
+- Full width = 12
+- Half width = 6
+- One third = 4
+- Two thirds = 8
+
+Mobile should default to full width.
+
+### 4.3 Record Engine
+
+Each submitted form creates a record.
+
+Each record should store:
+
+- Record ID
+- Form ID
+- Form version
+- Submitted values
+- Status
+- Owner
+- Department
+- Created by
+- Created date
+- Updated by
+- Updated date
+- Audit history
+
+Every record must store the form version used at submission time.
+
+### 4.4 Report Builder
+
+Reports should be separate from forms.
+
+A form collects data. A report displays data.
+
+Report types:
+
+- List report
+- Detail report
+- Summary report later
+- Dashboard later
+
+V1 may have only a default record list.
+
+V2 should add report builder features:
+
+- Select columns
+- Reorder columns
+- Rename columns
+- Filters
+- Sorting
+- Search
+- Print list
+- Export CSV
+- Report permissions
+
+### 4.5 Printing
+
+There are two print types:
+
+- Print list
+- Print single record/detail
+
+V1:
+
+- Browser print from list/detail pages
+
+V2:
+
+- Clean print layouts
+
+Later:
+
+- PDF generation
+- Custom print templates
+- Conditional print sections
+- Branding
+- Attach generated PDFs to emails/triggers
+
+### 4.6 Permission Engine
+
+Permission is a major part of the platform.
+
+Access may be controlled by:
+
+- User
+- Role
+- Group
+- Department
+- Creator
+- Owner
+- Manager
+- Custom condition
+
+Permission levels over time:
+
+- Application level
+- Form level
+- Report level
+- Record level
+- Field level
+- Action level
+- Trigger level
+- Workflow level
+
+Actions include:
+
+- create
+- view
+- edit
+- delete
+- print
+- export
+- approve
+- assign
+- comment
+- change_status
+- manage_permissions
+- manage_form
+- manage_report
+
+V1 permission model should be simple:
+
+- Admin
+- Builder
+- User
+- Viewer
+
+V1 should support:
+
+- Who can submit
+- Who can view records
+- Who can edit records
+
+Later versions should support:
+
+- Own records only
+- Department records only
+- Group records only
+- Assigned records only
+- All records
+- Custom rules
+- Field-level visibility/read-only/edit access
+
+Important rule:
+
+Permissions must be enforced on the backend/server, not only in the UI.
+
+### 4.7 Trigger Engine
+
+Triggers automate actions after events.
+
+Trigger model:
+
+```txt
+When something happens,
+if conditions are true,
+then run actions.
+```
+
+Trigger events over time:
+
+- record.created
+- record.updated
+- record.deleted
+- field.changed
+- status.changed
+- form.submitted
+- record.assigned
+- comment.added
+- approval.requested
+- approval.approved
+- approval.rejected
+- schedule.daily
+- schedule.weekly
+- webhook.received
+
+Trigger conditions:
+
+- Field equals value
+- Field changed
+- Status changed to value
+- Amount greater than value
+- Department equals value
+- User belongs to group
+- Date before/after
+
+Trigger actions:
+
+- Send email
+- Send notification
+- Update field
+- Change status
+- Assign user
+- Assign group
+- Create task
+- Call webhook
+- Generate PDF
+- Add comment
+- Create related record
+- Lock record
+- Unlock record
+- Start workflow
+
+V4 should add the trigger engine.
+
+V1 should not include advanced triggers.
+
+### 4.8 Workflow Builder
+
+Workflow is different from trigger.
+
+A trigger is usually a small automation. A workflow is a multi-step business process.
+
+Examples:
+
+- Draft
+- Submitted
+- Manager Review
+- Finance Review
+- Approved
+- Rejected
+- Completed
+
+Workflow should support:
+
+- Status states
+- Transitions
+- Approvers
+- Assignment
+- Approval/rejection
+- Return for correction
+- Workflow history
+
+XYFlow can be used here in later versions.
+
+Do not start with full workflow in V1.
+
+### 4.9 Audit Logs
+
+Audit logging is required for business use.
+
+Track:
+
+- Record created
+- Record updated
+- Record deleted
+- Record printed
+- Report exported
+- Permission changed
+- Trigger executed
+- Workflow transitioned
+- Approval/rejection
+- User login/security events later
+
+Audit logs should include:
+
+- Entity type
+- Entity ID
+- Action
+- User ID
+- Before/after changes where relevant
+- Timestamp
+- IP/user agent later if needed
+
+### 4.10 Notification System
+
+Notifications should support:
+
+- In-app notifications
+- Email notifications
+- Later: Slack/Teams/SMS
+
+Triggers and workflows should use the notification system.
+
+## 5. Version Roadmap
+
+### Version 1: Simple Form Builder + Records
+
+Goal: create the foundation.
+
+Features:
+
+- Existing auth integration or simple user model
+- Basic roles
+- Create form
+- Add/edit/delete fields
+- Basic field settings
+- Simple responsive layout
+- Preview form
+- Publish form
+- Submit form
+- Store records
+- View record list
+- View record detail
+- Edit record
+- Delete record
+- Basic search
+- Basic browser print
+- Basic permissions
+- Basic audit logs
+- Seed data
+
+Supported V1 fields:
+
+- Text
+- Textarea
+- Number
+- Email
+- Phone
+- Date
+- Select
+- Checkbox
+- Radio
+
+Do not include in V1:
+
+- XYFlow
+- Advanced workflows
+- Complex permissions
+- Full report builder
+- Custom PDF templates
+- Dashboards
+- Integrations
+
+### Version 2: Report Builder + Better Printing
+
+Goal: allow users to create useful record lists and print/export them.
+
+Features:
+
+- Create list report
+- Select columns
+- Reorder columns
+- Rename columns
+- Filters
+- Sorting
+- Search
+- Saved reports
+- Print list report
+- Print record detail with cleaner layout
+- Export CSV
+- Basic report permissions
+
+### Version 3: Advanced Permissions
+
+Goal: add organization-level access control.
+
+Features:
+
+- Users
+- Roles
+- Groups
+- Departments
+- Department managers
+- Form-level permissions
+- Report-level permissions
+- Record-level permissions
+- Action-level permissions
+- Basic field-level visibility/read-only
+- Own records only
+- Department records only
+- Group records only
+- Assigned records only
+- Custom rules later
+
+### Version 4: Trigger Engine
+
+Goal: add automation after record changes.
+
+Features:
+
+- Trigger list
+- Trigger builder
+- On record created
+- On record updated
+- On field changed
+- On status changed
+- Send email
+- Send notification
+- Update field
+- Change status
+- Assign user
+- Call webhook
+- Trigger logs
+- Retry failed triggers later
+
+### Version 5: Workflow and Approval System
+
+Goal: support multi-step business processes.
+
+Features:
+
+- Status states
+- Status transitions
+- Approval steps
+- Single approver
+- Multiple approvers
+- Department manager approval
+- Sequential approval
+- Parallel approval later
+- Workflow history
+- Optional XYFlow workflow builder
+
+### Version 6: Advanced Print Templates and PDF
+
+Goal: professional printable outputs.
+
+Features:
+
+- Custom print templates
+- Header/footer
+- Logo
+- Field values
+- Tables
+- Signatures
+- Page breaks
+- Conditional sections
+- PDF generation
+- Attach PDF to email triggers
+
+### Version 7: Dashboards and Analytics
+
+Goal: move from record lists to summaries and dashboards.
+
+Features:
+
+- Summary reports
+- Grouped reports
+- Charts
+- Dashboard builder
+- Number cards
+- Pending approvals
+- Status summaries
+- Department summaries
+
+### Version 8: Integrations and API
+
+Goal: connect with external systems.
+
+Features:
+
+- Webhooks
+- Public/internal API
+- API keys
+- Scheduled triggers
+- External database sync
+- Import records from CSV/Excel
+- Export to external systems
+- Integration logs
+- Retry failed integrations
+
+### Version 9: Enterprise Platform
+
+Goal: complete mature platform.
+
+Features:
+
+- Multi-tenant workspaces
+- SSO
+- Advanced RBAC/ABAC
+- Data retention
+- Backup/restore
+- White labeling
+- Localization
+- Custom domains
+- Compliance/audit features
+- Mobile support
+- Offline support optional
+
+## 6. Recommended Tech Stack
+
+Current known stack:
+
+- Frontend: React
+- Backend: ASP.NET Core / .NET Core
+- Database: PostgreSQL
+
+Recommended additions:
+
+- Frontend language: TypeScript if not already used
+- Frontend styling: Tailwind CSS or current theme system
+- Frontend forms: React Hook Form or existing form library
+- Frontend validation: Zod or equivalent shared client validation
+- Backend ORM: EF Core with Npgsql if not already chosen
+- Backend validation: FluentValidation or built-in validation
+- Backend auth: existing auth, ASP.NET Core Identity, JWT, or external provider
+- Tests: xUnit/NUnit for backend, Vitest/Jest for frontend
+- Future workflow UI: `@xyflow/react` only for workflow builder
+
+If the existing project already uses different libraries, adapt to it, but keep the architecture modular.
+
+## 7. Suggested Folder Structure
+
+Frontend:
+
+```txt
+src/
+  components/
+  features/
+    forms/
+    records/
+    reports/
+    permissions/
+    triggers/
+    workflows/
+    printing/
+    audit/
+    notifications/
+  lib/
+  types/
+```
+
+Backend:
+
+```txt
+src/
+  Api/
+    Controllers/
+    Middleware/
+  Application/
+    Forms/
+    Records/
+    Reports/
+    Permissions/
+    Triggers/
+    Workflows/
+    Printing/
+    Audit/
+    Notifications/
+  Domain/
+    Entities/
+    Enums/
+    ValueObjects/
+  Infrastructure/
+    Persistence/
+    Services/
+```
+
+Docs and AI task files:
+
+```txt
+docs/
+tasks/
+prompts/
+```
+
+## 8. Important Engineering Rules
+
+- Use strong typing.
+- Avoid `any` or dynamic objects in frontend unless necessary.
+- In backend, avoid passing raw JSON everywhere; use DTOs and typed domain models where practical.
+- Keep schema separate from UI.
+- Keep business logic outside React components.
+- Keep business logic outside API controllers.
+- Enforce permissions on the backend.
+- Do not rely on frontend-only permission checks.
+- Version every published form.
+- Store form version on every record.
+- Add audit logs for important actions.
+- Keep reports separate from forms.
+- Keep triggers separate from workflows.
+- Start with simple settings UIs before visual builders.
+- Do not introduce XYFlow until workflow/approval features.
+- Every feature should have acceptance criteria.
+- Every task should be small enough for one PR.
+
+## 9. First Implementation Tasks
+
+Start with these V1 tasks:
+
+1. Project inventory and setup
+2. Core form types and schemas
+3. Database foundation
+4. Form list and create page/API
+5. Basic field builder
+6. Responsive layout builder
+7. Form renderer and preview
+8. Publish form version
+9. Record submission
+10. Record list and detail
+11. Record edit and delete
+12. Basic print
+13. Basic permissions
+14. Audit log basics
+15. Seed data
+
+Do not skip to reports, triggers, or workflow before the V1 foundation is stable.
+
+## 10. Codex / AI Instructions
+
+When using Codex or ChatGPT to implement this project:
+
+- Read this file first.
+- Read AGENTS.md if available.
+- Read the relevant docs file.
+- Read the specific task file.
+- Implement only the requested task.
+- Do not build unrelated features.
+- Do not change the database schema unless the task requires it.
+- Add or update tests where practical.
+- Run lint/typecheck/test commands if available.
+- Summarize files changed, tests run, risks, and follow-up tasks.
+
+Preferred prompt:
+
+```txt
+Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement only this task. Do not build unrelated features. Follow the architecture and roadmap.
+```
+
+## 11. Current Priority
+
+The current priority is V1:
+
+- Basic form builder
+- Responsive layout
+- Publish form
+- Submit form
+- Store records
+- View/edit records
+- Basic print
+- Basic permissions
+- Basic audit logs
+
+Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
+
+## 12. Final Product Direction
+
+The final platform should become a modular low-code business platform where organizations can build responsive forms, collect records, create reports, control access, automate actions, manage approvals, print professional documents, and integrate with other systems.
+
+Start simple.
+
+Build the foundation correctly.
+
+Add advanced features version by version.

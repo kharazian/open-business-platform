@@ -1,55 +1,158 @@
 # Roadmap
 
-## Version 0.1 - Foundation
+## Current State: Skeleton and Theme Foundation
 
-- Backend API host
-- React dashboard
-- PostgreSQL
-- Docker Compose
-- Login
-- Users
-- Roles
-- Permissions
-- Audit logs
-- Basic module registry
+- ASP.NET Core API host exists.
+- React frontend shell exists.
+- Shared UI/layout components exist.
+- `/theme` playground exists for sample-data design review.
+- PostgreSQL and Redis run through Docker Compose.
 
-## Version 0.2 - Module SDK
+Next: finish project inventory/setup, then implement V1 tasks in order.
 
-- Simple module contract
-- Menu registration
-- Permission registration
-- Example module
-- Module creation guide
+## V1: Foundation - Forms and Records
 
-## Version 0.3 - Form Builder
+Goal: create a working product foundation.
 
-- Create forms
-- Save form schema as JSON
-- Render forms
-- Submit forms
-- View submissions
+Features:
 
-## Version 0.4 - AI Assistant
+- Existing auth integration or simple user model
+- Basic roles
+- Form list
+- Create form
+- Field builder
+- Responsive layout builder
+- Form preview
+- Publish form version
+- Submit form
+- Store records
+- Record list
+- Record detail
+- Edit/delete record
+- Basic browser print
+- Basic permission checks
+- Basic audit logs
+- Seed data
 
-- AI provider interface
-- OpenAI provider
-- Ollama/local provider
-- Generate form from prompt
-- Summarize form submissions
+## V2: Reports and Better Printing
 
-## Version 0.5 - Workflow
+Goal: allow users to define useful record views.
 
+Features:
+
+- List report builder
+- Column selection
+- Column ordering
+- Filters
+- Sorting
+- Search
+- Saved reports
+- CSV export
+- Cleaner print layouts
+- Basic report permissions
+
+## V3: Advanced Permissions
+
+Goal: add organization-aware access control.
+
+Features:
+
+- Users, roles, groups, departments
+- Department manager model
+- Form-level permissions
+- Report-level permissions
+- Record-level permissions
+- Action-level permissions
+- Own records only
+- Department records only
+- Group records only
+- Assigned records only
+- Basic field-level visibility/read-only
+
+## V4: Trigger Engine
+
+Goal: automate actions after data changes.
+
+Features:
+
+- Trigger list
+- Trigger builder
+- Event-based triggers
+- Conditions
+- Actions
+- Email/in-app notifications
+- Update fields
+- Change status
+- Assign users
+- Webhook call
+- Trigger logs
+
+## V5: Workflow and Approval
+
+Goal: support multi-step processes.
+
+Features:
+
+- Status states
+- Transitions
 - Approval steps
-- Assign tasks to users or roles
-- Status history
-- Notifications
-- Audit trail
+- Single and multiple approvers
+- Department manager approval
+- Workflow history
+- Optional XYFlow visual workflow builder
 
-## Version 1.0 - Stable Release
+## V6: Print Templates and PDF
 
-- Tests
-- Documentation
-- Deployment guide
-- Security guide
-- Contribution guide
-- Stable module APIs
+Goal: professional printable documents.
+
+Features:
+
+- Custom print templates
+- PDF generation
+- Header/footer/logo
+- Conditional sections
+- Signature blocks
+- Attach PDF to email triggers
+
+## V7: Dashboards and Analytics
+
+Goal: management-level summaries.
+
+Features:
+
+- Summary reports
+- Charts
+- Dashboard builder
+- Number cards
+- Pending approvals
+- Status/department summaries
+
+## V8: Integrations and API
+
+Goal: connect to external systems.
+
+Features:
+
+- Webhooks
+- API keys
+- Scheduled triggers
+- Import records
+- External exports
+- Integration logs
+- Retry failed integrations
+
+## V9: Enterprise Platform
+
+Goal: mature platform capabilities.
+
+Features:
+
+- Multi-tenant workspaces
+- SSO
+- Advanced RBAC/ABAC
+- Data retention
+- Backup/restore
+- White labeling
+- Localization
+- Custom domains
+- Compliance features

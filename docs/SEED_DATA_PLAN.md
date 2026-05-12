@@ -1,0 +1,55 @@
+# Seed Data Plan
+
+## Purpose
+
+Seed data helps developers test forms, records, permissions, and reports quickly.
+
+Status: planned. The current skeleton has frontend sample data for dashboards/theme demos, but backend/database seed data has not been implemented yet.
+
+## V1 Seed Data
+
+### Users
+
+- Admin User
+- Builder User
+- Normal User
+- Viewer User
+
+### Roles
+
+- Admin
+- Builder
+- User
+- Viewer
+
+### Departments
+
+- HR
+- Finance
+- Operations
+
+### Sample Form
+
+Employee Information Form
+
+Fields:
+
+- First Name
+- Last Name
+- Email
+- Phone
+- Department
+- Start Date
+- Employment Type
+- Notes
+
+### Sample Records
+
+Create at least 10 sample employee records across departments.
+
+## Later Seed Data
+
+- Sample reports
+- Sample permission rules
+- Sample triggers
+- Sample workflow

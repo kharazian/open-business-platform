@@ -1,71 +1,50 @@
 # Open Business Platform
 
-Open Business Platform is an open-source modular platform for building internal company systems.
+Open Business Platform is an open-source modular low-code platform for building internal business applications.
 
-The goal is to help companies build dashboards, user management, forms, workflows, reports, and other business apps step by step.
+The first product direction is a business form platform: users can create responsive forms, publish versioned forms, collect records, view records and reports, control access, print data, and later automate work with triggers and approvals.
 
-## Vision
+## Current Stack
 
-Many companies need many internal systems: HR, forms, approvals, inventory, CRM, tickets, reports, and document workflows.
-
-This project provides a shared foundation so developers do not need to rebuild authentication, permissions, dashboards, audit logs, and module structure every time.
-
-## First MVP
-
-The first version includes:
-
-- Dashboard
-- Authentication
-- User management
-- Role management
-- Permission management
-- Audit logs
-- Module registry
-- Docker Compose setup
-
-## Future Modules
-
-- Dynamic Form Builder
-- Workflow / Approval Engine
-- Notification Center
-- Reports
-- CRM
-- HR
-- Inventory
-- Document Management
-- AI Assistant
-
-## Tech Stack
-
-- Backend: ASP.NET Core on .NET 10
-- Frontend: React 19 + Vite + Tailwind CSS
+- Backend: ASP.NET Core targeting .NET 10
+- Frontend: React, Vite, TypeScript, Tailwind CSS
 - Database: PostgreSQL
-- Cache/Queue: Redis
-- Auth: OpenIddict or external OIDC provider
-- Observability: OpenTelemetry
-- AI: Provider-based integration for OpenAI, Azure OpenAI, Ollama, or custom providers
-
-## Architecture
-
-This project uses a modular monolith approach with practical Clean Architecture.
-
-Each module owns its own domain, application logic, infrastructure, and API endpoints.
+- Cache/queue foundation: Redis
+- Local orchestration: Docker Compose
 
 ## Current Skeleton
 
-The first project skeleton includes:
+The repository currently includes:
 
-- ASP.NET Core API host targeting .NET 10 in `src/api`
-- React 19 + Vite + Tailwind CSS dashboard in `src/app`
-- PostgreSQL and Redis through Docker Compose
+- ASP.NET Core API in `src/api`
+- React frontend in `src/app`
+- Shared frontend UI/layout components
+- Main app routes for dashboard, users, reports, settings, and profile
+- `/theme` playground for sample-data UI, layout, and component demos
+- Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
-- Dashboard page at `http://localhost:5174`
+
+## Product Direction
+
+V1 focuses on:
+
+- Form list and form draft creation
+- Basic field builder
+- Responsive layout builder
+- Form preview and publish
+- Record submission and record management
+- Basic permissions
+- Browser printing
+- Audit logs
+- Seed/demo data
+
+Future versions add report builder, cleaner printing, advanced permissions, triggers, workflows, PDF templates, dashboards, integrations, and enterprise features.
 
 ## Prerequisites
 
 - Docker and Docker Compose
 - .NET 10 SDK
-- Node.js 20.19+ or 22.12+
+- Node.js 20.19 or newer
 - npm
 
 ## Run Locally
@@ -83,7 +62,11 @@ cd src/api
 dotnet run
 ```
 
-The API listens on `http://localhost:5080`.
+The API listens on:
+
+```text
+http://localhost:5080
+```
 
 Check the health endpoint:
 
@@ -91,45 +74,90 @@ Check the health endpoint:
 curl http://localhost:5080/health
 ```
 
-Run the frontend dashboard in another terminal:
+Run the frontend in another terminal:
 
 ```bash
 cd src/app
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-Open `http://localhost:5174`.
+Open:
+
+```text
+http://localhost:5174
+```
+
+Useful frontend routes:
+
+- `/`
+- `/dashboard`
+- `/settings`
+- `/profile`
+- `/theme`
+- `/theme/components`
+- `/theme/layouts`
+
+## Build
+
+Frontend:
+
+```bash
+cd src/app
+npm run build
+```
+
+Backend:
+
+```bash
+cd src/api
+dotnet build
+```
 
 ## Local Services
 
 Docker Compose exposes:
 
-- PostgreSQL on `localhost:5432`
-- Redis on `localhost:6379`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
 
-The development PostgreSQL connection string is:
+Development PostgreSQL connection:
 
 ```text
 Host=localhost;Port=5432;Database=open_business_platform;Username=obp;Password=obp_dev_password
 ```
 
-## Project Structure
+## Repository Structure
 
 ```text
 src/
-  api/
-    Modules/
-      Dashboard/
-    Program.cs
-  app/
-    src/
-      App.tsx
-      main.tsx
+  api/        ASP.NET Core backend
+  app/        React frontend
+
+docs/         Product, architecture, data, API, security, and testing docs
+tasks/        Step-by-step implementation tasks
+prompts/      Reusable AI workflow prompts
 ```
 
-The platform starts as a modular monolith. It does not use microservices, Native Federation, or dynamic DLL plugin loading in this first skeleton.
+## Documentation
 
-## Frontend Theme
+Start here:
 
-The web app uses Tailwind CSS through the official Vite plugin. Project theme tokens are defined in `src/app/src/styles.css` with Tailwind's `@theme` directive.
+1. `docs/MASTER_PRD_FOR_AI.md`
+2. `docs/PRD.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/TECH_STACK.md`
+5. `docs/ROADMAP.md`
+6. `tasks/v1/001-project-inventory-and-setup.md`
+
+Work one task at a time. Do not build the full platform in one pass.
+
+## Architecture Rules
+
+- Use a modular monolith.
+- Keep modules independent and practical.
+- Do not add microservices in early versions.
+- Do not add Native Federation yet.
+- Do not add dynamic plugin loading yet.
+- Do not use XYFlow for responsive form layout.
+- Use XYFlow later only for workflow and approval diagrams.

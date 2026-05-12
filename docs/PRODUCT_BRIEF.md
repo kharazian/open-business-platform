@@ -1,39 +1,50 @@
 # Product Brief
 
+## Product
+
+Open Business Platform is a modular low-code platform for building internal business applications.
+
+The first product focus is a business form platform.
+
 ## Problem
 
-Companies often need many internal systems, but each system repeats the same foundation:
+Organizations need internal tools for forms, approvals, records, reports, printing, permissions, notifications, and audit logs. Building each tool from scratch repeats the same foundation and creates inconsistent systems.
 
-- Login
-- Users
-- Roles
-- Permissions
-- Dashboard
-- Audit logs
-- Settings
-- Reports
-- Notifications
-- Forms
-- Workflows
+## Solution
 
-This project solves that by providing one reusable open-source foundation.
+Provide one modular platform where teams can:
 
-## Target Users
+- Build responsive forms
+- Publish immutable form versions
+- Collect and manage records
+- View records and reports
+- Control access by user, role, group, department, ownership, and later custom rules
+- Print records and lists
+- Audit sensitive actions
+- Add triggers and workflows in later versions
 
-- Small and medium companies
-- Internal IT teams
-- Developers building company systems
-- Agencies building business apps
-- Startups needing internal tools
+## V1 Outcome
 
-## Product Goal
+V1 should prove the core loop:
 
-Create an open-source modular business platform that can start small and grow module by module.
+1. Create a form.
+2. Add fields and responsive layout.
+3. Publish a form version.
+4. Submit records.
+5. View, edit, delete, and print records with basic permissions.
+6. Write audit logs.
 
-## Core Principle
+## Non-Goals For V1
 
-Start simple. Make it easy to run, easy to understand, and easy to extend.
+- Microservices
+- Dynamic plugin loading
+- Native Federation
+- Full workflow builder
+- Full report designer
+- PDF template designer
+- Advanced dashboards
+- XYFlow-based form layout
 
-## First Use Case
+## Product Principle
 
-A company can clone the project, run it with Docker, log in, manage users and permissions, and add new modules.
+Start simple, keep the architecture modular, and add advanced platform capabilities only when the foundation is stable.
