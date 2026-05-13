@@ -5,6 +5,7 @@ import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
+import { appBranding } from "../config/branding";
 import { themePalettes, type ThemePaletteId } from "../config/themePalettes";
 import type { ThemeDensity } from "../config/themeTokens";
 import {
@@ -156,7 +157,7 @@ export function Settings() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Workspace name" defaultValue="Open Business Platform" />
+            <Input label="Workspace name" defaultValue={appBranding.appName} />
             <Input label="Support email" defaultValue="support@company.test" type="email" />
             <Select
               label="Default module"

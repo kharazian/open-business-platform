@@ -1,8 +1,9 @@
 import { Bell, Menu, Moon, Search, Settings, Sun } from "lucide-react";
 import { Link } from "react-router-dom";
-import { cn } from "../../lib/cn";
 import type { NavigationItem } from "../../config/appNavigation";
+import { appBranding } from "../../config/branding";
 import { useDesignTheme } from "../../context/useDesignTheme";
+import { cn } from "../../lib/cn";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { Dropdown } from "../ui/Dropdown";
@@ -159,9 +160,9 @@ function NavbarActions({
 export function Navbar({
   navigation,
   onMenuClick,
-  title = "Open Business Platform",
+  title = appBranding.appName,
   subtitle,
-  logoText = "OBP",
+  logoText = appBranding.logoText,
   searchPlaceholder = "Search...",
   showTopNav = false,
   showMobileMenuButton = false,

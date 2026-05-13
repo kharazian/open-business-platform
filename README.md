@@ -49,6 +49,12 @@ Future versions add report builder, cleaner printing, advanced permissions, trig
 
 ## Run Locally
 
+Create your local environment file:
+
+```bash
+cp .env.example .env
+```
+
 Start PostgreSQL and Redis:
 
 ```bash
@@ -118,14 +124,30 @@ dotnet build
 
 Docker Compose exposes:
 
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
+- PostgreSQL: `localhost:${POSTGRES_PORT:-5432}`
+- Redis: `localhost:${REDIS_PORT:-6379}`
 
 Development PostgreSQL connection:
 
 ```text
 Host=localhost;Port=5432;Database=open_business_platform;Username=obp;Password=obp_dev_password
 ```
+
+## Environment Configuration
+
+The root `.env` file is for local development and is ignored by git. Use `.env.example` as the tracked template.
+
+Important variables:
+
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: used by Docker Compose and the backend PostgreSQL connection.
+- `REDIS_HOST`, `REDIS_PORT`: used by Docker Compose and the backend Redis connection.
+- `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL.
+- `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
+- `BRAND_LOGO_TEXT`: controls the compact logo text shown in the navbar, sidebar, and login screen.
+- `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin defaults for the future user seed flow.
+- `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: branding defaults until company settings move into the database.
+
+Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes to browser code.
 
 ## Repository Structure
 

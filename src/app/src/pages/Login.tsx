@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
+import { appBranding } from "../config/branding";
 
 export function Login() {
   return (
@@ -9,10 +10,10 @@ export function Login() {
       <Card className="w-full max-w-md p-6">
         <div className="mb-6 text-center">
           <span className="mx-auto grid size-12 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">
-            OBP
+            {appBranding.logoText}
           </span>
           <h1 className="mt-4 text-2xl font-bold text-foreground">Sign in</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Access the Open Business Platform dashboard.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Access the {appBranding.appName} dashboard.</p>
         </div>
 
         <form className="grid gap-4">

@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { NavigationItem } from "../../config/appNavigation";
+import { appBranding } from "../../config/branding";
 import { useAppTheme } from "../../context/AppThemeContext";
 import { cn } from "../../lib/cn";
 import { MobileDrawer } from "./MobileDrawer";
@@ -59,13 +60,13 @@ function hasSidebarLayout(layout: ShellLayout) {
 function getShellDefaults(mode: AppShellProps["mode"], hasSavedAppTheme: boolean) {
   if (mode === "app") {
     return {
-      navbarTitle: "Open Business Platform",
+      navbarTitle: appBranding.appName,
       navbarSubtitle: hasSavedAppTheme ? "Saved theme active" : "App preview",
       searchPlaceholder: "Search modules, users, reports...",
       settingsHref: "/settings",
       sidebarAriaLabel: "Main app navigation",
       sidebarSubtitle: "Main app",
-      sidebarTitle: "Open Business Platform"
+      sidebarTitle: appBranding.appName
     };
   }
 
@@ -97,11 +98,11 @@ export function AppShell({
   settingsHref,
   navbarTitle,
   navbarSubtitle,
-  navbarLogoText = "OBP",
+  navbarLogoText = appBranding.logoText,
   searchPlaceholder,
   sidebarTitle,
   sidebarSubtitle,
-  sidebarLogoText = "OBP",
+  sidebarLogoText = appBranding.logoText,
   sidebarVariant = "default",
   sidebarAriaLabel,
   onSidebarToggle,

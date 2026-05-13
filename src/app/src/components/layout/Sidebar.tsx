@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState, type HTMLAttributes } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { cn } from "../../lib/cn";
 import type { NavigationItem } from "../../config/appNavigation";
+import { appBranding } from "../../config/branding";
 import { useDesignTheme } from "../../context/useDesignTheme";
+import { cn } from "../../lib/cn";
 import { Button } from "../ui/Button";
 import { Dropdown } from "../ui/Dropdown";
 import { getNavigationSections, isNavigationItemActive } from "./navigationGroups";
@@ -157,7 +158,7 @@ export function Sidebar({
   onNavigate,
   onToggleCollapsed,
   variant = "default",
-  logoText = "OBP",
+  logoText = appBranding.logoText,
   title = "Theme Lab",
   subtitle = "Admin demo",
   ariaLabel = "Navigation",

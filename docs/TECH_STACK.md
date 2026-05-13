@@ -89,6 +89,7 @@ dotnet build
 Run local services:
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
@@ -105,6 +106,15 @@ npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
 Test commands should be added once test projects are introduced.
+
+## Local Environment
+
+Local development uses a root `.env` file copied from `.env.example`.
+
+- Docker Compose reads `POSTGRES_*` and `REDIS_PORT`.
+- The ASP.NET Core API loads the nearest `.env` file for local development, derives connection strings from `POSTGRES_*` and `REDIS_*`, and maps bootstrap admin variables into `BootstrapAdmin` options.
+- Vite reads the root env file through `envDir` and uses `VITE_APP_PORT`, `VITE_API_BASE_URL`, and the non-secret `BRAND_LOGO_TEXT` value.
+- Admin credentials must remain server-only. Do not add admin password values to `VITE_` variables.
 
 ## Important Library Decision
 
