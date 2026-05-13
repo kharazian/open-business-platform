@@ -35,7 +35,6 @@ function DesktopNavigationItem({ item }: { item: NavigationItem }) {
     return (
       <Dropdown
         align="left"
-        closeOnContentClick
         trigger={
           <span className="inline-flex min-h-10 items-center rounded-full px-3 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground">
             {item.label}
@@ -77,7 +76,6 @@ export function TopNav({
               section.label ? (
                 <Dropdown
                   align="left"
-                  closeOnContentClick
                   key={`${section.label}-${index}`}
                   trigger={
                     <span className="inline-flex min-h-10 items-center rounded-full px-3 text-sm font-bold text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -98,7 +96,6 @@ export function TopNav({
       <div className="xl:hidden">
         <Dropdown
           align="left"
-          closeOnContentClick
           trigger={
             <span className="inline-flex min-h-10 items-center rounded-xl border border-border bg-card px-3 text-sm font-bold text-foreground">
               Menu

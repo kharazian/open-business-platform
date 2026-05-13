@@ -71,7 +71,7 @@ export function shouldShowTopNav(layoutMode: ThemeLayoutMode, topNavVisibility: 
   if (topNavVisibility === "show") return true;
   if (topNavVisibility === "hide") return false;
 
-  return layoutMode === "minimal" || layoutMode === "topnav";
+  return layoutMode === "topnav";
 }
 
 function getInitialSystemMode() {

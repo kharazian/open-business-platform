@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { useDesignTheme } from "../../context/useDesignTheme";
 
@@ -40,8 +41,14 @@ export function Dropdown({
   triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
   const { palette } = useDesignTheme();
   const resolvedPlacement = placement ?? (align === "right" ? "bottom-right" : "bottom-left");
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,8 +63,21 @@ export function Dropdown({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
+  }, [open]);
+
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} ref={rootRef}>
       <button
         className={cn("rounded-xl focus-visible:outline-none focus-visible:ring-4", palette.primaryRing, triggerClassName)}
         type="button"
@@ -69,10 +89,10 @@ export function Dropdown({
       </button>
       {open ? (
         <>
-          <button className="fixed inset-0 z-20 cursor-default" type="button" aria-label="Close dropdown" onClick={() => setOpen(false)} />
+          <button className="fixed inset-0 z-[55] cursor-default" type="button" aria-label="Close dropdown" onClick={() => setOpen(false)} />
           <div
             className={cn(
-              "absolute z-30 max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
+              "absolute z-[60] max-h-[calc(100vh-5rem)] min-w-48 overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-2 shadow-lifted",
               placementClasses[resolvedPlacement],
               contentClassName
             )}

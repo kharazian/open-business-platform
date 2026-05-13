@@ -87,7 +87,6 @@ function SidebarParentItem({
       <Dropdown
         ariaLabel={`Open ${item.label} menu`}
         className="w-full"
-        closeOnContentClick
         placement="right-start"
         triggerClassName="block w-full"
         trigger={
@@ -244,7 +243,7 @@ export function Sidebar({
         </div>
       ) : null}
 
-      <nav className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1" aria-label={ariaLabel}>
+      <nav className={cn("mt-5 min-h-0 flex-1 pr-1", displayCollapsed ? "overflow-visible" : "overflow-y-auto")} aria-label={ariaLabel}>
         {navigationSections.map((section, sectionIndex) => (
           <div className={cn("grid gap-1", sectionIndex > 0 && (displayCollapsed ? "mt-2" : "mt-4"))} key={sectionKeys[sectionIndex]}>
             {hasSectionLabels && section.label && !displayCollapsed ? (
