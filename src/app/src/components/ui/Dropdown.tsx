@@ -24,7 +24,9 @@ export function Dropdown({
   align = "right",
   placement,
   closeOnContentClick = false,
-  contentClassName
+  contentClassName,
+  className,
+  triggerClassName
 }: {
   trigger: ReactNode;
   children?: ReactNode;
@@ -34,6 +36,8 @@ export function Dropdown({
   placement?: DropdownPlacement;
   closeOnContentClick?: boolean;
   contentClassName?: string;
+  className?: string;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { palette } = useDesignTheme();
@@ -53,9 +57,9 @@ export function Dropdown({
   }, [open]);
 
   return (
-    <div className="relative">
+    <div className={cn("relative", className)}>
       <button
-        className={cn("rounded-xl focus-visible:outline-none focus-visible:ring-4", palette.primaryRing)}
+        className={cn("rounded-xl focus-visible:outline-none focus-visible:ring-4", palette.primaryRing, triggerClassName)}
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}

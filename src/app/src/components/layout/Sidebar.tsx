@@ -27,6 +27,7 @@ function getNavItemClassName({
 }) {
   return cn(
     "control-transition flex items-center gap-3 rounded-xl px-3 text-sm font-semibold",
+    "w-full",
     nested ? "min-h-10" : "min-h-11",
     density === "compact" && !nested && "min-h-10",
     collapsed && "justify-center px-0",
@@ -85,8 +86,10 @@ function SidebarParentItem({
     return (
       <Dropdown
         ariaLabel={`Open ${item.label} menu`}
+        className="w-full"
         closeOnContentClick
         placement="right-start"
+        triggerClassName="block w-full"
         trigger={
           <span className={getNavItemClassName({ active, collapsed, density, palette })} title={item.label}>
             {Icon ? <Icon className="size-4 shrink-0" /> : null}
@@ -123,7 +126,7 @@ function SidebarParentItem({
         {Icon ? <Icon className="size-4 shrink-0" /> : null}
         {!collapsed ? (
           <>
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
             <ChevronDown className={cn("size-4 shrink-0 transition-transform", !open && "-rotate-90")} />
           </>
         ) : null}
@@ -181,6 +184,7 @@ export function Sidebar({
   const [hovered, setHovered] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set());
   const [openParentKey, setOpenParentKey] = useState<string | null>(null);
+  const [closedParentKey, setClosedParentKey] = useState<string | null>(null);
   const displayCollapsed = collapsed && !(hoverExpand && hovered);
 
   const toggleGroup = (sectionKey: string) => {
@@ -195,8 +199,15 @@ export function Sidebar({
     });
   };
 
-  const toggleParent = (parentKey: string) => {
-    setOpenParentKey((current) => (current === parentKey ? null : parentKey));
+  const toggleParent = (parentKey: string, currentlyOpen: boolean) => {
+    if (currentlyOpen) {
+      setOpenParentKey(null);
+      setClosedParentKey(parentKey);
+      return;
+    }
+
+    setOpenParentKey(parentKey);
+    setClosedParentKey(null);
   };
 
   return (
@@ -254,7 +265,7 @@ export function Sidebar({
                 const hasChildren = Boolean(item.children?.length);
 
                 if (hasChildren) {
-                  const parentOpen = openParentKey ? openParentKey === parentKey : active;
+                  const parentOpen = openParentKey ? openParentKey === parentKey : active && closedParentKey !== parentKey;
 
                   return (
                     <SidebarParentItem
@@ -264,7 +275,7 @@ export function Sidebar({
                       item={item}
                       key={parentKey}
                       onNavigate={onNavigate}
-                      onToggle={() => toggleParent(parentKey)}
+                      onToggle={() => toggleParent(parentKey, parentOpen)}
                       open={parentOpen}
                       pathname={location.pathname}
                     />
