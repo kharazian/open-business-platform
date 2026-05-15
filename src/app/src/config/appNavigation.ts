@@ -1,18 +1,6 @@
-import { Home, LayoutDashboard, Settings, UserCircle, Palette } from "lucide-react";
+import { platformModules } from "../modules";
+import { getModuleNavigation, type NavigationItem } from "../platform/moduleRegistry";
 
-export type NavigationItem = {
-  label: string;
-  path?: string;
-  icon?: typeof Home;
-  section?: string;
-  children?: NavigationItem[];
-  external?: boolean;
-};
+export type { NavigationItem };
 
-export const appNavigation: NavigationItem[] = [
-  { label: "Home", path: "/", icon: Home },
-  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { label: "Settings", path: "/settings", icon: Settings },
-  { label: "Profile", path: "/profile", icon: UserCircle },
-  { label: "Theme Playground", path: "/theme", icon: Palette }
-];
+export const appNavigation: NavigationItem[] = getModuleNavigation(platformModules);
