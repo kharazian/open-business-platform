@@ -1,5 +1,5 @@
 using OpenBusinessPlatform.Api.Configuration;
-using OpenBusinessPlatform.Api.Modules.Dashboard;
+using OpenBusinessPlatform.Api.Platform;
 
 DotEnv.LoadFromNearestFile();
 EnvironmentConfiguration.ApplyDerivedValues();
@@ -36,7 +36,7 @@ app.MapGet("/health", () => Results.Ok(new
     service = "Open Business Platform API"
 }));
 
-app.MapDashboardEndpoints();
+app.MapPlatformApiModules();
 
 app.Run();
 

@@ -2,13 +2,10 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./layouts/AppLayout";
 import { ThemeLayout } from "./layouts/ThemeLayout";
-import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
-import { Profile } from "./pages/Profile";
-import { Reports } from "./pages/Reports";
-import { Settings } from "./pages/Settings";
-import { Users } from "./pages/Users";
 import { AppThemeProvider } from "./context/AppThemeContext";
+import { platformModules } from "./modules";
+import { getModuleRoutes } from "./platform/moduleRegistry";
 import { themePages } from "./theme/config/themePages";
 
 type Theme = "light" | "dark";
@@ -25,6 +22,7 @@ function getInitialTheme(): Theme {
 
 function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const appRoutes = getModuleRoutes(platformModules);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -40,12 +38,13 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<AppLayout theme={theme} onThemeToggle={toggleTheme} />}>
-          <Route index element={<Dashboard />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
+          {appRoutes.map((route) =>
+            route.index ? (
+              <Route index element={route.element} key="index" />
+            ) : (
+              <Route path={route.path} element={route.element} key={route.path} />
+            )
+          )}
         </Route>
         <Route path="/theme" element={<ThemeLayout theme={theme} />}>
           {themePages.map((page) =>
