@@ -110,6 +110,7 @@ Frontend:
 
 ```bash
 cd src/app
+npm test
 npm run build
 ```
 
@@ -119,6 +120,8 @@ Backend:
 cd src/api
 dotnet build
 ```
+
+The API writes generated build artifacts to `.artifacts/api` so local runs are isolated from stale `bin` or `obj` folders.
 
 ## Local Services
 

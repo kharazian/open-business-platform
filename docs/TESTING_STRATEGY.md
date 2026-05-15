@@ -2,12 +2,13 @@
 
 ## Current Status
 
-The current skeleton has build validation but no dedicated test projects yet.
+The current skeleton has build validation and lightweight frontend logic tests, but no dedicated frontend/backend test projects yet.
 
 Current validation commands:
 
 ```bash
 cd src/app
+npm test
 npm run build
 ```
 
@@ -16,7 +17,7 @@ cd src/api
 dotnet build
 ```
 
-Add formal test commands when frontend/backend test projects are introduced.
+The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 ## Backend Tests
 

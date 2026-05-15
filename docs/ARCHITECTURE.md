@@ -41,8 +41,12 @@ src/app/src/
     layout/
   config/
   context/
+  features/
+    forms/
   layouts/
   pages/
+  platform/
+  modules/
   theme/
     pages/
     config/
@@ -91,6 +95,8 @@ Current backend structure:
 src/api/
   Modules/
     Dashboard/
+    Forms/
+  Platform/
   Program.cs
 ```
 

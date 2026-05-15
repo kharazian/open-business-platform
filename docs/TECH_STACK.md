@@ -86,6 +86,8 @@ dotnet restore
 dotnet build
 ```
 
+The API project uses `src/api/Directory.Build.props` to place generated build output under `.artifacts/api`.
+
 Run local services:
 
 ```bash

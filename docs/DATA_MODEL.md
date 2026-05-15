@@ -234,20 +234,21 @@ Fields:
 
 ```json
 {
-  "fields": {
-    "first_name": {
+  "schemaVersion": 1,
+  "fields": [
+    {
       "id": "first_name",
       "type": "text",
       "label": "First Name",
       "required": true
     },
-    "email": {
+    {
       "id": "email",
       "type": "email",
       "label": "Email",
       "required": true
     }
-  }
+  ]
 }
 ```
 

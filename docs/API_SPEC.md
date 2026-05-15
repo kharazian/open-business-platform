@@ -6,6 +6,76 @@ Adapt endpoint names to the existing project style.
 
 Status: draft. The current API skeleton only exposes `/health` and dashboard endpoints. Add these APIs task by task as product modules are implemented.
 
+## Shared V1 Form Schema Contract
+
+The current shared schema contract is implemented in:
+
+- Frontend: `src/app/src/features/forms`
+- Backend: `src/api/Modules/Forms`
+
+Supported V1 field types:
+
+- `text`
+- `textarea`
+- `number`
+- `email`
+- `phone`
+- `date`
+- `select`
+- `checkbox`
+- `radio`
+
+Canonical draft/version schema shape:
+
+```json
+{
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "id": "first_name",
+      "type": "text",
+      "label": "First name",
+      "required": true
+    },
+    {
+      "id": "department",
+      "type": "select",
+      "label": "Department",
+      "options": [
+        { "id": "opt_finance", "label": "Finance", "value": "finance" }
+      ]
+    }
+  ],
+  "layout": {
+    "pages": [
+      {
+        "id": "page_1",
+        "title": "Employee",
+        "sections": [
+          {
+            "id": "section_1",
+            "rows": [
+              {
+                "id": "row_1",
+                "columns": [
+                  {
+                    "id": "col_1",
+                    "span": { "mobile": 12, "tablet": 6, "desktop": 6 },
+                    "fields": ["first_name"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Backend APIs must validate schema changes and submitted record values before persistence.
+
 ## Forms
 
 ### List forms
