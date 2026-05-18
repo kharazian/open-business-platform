@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: proposed model. The current backend skeleton does not yet include EF Core or migrations.
+Status: proposed model. The current backend skeleton does not yet include EF Core or migrations. It does include typed V1 form schema contracts and validation helpers in `src/api/Modules/Forms`.
 
 Recommended approach:
 
@@ -103,6 +103,7 @@ Fields:
 - created_at
 
 The form version is immutable after publish.
+The current in-code `FormSchemaDefinition` includes layout inside the schema object. Persistence can either store that canonical schema together in `schema_json` or split layout/validation into separate JSONB columns as long as API contracts remain consistent.
 
 ## Records
 
@@ -232,6 +233,8 @@ Fields:
 
 ## Example Form Schema JSON
 
+This matches the current shared frontend/backend V1 schema shape.
+
 ```json
 {
   "schemaVersion": 1,
@@ -248,50 +251,61 @@ Fields:
       "label": "Email",
       "required": true
     }
-  ]
+  ],
+  "layout": {
+    "pages": [
+      {
+        "id": "page_1",
+        "title": "Basic Info",
+        "sections": [
+          {
+            "id": "section_1",
+            "title": "Personal Information",
+            "rows": [
+              {
+                "id": "row_1",
+                "columns": [
+                  {
+                    "id": "col_1",
+                    "span": {
+                      "mobile": 12,
+                      "tablet": 6,
+                      "desktop": 6
+                    },
+                    "fields": ["first_name"]
+                  },
+                  {
+                    "id": "col_2",
+                    "span": {
+                      "mobile": 12,
+                      "tablet": 6,
+                      "desktop": 6
+                    },
+                    "fields": ["email"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-## Example Layout JSON
+## Current V1 Schema Validation Rules
 
-```json
-{
-  "pages": [
-    {
-      "id": "page_1",
-      "title": "Basic Info",
-      "sections": [
-        {
-          "id": "section_1",
-          "title": "Personal Information",
-          "rows": [
-            {
-              "id": "row_1",
-              "columns": [
-                {
-                  "id": "col_1",
-                  "span": {
-                    "mobile": 12,
-                    "tablet": 6,
-                    "desktop": 6
-                  },
-                  "fields": ["first_name"]
-                },
-                {
-                  "id": "col_2",
-                  "span": {
-                    "mobile": 12,
-                    "tablet": 6,
-                    "desktop": 6
-                  },
-                  "fields": ["email"]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
+The current frontend and backend validators enforce:
+
+- `schemaVersion` must be `1`.
+- At least one field is required.
+- Field IDs must be present and unique.
+- Field labels are required.
+- Supported field types are `text`, `textarea`, `number`, `email`, `phone`, `date`, `select`, `checkbox`, and `radio`.
+- `select` and `radio` fields require options with unique non-empty values.
+- Layout requires at least one page, section, row, and column.
+- Column spans must be integers from `1` to `12` for mobile, tablet, and desktop.
+- Every schema field must be placed in the layout exactly once.
+
+The current record value validator rejects unknown fields, enforces required values, checks basic types, validates email and `YYYY-MM-DD` date strings, and requires choice values to match defined options.

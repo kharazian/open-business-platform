@@ -20,7 +20,7 @@ Examples:
 
 ## Frontend Module Shape
 
-Future feature modules should live under `src/app/src/features`.
+Product domain code should live under `src/app/src/features`.
 
 Example:
 
@@ -33,6 +33,17 @@ src/app/src/features/forms/
   types/
   utils/
 ```
+
+Current app route/navigation modules live under `src/app/src/modules`. Each module should export a `PlatformModule` with explicit routes, navigation items, permissions, and ownership metadata when applicable.
+
+Example:
+
+```text
+src/app/src/modules/dashboard/module.tsx
+src/app/src/modules/users/module.tsx
+```
+
+`src/app/src/modules/index.ts` registers modules, and `src/app/src/platform/moduleRegistry.ts` derives sorted routes and navigation from that registry.
 
 Use shared UI and layout components from:
 
@@ -54,6 +65,16 @@ src/api/Modules/Forms/
   FormsEndpoints.cs
   FormsService.cs
   FormsContracts.cs
+```
+
+Current backend modules use minimal APIs. A module that maps endpoints should implement `IPlatformApiModule` from `src/api/Platform`, and `Program.cs` discovers those modules through `app.MapPlatformApiModules()`.
+
+Example:
+
+```text
+src/api/Modules/Dashboard/
+  DashboardModule.cs
+  DashboardEndpoints.cs
 ```
 
 As modules become larger, split them into focused files. Do not create empty layers just to match a pattern.

@@ -3,19 +3,31 @@
 ## Current Stack
 
 - Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
-- Backend: ASP.NET Core targeting .NET 10
+- Backend: ASP.NET Core minimal APIs targeting .NET 10
 - Database: PostgreSQL 16 through Docker Compose
 - Cache/queue foundation: Redis 7 through Docker Compose
 - Package manager: npm
+- Frontend test command: `npm test`
 - Local frontend port: `5174`
 - Local backend URL: `http://localhost:5080`
+
+Current runtime/configuration details:
+
+- The frontend app requires Node.js `>=20.19.0` according to `src/app/package.json`.
+- Vite loads the repository root `.env` through `envDir` and proxies `/api` and `/health` to `VITE_API_BASE_URL`.
+- The backend loads the nearest `.env` file, derives PostgreSQL/Redis connection strings, and configures local CORS from `VITE_APP_PORT`.
+- The API uses minimal endpoint modules discovered through `IPlatformApiModule`; it does not use controllers yet.
+
+## Current Frontend Foundation
+
+- TypeScript is enabled in strict mode.
+- Tailwind CSS theme tokens and shared UI components already exist.
+- The real app and `/theme` playground share the same shell and UI primitives.
 
 ## Recommended Frontend Additions
 
 Use these only when a task needs them:
 
-- TypeScript
-- Tailwind CSS theme tokens already exist
 - React Hook Form
 - Zod or another validation library
 - TanStack Query for server state
@@ -75,6 +87,7 @@ Frontend:
 ```bash
 cd src/app
 npm install
+npm test
 npm run build
 ```
 
@@ -107,7 +120,7 @@ cd src/app
 npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-Test commands should be added once test projects are introduced.
+The current frontend `npm test` script runs lightweight Node-based tests for shared TypeScript logic. Add `dotnet test` after backend test projects are introduced.
 
 ## Local Environment
 

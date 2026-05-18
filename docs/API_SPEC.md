@@ -1,10 +1,45 @@
 # API Specification
 
-This is a suggested REST-style API for the .NET Core backend.
+This is a suggested REST-style API for the ASP.NET Core backend.
 
 Adapt endpoint names to the existing project style.
 
-Status: draft. The current API skeleton only exposes `/health` and dashboard endpoints. Add these APIs task by task as product modules are implemented.
+Status: draft. The current API skeleton exposes only the health endpoint and the dashboard summary endpoint. Add product APIs task by task as modules are implemented.
+
+## Current Implemented Endpoints
+
+### Health
+
+`GET /health`
+
+Current response:
+
+```json
+{
+  "status": "healthy",
+  "service": "Open Business Platform API"
+}
+```
+
+### Dashboard summary
+
+`GET /api/dashboard/summary`
+
+Current response:
+
+```json
+{
+  "title": "Open Business Platform",
+  "metrics": [
+    { "label": "Users", "value": 0 },
+    { "label": "Roles", "value": 0 },
+    { "label": "Permissions", "value": 0 },
+    { "label": "Audit logs", "value": 0 }
+  ]
+}
+```
+
+The dashboard endpoint is starter shell data. It is not connected to PostgreSQL yet.
 
 ## Shared V1 Form Schema Contract
 
@@ -76,6 +111,8 @@ Canonical draft/version schema shape:
 
 Backend APIs must validate schema changes and submitted record values before persistence.
 
+The shared validation logic already exists in frontend and backend code, but form/record persistence endpoints have not been implemented yet. The sections below are proposed APIs for upcoming tasks.
+
 ## Forms
 
 ### List forms
@@ -124,8 +161,11 @@ Request:
 {
   "name": "Employee Form",
   "description": "Updated description",
-  "schema": {},
-  "layout": {}
+  "schema": {
+    "schemaVersion": 1,
+    "fields": [],
+    "layout": { "pages": [] }
+  }
 }
 ```
 

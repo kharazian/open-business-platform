@@ -6,8 +6,8 @@ The first product direction is a business form platform: users can create respon
 
 ## Current Stack
 
-- Backend: ASP.NET Core targeting .NET 10
-- Frontend: React, Vite, TypeScript, Tailwind CSS
+- Backend: ASP.NET Core minimal APIs targeting .NET 10
+- Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
 - Database: PostgreSQL
 - Cache/queue foundation: Redis
 - Local orchestration: Docker Compose
@@ -18,11 +18,15 @@ The repository currently includes:
 
 - ASP.NET Core API in `src/api`
 - React frontend in `src/app`
+- Frontend module registry in `src/app/src/modules` and `src/app/src/platform`
 - Shared frontend UI/layout components
+- Shared V1 form schema types and validators in frontend/backend code
+- Main app appearance settings with palette, color mode, density, layout, radius, and shadow controls saved in browser `localStorage`
 - Main app routes for dashboard, users, reports, settings, and profile
-- `/theme` playground for sample-data UI, layout, and component demos
+- `/theme` playground for sample-data UI, layout, component, workspace, and authentication demos
 - Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
+- API dashboard summary endpoint at `http://localhost:5080/api/dashboard/summary`
 
 ## Product Direction
 
@@ -98,11 +102,17 @@ Useful frontend routes:
 
 - `/`
 - `/dashboard`
+- `/login`
+- `/users`
+- `/reports`
 - `/settings`
 - `/profile`
 - `/theme`
+- `/theme/users`
+- `/theme/forms`
 - `/theme/components`
 - `/theme/layouts`
+- `/theme/login`
 
 ## Build
 
@@ -146,9 +156,9 @@ Important variables:
 - `REDIS_HOST`, `REDIS_PORT`: used by Docker Compose and the backend Redis connection.
 - `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL.
 - `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
-- `BRAND_LOGO_TEXT`: controls the compact logo text shown in the navbar, sidebar, and login screen.
+- `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`: control frontend branding defaults shown in the navbar, sidebar, settings, and login screen.
 - `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin defaults for the future user seed flow.
-- `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: branding defaults until company settings move into the database.
+- `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: backend branding defaults until company settings move into the database.
 
 Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes to browser code.
 
@@ -156,8 +166,8 @@ Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes 
 
 ```text
 src/
-  api/        ASP.NET Core backend
-  app/        React frontend
+  api/        ASP.NET Core backend with minimal API modules
+  app/        React frontend with app modules, shared UI, and theme playground
 
 docs/         Product, architecture, data, API, security, and testing docs
 tasks/        Step-by-step implementation tasks

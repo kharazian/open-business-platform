@@ -1,6 +1,6 @@
 # Permission Model
 
-Status: target model. The current skeleton does not yet implement full authentication or backend permission checks.
+Status: target model. The current skeleton does not yet implement full authentication or backend permission checks. Current app navigation may include permission metadata later, but no real permission enforcement exists yet.
 
 ## Goals
 

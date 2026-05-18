@@ -28,16 +28,20 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] `README.md` describes this repository, not a generic template.
-- [ ] `AGENTS.md` contains real current commands.
-- [ ] `docs/TECH_STACK.md` lists the current stack and known planned additions.
-- [ ] `docs/ARCHITECTURE.md` reflects the current `src/api` and `src/app` structure.
-- [ ] `docs/UI_SPEC.md` mentions the shared component system and `/theme` playground.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable. This task should not weaken it.
-- [ ] Frontend build is run if frontend docs are changed.
-- [ ] Backend build is run if backend docs are changed.
-- [ ] Files changed and risks are summarized.
+- [x] `README.md` describes this repository, not a generic template.
+- [x] `AGENTS.md` contains real current commands.
+- [x] `docs/TECH_STACK.md` lists the current stack and known planned additions.
+- [x] `docs/ARCHITECTURE.md` reflects the current `src/api` and `src/app` structure.
+- [x] `docs/UI_SPEC.md` mentions the shared component system and `/theme` playground.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable. This task should not weaken it.
+- [x] Frontend build is run if frontend docs are changed.
+- [x] Backend build is run if backend docs are changed.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current skeleton. `npm test`, `npm run build`, and `dotnet build` passed with Node.js `v22.22.2` and .NET SDK `10.0.107`.
 
 ## Out of Scope
 

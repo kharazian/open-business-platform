@@ -14,9 +14,14 @@ The first version should focus on a strong foundation: form builder, responsive 
 
 The repository currently has the project skeleton:
 
-- ASP.NET Core API host
+- ASP.NET Core minimal API host
 - React frontend shell
+- Frontend module registry for app routes/navigation
 - Shared UI/layout component foundation
+- Shared V1 form schema contracts and validation helpers in frontend and backend code
+- API health and dashboard summary endpoints
+- Real app appearance settings for palette, density, layout, radius, and shadow
+- Lightweight frontend tests for module registry and form schema validation
 - `/theme` playground with sample data
 - Docker Compose for PostgreSQL and Redis
 

@@ -25,13 +25,20 @@ The goal is to start simple and grow step by step into a comprehensive internal 
 
 The repository currently contains a working skeleton, not the full product:
 
-- `src/api`: ASP.NET Core API host targeting .NET 10
-- `src/app`: React/Vite/TypeScript/Tailwind frontend
+- `src/api`: ASP.NET Core minimal API host targeting .NET 10
+- `src/app`: React/React Router/Vite/TypeScript/Tailwind frontend
 - `src/app/src/components`: shared UI and layout primitives
+- `src/app/src/modules` and `src/app/src/platform`: current frontend module registry for routes and navigation
+- `src/app/src/features/forms`: shared V1 form schema types and frontend validation
+- `src/api/Modules/Forms`: shared V1 form schema contracts and backend validation
+- `src/api/Modules/Dashboard`: current dashboard summary API module
+- `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
+- `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
+- `npm test` in `src/app`: lightweight TypeScript logic tests for module registry and form schema validation
 
-Treat existing dashboard/users/reports pages as starter UI. Build product modules through the task files under `tasks/`.
+Treat existing dashboard/users/reports/settings/profile pages as starter UI. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -636,70 +643,77 @@ Features:
 
 Current known stack:
 
-- Frontend: React
-- Backend: ASP.NET Core / .NET Core
-- Database: PostgreSQL
+- Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
+- Backend: ASP.NET Core minimal APIs targeting .NET 10
+- Database: PostgreSQL 16 through Docker Compose
+- Cache/queue foundation: Redis 7 through Docker Compose
+- Package manager: npm
+- Current frontend runtime requirement: Node.js `>=20.19.0`
+- Current frontend tests: Node-based TypeScript logic tests via `npm test`
 
 Recommended additions:
 
-- Frontend language: TypeScript if not already used
-- Frontend styling: Tailwind CSS or current theme system
+- Frontend language: TypeScript is already used
+- Frontend styling: Tailwind CSS and current theme tokens are already used
 - Frontend forms: React Hook Form or existing form library
 - Frontend validation: Zod or equivalent shared client validation
 - Backend ORM: EF Core with Npgsql if not already chosen
 - Backend validation: FluentValidation or built-in validation
 - Backend auth: existing auth, ASP.NET Core Identity, JWT, or external provider
-- Tests: xUnit/NUnit for backend, Vitest/Jest for frontend
+- Tests: current frontend tests are Node-based TypeScript logic checks; add xUnit/NUnit for backend and Vitest/Jest or React Testing Library when fuller coverage is needed
 - Future workflow UI: `@xyflow/react` only for workflow builder
 
 If the existing project already uses different libraries, adapt to it, but keep the architecture modular.
 
 ## 7. Suggested Folder Structure
 
-Frontend:
+Current frontend root:
 
 ```txt
-src/
+src/app/src/
   components/
+  context/
+  config/
+  layouts/
+  pages/
   features/
     forms/
-    records/
-    reports/
-    permissions/
-    triggers/
-    workflows/
-    printing/
-    audit/
-    notifications/
+  modules/
+  platform/
+  theme/
   lib/
-  types/
 ```
 
-Backend:
+Planned product feature folders should be added under `src/app/src/features/` as their tasks are implemented: records, reports, permissions, triggers, workflows, printing, audit, and notifications.
+
+Current frontend shell/theme details:
+
+- `AppShell` is shared by the real app and `/theme` playground.
+- Real app routes come from `src/app/src/modules`.
+- `/theme` routes come from `src/app/src/theme/config/themePages.tsx`.
+- Real app appearance settings are stored under the `appThemeSettings` localStorage key.
+- `/theme` playground appearance settings use separate localStorage keys for layout, palette, sidebar state, color mode, density, and top-nav visibility.
+- Frontend branding reads `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`.
+
+Current backend root:
 
 ```txt
-src/
-  Api/
-    Controllers/
-    Middleware/
-  Application/
+src/api/
+  Modules/
+    Dashboard/
     Forms/
-    Records/
-    Reports/
-    Permissions/
-    Triggers/
-    Workflows/
-    Printing/
-    Audit/
-    Notifications/
-  Domain/
-    Entities/
-    Enums/
-    ValueObjects/
-  Infrastructure/
-    Persistence/
-    Services/
+  Platform/
+  Configuration/
+  Program.cs
 ```
+
+Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: records, reports, permissions, triggers, workflows, printing, audit, and notifications.
+
+Current backend configuration details:
+
+- `DotEnv.LoadFromNearestFile()` loads the nearest `.env` file without overriding existing environment variables.
+- `EnvironmentConfiguration.ApplyDerivedValues()` maps app, branding, bootstrap admin, connection string, URL, and local CORS environment variables into ASP.NET Core configuration.
+- `Directory.Build.props` writes API build output under `.artifacts/api`.
 
 Docs and AI task files:
 
@@ -774,8 +788,10 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current priority is V1:
+The current priority is V1. Project inventory/setup and shared core form schema work are complete for the current skeleton. The next concrete task is database foundation, followed by form list/create:
 
+- Database foundation
+- Form list/create
 - Basic form builder
 - Responsive layout
 - Publish form

@@ -21,11 +21,15 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current skeleton. Shared V1 form field, layout, form version, validation, and record value contracts exist in `src/app/src/features/forms` and `src/api/Modules/Forms`. `npm test`, `npm run build`, and `dotnet build` passed.
 
 ## Out of Scope
 

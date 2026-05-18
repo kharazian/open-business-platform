@@ -6,13 +6,15 @@ Use this checklist to track V1 delivery. Current skeleton work counts only for s
 
 ### Setup
 
-- [ ] Project inventory complete
-- [ ] Real frontend/backend commands documented
-- [ ] Database approach confirmed
+- [x] Project inventory complete
+- [x] Real frontend/backend commands documented
+- [x] Database approach confirmed
 - [ ] Auth approach confirmed
 
 ### Forms
 
+- [x] Core V1 form schema/types shared between frontend and backend
+- [x] Form schema and record value validation helpers
 - [ ] Form list
 - [ ] Create form
 - [ ] Edit form draft
@@ -55,7 +57,9 @@ Use this checklist to track V1 delivery. Current skeleton work counts only for s
 
 ### Quality
 
-- [ ] Backend build passes
-- [ ] Frontend build passes
-- [ ] Core tests pass
+- [x] Backend build passes
+- [x] Frontend build passes
+- [x] Core tests pass
 - [ ] Seed data exists
+
+Note: the current code declares Node.js `>=20.19.0`. `npm test`, `npm run build`, and `dotnet build` passed with Node.js `v22.22.2` and .NET SDK `10.0.107`.

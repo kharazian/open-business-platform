@@ -6,8 +6,8 @@ This project is a modular low-code business form platform.
 
 The current stack is:
 
-- Frontend: React
-- Backend: .NET Core / ASP.NET Core
+- Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
+- Backend: ASP.NET Core minimal APIs targeting .NET 10
 - Database: PostgreSQL
 
 The platform will include:
@@ -142,8 +142,11 @@ Frontend:
 cd src/app
 npm install
 npm run dev -- --host 127.0.0.1 --port 5174
+npm test
 npm run build
 ```
+
+The frontend package requires Node.js `>=20.19.0`.
 
 Backend:
 
@@ -154,7 +157,7 @@ dotnet build
 dotnet run
 ```
 
-Add test commands here when test projects are introduced.
+Current frontend tests are lightweight Node-based checks for shared TypeScript logic. Add `dotnet test` here when backend test projects are introduced.
 
 ## Testing Expectations
 

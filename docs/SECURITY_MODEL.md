@@ -1,6 +1,6 @@
 # Security Model
 
-Status: target model. Authentication and full authorization are not implemented in the current skeleton yet.
+Status: target model. Authentication and full authorization are not implemented in the current skeleton yet. The current `/login` page is a static UI preview and does not authenticate users.
 
 ## Core Rules
 

@@ -1,14 +1,21 @@
 # Roadmap
 
-## Current State: Skeleton and Theme Foundation
+## Current State: Skeleton, Module Registry, and Form Schema Foundation
 
-- ASP.NET Core API host exists.
+- ASP.NET Core minimal API host exists.
 - React frontend shell exists.
 - Shared UI/layout components exist.
+- Frontend app modules and route/navigation registry exist.
+- Backend minimal API module discovery exists.
+- Dashboard summary endpoint exists.
+- Shared V1 form schema contracts and validators exist in frontend and backend code.
+- Real app appearance settings exist and are saved in browser localStorage.
+- `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
+- Lightweight frontend logic tests exist for module registry and form schema validation.
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
 
-Next: finish project inventory/setup, then implement V1 tasks in order.
+Next: continue V1 with the database foundation and then form list/create work.
 
 ## V1: Foundation - Forms and Records
 

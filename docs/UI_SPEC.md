@@ -7,10 +7,17 @@ The frontend already has a shared app shell and design-system foundation:
 - Shared UI components live in `src/app/src/components/ui`.
 - Shared layout components live in `src/app/src/components/layout`.
 - Real app pages live in `src/app/src/pages`.
+- App route/navigation modules live in `src/app/src/modules` and are assembled through `src/app/src/platform/moduleRegistry.ts`.
 - `/theme` is a sample-data playground under `src/app/src/theme`.
 - Both the real app and `/theme` should use the same shared components and classes.
 
 The `/theme` playground can demonstrate many layouts and pages, but it should not own reusable UI primitives.
+
+Current real app pages still use starter/sample data from `src/app/src/lib/data.ts` until backend product entities are implemented.
+
+Current real app appearance settings live on the Settings page and are stored in browser `localStorage` under `appThemeSettings`. They support palette, light/dark/system mode, density, main app layout, border radius, and shadow. These settings affect the real app shell only; the `/theme` playground has its own layout and appearance controls.
+
+Current `/theme` playground routes cover dashboard, users, roles, permissions, audit logs, notifications, calendar, tasks, billing, documents, reports, settings, profile, forms, tables, utility pages, login, register, forgot/reset password, MFA, layouts, and components.
 
 ## Main Navigation
 

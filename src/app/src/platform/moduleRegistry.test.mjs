@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 
 const outDir = "/tmp/obp-platform-module-registry-test";
 
@@ -14,12 +15,15 @@ execFileSync(
     "--target",
     "ES2022",
     "--module",
-    "ES2022",
+    "CommonJS",
     "--moduleResolution",
-    "Bundler",
+    "Node",
+    "--ignoreDeprecations",
+    "6.0",
     "--outDir",
     outDir,
-    "--skipLibCheck"
+    "--skipLibCheck",
+    "--strict"
   ],
   { stdio: "inherit" }
 );
@@ -27,7 +31,8 @@ execFileSync(
 const emittedRegistryPath = existsSync(`${outDir}/platform/moduleRegistry.js`)
   ? `${outDir}/platform/moduleRegistry.js`
   : `${outDir}/moduleRegistry.js`;
-const registry = await import(`${emittedRegistryPath}?cache=${Date.now()}`);
+const require = createRequire(import.meta.url);
+const registry = require(emittedRegistryPath);
 
 const modules = [
   {

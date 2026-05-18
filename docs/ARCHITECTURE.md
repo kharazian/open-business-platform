@@ -6,7 +6,7 @@ The platform is a modular monolith.
 
 The current repository starts with:
 
-- `src/api`: ASP.NET Core API host
+- `src/api`: ASP.NET Core minimal API host
 - `src/app`: React frontend
 - `docker-compose.yml`: PostgreSQL and Redis for local development
 - `docs`: product and architecture documentation
@@ -45,14 +45,30 @@ src/app/src/
     forms/
   layouts/
   pages/
-  platform/
   modules/
+  platform/
   theme/
     pages/
     config/
     mockData.ts
   lib/
 ```
+
+Current frontend module registry:
+
+- `src/app/src/modules/index.ts` exports the app modules.
+- Each file under `src/app/src/modules/*/module.tsx` implements `PlatformModule`.
+- `src/app/src/platform/moduleRegistry.ts` sorts modules by `order`, exposes routes, and derives navigation.
+- Current app modules are dashboard, users, reports, settings, and profile.
+- Real app routes are generated from modules in `App.tsx`; `/theme` routes are generated separately from the theme page config.
+
+Current frontend shell/theme behavior:
+
+- `AppThemeProvider` owns the real app appearance settings and persists them to the `appThemeSettings` localStorage key.
+- Real app appearance settings include palette, color mode, density, app layout, radius, and shadow.
+- `ThemeAppearanceProvider` owns the `/theme` playground appearance controls separately from the real app shell.
+- `AppShell` is shared by the real app and `/theme`, with layout modes for topbar, sidebar, collapsed sidebar, hover-collapsed sidebar, hybrid, and minimal shells.
+- `src/app/src/config/branding.ts` reads frontend branding from `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`.
 
 Future feature structure:
 
@@ -97,8 +113,19 @@ src/api/
     Dashboard/
     Forms/
   Platform/
+  Configuration/
   Program.cs
 ```
+
+Current backend module behavior:
+
+- `Program.cs` maps `/health` directly.
+- `Platform/IPlatformApiModule.cs` discovers API modules in the assembly and maps their endpoints.
+- `Modules/Dashboard` maps `GET /api/dashboard/summary`.
+- `Modules/Forms` currently contains shared V1 form schema contracts and validation logic, but no persistence or form endpoints yet.
+- `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
+- `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
+- `Directory.Build.props` redirects API build output to `.artifacts/api`.
 
 Future backend module structure:
 

@@ -4,6 +4,8 @@
 
 The current skeleton has build validation and lightweight frontend logic tests, but no dedicated frontend/backend test projects yet.
 
+The frontend package declares Node.js `>=20.19.0`. `npm run build` relies on Vite and should be run with that Node version or newer.
+
 Current validation commands:
 
 ```bash
@@ -16,6 +18,8 @@ npm run build
 cd src/api
 dotnet build
 ```
+
+`npx tsc --noEmit` can be used as a frontend type-check fallback when the local Node version can run TypeScript but is too old for Vite.
 
 The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
@@ -89,15 +93,16 @@ Use for:
 
 ## Test Commands
 
-Future commands:
+Current frontend command:
 
 Frontend:
 
 ```bash
-npm run test
+cd src/app
+npm test
 ```
 
-Backend:
+Future backend command once test projects are introduced:
 
 ```bash
 dotnet test
