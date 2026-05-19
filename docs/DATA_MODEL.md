@@ -4,12 +4,43 @@
 
 Database: PostgreSQL
 
-Status: proposed model. The current backend skeleton does not yet include EF Core or migrations. It does include typed V1 form schema contracts and validation helpers in `src/api/Modules/Forms`.
+Status: V1 database foundation implemented for core identity, form, record, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+
+The initial migration includes:
+
+- `users`, `roles`, `user_roles`
+- `departments`, `user_departments`
+- `forms`, `form_versions`
+- `records`
+- `audit_logs`
+
+Reports, permissions, triggers, trigger logs, and print templates remain target tables for later tasks.
 
 Recommended approach:
 
 - Relational tables for core entities.
 - JSONB for dynamic schema/config/value structures.
+- Internal persisted entity IDs use PostgreSQL `uuid`/C# `Guid`.
+- External authentication subject IDs are stored separately from the platform user primary key.
+
+## Entity Foundation
+
+The backend uses a small framework-lite entity foundation under `src/api/Domain/Common`.
+
+Current base types:
+
+- `Entity<TKey>`
+- `AggregateRoot<TKey>`
+- `CreationAuditedEntity<TKey>`
+- `AuditedEntity<TKey>`
+- `FullAuditedEntity<TKey>`
+- `CreationAuditedAggregateRoot<TKey>`
+- `AuditedAggregateRoot<TKey>`
+- `FullAuditedAggregateRoot<TKey>`
+
+Current capability interfaces include active status, concurrency stamp, soft delete, extra JSON properties, creation audit, modification audit, and deletion audit.
+
+Generic CRUD primitives live under `src/api/Application/Common`, but generic CRUD should only be used for straightforward management resources. Form publishing, record submission, permission evaluation, trigger execution, workflow approval, and audit writing remain custom business flows.
 
 ## Core Tables
 
@@ -19,20 +50,33 @@ Represents application users or maps to existing auth users.
 
 Fields:
 
-- id
+- id uuid
 - name
 - email
 - is_active
+- external_provider nullable
+- external_user_id nullable
+- concurrency_stamp
+- extra_properties_json JSONB nullable
 - created_at
-- updated_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
 
 ### roles
 
 Fields:
 
-- id
+- id uuid
 - name
 - description
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
 
 ### groups
 
@@ -46,17 +90,24 @@ Fields:
 
 Fields:
 
-- id
+- id uuid
 - name
-- parent_department_id
-- manager_user_id
+- parent_department_id nullable
+- manager_user_id nullable
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
 
 ### user_roles
 
 Fields:
 
-- user_id
-- role_id
+- user_id uuid
+- role_id uuid
 
 ### user_groups
 
@@ -69,8 +120,8 @@ Fields:
 
 Fields:
 
-- user_id
-- department_id
+- user_id uuid
+- department_id uuid
 - is_primary
 
 ## Forms
@@ -79,28 +130,35 @@ Fields:
 
 Fields:
 
-- id
+- id uuid
 - name
 - description
 - status: draft, published, archived
-- current_version_id
-- created_by
+- current_version_id nullable
+- concurrency_stamp
+- extra_properties_json JSONB nullable
 - created_at
-- updated_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+- is_deleted
+- deleted_at nullable
+- deleted_by_id nullable
 
 ### form_versions
 
 Fields:
 
-- id
-- form_id
+- id uuid
+- form_id uuid
 - version_number
 - schema_json JSONB
 - layout_json JSONB
 - validation_json JSONB
-- published_by
+- published_by_id nullable
 - published_at
 - created_at
+- created_by_id nullable
 
 The form version is immutable after publish.
 The current in-code `FormSchemaDefinition` includes layout inside the schema object. Persistence can either store that canonical schema together in `schema_json` or split layout/validation into separate JSONB columns as long as API contracts remain consistent.
@@ -111,18 +169,22 @@ The current in-code `FormSchemaDefinition` includes layout inside the schema obj
 
 Fields:
 
-- id
-- form_id
-- form_version_id
+- id uuid
+- form_id uuid
+- form_version_id uuid
 - status
-- owner_id
-- department_id
+- owner_id nullable
+- department_id nullable
 - values_json JSONB
-- created_by
-- updated_by
+- concurrency_stamp
+- extra_properties_json JSONB nullable
 - created_at
-- updated_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+- is_deleted
 - deleted_at nullable
+- deleted_by_id nullable
 
 Important indexes:
 
@@ -131,7 +193,7 @@ Important indexes:
 - status
 - owner_id
 - department_id
-- created_by
+- created_by_id
 - created_at
 
 ## Reports
@@ -145,7 +207,7 @@ Fields:
 - name
 - type: list, detail, summary, dashboard
 - config_json JSONB
-- created_by
+- created_by_id
 - created_at
 - updated_at
 
@@ -179,7 +241,7 @@ Fields:
 - conditions_json JSONB
 - actions_json JSONB
 - is_enabled
-- created_by
+- created_by_id
 - created_at
 - updated_at
 
@@ -205,11 +267,11 @@ Fields:
 
 Fields:
 
-- id
+- id uuid
 - entity_type
-- entity_id
+- entity_id uuid
 - action
-- user_id
+- user_id nullable
 - before_json JSONB nullable
 - after_json JSONB nullable
 - metadata_json JSONB nullable
@@ -227,7 +289,7 @@ Fields:
 - name
 - type: record, list
 - config_json JSONB
-- created_by
+- created_by_id
 - created_at
 - updated_at
 

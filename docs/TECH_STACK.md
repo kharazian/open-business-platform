@@ -4,6 +4,7 @@
 
 - Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
 - Backend: ASP.NET Core minimal APIs targeting .NET 10
+- Backend persistence: EF Core with Npgsql
 - Database: PostgreSQL 16 through Docker Compose
 - Cache/queue foundation: Redis 7 through Docker Compose
 - Package manager: npm
@@ -17,6 +18,8 @@ Current runtime/configuration details:
 - Vite loads the repository root `.env` through `envDir` and proxies `/api` and `/health` to `VITE_API_BASE_URL`.
 - The backend loads the nearest `.env` file, derives PostgreSQL/Redis connection strings, and configures local CORS from `VITE_APP_PORT`.
 - The API uses minimal endpoint modules discovered through `IPlatformApiModule`; it does not use controllers yet.
+- EF Core persistence lives in `src/api/Infrastructure/Persistence`, domain entity bases in `src/api/Domain/Common`, domain entities in `src/api/Domain/Entities`, and CRUD application primitives in `src/api/Application/Common`.
+- Internal persisted entities use PostgreSQL `uuid` / C# `Guid` IDs, with external auth IDs stored separately on users.
 
 ## Current Frontend Foundation
 
@@ -41,8 +44,6 @@ Use these only when a task needs them:
 Use these only when a task needs them:
 
 - ASP.NET Core Web API
-- EF Core
-- Npgsql PostgreSQL provider
 - FluentValidation or built-in validation
 - ASP.NET Core Identity, JWT, or existing auth provider
 - xUnit or NUnit for tests
@@ -76,7 +77,7 @@ Use normal relational columns for common filters:
 - `status`
 - `owner_id`
 - `department_id`
-- `created_by`
+- `created_by_id`
 - `created_at`
 - `updated_at`
 
@@ -95,6 +96,7 @@ Backend:
 
 ```bash
 dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
+dotnet ef migrations has-pending-model-changes --project src/api/OpenBusinessPlatform.Api.csproj --startup-project src/api/OpenBusinessPlatform.Api.csproj
 cd src/api
 dotnet restore
 dotnet build

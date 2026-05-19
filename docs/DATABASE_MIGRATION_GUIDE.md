@@ -4,17 +4,48 @@
 
 PostgreSQL.
 
-## Preferred Migration Tool
+## Migration Tool
 
-The current backend skeleton does not yet include EF Core migrations.
+The backend uses EF Core migrations with the Npgsql PostgreSQL provider.
 
-When EF Core is added, use EF Core migrations unless the project deliberately chooses another migration tool.
+Migrations live under:
 
-If using EF Core:
+```txt
+src/api/Infrastructure/Persistence/Migrations
+```
+
+If `dotnet ef` is not installed locally, install a compatible EF Core tool version:
 
 ```bash
-dotnet ef migrations add MigrationName
-dotnet ef database update
+dotnet tool install --global dotnet-ef --version 10.0.4
+```
+
+Generate a migration:
+
+```bash
+dotnet ef migrations add MigrationName \
+  --project src/api/OpenBusinessPlatform.Api.csproj \
+  --startup-project src/api/OpenBusinessPlatform.Api.csproj \
+  --output-dir Infrastructure/Persistence/Migrations
+```
+
+Apply migrations locally after PostgreSQL is running:
+
+```bash
+docker compose up -d
+dotnet ef database update \
+  --project src/api/OpenBusinessPlatform.Api.csproj \
+  --startup-project src/api/OpenBusinessPlatform.Api.csproj
+```
+
+If `database update` reports password authentication failures, the existing Docker volume may have been initialized with older credentials. Either use the password that initialized the volume or intentionally recreate the local development volume after confirming no local data needs to be kept.
+
+Check that the model matches the committed migration:
+
+```bash
+dotnet ef migrations has-pending-model-changes \
+  --project src/api/OpenBusinessPlatform.Api.csproj \
+  --startup-project src/api/OpenBusinessPlatform.Api.csproj
 ```
 
 ## Migration Rules
@@ -34,7 +65,7 @@ Records:
 - status
 - owner_id
 - department_id
-- created_by
+- created_by_id
 - created_at
 
 Reports:

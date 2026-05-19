@@ -109,9 +109,17 @@ Current backend structure:
 
 ```txt
 src/api/
+  Application/
+    Common/
+  Domain/
+    Common/
+    Entities/
+  Infrastructure/
+    Persistence/
   Modules/
     Dashboard/
     Forms/
+    Identity/
   Platform/
   Configuration/
   Program.cs
@@ -121,7 +129,12 @@ Current backend module behavior:
 
 - `Program.cs` maps `/health` directly.
 - `Platform/IPlatformApiModule.cs` discovers API modules in the assembly and maps their endpoints.
+- `Application/Common` contains DTO, paging, repository, and CRUD service base primitives for simple management resources.
+- `Domain/Common` contains framework-lite entity base classes and capability interfaces for Guid IDs, auditing, soft delete, concurrency stamps, active status, and extra JSON properties.
+- `Infrastructure/Persistence/OpenBusinessPlatformDbContext.cs` maps the V1 PostgreSQL tables for users, roles, departments, forms, form versions, records, and audit logs.
+- `Infrastructure/Persistence/Migrations` contains EF Core migrations.
 - `Modules/Dashboard` maps `GET /api/dashboard/summary`.
+- `Modules/Identity` maps bootstrap-admin cookie authentication endpoints.
 - `Modules/Forms` currently contains shared V1 form schema contracts and validation logic, but no persistence or form endpoints yet.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
@@ -157,11 +170,13 @@ Application service responsibility:
 - Transactions
 - Audit logs
 - Trigger dispatch
+- Use generic CRUD base services only for straightforward admin/config entities.
+- Use custom services for form publishing, record submission, permission evaluation, triggers, workflows, and audit writing.
 
 Infrastructure responsibility:
 
 - EF Core DbContext
-- Repositories if used
+- EF repository implementation for `IRepository<TEntity, TKey>`
 - Email provider
 - File storage
 - PDF generation later

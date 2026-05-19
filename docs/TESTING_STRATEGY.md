@@ -20,7 +20,7 @@ cd src/api
 dotnet build
 ```
 
-The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. The backend test harness runs focused assertions without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
+The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 ## Backend Tests
 
@@ -105,4 +105,5 @@ Backend:
 
 ```bash
 dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
+dotnet ef migrations has-pending-model-changes --project src/api/OpenBusinessPlatform.Api.csproj --startup-project src/api/OpenBusinessPlatform.Api.csproj
 ```

@@ -645,6 +645,7 @@ Current known stack:
 
 - Frontend: React, React Router, Vite, TypeScript, Tailwind CSS, lucide-react
 - Backend: ASP.NET Core minimal APIs targeting .NET 10
+- Backend persistence: EF Core with Npgsql
 - Database: PostgreSQL 16 through Docker Compose
 - Cache/queue foundation: Redis 7 through Docker Compose
 - Package manager: npm
@@ -657,7 +658,6 @@ Recommended additions:
 - Frontend styling: Tailwind CSS and current theme tokens are already used
 - Frontend forms: React Hook Form or existing form library
 - Frontend validation: Zod or equivalent shared client validation
-- Backend ORM: EF Core with Npgsql if not already chosen
 - Backend validation: FluentValidation or built-in validation
 - Backend auth: existing auth, ASP.NET Core Identity, JWT, or external provider
 - Tests: current frontend tests are Node-based TypeScript logic checks; add xUnit/NUnit for backend and Vitest/Jest or React Testing Library when fuller coverage is needed
@@ -699,9 +699,17 @@ Current backend root:
 
 ```txt
 src/api/
+  Application/
+    Common/
+  Domain/
+    Common/
+    Entities/
+  Infrastructure/
+    Persistence/
   Modules/
     Dashboard/
     Forms/
+    Identity/
   Platform/
   Configuration/
   Program.cs
@@ -713,6 +721,8 @@ Current backend configuration details:
 
 - `DotEnv.LoadFromNearestFile()` loads the nearest `.env` file without overriding existing environment variables.
 - `EnvironmentConfiguration.ApplyDerivedValues()` maps app, branding, bootstrap admin, connection string, URL, and local CORS environment variables into ASP.NET Core configuration.
+- `OpenBusinessPlatformDbContext` maps the V1 database foundation and uses EF Core migrations under `src/api/Infrastructure/Persistence/Migrations`.
+- Persisted domain entities use PostgreSQL `uuid` / C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, and CRUD application primitives under `src/api/Application/Common`.
 - `Directory.Build.props` writes API build output under `.artifacts/api`.
 
 Docs and AI task files:

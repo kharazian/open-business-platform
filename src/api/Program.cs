@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Platform;
+using Scalar.AspNetCore;
 
 DotEnv.LoadFromNearestFile();
 EnvironmentConfiguration.ApplyDerivedValues();
@@ -11,6 +15,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ApplicationOptions>(builder.Configuration.GetSection(ApplicationOptions.SectionName));
 builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection(BrandingOptions.SectionName));
 builder.Services.Configure<BootstrapAdminOptions>(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName));
+builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
+});
+builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,>));
+builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -32,6 +42,7 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddOpenApi();
 
 var allowedOrigins = GetAllowedOrigins(builder.Configuration);
 
@@ -51,6 +62,12 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+    app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "Open Business Platform API v1");
+    });
+    app.MapScalarApiReference();
     app.UseCors("LocalDevelopment");
 }
 

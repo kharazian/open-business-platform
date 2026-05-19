@@ -6,6 +6,16 @@ Adapt endpoint names to the existing project style.
 
 Status: draft. The current API skeleton exposes only the health endpoint and the dashboard summary endpoint. Add product APIs task by task as modules are implemented.
 
+## Local API Explorer
+
+In development, the backend exposes OpenAPI documentation for local browsing and ad-hoc testing:
+
+- OpenAPI JSON: `GET /openapi/v1.json`
+- Swagger UI: `/swagger`
+- Scalar UI: `/scalar`
+
+These endpoints are enabled only when the ASP.NET Core environment is `Development`.
+
 ## Current Implemented Endpoints
 
 ### Health

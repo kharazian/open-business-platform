@@ -26,6 +26,7 @@ The repository currently includes:
 - `/theme` playground for sample-data UI, layout, component, workspace, and authentication demos
 - Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
+- Development API explorer at `http://localhost:5080/swagger` and `http://localhost:5080/scalar`
 - API dashboard summary endpoint at `http://localhost:5080/api/dashboard/summary`
 
 ## Product Direction
@@ -84,6 +85,19 @@ Check the health endpoint:
 curl http://localhost:5080/health
 ```
 
+In development, browse the backend API with either UI:
+
+```text
+http://localhost:5080/swagger
+http://localhost:5080/scalar
+```
+
+The generated OpenAPI document is available at:
+
+```text
+http://localhost:5080/openapi/v1.json
+```
+
 The app signs in with the server-only bootstrap admin from `.env`:
 
 ```text
@@ -135,11 +149,14 @@ Backend:
 
 ```bash
 dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
+dotnet ef migrations has-pending-model-changes --project src/api/OpenBusinessPlatform.Api.csproj --startup-project src/api/OpenBusinessPlatform.Api.csproj
 cd src/api
 dotnet build
 ```
 
 The API writes generated build artifacts to `.artifacts/api` so local runs are isolated from stale `bin` or `obj` folders.
+
+The backend persistence foundation uses EF Core with PostgreSQL `uuid`/C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, and reusable CRUD primitives under `src/api/Application/Common`.
 
 ## Local Services
 
@@ -152,6 +169,12 @@ Development PostgreSQL connection:
 
 ```text
 Host=localhost;Port=5432;Database=open_business_platform;Username=obp;Password=obp_dev_password
+```
+
+Apply EF Core migrations after PostgreSQL is running:
+
+```bash
+dotnet ef database update --project src/api/OpenBusinessPlatform.Api.csproj --startup-project src/api/OpenBusinessPlatform.Api.csproj
 ```
 
 ## Environment Configuration
