@@ -1,10 +1,47 @@
-import { Link } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { appBranding } from "../config/branding";
+import { useAuth } from "../context/AuthContext";
+
+type LoginLocationState = {
+  from?: {
+    pathname?: string;
+  };
+};
 
 export function Login() {
+  const { signIn, status } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("admin@company.test");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const locationState = location.state as LoginLocationState | null;
+  const destination = locationState?.from?.pathname ?? "/";
+
+  if (status === "authenticated") {
+    return <Navigate replace to={destination} />;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await signIn({ email, password });
+      navigate(destination, { replace: true });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Sign in failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <main className="grid min-h-screen place-items-center px-4 py-10">
       <Card className="w-full max-w-md p-6">
@@ -16,20 +53,30 @@ export function Login() {
           <p className="mt-2 text-sm text-muted-foreground">Access the {appBranding.appName} dashboard.</p>
         </div>
 
-        <form className="grid gap-4">
-          <Input label="Email" placeholder="admin@company.test" type="email" />
-          <Input label="Password" placeholder="Enter your password" type="password" />
-          <Button type="submit" className="mt-2 w-full">
-            Sign in
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <Input
+            autoComplete="email"
+            label="Email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="admin@company.test"
+            required
+            type="email"
+            value={email}
+          />
+          <Input
+            autoComplete="current-password"
+            error={error ?? undefined}
+            label="Password"
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Enter your password"
+            required
+            type="password"
+            value={password}
+          />
+          <Button type="submit" className="mt-2 w-full" disabled={submitting}>
+            {submitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-
-        <p className="mt-5 text-center text-sm text-muted-foreground">
-          Previewing the app?{" "}
-          <Link className="font-bold text-primary hover:underline" to="/">
-            Open dashboard
-          </Link>
-        </p>
       </Card>
     </main>
   );

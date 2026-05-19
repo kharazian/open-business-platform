@@ -84,6 +84,13 @@ Check the health endpoint:
 curl http://localhost:5080/health
 ```
 
+The app signs in with the server-only bootstrap admin from `.env`:
+
+```text
+BOOTSTRAP_ADMIN_EMAIL=admin@company.test
+BOOTSTRAP_ADMIN_PASSWORD=change-me-before-use
+```
+
 Run the frontend in another terminal:
 
 ```bash
@@ -127,6 +134,7 @@ npm run build
 Backend:
 
 ```bash
+dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
 cd src/api
 dotnet build
 ```

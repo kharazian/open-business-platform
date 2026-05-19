@@ -111,7 +111,49 @@ Canonical draft/version schema shape:
 
 Backend APIs must validate schema changes and submitted record values before persistence.
 
-The shared validation logic already exists in frontend and backend code, but form/record persistence endpoints have not been implemented yet. The sections below are proposed APIs for upcoming tasks.
+## Auth
+
+The current V1 auth foundation uses a server-only bootstrap admin configured through `.env`.
+
+### Login
+
+`POST /api/auth/login`
+
+Request:
+
+```json
+{
+  "email": "admin@company.test",
+  "password": "change-me-before-use"
+}
+```
+
+Response:
+
+```json
+{
+  "user": {
+    "id": "bootstrap-admin",
+    "name": "Platform Admin",
+    "email": "admin@company.test",
+    "roles": ["Admin"]
+  }
+}
+```
+
+The API sets an HTTP-only auth cookie.
+
+### Current user
+
+`GET /api/auth/me`
+
+Requires authentication.
+
+### Logout
+
+`POST /api/auth/logout`
+
+Requires authentication and clears the auth cookie.
 
 ## Forms
 

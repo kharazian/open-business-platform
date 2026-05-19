@@ -96,7 +96,7 @@ export function Dropdown({
               placementClasses[resolvedPlacement],
               contentClassName
             )}
-            onClickCapture={closeOnContentClick ? () => setOpen(false) : undefined}
+            onClick={closeOnContentClick ? () => setOpen(false) : undefined}
           >
             {items
               ? items.map((item) => (

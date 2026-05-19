@@ -5,6 +5,7 @@ public static class DashboardEndpoints
     public static IEndpointRouteBuilder MapDashboardEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/dashboard").WithTags("Dashboard");
+        group.RequireAuthorization();
 
         group.MapGet("/summary", () => Results.Ok(new DashboardSummaryResponse(
             "Open Business Platform",

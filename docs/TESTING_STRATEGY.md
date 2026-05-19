@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The current skeleton has build validation and lightweight frontend logic tests, but no dedicated frontend/backend test projects yet.
+The current skeleton has build validation, lightweight frontend logic tests, and a lightweight backend executable test harness.
 
 The frontend package declares Node.js `>=20.19.0`. `npm run build` relies on Vite and should be run with that Node version or newer.
 
@@ -15,13 +15,12 @@ npm run build
 ```
 
 ```bash
+dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
 cd src/api
 dotnet build
 ```
 
-`npx tsc --noEmit` can be used as a frontend type-check fallback when the local Node version can run TypeScript but is too old for Vite.
-
-The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
+The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. The backend test harness runs focused assertions without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 ## Backend Tests
 
@@ -93,7 +92,7 @@ Use for:
 
 ## Test Commands
 
-Current frontend command:
+Current commands:
 
 Frontend:
 
@@ -102,8 +101,8 @@ cd src/app
 npm test
 ```
 
-Future backend command once test projects are introduced:
+Backend:
 
 ```bash
-dotnet test
+dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
 ```

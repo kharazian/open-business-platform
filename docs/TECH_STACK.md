@@ -94,6 +94,7 @@ npm run build
 Backend:
 
 ```bash
+dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
 cd src/api
 dotnet restore
 dotnet build
@@ -120,7 +121,7 @@ cd src/app
 npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-The current frontend `npm test` script runs lightweight Node-based tests for shared TypeScript logic. Add `dotnet test` after backend test projects are introduced.
+The backend test project is a lightweight executable test harness until a formal xUnit/NUnit project is introduced.
 
 ## Local Environment
 

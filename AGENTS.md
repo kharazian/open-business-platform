@@ -151,13 +151,14 @@ The frontend package requires Node.js `>=20.19.0`.
 Backend:
 
 ```bash
+dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj
 cd src/api
 dotnet restore
 dotnet build
 dotnet run
 ```
 
-Current frontend tests are lightweight Node-based checks for shared TypeScript logic. Add `dotnet test` here when backend test projects are introduced.
+The backend test project is currently a lightweight executable test harness. Replace or supplement it with `dotnet test` when a formal test project is introduced.
 
 ## Testing Expectations
 

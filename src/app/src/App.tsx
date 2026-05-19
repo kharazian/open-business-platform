@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "./layouts/AppLayout";
 import { ThemeLayout } from "./layouts/ThemeLayout";
 import { Login } from "./pages/Login";
 import { AppThemeProvider } from "./context/AppThemeContext";
+import { useAuth } from "./context/AuthContext";
 import { platformModules } from "./modules";
 import { getModuleRoutes } from "./platform/moduleRegistry";
 import { themePages } from "./theme/config/themePages";
@@ -37,7 +38,13 @@ function App() {
     <AppThemeProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route element={<AppLayout theme={theme} onThemeToggle={toggleTheme} />}>
+        <Route
+          element={
+            <RequireAuth>
+              <AppLayout theme={theme} onThemeToggle={toggleTheme} />
+            </RequireAuth>
+          }
+        >
           {appRoutes.map((route) =>
             route.index ? (
               <Route index element={route.element} key="index" />
@@ -59,6 +66,25 @@ function App() {
       </Routes>
     </AppThemeProvider>
   );
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { status } = useAuth();
+  const location = useLocation();
+
+  if (status === "loading") {
+    return (
+      <main className="grid min-h-screen place-items-center bg-background px-4 text-sm font-semibold text-muted-foreground">
+        Loading...
+      </main>
+    );
+  }
+
+  if (status === "anonymous") {
+    return <Navigate replace to="/login" state={{ from: location }} />;
+  }
+
+  return children;
 }
 
 export default App;
