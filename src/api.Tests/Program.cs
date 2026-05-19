@@ -210,6 +210,27 @@ var formAccessOption = new FormAccessOptionDto(sampleDepartmentId, "Expense requ
 AssertEqual(sampleDepartmentId, formAccessOption.Id, "Form access option should expose the form id.");
 AssertEqual("Expense request", formAccessOption.Name, "Form access option should expose the form name.");
 
+var formSummary = new FormSummaryDto(
+    sampleDepartmentId,
+    "Expense request",
+    "Employee reimbursement intake.",
+    "draft",
+    0,
+    null,
+    "form-stamp",
+    sampleCreatedAt,
+    null,
+    sampleUpdatedAt,
+    null);
+AssertEqual(sampleDepartmentId, formSummary.Id, "Form summary DTO should expose the form id.");
+AssertEqual("draft", formSummary.Status, "Form summary DTO should expose the form status.");
+AssertEqual(0, formSummary.FieldCount, "New form summaries should expose the field count.");
+
+var createForm = new CreateFormRequest("Expense request", "Employee reimbursement intake.");
+AssertEqual("Expense request", createForm.Name, "Create form request should carry the form name.");
+AssertEqual("Employee reimbursement intake.", createForm.Description, "Create form request should carry the optional description.");
+AssertTypeAssignable<object, FormManagementService>();
+
 static void AssertEqual<T>(T expected, T actual, string message)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))

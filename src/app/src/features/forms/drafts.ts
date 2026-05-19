@@ -11,7 +11,7 @@ export type FormSummary = {
   fieldCount: number;
   currentVersionId?: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 };
 
 export type CreateFormDraftInput = {

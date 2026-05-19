@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
+using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Platform;
 using Scalar.AspNetCore;
@@ -24,6 +25,7 @@ builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddScoped<IdentityManagementService>();
+builder.Services.AddScoped<FormManagementService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

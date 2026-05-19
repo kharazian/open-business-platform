@@ -292,11 +292,11 @@ Requires `roles.manage`.
 
 Requires `roles.manage` or `forms.manage_all`. Returns form rows for the role-permissions matrix.
 
-## Forms
-
-### List forms
+### Forms
 
 `GET /api/forms`
+
+Requires authentication plus `menu.forms`, `forms.create`, or `forms.manage_all`.
 
 Response:
 
@@ -304,18 +304,25 @@ Response:
 {
   "items": [
     {
-      "id": "form_1",
+      "id": "00000000-0000-0000-0000-000000000000",
       "name": "Employee Form",
-      "status": "published",
-      "currentVersionId": "version_1"
+      "description": "Employee information",
+      "status": "draft",
+      "fieldCount": 0,
+      "currentVersionId": null,
+      "concurrencyStamp": "stamp",
+      "createdAt": "2026-05-19T00:00:00Z",
+      "createdById": null,
+      "updatedAt": null,
+      "updatedById": null
     }
   ]
 }
 ```
 
-### Create form
-
 `POST /api/forms`
+
+Requires authentication plus `forms.create` or `forms.manage_all`.
 
 Request:
 
@@ -325,6 +332,14 @@ Request:
   "description": "Employee information"
 }
 ```
+
+Response: `201 Created` with a form summary. New forms are created as drafts.
+
+## Forms
+
+### Future form editing
+
+The following form editing and publishing endpoints are planned for later V1 tasks.
 
 ### Get form draft
 

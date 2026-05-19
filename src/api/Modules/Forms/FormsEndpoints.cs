@@ -10,6 +10,39 @@ public static class FormsEndpoints
     {
         var group = endpoints.MapGroup("/api/forms").WithTags("Forms").RequireAuthorization();
 
+        group.MapGet("", async (
+            FormManagementService formManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanListFormsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await formManagement.ListFormsAsync(cancellationToken) });
+        });
+
+        group.MapPost("", async (
+            CreateFormRequest request,
+            FormManagementService formManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanCreateFormsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleFormRequestAsync(async () =>
+            {
+                var form = await formManagement.CreateFormAsync(request, cancellationToken);
+                return Results.Created($"/api/forms/{form.Id}", form);
+            });
+        });
+
         group.MapGet("/access-options", async (
             OpenBusinessPlatformDbContext dbContext,
             PermissionService permissionService,
@@ -35,5 +68,36 @@ public static class FormsEndpoints
         });
 
         return endpoints;
+    }
+
+    private static async Task<bool> CanListFormsAsync(
+        PermissionService permissionService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Menu.Forms, cancellationToken)
+            || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.Create, cancellationToken)
+            || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.ManageAll, cancellationToken);
+    }
+
+    private static async Task<bool> CanCreateFormsAsync(
+        PermissionService permissionService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.Create, cancellationToken)
+            || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.ManageAll, cancellationToken);
+    }
+
+    private static async Task<IResult> HandleFormRequestAsync(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (FormManagementException exception)
+        {
+            return Results.Json(new FormErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
     }
 }

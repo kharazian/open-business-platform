@@ -1,5 +1,7 @@
-import { type FormEvent, useMemo, useState } from "react";
-import { FileText, Plus, Search } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { FileText, Plus, RefreshCw, Search, Wrench } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/Card";
@@ -8,14 +10,15 @@ import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { Textarea } from "../../../components/ui/Textarea";
+import { cn } from "../../../lib/cn";
+import { createForm, listForms } from "../api";
 import {
-  createFormDraftSummary,
   filterFormSummaries,
   formStatuses,
   getFormStatusLabel,
-  sampleFormSummaries,
   validateCreateFormDraftInput,
   type FormStatus,
   type FormStatusFilter,
@@ -59,23 +62,49 @@ const formColumns: Array<TableColumn<FormSummary>> = [
   },
   {
     header: "Updated",
-    render: (form) => formatDate(form.updatedAt)
+    render: (form) => formatDate(form.updatedAt ?? form.createdAt)
+  },
+  {
+    header: "Actions",
+    render: (form) => (
+      <BuildFormLink formId={form.id} />
+    )
   }
 ];
 
 export function FormsListPage() {
-  const [forms, setForms] = useState<FormSummary[]>(sampleFormSummaries);
+  const [forms, setForms] = useState<FormSummary[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<FormStatusFilter>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [nameError, setNameError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refreshForms();
+  }, []);
 
   const filteredForms = useMemo(() => filterFormSummaries(forms, { query, status }), [forms, query, status]);
   const draftCount = forms.filter((form) => form.status === "draft").length;
   const publishedCount = forms.filter((form) => form.status === "published").length;
   const archivedCount = forms.filter((form) => form.status === "archived").length;
+
+  async function refreshForms() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      setForms(await listForms());
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function openCreateModal() {
     setCreateOpen(true);
@@ -89,7 +118,7 @@ export function FormsListPage() {
     setNameError(undefined);
   }
 
-  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const validation = validateCreateFormDraftInput({ name, description });
@@ -99,8 +128,18 @@ export function FormsListPage() {
       return;
     }
 
-    setForms((currentForms) => [createFormDraftSummary({ name, description }), ...currentForms]);
-    closeCreateModal();
+    setSaving(true);
+    setError(null);
+
+    try {
+      const created = await createForm(validation.value);
+      setForms((currentForms) => [created, ...currentForms]);
+      closeCreateModal();
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function clearFilters() {
@@ -115,12 +154,20 @@ export function FormsListPage() {
         title="Form drafts"
         description="Create and manage the forms that will collect records across the workspace."
         actions={
-          <Button onClick={openCreateModal}>
-            <Plus className="size-4" />
-            Create form
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={loading} onClick={() => void refreshForms()} variant="outline">
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+            <Button onClick={openCreateModal}>
+              <Plus className="size-4" />
+              Create form
+            </Button>
+          </div>
         }
       />
+
+      {error ? <Alert title="Forms">{error}</Alert> : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <SummaryTile label="Drafts" value={draftCount} />
@@ -150,7 +197,9 @@ export function FormsListPage() {
             />
           </div>
 
-          {filteredForms.length > 0 ? (
+          {loading ? (
+            <LoadingForms />
+          ) : filteredForms.length > 0 ? (
             <>
               <div className="hidden md:block">
                 <Table columns={formColumns} rows={filteredForms} />
@@ -163,12 +212,23 @@ export function FormsListPage() {
             </>
           ) : (
             <EmptyState
-              title="No forms found"
-              description="No form summaries match the current search and status filters."
+              title={forms.length === 0 && !query && status === "all" ? "No forms yet" : "No forms found"}
+              description={
+                forms.length === 0 && !query && status === "all"
+                  ? "Create the first draft form before adding fields, layout, or publishing."
+                  : "No form summaries match the current search and status filters."
+              }
               action={
-                <Button onClick={clearFilters} variant="outline">
-                  Clear filters
-                </Button>
+                forms.length === 0 && !query && status === "all" ? (
+                  <Button onClick={openCreateModal}>
+                    <Plus className="size-4" />
+                    Create form
+                  </Button>
+                ) : (
+                  <Button onClick={clearFilters} variant="outline">
+                    Clear filters
+                  </Button>
+                )
               }
             />
           )}
@@ -185,8 +245,8 @@ export function FormsListPage() {
             <Button onClick={closeCreateModal} variant="outline">
               Cancel
             </Button>
-            <Button form="create-form" type="submit">
-              Create draft
+            <Button disabled={saving} form="create-form" type="submit">
+              {saving ? "Creating..." : "Create draft"}
             </Button>
           </>
         }
@@ -246,9 +306,35 @@ function MobileFormSummary({ form }: { form: FormSummary }) {
         </div>
         <div>
           <dt className="font-bold text-muted-foreground">Updated</dt>
-          <dd className="mt-1 text-foreground">{formatDate(form.updatedAt)}</dd>
+          <dd className="mt-1 text-foreground">{formatDate(form.updatedAt ?? form.createdAt)}</dd>
         </div>
       </dl>
+      <BuildFormLink className="mt-4 w-full" formId={form.id} />
+    </div>
+  );
+}
+
+function BuildFormLink({ className, formId }: { className?: string; formId: string }) {
+  return (
+    <Link
+      className={cn(
+        "inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground transition hover:bg-muted",
+        className
+      )}
+      to={`/forms/${formId}/builder`}
+    >
+      <Wrench className="size-4" />
+      Build
+    </Link>
+  );
+}
+
+function LoadingForms() {
+  return (
+    <div className="grid gap-3">
+      <Skeleton className="h-12" />
+      <Skeleton className="h-12" />
+      <Skeleton className="h-12" />
     </div>
   );
 }
@@ -259,4 +345,8 @@ function formatDate(value: string): string {
     day: "numeric",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Forms request failed.";
 }
