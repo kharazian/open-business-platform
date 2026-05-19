@@ -16,4 +16,8 @@ public sealed class Role : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHa
     public JsonDocument? ExtraPropertiesJson { get; set; }
 
     public ICollection<UserRole> Users { get; } = new List<UserRole>();
+
+    public ICollection<RolePermission> Permissions { get; } = new List<RolePermission>();
+
+    public ICollection<RoleFormPermission> FormPermissions { get; } = new List<RoleFormPermission>();
 }

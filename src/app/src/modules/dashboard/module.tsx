@@ -8,11 +8,11 @@ export const dashboardModule: PlatformModule = {
   owner: "core",
   order: 10,
   routes: [
-    { index: true, element: <Dashboard /> },
-    { path: "/dashboard", element: <Dashboard /> }
+    { index: true, element: <Dashboard />, permission: "menu.dashboard" },
+    { path: "/dashboard", element: <Dashboard />, permission: "menu.dashboard" }
   ],
   navigation: [
-    { label: "Home", path: "/", icon: Home, order: 10 },
-    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, order: 20 }
+    { label: "Home", path: "/", icon: Home, order: 10, permission: "menu.dashboard" },
+    { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, order: 20, permission: "menu.dashboard" }
   ]
 };

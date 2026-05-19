@@ -146,7 +146,15 @@ Response:
     "id": "bootstrap-admin",
     "name": "Platform Admin",
     "email": "admin@company.test",
-    "roles": ["Admin"]
+    "roles": ["Admin"],
+    "permissions": [
+      "menu.dashboard",
+      "menu.forms",
+      "menu.users_access",
+      "users.manage",
+      "roles.manage",
+      "forms.manage_all"
+    ]
   }
 }
 ```
@@ -164,6 +172,125 @@ Requires authentication.
 `POST /api/auth/logout`
 
 Requires authentication and clears the auth cookie.
+
+## Users & Access
+
+The users and roles APIs require authentication and role-based backend authorization.
+
+### List users
+
+`GET /api/users`
+
+Requires `users.manage`.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": "Jane Cooper",
+      "email": "jane@company.test",
+      "isActive": true,
+      "roles": [{ "id": "00000000-0000-0000-0000-000000000000", "name": "Admin" }],
+      "departments": [],
+      "concurrencyStamp": "stamp",
+      "createdAt": "2026-05-19T00:00:00Z"
+    }
+  ]
+}
+```
+
+### Create user
+
+`POST /api/users`
+
+Requires `users.manage`.
+
+Request:
+
+```json
+{
+  "name": "Jane Cooper",
+  "email": "jane@company.test",
+  "password": "temporary-password-1",
+  "roleIds": ["00000000-0000-0000-0000-000000000000"],
+  "departmentIds": [],
+  "isActive": true
+}
+```
+
+### Update user
+
+`PUT /api/users/{userId}`
+
+Requires `users.manage`.
+
+### Reset user password
+
+`POST /api/users/{userId}/reset-password`
+
+Requires `users.manage`.
+
+Request:
+
+```json
+{
+  "newPassword": "new-temporary-password-2"
+}
+```
+
+### List roles
+
+`GET /api/roles`
+
+Requires `roles.manage`.
+
+### Create role
+
+`POST /api/roles`
+
+Requires `roles.manage`.
+
+### Update role
+
+`PUT /api/roles/{roleId}`
+
+Requires `roles.manage`.
+
+### Get role permissions
+
+`GET /api/roles/{roleId}/permissions`
+
+Requires `roles.manage`.
+
+Response:
+
+```json
+{
+  "roleId": "00000000-0000-0000-0000-000000000000",
+  "permissions": ["menu.forms", "forms.create"],
+  "formPermissions": [
+    {
+      "formId": "00000000-0000-0000-0000-000000000000",
+      "action": "view"
+    }
+  ]
+}
+```
+
+### Update role permissions
+
+`PUT /api/roles/{roleId}/permissions`
+
+Requires `roles.manage`.
+
+### Form access options
+
+`GET /api/forms/access-options`
+
+Requires `roles.manage` or `forms.manage_all`. Returns form rows for the role-permissions matrix.
 
 ## Forms
 

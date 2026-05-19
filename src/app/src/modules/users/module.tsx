@@ -7,6 +7,6 @@ export const usersModule: PlatformModule = {
   name: "Users",
   owner: "core",
   order: 40,
-  routes: [{ path: "/users", element: <Users /> }],
-  navigation: [{ label: "Users", path: "/users", icon: UserCircle, order: 40 }]
+  routes: [{ path: "/users", element: <Users />, permission: "menu.users_access" }],
+  navigation: [{ label: "Users & Access", path: "/users", icon: UserCircle, order: 40, permission: "menu.users_access" }]
 };

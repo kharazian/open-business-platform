@@ -93,7 +93,9 @@ function isAuthUser(value: unknown): value is AuthUser {
     typeof value.name === "string" &&
     typeof value.email === "string" &&
     Array.isArray(value.roles) &&
-    value.roles.every(isAuthRole)
+    value.roles.every(isAuthRole) &&
+    Array.isArray(value.permissions) &&
+    value.permissions.every((permission) => typeof permission === "string")
   );
 }
 

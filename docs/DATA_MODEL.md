@@ -54,6 +54,8 @@ Fields:
 - name
 - email
 - is_active
+- password_hash nullable
+- password_updated_at nullable
 - external_provider nullable
 - external_user_id nullable
 - concurrency_stamp
@@ -108,6 +110,38 @@ Fields:
 
 - user_id uuid
 - role_id uuid
+
+### role_permissions
+
+Stores global role grants such as menu visibility and platform actions.
+
+Fields:
+
+- id uuid
+- role_id uuid
+- permission
+
+Indexes:
+
+- role_id
+- unique role_id + permission
+
+### role_form_permissions
+
+Stores role grants for specific forms.
+
+Fields:
+
+- id uuid
+- role_id uuid
+- form_id uuid
+- action: submit, view, edit, delete, manage
+
+Indexes:
+
+- role_id
+- form_id
+- unique role_id + form_id + action
 
 ### user_groups
 

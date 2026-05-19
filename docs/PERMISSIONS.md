@@ -1,6 +1,6 @@
 # Permission Model
 
-Status: target model. The current skeleton does not yet implement full authentication or backend permission checks. Current app navigation may include permission metadata later, but no real permission enforcement exists yet.
+Status: V1 role-based access foundation is implemented for local users, roles, menu visibility, and per-form access. More advanced rule subjects such as departments, owners, groups, and field-level access remain future work.
 
 ## Goals
 
@@ -54,6 +54,34 @@ User:
 Viewer:
 
 - View records/reports if granted
+
+## Implemented V1 Permission Keys
+
+Menu visibility:
+
+- `menu.dashboard`
+- `menu.forms`
+- `menu.reports`
+- `menu.users_access`
+- `menu.settings`
+- `menu.profile`
+
+Platform actions:
+
+- `users.manage`
+- `roles.manage`
+- `forms.create`
+- `forms.manage_all`
+
+Per-form actions:
+
+- `submit`
+- `view`
+- `edit`
+- `delete`
+- `manage`
+
+The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
 
 ## Permission Actions
 

@@ -19,6 +19,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
+    public DbSet<RoleFormPermission> RoleFormPermissions => Set<RoleFormPermission>();
+
     public DbSet<Department> Departments => Set<Department>();
 
     public DbSet<UserDepartment> UserDepartments => Set<UserDepartment>();
@@ -132,6 +136,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(user => user.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity.Property(user => user.ExternalProvider).HasColumnName("external_provider").HasMaxLength(80);
             entity.Property(user => user.ExternalUserId).HasColumnName("external_user_id").HasMaxLength(256);
+            entity.Property(user => user.PasswordHash).HasColumnName("password_hash").HasMaxLength(512);
+            entity.Property(user => user.PasswordUpdatedAt).HasColumnName("password_updated_at");
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -158,6 +164,45 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(userRole => userRole.Role)
                 .WithMany(role => role.Users)
                 .HasForeignKey(userRole => userRole.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.ToTable("role_permissions");
+            entity.HasKey(rolePermission => rolePermission.Id);
+            entity.HasIndex(rolePermission => rolePermission.RoleId);
+            entity.HasIndex(rolePermission => new { rolePermission.RoleId, rolePermission.Permission }).IsUnique();
+            entity.Property(rolePermission => rolePermission.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(rolePermission => rolePermission.RoleId).HasColumnName("role_id").HasColumnType("uuid").IsRequired();
+            entity.Property(rolePermission => rolePermission.Permission).HasColumnName("permission").HasMaxLength(160).IsRequired();
+            entity
+                .HasOne(rolePermission => rolePermission.Role)
+                .WithMany(role => role.Permissions)
+                .HasForeignKey(rolePermission => rolePermission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RoleFormPermission>(entity =>
+        {
+            entity.ToTable("role_form_permissions");
+            entity.HasKey(roleFormPermission => roleFormPermission.Id);
+            entity.HasIndex(roleFormPermission => roleFormPermission.RoleId);
+            entity.HasIndex(roleFormPermission => roleFormPermission.FormId);
+            entity.HasIndex(roleFormPermission => new { roleFormPermission.RoleId, roleFormPermission.FormId, roleFormPermission.Action }).IsUnique();
+            entity.Property(roleFormPermission => roleFormPermission.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(roleFormPermission => roleFormPermission.RoleId).HasColumnName("role_id").HasColumnType("uuid").IsRequired();
+            entity.Property(roleFormPermission => roleFormPermission.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(roleFormPermission => roleFormPermission.Action).HasColumnName("action").HasMaxLength(40).IsRequired();
+            entity
+                .HasOne(roleFormPermission => roleFormPermission.Role)
+                .WithMany(role => role.FormPermissions)
+                .HasForeignKey(roleFormPermission => roleFormPermission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(roleFormPermission => roleFormPermission.Form)
+                .WithMany()
+                .HasForeignKey(roleFormPermission => roleFormPermission.FormId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

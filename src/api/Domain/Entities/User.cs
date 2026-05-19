@@ -15,6 +15,10 @@ public sealed class User : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHa
 
     public string? ExternalUserId { get; set; }
 
+    public string? PasswordHash { get; set; }
+
+    public DateTimeOffset? PasswordUpdatedAt { get; set; }
+
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }

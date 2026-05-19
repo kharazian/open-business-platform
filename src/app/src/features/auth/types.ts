@@ -5,6 +5,7 @@ export type AuthUser = {
   name: string;
   email: string;
   roles: AuthRole[];
+  permissions: string[];
 };
 
 export type LoginCredentials = {

@@ -45,13 +45,15 @@ function App() {
             </RequireAuth>
           }
         >
-          {appRoutes.map((route) =>
-            route.index ? (
-              <Route index element={route.element} key="index" />
+          {appRoutes.map((route) => {
+            const element = route.permission ? <RequirePermission permission={route.permission}>{route.element}</RequirePermission> : route.element;
+
+            return route.index ? (
+              <Route index element={element} key="index" />
             ) : (
-              <Route path={route.path} element={route.element} key={route.path} />
-            )
-          )}
+              <Route path={route.path} element={element} key={route.path} />
+            );
+          })}
         </Route>
         <Route path="/theme" element={<ThemeLayout theme={theme} />}>
           {themePages.map((page) =>
@@ -82,6 +84,23 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
   if (status === "anonymous") {
     return <Navigate replace to="/login" state={{ from: location }} />;
+  }
+
+  return children;
+}
+
+function RequirePermission({ children, permission }: { children: ReactNode; permission: string }) {
+  const { user } = useAuth();
+
+  if (!user?.permissions.includes(permission)) {
+    return (
+      <main className="grid min-h-[50vh] place-items-center px-4">
+        <div className="max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-soft">
+          <h1 className="text-xl font-bold text-foreground">Access denied</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">Your role does not have permission to view this page.</p>
+        </div>
+      </main>
+    );
   }
 
   return children;

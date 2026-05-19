@@ -421,6 +421,66 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("roles", (string)null);
                 });
 
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.RoleFormPermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("RoleId", "FormId", "Action")
+                        .IsUnique();
+
+                    b.ToTable("role_form_permissions", (string)null);
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.RolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Permission")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("permission");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("RoleId", "Permission")
+                        .IsUnique();
+
+                    b.ToTable("role_permissions", (string)null);
+                });
+
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -473,6 +533,15 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<DateTimeOffset?>("PasswordUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("password_updated_at");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -611,6 +680,36 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("Form");
                 });
 
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.RoleFormPermission", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.Role", "Role")
+                        .WithMany("FormPermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.RolePermission", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.Role", "Role")
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.UserDepartment", b =>
                 {
                     b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.Department", "Department")
@@ -663,6 +762,10 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.Role", b =>
                 {
+                    b.Navigation("FormPermissions");
+
+                    b.Navigation("Permissions");
+
                     b.Navigation("Users");
                 });
 

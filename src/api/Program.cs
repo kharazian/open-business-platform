@@ -22,6 +22,9 @@ builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
+builder.Services.AddSingleton<LocalPasswordHasher>();
+builder.Services.AddScoped<IdentityManagementService>();
+builder.Services.AddScoped<PermissionService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

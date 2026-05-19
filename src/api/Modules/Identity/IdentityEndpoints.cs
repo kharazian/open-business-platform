@@ -13,9 +13,194 @@ public static class IdentityEndpoints
         group.MapPost("/login", async (
             LoginRequest request,
             BootstrapAdminUserDirectory userDirectory,
-            HttpContext httpContext) => await SignInAsync(request, userDirectory, httpContext));
-        group.MapGet("/me", GetCurrentUser).RequireAuthorization();
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) => await SignInAsync(request, userDirectory, identityManagement, permissionService, httpContext, cancellationToken));
+        group.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
         group.MapPost("/logout", async (HttpContext httpContext) => await SignOutAsync(httpContext)).RequireAuthorization();
+
+        var users = endpoints.MapGroup("/api/users").WithTags("Users").RequireAuthorization();
+        users.MapGet("/", async (
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await identityManagement.ListUsersAsync(cancellationToken) });
+        });
+        users.MapPost("/", async (
+            CreateUserRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () => Results.Created(
+                "/api/users",
+                await identityManagement.CreateUserAsync(request, cancellationToken)));
+        });
+        users.MapGet("/{userId:guid}", async (
+            Guid userId,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var user = await identityManagement.GetUserAsync(userId, cancellationToken);
+            return user is null ? Results.NotFound() : Results.Ok(user);
+        });
+        users.MapPut("/{userId:guid}", async (
+            Guid userId,
+            UpdateUserRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                var user = await identityManagement.UpdateUserAsync(userId, request, cancellationToken);
+                return user is null ? Results.NotFound() : Results.Ok(user);
+            });
+        });
+        users.MapPost("/{userId:guid}/reset-password", async (
+            Guid userId,
+            ResetUserPasswordRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+                await identityManagement.ResetPasswordAsync(userId, request, cancellationToken)
+                    ? Results.NoContent()
+                    : Results.NotFound());
+        });
+
+        var roles = endpoints.MapGroup("/api/roles").WithTags("Roles").RequireAuthorization();
+        roles.MapGet("/", async (
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await identityManagement.ListRolesAsync(cancellationToken) });
+        });
+        roles.MapPost("/", async (
+            CreateRoleRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () => Results.Created(
+                "/api/roles",
+                await identityManagement.CreateRoleAsync(request, cancellationToken)));
+        });
+        roles.MapGet("/{roleId:guid}", async (
+            Guid roleId,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var role = await identityManagement.GetRoleAsync(roleId, cancellationToken);
+            return role is null ? Results.NotFound() : Results.Ok(role);
+        });
+        roles.MapPut("/{roleId:guid}", async (
+            Guid roleId,
+            UpdateRoleRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                var role = await identityManagement.UpdateRoleAsync(roleId, request, cancellationToken);
+                return role is null ? Results.NotFound() : Results.Ok(role);
+            });
+        });
+        roles.MapGet("/{roleId:guid}/permissions", async (
+            Guid roleId,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var permissions = await identityManagement.GetRolePermissionsAsync(roleId, cancellationToken);
+            return permissions is null ? Results.NotFound() : Results.Ok(permissions);
+        });
+        roles.MapPut("/{roleId:guid}/permissions", async (
+            Guid roleId,
+            UpdateRolePermissionsRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Roles.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                var permissions = await identityManagement.UpdateRolePermissionsAsync(roleId, request, cancellationToken);
+                return permissions is null ? Results.NotFound() : Results.Ok(permissions);
+            });
+        });
 
         return endpoints;
     }
@@ -23,31 +208,26 @@ public static class IdentityEndpoints
     private static async Task<IResult> SignInAsync(
         LoginRequest request,
         BootstrapAdminUserDirectory userDirectory,
-        HttpContext httpContext)
+        IdentityManagementService identityManagement,
+        PermissionService permissionService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return Results.BadRequest(new AuthErrorResponse("Email and password are required."));
         }
 
-        var user = userDirectory.ValidateCredentials(request);
+        var user = await identityManagement.ValidateLocalCredentialsAsync(request, cancellationToken)
+            ?? userDirectory.ValidateCredentials(request);
 
         if (user is null)
         {
             return Results.Json(new AuthErrorResponse("Invalid email or password."), statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.Name),
-            new(ClaimTypes.Email, user.Email)
-        };
-
-        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
+        var principal = CreatePrincipal(user);
+        var permissions = await permissionService.GetEffectivePermissionsAsync(principal, cancellationToken);
 
         await httpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
@@ -58,10 +238,13 @@ public static class IdentityEndpoints
                 IsPersistent = false
             });
 
-        return Results.Ok(new AuthSessionResponse(user.ToResponse()));
+        return Results.Ok(new AuthSessionResponse((user with { Permissions = permissions }).ToResponse()));
     }
 
-    private static IResult GetCurrentUser(ClaimsPrincipal principal)
+    private static async Task<IResult> GetCurrentUserAsync(
+        ClaimsPrincipal principal,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
     {
         var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var name = principal.FindFirst(ClaimTypes.Name)?.Value;
@@ -76,7 +259,8 @@ public static class IdentityEndpoints
             userId,
             name,
             email,
-            principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray());
+            principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray(),
+            await permissionService.GetEffectivePermissionsAsync(principal, cancellationToken));
 
         return Results.Ok(new AuthSessionResponse(user));
     }
@@ -86,5 +270,32 @@ public static class IdentityEndpoints
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         return Results.NoContent();
+    }
+
+    private static ClaimsPrincipal CreatePrincipal(AuthenticatedUser user)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.Name),
+            new(ClaimTypes.Email, user.Email)
+        };
+
+        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        return new ClaimsPrincipal(identity);
+    }
+
+    private static async Task<IResult> HandleIdentityRequestAsync(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (IdentityManagementException exception)
+        {
+            return Results.Json(new AuthErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
     }
 }

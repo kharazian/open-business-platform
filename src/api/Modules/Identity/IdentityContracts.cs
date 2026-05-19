@@ -14,11 +14,12 @@ public sealed record AuthenticatedUser(
     string Id,
     string Name,
     string Email,
-    IReadOnlyCollection<string> Roles)
+    IReadOnlyCollection<string> Roles,
+    IReadOnlyCollection<string>? Permissions = null)
 {
     public AuthenticatedUserResponse ToResponse()
     {
-        return new AuthenticatedUserResponse(Id, Name, Email, Roles);
+        return new AuthenticatedUserResponse(Id, Name, Email, Roles, Permissions ?? Array.Empty<string>());
     }
 }
 
@@ -26,7 +27,8 @@ public sealed record AuthenticatedUserResponse(
     string Id,
     string Name,
     string Email,
-    IReadOnlyCollection<string> Roles);
+    IReadOnlyCollection<string> Roles,
+    IReadOnlyCollection<string> Permissions);
 
 public sealed record AuthSessionResponse(AuthenticatedUserResponse User);
 

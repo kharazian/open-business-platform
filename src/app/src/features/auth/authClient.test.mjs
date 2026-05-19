@@ -47,7 +47,8 @@ const loginResult = await login(
           id: "bootstrap-admin",
           name: "Platform Admin",
           email: "admin@company.test",
-          roles: ["Admin"]
+          roles: ["Admin"],
+          permissions: ["menu.forms", "forms.create"]
         }
       })
     };
@@ -58,7 +59,8 @@ assert.deepEqual(loginResult, {
   id: "bootstrap-admin",
   name: "Platform Admin",
   email: "admin@company.test",
-  roles: ["Admin"]
+  roles: ["Admin"],
+  permissions: ["menu.forms", "forms.create"]
 });
 assert.equal(loginCalls[0].input, "/api/auth/login");
 assert.equal(loginCalls[0].init.method, "POST");
@@ -85,12 +87,14 @@ const currentUser = await getCurrentUser(async () => ({
       id: "bootstrap-admin",
       name: "Platform Admin",
       email: "admin@company.test",
-      roles: ["Admin"]
+      roles: ["Admin"],
+      permissions: ["menu.users_access"]
     }
   })
 }));
 
 assert.equal(currentUser?.email, "admin@company.test");
+assert.deepEqual(currentUser?.permissions, ["menu.users_access"]);
 
 const anonymousUser = await getCurrentUser(async () => ({
   ok: false,
