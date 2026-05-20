@@ -1,4 +1,4 @@
-import type { AuthRole, AuthSessionResponse, AuthUser, LoginCredentials } from "./types";
+import type { AuthSessionResponse, AuthUser, LoginCredentials } from "./types";
 
 type AuthFetchResponse = {
   ok: boolean;
@@ -93,14 +93,10 @@ function isAuthUser(value: unknown): value is AuthUser {
     typeof value.name === "string" &&
     typeof value.email === "string" &&
     Array.isArray(value.roles) &&
-    value.roles.every(isAuthRole) &&
+    value.roles.every((role) => typeof role === "string") &&
     Array.isArray(value.permissions) &&
     value.permissions.every((permission) => typeof permission === "string")
   );
-}
-
-function isAuthRole(value: unknown): value is AuthRole {
-  return value === "Admin" || value === "Builder" || value === "User" || value === "Viewer";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

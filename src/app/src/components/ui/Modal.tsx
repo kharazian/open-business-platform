@@ -10,6 +10,7 @@ export function Modal({
   description,
   children,
   footer,
+  panelClassName,
   onClose
 }: {
   open: boolean;
@@ -17,6 +18,7 @@ export function Modal({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  panelClassName?: string;
   onClose: () => void;
 }) {
   const { densityClasses } = useDesignTheme();
@@ -25,7 +27,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/35 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
-      <div className="surface w-full max-w-lg overflow-hidden">
+      <div className={cn("surface w-full max-w-lg overflow-hidden", panelClassName)}>
         <div className={cn("flex items-start justify-between gap-4 border-b border-border", densityClasses.cardPadding)}>
           <div>
             <h2 className="text-xl font-bold text-foreground">{title}</h2>

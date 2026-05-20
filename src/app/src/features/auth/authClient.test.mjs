@@ -62,6 +62,26 @@ assert.deepEqual(loginResult, {
   roles: ["Admin"],
   permissions: ["menu.forms", "forms.create"]
 });
+
+const customRoleLoginResult = await login(
+  { email: "operations.manager@company.test", password: "temporary-password-1" },
+  async () => ({
+    ok: true,
+    json: async () => ({
+      user: {
+        id: "11111111-1111-1111-1111-111111111111",
+        name: "Operations Manager",
+        email: "operations.manager@company.test",
+        roles: ["Operations Manager"],
+        permissions: ["menu.dashboard"]
+      }
+    })
+  })
+);
+
+assert.deepEqual(customRoleLoginResult.roles, ["Operations Manager"]);
+assert.deepEqual(customRoleLoginResult.permissions, ["menu.dashboard"]);
+
 assert.equal(loginCalls[0].input, "/api/auth/login");
 assert.equal(loginCalls[0].init.method, "POST");
 assert.equal(loginCalls[0].init.credentials, "include");
