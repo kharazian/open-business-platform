@@ -141,7 +141,7 @@ Frontend:
 ```bash
 cd src/app
 npm install
-npm run dev -- --host 127.0.0.1 --port 5174
+npm run dev
 npm test
 npm run build
 ```

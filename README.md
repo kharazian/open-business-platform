@@ -65,6 +65,8 @@ Create your local environment file:
 cp .env.example .env
 ```
 
+The `.env` file is optional for defaults, but recommended when you need bootstrap admin credentials or want to run multiple clones side by side.
+
 Start PostgreSQL and Redis:
 
 ```bash
@@ -117,7 +119,7 @@ Run the frontend in another terminal:
 ```bash
 cd src/app
 npm install
-npm run dev -- --host 127.0.0.1 --port 5174
+npm run dev
 ```
 
 Open:
@@ -192,15 +194,63 @@ The root `.env` file is for local development and is ignored by git. Use `.env.e
 
 Important variables:
 
+- `COMPOSE_PROJECT_NAME`: controls Docker Compose container, network, image, and volume naming so multiple clones can run at once.
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: used by Docker Compose and the backend PostgreSQL connection.
 - `REDIS_HOST`, `REDIS_PORT`: used by Docker Compose and the backend Redis connection.
-- `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL.
-- `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
+- `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL for host-run API development.
+- `VITE_APP_HOST`, `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
+- `AUTH_COOKIE_NAME`: controls the auth cookie name. Use a different value per local clone to avoid browser cookie collisions on `localhost`.
 - `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`: control frontend branding defaults shown in the navbar, sidebar, settings, and login screen.
 - `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin fallback credentials for local setup and access recovery.
 - `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: backend branding defaults until company settings move into the database.
 
 Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes to browser code.
+
+## Run Two Clones
+
+Use a different `.env` in each clone. Clone A can keep the defaults:
+
+```env
+COMPOSE_PROJECT_NAME=obp_a
+POSTGRES_PORT=5432
+REDIS_PORT=6379
+API_PORT=5080
+ASPNETCORE_URLS=http://localhost:5080
+VITE_APP_HOST=127.0.0.1
+VITE_APP_PORT=5174
+VITE_API_BASE_URL=http://localhost:5080
+AUTH_COOKIE_NAME=obp_a.auth
+```
+
+Clone B should use different host ports and a different cookie name:
+
+```env
+COMPOSE_PROJECT_NAME=obp_b
+POSTGRES_PORT=5433
+REDIS_PORT=6380
+API_PORT=5081
+ASPNETCORE_URLS=http://localhost:5081
+VITE_APP_HOST=127.0.0.1
+VITE_APP_PORT=5175
+VITE_API_BASE_URL=http://localhost:5081
+AUTH_COOKIE_NAME=obp_b.auth
+```
+
+Each clone can then run:
+
+```bash
+docker compose up -d
+cd src/api && dotnet run
+cd ../app && npm run dev
+```
+
+If you want Docker to build and run the API from that clone's code, use the optional API profile:
+
+```bash
+docker compose --profile api up -d --build
+```
+
+The API container uses the internal Compose service names `postgres` and `redis`, while host-run API development uses `localhost` and the published ports.
 
 ## Repository Structure
 

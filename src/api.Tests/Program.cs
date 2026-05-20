@@ -33,6 +33,28 @@ var missingConfigurationDirectory = new BootstrapAdminUserDirectory(Options.Crea
 var missingConfigurationUser = missingConfigurationDirectory.ValidateCredentials(new LoginRequest("admin@company.test", "correct-password"));
 AssertNull(missingConfigurationUser, "Missing bootstrap admin configuration should disable login.");
 
+RunWithEnvironment(
+    new Dictionary<string, string?>
+    {
+        ["AUTH_COOKIE_NAME"] = "obp_test.auth",
+        ["Authentication__CookieName"] = null,
+        ["API_PORT"] = "5099",
+        ["ASPNETCORE_URLS"] = null,
+        ["VITE_APP_HOST"] = "127.0.0.1",
+        ["VITE_APP_PORT"] = "5199",
+        ["Cors__AllowedOrigins__0"] = null,
+        ["Cors__AllowedOrigins__1"] = null
+    },
+    () =>
+    {
+        EnvironmentConfiguration.ApplyDerivedValues();
+
+        AssertEqual("obp_test.auth", Environment.GetEnvironmentVariable("Authentication__CookieName"), "Auth cookie name should be configurable per local clone.");
+        AssertEqual("http://localhost:5099", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"), "API URL should be derived from API_PORT when not explicitly set.");
+        AssertEqual("http://127.0.0.1:5199", Environment.GetEnvironmentVariable("Cors__AllowedOrigins__0"), "CORS should include the configured Vite host and port.");
+        AssertEqual("http://localhost:5199", Environment.GetEnvironmentVariable("Cors__AllowedOrigins__1"), "CORS should still include localhost for browser fallback.");
+    });
+
 var dbOptions = new DbContextOptionsBuilder<OpenBusinessPlatformDbContext>()
     .UseNpgsql("Host=localhost;Database=open_business_platform_model_test;Username=obp;Password=obp_dev_password")
     .Options;
@@ -284,6 +306,30 @@ static void AssertNotEqual<T>(T notExpected, T actual, string message)
     if (EqualityComparer<T>.Default.Equals(notExpected, actual))
     {
         throw new InvalidOperationException($"{message} Value should not be: {notExpected}.");
+    }
+}
+
+static void RunWithEnvironment(IReadOnlyDictionary<string, string?> values, Action action)
+{
+    var previousValues = values.ToDictionary(
+        pair => pair.Key,
+        pair => Environment.GetEnvironmentVariable(pair.Key));
+
+    try
+    {
+        foreach (var (key, value) in values)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+
+        action();
+    }
+    finally
+    {
+        foreach (var (key, value) in previousValues)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
     }
 }
 

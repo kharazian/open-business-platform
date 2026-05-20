@@ -28,3 +28,10 @@ public sealed class BootstrapAdminOptions
 
     public string Password { get; init; } = "";
 }
+
+public sealed class LocalAuthenticationOptions
+{
+    public const string SectionName = "Authentication";
+
+    public string CookieName { get; init; } = "obp.auth";
+}

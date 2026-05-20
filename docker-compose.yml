@@ -1,4 +1,4 @@
-name: open-business-platform
+name: ${COMPOSE_PROJECT_NAME:-open-business-platform}
 
 services:
   postgres:
@@ -28,6 +28,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  api:
+    profiles:
+      - api
+    build:
+      context: ./src/api
+      dockerfile: Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-open-business-platform}-api:dev
+    environment:
+      APP_NAME: ${APP_NAME:-Open Business Platform}
+      APP_ENV: ${APP_ENV:-Development}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:5080
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-obp.auth}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BRAND_LOGO_TEXT: ${BRAND_LOGO_TEXT:-OBP}
+      DEFAULT_COMPANY_NAME: ${DEFAULT_COMPANY_NAME:-Your Company}
+      DEFAULT_COMPANY_LOGO_URL: ${DEFAULT_COMPANY_LOGO_URL:-/logo.svg}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-open_business_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-obp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-obp_dev_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      VITE_APP_HOST: ${VITE_APP_HOST:-127.0.0.1}
+      VITE_APP_PORT: ${VITE_APP_PORT:-5174}
+    ports:
+      - "${API_PORT:-5080}:5080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:

@@ -11,14 +11,16 @@ public static class EnvironmentConfiguration
         CopyIfPresent("DEFAULT_COMPANY_LOGO_URL", "Branding__LogoUrl");
         CopyIfPresent("BOOTSTRAP_ADMIN_EMAIL", "BootstrapAdmin__Email");
         CopyIfPresent("BOOTSTRAP_ADMIN_PASSWORD", "BootstrapAdmin__Password");
+        CopyIfPresent("AUTH_COOKIE_NAME", "Authentication__CookieName");
 
         SetIfMissing("ConnectionStrings__Postgres", BuildPostgresConnectionString());
         SetIfMissing("ConnectionStrings__Redis", BuildRedisConnectionString());
         SetIfMissing("ASPNETCORE_URLS", $"http://localhost:{GetValue("API_PORT", "5080")}");
 
+        var frontendHost = GetValue("VITE_APP_HOST", "127.0.0.1");
         var frontendPort = GetValue("VITE_APP_PORT", "5174");
-        SetIfMissing("Cors__AllowedOrigins__0", $"http://localhost:{frontendPort}");
-        SetIfMissing("Cors__AllowedOrigins__1", $"http://127.0.0.1:{frontendPort}");
+        SetIfMissing("Cors__AllowedOrigins__0", $"http://{frontendHost}:{frontendPort}");
+        SetIfMissing("Cors__AllowedOrigins__1", $"http://{GetFallbackFrontendHost(frontendHost)}:{frontendPort}");
     }
 
     private static string BuildPostgresConnectionString()
@@ -63,5 +65,12 @@ public static class EnvironmentConfiguration
     private static string GetValue(string key, string fallback)
     {
         return Environment.GetEnvironmentVariable(key) ?? fallback;
+    }
+
+    private static string GetFallbackFrontendHost(string frontendHost)
+    {
+        return string.Equals(frontendHost, "localhost", StringComparison.OrdinalIgnoreCase)
+            ? "127.0.0.1"
+            : "localhost";
     }
 }

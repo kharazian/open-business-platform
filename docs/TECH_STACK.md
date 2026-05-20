@@ -15,8 +15,9 @@
 Current runtime/configuration details:
 
 - The frontend app requires Node.js `>=20.19.0` according to `src/app/package.json`.
-- Vite loads the repository root `.env` through `envDir` and proxies `/api` and `/health` to `VITE_API_BASE_URL`.
-- The backend loads the nearest `.env` file, derives PostgreSQL/Redis connection strings, and configures local CORS from `VITE_APP_PORT`.
+- Docker Compose uses `COMPOSE_PROJECT_NAME` for isolated local clone resources and includes an optional `api` profile for building the backend container from the current clone's code.
+- Vite loads the repository root `.env` through `envDir`, binds to `VITE_APP_HOST`/`VITE_APP_PORT`, uses strict ports, and proxies `/api` and `/health` to `VITE_API_BASE_URL`.
+- The backend loads the nearest `.env` file, derives PostgreSQL/Redis connection strings, maps `AUTH_COOKIE_NAME`, and configures local CORS from `VITE_APP_HOST`/`VITE_APP_PORT`.
 - The API uses minimal endpoint modules discovered through `IPlatformApiModule`; it does not use controllers yet.
 - EF Core persistence lives in `src/api/Infrastructure/Persistence`, domain entity bases in `src/api/Domain/Common`, domain entities in `src/api/Domain/Entities`, and CRUD application primitives in `src/api/Application/Common`.
 - Internal persisted entities use PostgreSQL `uuid` / C# `Guid` IDs, with external auth IDs stored separately on users.
@@ -123,18 +124,18 @@ dotnet run
 
 ```bash
 cd src/app
-npm run dev -- --host 127.0.0.1 --port 5174
+npm run dev
 ```
 
 The backend test project is a lightweight executable test harness until a formal xUnit/NUnit project is introduced.
 
 ## Local Environment
 
-Local development uses a root `.env` file copied from `.env.example`.
+Local development can use a root `.env` file copied from `.env.example`. Defaults work without `.env`, but bootstrap admin login and multi-clone isolation should be configured per clone.
 
-- Docker Compose reads `POSTGRES_*` and `REDIS_PORT`.
-- The ASP.NET Core API loads the nearest `.env` file for local development, derives connection strings from `POSTGRES_*` and `REDIS_*`, and maps bootstrap admin variables into `BootstrapAdmin` options.
-- Vite reads the root env file through `envDir` and uses `VITE_APP_PORT`, `VITE_API_BASE_URL`, and the non-secret `BRAND_LOGO_TEXT` value.
+- Docker Compose reads `COMPOSE_PROJECT_NAME`, `POSTGRES_*`, `REDIS_PORT`, `API_PORT`, and optional API profile values.
+- The ASP.NET Core API loads the nearest `.env` file for local development, derives connection strings from `POSTGRES_*` and `REDIS_*`, maps bootstrap admin variables into `BootstrapAdmin` options, and maps `AUTH_COOKIE_NAME` into the auth cookie option.
+- Vite reads the root env file through `envDir` and uses `VITE_APP_HOST`, `VITE_APP_PORT`, `VITE_API_BASE_URL`, and the non-secret `BRAND_LOGO_TEXT` value.
 - Admin credentials must remain server-only. Do not add admin password values to `VITE_` variables.
 
 ## Important Library Decision

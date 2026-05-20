@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ApplicationOptions>(builder.Configuration.GetSection(ApplicationOptions.SectionName));
 builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection(BrandingOptions.SectionName));
 builder.Services.Configure<BootstrapAdminOptions>(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName));
+builder.Services.Configure<LocalAuthenticationOptions>(builder.Configuration.GetSection(LocalAuthenticationOptions.SectionName));
 builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
@@ -31,8 +32,12 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
+        var authOptions = builder.Configuration
+            .GetSection(LocalAuthenticationOptions.SectionName)
+            .Get<LocalAuthenticationOptions>() ?? new LocalAuthenticationOptions();
+
         options.Cookie.HttpOnly = true;
-        options.Cookie.Name = "obp.auth";
+        options.Cookie.Name = string.IsNullOrWhiteSpace(authOptions.CookieName) ? "obp.auth" : authOptions.CookieName;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Events.OnRedirectToAccessDenied = context =>
