@@ -3,6 +3,7 @@ import { themeActivities, themeReports, themeTrendHeights, themeUsers, themeWork
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
@@ -12,40 +13,21 @@ export function ThemeDashboard() {
   const { palette } = useThemeAppearance();
 
   return (
-    <div className="space-y-6">
-      <section className={cn("overflow-hidden rounded-2xl px-6 py-6 text-white shadow-lifted md:px-8", palette.primaryBg)}>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0">
-            <Badge className="border-white/20 bg-white/15 text-white">Theme playground</Badge>
-            <h1 className="mt-5 max-w-3xl text-3xl font-black tracking-normal md:text-4xl">Workspace command center</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/80">
-              A higher-density dashboard view for sample users, reports, access reviews, and workflow activity.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Button variant="secondary">
-                <PlayCircle size={16} />
-                Run workflow
-              </Button>
-              <Button className="border-white/25 bg-white/10 text-white hover:bg-white/20" variant="outline">
-                Export snapshot
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            {[
-              ["Active users", "1,284"],
-              ["Access health", "94%"],
-              ["Open reports", "38"]
-            ].map(([label, value]) => (
-              <div className="rounded-xl border border-white/15 bg-white/10 px-4 py-3" key={label}>
-                <p className="text-xs font-bold uppercase text-white/65">{label}</p>
-                <p className="mt-1 text-2xl font-black">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Theme playground"
+        title="Dashboard"
+        description="A higher-density dashboard view for sample users, reports, access reviews, and workflow activity."
+        actions={
+          <>
+            <Button variant="outline">
+              <PlayCircle size={16} />
+              Run workflow
+            </Button>
+            <Button>Export snapshot</Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active users" value="1,284" change="+12.4%" icon={Users} tone="success" />

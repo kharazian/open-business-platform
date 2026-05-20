@@ -2,6 +2,7 @@ import { ArrowRight, BarChart3, ShieldCheck } from "lucide-react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Table, type TableColumn } from "../components/ui/Table";
 import { dashboardStats, quickActions, recentActivity } from "../lib/data";
 
@@ -28,30 +29,17 @@ const statToneClasses: Record<string, string> = {
 export function Dashboard() {
   return (
     <div className="grid gap-6">
-      <section className="surface overflow-hidden p-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-end">
-          <div>
-            <Badge variant="info">Workspace overview</Badge>
-            <h1 className="mt-4 max-w-3xl text-3xl font-bold tracking-normal text-foreground sm:text-4xl">
-              Build internal systems from one calm modular foundation.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-              Track users, reports, permissions, and operational activity from a single professional admin dashboard.
-            </p>
+      <PageHeader
+        eyebrow="Workspace overview"
+        title="Dashboard"
+        description="Track users, reports, permissions, and operational activity from one admin workspace."
+        actions={
+          <div className="flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-semibold text-foreground">
+            <ShieldCheck className="size-4 text-primary" />
+            System healthy
           </div>
-          <div className="rounded-xl border border-border bg-muted/60 p-4">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-lg bg-primary-soft text-primary">
-                <ShieldCheck className="size-5" />
-              </span>
-              <div>
-                <p className="font-bold text-foreground">System healthy</p>
-                <p className="text-sm text-muted-foreground">All local services are reachable.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        }
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {dashboardStats.map((stat) => (

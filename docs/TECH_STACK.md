@@ -20,12 +20,15 @@ Current runtime/configuration details:
 - The API uses minimal endpoint modules discovered through `IPlatformApiModule`; it does not use controllers yet.
 - EF Core persistence lives in `src/api/Infrastructure/Persistence`, domain entity bases in `src/api/Domain/Common`, domain entities in `src/api/Domain/Entities`, and CRUD application primitives in `src/api/Application/Common`.
 - Internal persisted entities use PostgreSQL `uuid` / C# `Guid` IDs, with external auth IDs stored separately on users.
+- Cookie authentication uses a server-only bootstrap admin fallback and local PostgreSQL users. Effective permissions come from role permissions and per-form role access rows.
+- The current Forms module exposes persisted list/create endpoints and a form access option endpoint for role permission setup.
 
 ## Current Frontend Foundation
 
 - TypeScript is enabled in strict mode.
 - Tailwind CSS theme tokens and shared UI components already exist.
 - The real app and `/theme` playground share the same shell and UI primitives.
+- Current real app feature code includes `features/forms` for schema, form APIs, list/create, and local field-builder behavior, and `features/users` for Users & Access APIs/types/pages.
 
 ## Recommended Frontend Additions
 
@@ -45,7 +48,7 @@ Use these only when a task needs them:
 
 - ASP.NET Core Web API
 - FluentValidation or built-in validation
-- ASP.NET Core Identity, JWT, or existing auth provider
+- ASP.NET Core Identity, JWT, or an external provider if the local cookie-auth foundation needs to integrate with enterprise identity later
 - xUnit or NUnit for tests
 - Testcontainers later for PostgreSQL integration tests
 

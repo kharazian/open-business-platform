@@ -1,6 +1,6 @@
 # Security Model
 
-Status: evolving model. The current skeleton implements bootstrap-admin cookie authentication. Full authorization and persistent user management are not implemented yet.
+Status: evolving model. The current skeleton implements bootstrap-admin cookie authentication, local PostgreSQL user login, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, and form list/create endpoints. Record-level and field-level authorization are still future V1 work.
 
 ## Core Rules
 
@@ -32,6 +32,7 @@ Avoid these mistakes:
 - Exporting data without checking export permission.
 - Printing data without checking print permission.
 - Allowing form schema edits to published immutable versions.
+- Treating the local frontend form-builder draft in `localStorage` as a persisted or publishable backend schema.
 
 ## Audit Events
 

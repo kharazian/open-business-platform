@@ -1,6 +1,6 @@
 # MVP Checklist
 
-Use this checklist to track V1 delivery. Current skeleton work counts only for setup and UI foundation, not for real form/record product features.
+Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, and a local field-builder UI. Record workflows are still pending.
 
 ## V1 Must Have
 
@@ -9,17 +9,17 @@ Use this checklist to track V1 delivery. Current skeleton work counts only for s
 - [x] Project inventory complete
 - [x] Real frontend/backend commands documented
 - [x] Database approach confirmed
-- [ ] Auth approach confirmed
+- [x] Auth approach confirmed
 
 ### Forms
 
 - [x] Core V1 form schema/types shared between frontend and backend
 - [x] Form schema and record value validation helpers
-- [ ] Form list
-- [ ] Create form
+- [x] Form list
+- [x] Create form
 - [ ] Edit form draft
-- [ ] Add/edit/delete fields
-- [ ] Basic field settings
+- [x] Add/edit/delete fields in local frontend draft builder
+- [x] Basic field settings in local frontend draft builder
 - [ ] Responsive layout settings
 - [ ] Form preview
 - [ ] Publish form version
@@ -36,11 +36,12 @@ Use this checklist to track V1 delivery. Current skeleton work counts only for s
 
 ### Permissions
 
-- [ ] Basic roles
+- [x] Basic roles
 - [ ] Submit permission
 - [ ] View records permission
 - [ ] Edit records permission
-- [ ] Backend permission checks
+- [x] Backend permission checks for auth, users, roles, dashboard, and forms list/create
+- [ ] Backend permission checks for record submit/view/edit/delete
 
 ### Printing
 
@@ -62,4 +63,4 @@ Use this checklist to track V1 delivery. Current skeleton work counts only for s
 - [x] Core tests pass
 - [ ] Seed data exists
 
-Note: the current code declares Node.js `>=20.19.0`. `npm test`, `npm run build`, and `dotnet build` passed with Node.js `v22.22.2` and .NET SDK `10.0.107`.
+Note: the current code declares Node.js `>=20.19.0`. `npm test`, `npm run build`, the backend harness, and `dotnet build` passed with Node.js `v24.14.1` and .NET SDK `10.0.107`.

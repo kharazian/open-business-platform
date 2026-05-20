@@ -27,6 +27,10 @@ Read before starting:
 - [ ] Build/test commands are run if available.
 - [ ] Files changed and risks are summarized.
 
+## Current Status
+
+Partially complete. The current code has local users, roles, menu visibility, per-form role access rows, effective permissions, and backend checks for auth, users, roles, dashboard, and forms list/create. Record submit/view/edit/delete permission checks remain pending with the record engine tasks.
+
 ## Out of Scope
 
 Do not implement advanced rule builder.

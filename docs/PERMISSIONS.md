@@ -57,6 +57,8 @@ Viewer:
 
 ## Implemented V1 Permission Keys
 
+The bootstrap admin and users with the `Admin` role receive all built-in permissions through the current permission service.
+
 Menu visibility:
 
 - `menu.dashboard`
@@ -150,7 +152,8 @@ Examples:
 Backend should have a central permission service like:
 
 ```csharp
-Task<bool> CanAsync(UserContext user, string action, ResourceRef resource);
+Task<bool> CanAsync(ClaimsPrincipal principal, string permission, CancellationToken cancellationToken);
+Task<bool> CanAccessFormAsync(ClaimsPrincipal principal, Guid formId, string action, CancellationToken cancellationToken);
 ```
 
 For record queries, prefer methods that return allowed filters:

@@ -43,6 +43,7 @@ src/app/src/
   context/
   features/
     forms/
+    users/
   layouts/
   pages/
   modules/
@@ -58,8 +59,8 @@ Current frontend module registry:
 
 - `src/app/src/modules/index.ts` exports the app modules.
 - Each file under `src/app/src/modules/*/module.tsx` implements `PlatformModule`.
-- `src/app/src/platform/moduleRegistry.ts` sorts modules by `order`, exposes routes, and derives navigation.
-- Current app modules are dashboard, users, reports, settings, and profile.
+- `src/app/src/platform/moduleRegistry.ts` sorts modules by `order`, exposes routes, derives navigation, and filters navigation by effective permissions.
+- Current app modules are dashboard, forms, users/access, reports, settings, and profile.
 - Real app routes are generated from modules in `App.tsx`; `/theme` routes are generated separately from the theme page config.
 
 Current frontend shell/theme behavior:
@@ -69,6 +70,9 @@ Current frontend shell/theme behavior:
 - `ThemeAppearanceProvider` owns the `/theme` playground appearance controls separately from the real app shell.
 - `AppShell` is shared by the real app and `/theme`, with layout modes for topbar, sidebar, collapsed sidebar, hover-collapsed sidebar, hybrid, and minimal shells.
 - `src/app/src/config/branding.ts` reads frontend branding from `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`.
+- `AuthContext` loads the signed-in user from `/api/auth/me`, stores effective permissions, and supports login/logout through cookie auth.
+- The Forms feature currently includes a persisted list/create page plus a local field-builder page that stores draft schemas in browser `localStorage`.
+- The Users feature currently includes a Users & Access workspace for users, roles, role permissions, and per-form role access.
 
 Future feature structure:
 
@@ -101,7 +105,7 @@ Important frontend separation:
 - `ReportBuilder` configures report definitions.
 - `ReportViewer` displays configured reports.
 - `/theme` demonstrates shared UI/layout components with sample data only.
-- Real app pages should later use API/data services, not `/theme` mock data.
+- Real app product pages should use API/data services as they mature; Forms and Users & Access already do, while dashboard/reports remain starter surfaces.
 
 ## Backend Architecture
 
@@ -131,11 +135,12 @@ Current backend module behavior:
 - `Platform/IPlatformApiModule.cs` discovers API modules in the assembly and maps their endpoints.
 - `Application/Common` contains DTO, paging, repository, and CRUD service base primitives for simple management resources.
 - `Domain/Common` contains framework-lite entity base classes and capability interfaces for Guid IDs, auditing, soft delete, concurrency stamps, active status, and extra JSON properties.
-- `Infrastructure/Persistence/OpenBusinessPlatformDbContext.cs` maps the V1 PostgreSQL tables for users, roles, departments, forms, form versions, records, and audit logs.
+- `Infrastructure/Persistence/OpenBusinessPlatformDbContext.cs` maps the V1 PostgreSQL tables for users, roles, role permissions, form permissions, departments, forms, form versions, records, and audit logs.
 - `Infrastructure/Persistence/Migrations` contains EF Core migrations.
-- `Modules/Dashboard` maps `GET /api/dashboard/summary`.
-- `Modules/Identity` maps bootstrap-admin cookie authentication endpoints.
-- `Modules/Forms` currently contains shared V1 form schema contracts and validation logic, but no persistence or form endpoints yet.
+- `Modules/Dashboard` maps authenticated `GET /api/dashboard/summary`.
+- `Modules/Identity` maps bootstrap-admin cookie authentication, local PostgreSQL user login, user management, role management, password reset, role permissions, and effective permission endpoints.
+- `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
+- `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
 - `Directory.Build.props` redirects API build output to `.artifacts/api`.

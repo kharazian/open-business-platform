@@ -21,11 +21,15 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current skeleton. `GET /api/forms` and `POST /api/forms` persist draft forms through the Forms backend module, and the `/forms` frontend page lists, filters, refreshes, and creates forms through `src/app/src/features/forms/api.ts`.
 
 ## Out of Scope
 

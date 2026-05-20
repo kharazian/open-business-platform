@@ -4,17 +4,18 @@
 
 Database: PostgreSQL
 
-Status: V1 database foundation implemented for core identity, form, record, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V1 database foundation implemented for core identity, form, record, role permission, form permission, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
-The initial migration includes:
+The current migrations include:
 
 - `users`, `roles`, `user_roles`
+- `role_permissions`, `role_form_permissions`
 - `departments`, `user_departments`
 - `forms`, `form_versions`
 - `records`
 - `audit_logs`
 
-Reports, permissions, triggers, trigger logs, and print templates remain target tables for later tasks.
+Reports, advanced permission rules, groups, triggers, trigger logs, and print templates remain target tables for later tasks.
 
 Recommended approach:
 
@@ -80,7 +81,7 @@ Fields:
 - updated_at nullable
 - updated_by_id nullable
 
-### groups
+### groups later
 
 Fields:
 
@@ -143,7 +144,7 @@ Indexes:
 - form_id
 - unique role_id + form_id + action
 
-### user_groups
+### user_groups later
 
 Fields:
 
@@ -247,7 +248,7 @@ Fields:
 
 ## Permissions
 
-### permission_rules
+### permission_rules later
 
 Fields:
 

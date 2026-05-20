@@ -4,6 +4,7 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Select } from "../components/ui/Select";
 import { appBranding } from "../config/branding";
 import { themePalettes, type ThemePaletteId } from "../config/themePalettes";
@@ -45,10 +46,11 @@ export function Settings() {
 
   return (
     <div className="grid gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="mt-2 text-muted-foreground">Configure workspace preferences, app layout, and saved visual theme.</p>
-      </div>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Settings"
+        description="Configure workspace preferences, app layout, and saved visual theme."
+      />
 
       <Card>
         <CardHeader>

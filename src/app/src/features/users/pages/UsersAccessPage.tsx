@@ -8,6 +8,7 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input } from "../../../components/ui/Input";
 import { Modal } from "../../../components/ui/Modal";
+import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { Tabs } from "../../../components/ui/Tabs";
@@ -363,16 +364,16 @@ export function UsersAccessPage() {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-normal text-muted-foreground">Access control</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-normal text-foreground">Users & Access</h1>
-        </div>
-        <Button onClick={() => void refreshWorkspace()} variant="outline">
-          <RefreshCw className="size-4" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Access control"
+        title="Users & Access"
+        actions={
+          <Button onClick={() => void refreshWorkspace()} variant="outline">
+            <RefreshCw className="size-4" />
+            Refresh
+          </Button>
+        }
+      />
 
       {error ? <Alert title="Users & Access">{error}</Alert> : null}
       {notice ? (

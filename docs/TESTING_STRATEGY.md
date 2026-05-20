@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The current skeleton has build validation, lightweight frontend logic tests, and a lightweight backend executable test harness.
+The current skeleton has build validation, lightweight frontend logic/API tests, and a lightweight backend executable test harness.
 
 The frontend package declares Node.js `>=20.19.0`. `npm run build` relies on Vite and should be run with that Node version or newer.
 
@@ -20,7 +20,7 @@ cd src/api
 dotnet build
 ```
 
-The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
+The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic, API clients, module navigation filtering, auth parsing, users/forms types, form-builder helpers, and small shared UI helper coverage. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, role/form permission mappings, password hashing, permission constants, form DTOs, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 ## Backend Tests
 

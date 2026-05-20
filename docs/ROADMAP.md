@@ -1,21 +1,26 @@
 # Roadmap
 
-## Current State: Skeleton, Module Registry, and Form Schema Foundation
+## Current State: V1 Foundation In Progress
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
 - Shared UI/layout components exist.
-- Frontend app modules and route/navigation registry exist.
+- Frontend app modules and permission-aware route/navigation registry exist.
 - Backend minimal API module discovery exists.
-- Dashboard summary endpoint exists.
+- Authenticated dashboard summary endpoint exists.
 - Shared V1 form schema contracts and validators exist in frontend and backend code.
+- EF Core/Npgsql database foundation exists for users, roles, role permissions, form permissions, departments, forms, form versions, records, and audit logs.
+- Cookie auth exists with bootstrap admin fallback and local PostgreSQL user login.
+- Users & Access workspace exists for local users, roles, menu permissions, and per-form role access.
+- Persistent Forms list/create API and frontend page exist.
+- Local frontend field-builder route exists for adding/editing/deleting V1 fields, with draft schemas saved in `localStorage`.
 - Real app appearance settings exist and are saved in browser localStorage.
 - `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
-- Lightweight frontend logic tests exist for module registry and form schema validation.
+- Lightweight frontend logic/API tests exist for module registry, form schema/records, forms API/list/builder helpers, auth, users, and shared UI helpers.
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
 
-Next: continue V1 with the database foundation and then form list/create work.
+Next: continue V1 with responsive layout builder, form renderer/preview, backend draft schema persistence, and immutable form publishing.
 
 ## V1: Foundation - Forms and Records
 

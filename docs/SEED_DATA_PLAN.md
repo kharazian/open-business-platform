@@ -4,7 +4,7 @@
 
 Seed data helps developers test forms, records, permissions, and reports quickly.
 
-Status: planned. The current skeleton has frontend sample data for dashboard, users, reports, and `/theme` demos in `src/app/src/lib/sampleData.ts` and `src/app/src/theme/mockData.ts`, but backend/database seed data has not been implemented yet.
+Status: planned. The current skeleton has frontend sample data for dashboard, reports, and `/theme` demos in `src/app/src/lib/sampleData.ts` and `src/app/src/theme/mockData.ts`. Forms and Users & Access now use API-backed flows where implemented, but backend/database seed data has not been implemented yet.
 
 ## V1 Seed Data
 

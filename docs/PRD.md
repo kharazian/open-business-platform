@@ -12,20 +12,24 @@ The first version should focus on a strong foundation: form builder, responsive 
 
 ## Current Repository State
 
-The repository currently has the project skeleton:
+The repository currently has the project skeleton plus the first V1 foundations:
 
 - ASP.NET Core minimal API host
 - React frontend shell
-- Frontend module registry for app routes/navigation
+- Frontend module registry for permission-aware app routes/navigation
 - Shared UI/layout component foundation
 - Shared V1 form schema contracts and validation helpers in frontend and backend code
-- API health and dashboard summary endpoints
+- API health, authenticated dashboard summary, auth, users, roles, role permissions, and forms list/create endpoints
+- EF Core/Npgsql persistence foundation for users, roles, departments, forms, form versions, records, role/form permissions, and audit logs
+- Cookie auth with bootstrap admin fallback and local PostgreSQL user login
+- Users & Access workspace for local users, roles, menu permissions, and per-form role access
+- Persistent Forms list/create page and local field-builder page
 - Real app appearance settings for palette, density, layout, radius, and shadow
-- Lightweight frontend tests for module registry and form schema validation
+- Lightweight frontend tests for module registry, form schema/record validation, forms API/list/builder helpers, auth, users, and shared UI helpers
 - `/theme` playground with sample data
 - Docker Compose for PostgreSQL and Redis
 
-The product features in this PRD should be implemented task by task. The current dashboard, users, reports, and theme pages are starter/sample UI until real modules are added.
+The product features in this PRD should be implemented task by task. Dashboard, reports, settings/profile, and `/theme` remain starter/sample surfaces until real modules are added. Forms and Users & Access now have V1 foundations, but form draft schema persistence, publishing, records, printing, and record-level permissions are still pending.
 
 ## Problem
 

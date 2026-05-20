@@ -13,7 +13,7 @@ The frontend already has a shared app shell and design-system foundation:
 
 The `/theme` playground can demonstrate many layouts and pages, but it should not own reusable UI primitives.
 
-Current real app pages still use starter/sample data from `src/app/src/lib/data.ts` until backend product entities are implemented.
+Current Forms and Users & Access pages use real API clients. Dashboard, reports, settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
 
 Current real app appearance settings live on the Settings page and are stored in browser `localStorage` under `appThemeSettings`. They support palette, light/dark/system mode, density, main app layout, border radius, and shadow. These settings affect the real app shell only; the `/theme` playground has its own layout and appearance controls.
 
@@ -21,7 +21,7 @@ Current `/theme` playground routes cover dashboard, users, roles, permissions, a
 
 ## Main Navigation
 
-Suggested navigation:
+Target navigation:
 
 - Dashboard
 - Forms
@@ -34,18 +34,21 @@ Suggested navigation:
 
 For V1, only Forms, Records, and basic Settings may be needed.
 
-Current main app navigation is still a starter shell:
+Current main app navigation is permission-aware and includes:
 
 - Home/Dashboard
+- Forms
 - Users
 - Reports
 - Settings
 - Profile
 - Theme Playground
 
-As product features are added, replace starter pages with real module pages.
+As product features are added, replace remaining starter pages with real module pages.
 
 ## Form Builder Layout
+
+Current status: the frontend has a local V1 field-builder page at `/forms/:formId/builder`. It supports adding/editing/deleting fields and saves draft schemas in `localStorage`. Backend draft schema persistence, responsive width editing, preview, and publishing still need later V1 tasks.
 
 The builder should use three panels:
 

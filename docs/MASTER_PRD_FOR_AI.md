@@ -28,17 +28,21 @@ The repository currently contains a working skeleton, not the full product:
 - `src/api`: ASP.NET Core minimal API host targeting .NET 10
 - `src/app`: React/React Router/Vite/TypeScript/Tailwind frontend
 - `src/app/src/components`: shared UI and layout primitives
-- `src/app/src/modules` and `src/app/src/platform`: current frontend module registry for routes and navigation
-- `src/app/src/features/forms`: shared V1 form schema types and frontend validation
-- `src/api/Modules/Forms`: shared V1 form schema contracts and backend validation
+- `src/app/src/modules` and `src/app/src/platform`: current frontend module registry for permission-aware routes and navigation
+- `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, and local field builder
+- `src/app/src/features/users`: users/access API client, types, and management workspace
+- `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
+- `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create endpoints, and form access options for role permission setup
+- `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Dashboard`: current dashboard summary API module
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, and audit logs
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
-- `npm test` in `src/app`: lightweight TypeScript logic tests for module registry and form schema validation
+- `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder helpers, auth, users API/types, and shared UI helpers
 
-Treat existing dashboard/users/reports/settings/profile pages as starter UI. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat dashboard/reports/settings/profile pages as starter UI. Forms and Users & Access now have real V1 foundations, but the form builder still saves schema drafts locally until backend draft-edit/publish endpoints are implemented. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -659,7 +663,7 @@ Recommended additions:
 - Frontend forms: React Hook Form or existing form library
 - Frontend validation: Zod or equivalent shared client validation
 - Backend validation: FluentValidation or built-in validation
-- Backend auth: existing auth, ASP.NET Core Identity, JWT, or external provider
+- Backend auth: current cookie auth with bootstrap admin and local users; consider ASP.NET Core Identity, JWT, or external provider only when a later integration task needs it
 - Tests: current frontend tests are Node-based TypeScript logic checks; add xUnit/NUnit for backend and Vitest/Jest or React Testing Library when fuller coverage is needed
 - Future workflow UI: `@xyflow/react` only for workflow builder
 
@@ -678,6 +682,7 @@ src/app/src/
   pages/
   features/
     forms/
+    users/
   modules/
   platform/
   theme/
@@ -724,6 +729,7 @@ Current backend configuration details:
 - `OpenBusinessPlatformDbContext` maps the V1 database foundation and uses EF Core migrations under `src/api/Infrastructure/Persistence/Migrations`.
 - Persisted domain entities use PostgreSQL `uuid` / C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, and CRUD application primitives under `src/api/Application/Common`.
 - `Directory.Build.props` writes API build output under `.artifacts/api`.
+- `PermissionService` provides the current global and per-form role checks for auth, Users & Access, and form list/create endpoints.
 
 Docs and AI task files:
 
@@ -798,19 +804,19 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current priority is V1. Project inventory/setup and shared core form schema work are complete for the current skeleton. The next concrete task is database foundation, followed by form list/create:
+The current priority is V1. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, local field-builder UI, and the first users/roles access foundation are complete or partially complete in the current skeleton.
 
-- Database foundation
-- Form list/create
-- Basic form builder
-- Responsive layout
-- Publish form
-- Submit form
-- Store records
-- View/edit records
-- Basic print
-- Basic permissions
-- Basic audit logs
+Next concrete V1 work should continue from the form lifecycle:
+
+- Responsive layout builder
+- Form renderer and preview
+- Backend draft schema persistence
+- Publish immutable form versions
+- Submit forms and store records with form version IDs
+- View/edit/delete records with backend permission checks
+- Basic browser print
+- Record/form audit log coverage
+- Seed data
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

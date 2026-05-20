@@ -40,6 +40,7 @@ Example:
 
 ```text
 src/app/src/modules/dashboard/module.tsx
+src/app/src/modules/forms/module.tsx
 src/app/src/modules/users/module.tsx
 ```
 
@@ -75,6 +76,14 @@ Example:
 src/api/Modules/Dashboard/
   DashboardModule.cs
   DashboardEndpoints.cs
+src/api/Modules/Forms/
+  FormsModule.cs
+  FormsEndpoints.cs
+  FormManagementService.cs
+src/api/Modules/Identity/
+  IdentityModule.cs
+  IdentityEndpoints.cs
+  PermissionService.cs
 ```
 
 As modules become larger, split them into focused files. Do not create empty layers just to match a pattern.

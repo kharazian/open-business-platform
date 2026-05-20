@@ -41,7 +41,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current skeleton. `npm test`, `npm run build`, and `dotnet build` passed with Node.js `v22.22.2` and .NET SDK `10.0.107`.
+Completed for the current skeleton. `npm test`, `npm run build`, the backend harness, and `dotnet build` passed with Node.js `v24.14.1` and .NET SDK `10.0.107`.
 
 ## Out of Scope
 

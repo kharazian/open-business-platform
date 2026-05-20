@@ -21,13 +21,18 @@ The repository currently includes:
 - Frontend module registry in `src/app/src/modules` and `src/app/src/platform`
 - Shared frontend UI/layout components
 - Shared V1 form schema types and validators in frontend/backend code
+- EF Core/Npgsql persistence foundation for users, roles, departments, forms, form versions, records, role permissions, form permissions, and audit logs
+- Cookie authentication with a bootstrap admin fallback plus local PostgreSQL users
+- Users & Access workspace for local users, roles, menu permissions, and per-form role access
+- Forms list/create API and frontend page backed by PostgreSQL
+- Local frontend field-builder route at `/forms/:formId/builder`
 - Main app appearance settings with palette, color mode, density, layout, radius, and shadow controls saved in browser `localStorage`
-- Main app routes for dashboard, users, reports, settings, and profile
+- Permission-aware main app routes for dashboard, forms, users/access, reports, settings, and profile
 - `/theme` playground for sample-data UI, layout, component, workspace, and authentication demos
 - Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
 - Development API explorer at `http://localhost:5080/swagger` and `http://localhost:5080/scalar`
-- API dashboard summary endpoint at `http://localhost:5080/api/dashboard/summary`
+- Authenticated API dashboard summary endpoint at `http://localhost:5080/api/dashboard/summary`
 
 ## Product Direction
 
@@ -105,6 +110,8 @@ BOOTSTRAP_ADMIN_EMAIL=admin@company.test
 BOOTSTRAP_ADMIN_PASSWORD=change-me-before-use
 ```
 
+The bootstrap admin is a setup fallback with full built-in permissions. Local users and roles can also sign in after they are created through Users & Access.
+
 Run the frontend in another terminal:
 
 ```bash
@@ -124,6 +131,8 @@ Useful frontend routes:
 - `/`
 - `/dashboard`
 - `/login`
+- `/forms`
+- `/forms/:formId/builder`
 - `/users`
 - `/reports`
 - `/settings`
@@ -156,7 +165,7 @@ dotnet build
 
 The API writes generated build artifacts to `.artifacts/api` so local runs are isolated from stale `bin` or `obj` folders.
 
-The backend persistence foundation uses EF Core with PostgreSQL `uuid`/C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, and reusable CRUD primitives under `src/api/Application/Common`.
+The backend persistence foundation uses EF Core with PostgreSQL `uuid`/C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, role/form permission tables for the first access model, and reusable CRUD primitives under `src/api/Application/Common`.
 
 ## Local Services
 
@@ -188,7 +197,7 @@ Important variables:
 - `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL.
 - `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
 - `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`: control frontend branding defaults shown in the navbar, sidebar, settings, and login screen.
-- `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin defaults for the future user seed flow.
+- `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin fallback credentials for local setup and access recovery.
 - `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: backend branding defaults until company settings move into the database.
 
 Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes to browser code.

@@ -1,10 +1,8 @@
 # API Specification
 
-This is a suggested REST-style API for the ASP.NET Core backend.
+This is a REST-style API reference for the ASP.NET Core backend.
 
-Adapt endpoint names to the existing project style.
-
-Status: draft. The current API skeleton exposes only the health endpoint and the dashboard summary endpoint. Add product APIs task by task as modules are implemented.
+Status: evolving. The current API exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, and persisted form list/create endpoints. Add product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -35,6 +33,8 @@ Current response:
 
 `GET /api/dashboard/summary`
 
+Requires authentication.
+
 Current response:
 
 ```json
@@ -49,7 +49,7 @@ Current response:
 }
 ```
 
-The dashboard endpoint is starter shell data. It is not connected to PostgreSQL yet.
+The dashboard endpoint currently returns starter shell metrics. It is protected by authentication, but its metric values are not connected to PostgreSQL yet.
 
 ## Shared V1 Form Schema Contract
 
@@ -123,7 +123,7 @@ Backend APIs must validate schema changes and submitted record values before per
 
 ## Auth
 
-The current V1 auth foundation uses a server-only bootstrap admin configured through `.env`.
+The current V1 auth foundation uses cookie auth with local PostgreSQL users plus a server-only bootstrap admin configured through `.env` as a setup fallback.
 
 ### Login
 
@@ -150,9 +150,13 @@ Response:
     "permissions": [
       "menu.dashboard",
       "menu.forms",
+      "menu.reports",
       "menu.users_access",
+      "menu.settings",
+      "menu.profile",
       "users.manage",
       "roles.manage",
+      "forms.create",
       "forms.manage_all"
     ]
   }
@@ -292,7 +296,7 @@ Requires `roles.manage`.
 
 Requires `roles.manage` or `forms.manage_all`. Returns form rows for the role-permissions matrix.
 
-### Forms
+## Forms
 
 `GET /api/forms`
 
@@ -335,7 +339,7 @@ Request:
 
 Response: `201 Created` with a form summary. New forms are created as drafts.
 
-## Forms
+## Planned Form Editing
 
 ### Future form editing
 

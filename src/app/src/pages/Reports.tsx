@@ -2,6 +2,7 @@ import { Download, FileText, TrendingUp } from "lucide-react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
+import { PageHeader } from "../components/ui/PageHeader";
 import { Table, type TableColumn } from "../components/ui/Table";
 import { reportRows } from "../lib/data";
 
@@ -21,17 +22,17 @@ const columns: Array<TableColumn<ReportRow>> = [
 export function Reports() {
   return (
     <div className="grid gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Badge variant="info">Analytics</Badge>
-          <h1 className="mt-3 text-3xl font-bold text-foreground">Reports</h1>
-          <p className="mt-2 text-muted-foreground">Track scheduled reporting and exports across modules.</p>
-        </div>
-        <Button variant="outline">
-          <Download className="size-4" />
-          Export
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Analytics"
+        title="Reports"
+        description="Track scheduled reporting and exports across modules."
+        actions={
+          <Button variant="outline">
+            <Download className="size-4" />
+            Export
+          </Button>
+        }
+      />
 
       <section className="grid gap-4 md:grid-cols-3">
         {[
