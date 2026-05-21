@@ -8,6 +8,7 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Records;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
 {
@@ -334,6 +335,27 @@ var publishResponse = new PublishFormResponse(
 AssertEqual(FormStatuses.Published, publishResponse.Form.Status, "Publish responses should return refreshed form status.");
 AssertEqual(1, publishResponse.Version.VersionNumber, "Publish responses should expose the immutable version number.");
 AssertEqual(publishableSchema, publishResponse.Version.Schema, "Publish responses should expose the immutable published schema.");
+
+var submitRecordRequest = new SubmitRecordRequest(new Dictionary<string, object?>
+{
+    ["employee_name"] = "Jane Cooper"
+});
+AssertEqual("Jane Cooper", submitRecordRequest.Values["employee_name"], "Submit record requests should carry field values.");
+AssertTrue(FormSchemaValidator.ValidateRecordValues(publishableSchema, submitRecordRequest.Values).Valid, "Publishable form schemas should validate submitted values.");
+AssertFalse(FormSchemaValidator.ValidateRecordValues(publishableSchema, new Dictionary<string, object?>()).Valid, "Required published fields should be enforced for record submission.");
+
+var recordDto = new FormRecordDto(
+    Guid.Parse("55555555-5555-5555-5555-555555555555"),
+    sampleDepartmentId,
+    publishedVersion.Id,
+    RecordStatuses.Active,
+    submitRecordRequest.Values,
+    "record-stamp",
+    sampleUpdatedAt,
+    sampleUserId);
+AssertEqual(publishedVersion.Id, recordDto.FormVersionId, "Record responses should expose the submitted form version id.");
+AssertEqual("Jane Cooper", recordDto.Values["employee_name"], "Record responses should expose submitted values.");
+AssertTypeAssignable<object, RecordSubmissionService>();
 
 static void AssertEqual<T>(T expected, T actual, string message)
 {

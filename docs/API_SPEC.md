@@ -535,7 +535,6 @@ Request:
 
 ```json
 {
-  "formVersionId": "version_1",
   "values": {
     "first_name": "John",
     "email": "john@example.com"
@@ -547,12 +546,21 @@ Response:
 
 ```json
 {
-  "id": "record_1",
-  "formId": "form_1",
-  "formVersionId": "version_1",
-  "status": "submitted"
+  "id": "55555555-5555-5555-5555-555555555555",
+  "formId": "11111111-1111-1111-1111-111111111111",
+  "formVersionId": "44444444-4444-4444-4444-444444444444",
+  "status": "active",
+  "values": {
+    "first_name": "John",
+    "email": "john@example.com"
+  },
+  "concurrencyStamp": "record-stamp",
+  "createdAt": "2026-05-21T00:00:00Z",
+  "createdById": "22222222-2222-2222-2222-222222222222"
 }
 ```
+
+Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, stores `records.form_version_id`, and writes a `record_created` audit entry. Draft and archived forms reject record submission.
 
 ### List records
 

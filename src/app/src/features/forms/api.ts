@@ -1,5 +1,5 @@
 import type { FormSummary } from "./drafts";
-import type { FormSchema } from "./types";
+import type { FormRecordValues, FormSchema } from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -33,6 +33,21 @@ export type PublishedFormVersion = {
 export type PublishFormResponse = {
   form: FormDetail;
   version: PublishedFormVersion;
+};
+
+export type SubmitRecordRequest = {
+  values: FormRecordValues;
+};
+
+export type FormRecord = {
+  id: string;
+  formId: string;
+  formVersionId: string;
+  status: string;
+  values: FormRecordValues;
+  concurrencyStamp: string;
+  createdAt: string;
+  createdById?: string | null;
 };
 
 export class FormsApiError extends Error {
@@ -90,6 +105,23 @@ export async function publishForm(formId: string, fetcher: FormsFetcher = defaul
   return requestJson<PublishFormResponse>(
     `/api/forms/${encodeURIComponent(formId)}/publish`,
     { method: "POST", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function submitRecord(
+  formId: string,
+  request: SubmitRecordRequest,
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<FormRecord> {
+  return requestJson<FormRecord>(
+    `/api/forms/${encodeURIComponent(formId)}/records`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
     fetcher
   );
 }

@@ -171,6 +171,22 @@ if (input === "/api/forms" && init.method === "POST") {
     };
   }
 
+  if (input === "/api/forms/form-2/records" && init.method === "POST") {
+    return {
+      ok: true,
+      json: async () => ({
+        id: "record-1",
+        formId: "form-2",
+        formVersionId: "version-1",
+        status: "active",
+        values: JSON.parse(init.body).values,
+        concurrencyStamp: "record-stamp",
+        createdAt: "2026-05-19T13:20:00.000Z",
+        createdById: null
+      })
+    };
+  }
+
   return { ok: false, json: async () => ({ message: "Unexpected request." }) };
 };
 
@@ -179,6 +195,7 @@ const created = await api.createForm({ name: "Safety inspection", description: "
 const formDetail = await api.getForm("form-2", fetcher);
 const updatedDraft = await api.updateFormDraft("form-2", formDetail.draftSchema, fetcher);
 const published = await api.publishForm("form-2", fetcher);
+const submittedRecord = await api.submitRecord("form-2", { values: { site_name: "North plant" } }, fetcher);
 
 assert.equal(forms[0].name, "Expense request");
 assert.equal(forms[0].fieldCount, 0);
@@ -187,6 +204,8 @@ assert.equal(formDetail.draftSchema.fields[0].id, "site_name");
 assert.equal(updatedDraft.fieldCount, 1);
 assert.equal(published.form.status, "published");
 assert.equal(published.version.versionNumber, 1);
+assert.equal(submittedRecord.formVersionId, "version-1");
+assert.equal(submittedRecord.values.site_name, "North plant");
 assert.equal(calls[0].input, "/api/forms");
 assert.equal(calls[0].init.method, "GET");
 assert.equal(calls[0].init.credentials, "include");
@@ -207,6 +226,11 @@ assert.equal(calls[4].input, "/api/forms/form-2/publish");
 assert.equal(calls[4].init.method, "POST");
 assert.equal(calls[4].init.credentials, "include");
 assert.equal(calls[4].init.body, undefined);
+assert.equal(calls[5].input, "/api/forms/form-2/records");
+assert.equal(calls[5].init.method, "POST");
+assert.equal(calls[5].init.credentials, "include");
+assert.equal(calls[5].init.headers["Content-Type"], "application/json");
+assert.deepEqual(JSON.parse(calls[5].init.body), { values: { site_name: "North plant" } });
 
 await assert.rejects(
   () => api.listForms(async () => ({ ok: true, json: async () => ({}) })),

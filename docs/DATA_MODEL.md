@@ -234,6 +234,8 @@ Important indexes:
 - created_by_id
 - created_at
 
+V1 record submission stores values against the form's current published `form_versions.id`. The backend validates submitted values before insert and writes a `record_created` audit entry for the new record.
+
 ## Reports
 
 ### reports
