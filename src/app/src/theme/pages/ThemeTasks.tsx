@@ -9,6 +9,7 @@ import { Progress } from "../../components/ui/Progress";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 const taskColumns = ["Todo", "In Progress", "Done"] as const;
 
@@ -27,12 +28,7 @@ export function ThemeTasks() {
         eyebrow="Execution"
         title="Tasks"
         description="Track operational work with board columns, ownership, priority badges, and a table view."
-        actions={
-          <Button>
-            <Plus size={16} />
-            New task
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Plus}>New task</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

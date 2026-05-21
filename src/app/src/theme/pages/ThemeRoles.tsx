@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 export function ThemeRoles() {
   return (
@@ -16,12 +17,7 @@ export function ThemeRoles() {
         eyebrow="Access control"
         title="Roles"
         description="Review role coverage, permission counts, and assignment health with reusable table patterns."
-        actions={
-          <Button>
-            <Plus size={16} />
-            New role
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Plus}>New role</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

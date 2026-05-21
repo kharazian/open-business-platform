@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/Input";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 export function ThemeTables() {
   return (
@@ -15,12 +16,7 @@ export function ThemeTables() {
         eyebrow="Foundation"
         title="Tables"
         description="Table patterns for directories, audit streams, dense review lists, and reusable data surfaces."
-        actions={
-          <Button variant="outline">
-            <Download size={16} />
-            Export view
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Download} variant="outline">Export view</ThemeHeaderAction>}
       />
 
       <Card title="Table views">

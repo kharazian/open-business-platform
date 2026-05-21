@@ -10,6 +10,7 @@ import { Modal } from "../../components/ui/Modal";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 export function ThemeUsers() {
   const [open, setOpen] = useState(false);
@@ -20,12 +21,7 @@ export function ThemeUsers() {
         eyebrow="Identity"
         title="Users"
         description="Search, filter, and manage people with role and status badges."
-        actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus size={16} />
-            Add user
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Plus} onClick={() => setOpen(true)}>Add user</ThemeHeaderAction>}
       />
 
       <Card>

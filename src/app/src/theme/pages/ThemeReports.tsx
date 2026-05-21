@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/Input";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
 import { cn } from "../../lib/cn";
 
@@ -26,8 +27,8 @@ export function ThemeReports() {
         description="A report workspace with filters, export controls, cards, and responsive table content."
         actions={
           <>
-            <Button variant="outline"><Download size={16} /> CSV</Button>
-            <Button><Download size={16} /> PDF</Button>
+            <ThemeHeaderAction icon={Download} variant="outline">CSV</ThemeHeaderAction>
+            <ThemeHeaderAction icon={Download}>PDF</ThemeHeaderAction>
           </>
         }
       />

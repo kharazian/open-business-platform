@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/Card";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
 import { cn } from "../../lib/cn";
 
@@ -20,10 +21,7 @@ export function ThemeDashboard() {
         description="A higher-density dashboard view for sample users, reports, access reviews, and workflow activity."
         actions={
           <>
-            <Button variant="outline">
-              <PlayCircle size={16} />
-              Run workflow
-            </Button>
+            <ThemeHeaderAction icon={PlayCircle} variant="outline">Run workflow</ThemeHeaderAction>
             <Button>Export snapshot</Button>
           </>
         }

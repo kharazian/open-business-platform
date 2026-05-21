@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 import { cn } from "../../lib/cn";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
 
@@ -36,12 +37,7 @@ export function ThemeCalendar() {
         eyebrow="Planning"
         title="Calendar"
         description="Coordinate workspace events, reviews, operational meetings, and scheduled tasks."
-        actions={
-          <Button>
-            <Plus size={16} />
-            Add event
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Plus}>Add event</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

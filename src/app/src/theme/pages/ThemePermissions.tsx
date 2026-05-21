@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 function getRiskTone(risk: string) {
   if (risk === "High") return "danger";
@@ -24,14 +25,8 @@ export function ThemePermissions() {
         description="Catalog module permissions by risk, access level, and assigned roles."
         actions={
           <>
-            <Button variant="outline">
-              <ShieldAlert size={16} />
-              Review risk
-            </Button>
-            <Button>
-              <KeyRound size={16} />
-              Add permission
-            </Button>
+            <ThemeHeaderAction icon={ShieldAlert} variant="outline">Review risk</ThemeHeaderAction>
+            <ThemeHeaderAction icon={KeyRound}>Add permission</ThemeHeaderAction>
           </>
         }
       />

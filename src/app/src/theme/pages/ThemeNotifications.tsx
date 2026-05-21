@@ -9,6 +9,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 function getPriorityTone(priority: string) {
   if (priority === "Critical") return "danger";
@@ -35,12 +36,7 @@ export function ThemeNotifications() {
         eyebrow="Communication"
         title="Notifications"
         description="Review workspace messages, alert priority, read states, and delivery channels."
-        actions={
-          <Button>
-            <Send size={16} />
-            Compose
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Send}>Compose</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

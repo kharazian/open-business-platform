@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 function getSeverityTone(severity: string) {
   if (severity === "Critical") return "danger";
@@ -22,12 +23,7 @@ export function ThemeAuditLogs() {
         eyebrow="Governance"
         title="Audit Logs"
         description="Inspect security and workspace events with filters, severity badges, and export actions."
-        actions={
-          <Button variant="outline">
-            <Download size={16} />
-            Export
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Download} variant="outline">Export</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

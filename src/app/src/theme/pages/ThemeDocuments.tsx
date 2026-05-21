@@ -9,6 +9,7 @@ import { Progress } from "../../components/ui/Progress";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 import { cn } from "../../lib/cn";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
 
@@ -36,14 +37,8 @@ export function ThemeDocuments() {
         description="Manage workspace folders, file sharing states, storage usage, and recent documents."
         actions={
           <>
-            <Button variant="outline">
-              <Download size={16} />
-              Export
-            </Button>
-            <Button>
-              <Upload size={16} />
-              Upload
-            </Button>
+            <ThemeHeaderAction icon={Download} variant="outline">Export</ThemeHeaderAction>
+            <ThemeHeaderAction icon={Upload}>Upload</ThemeHeaderAction>
           </>
         }
       />

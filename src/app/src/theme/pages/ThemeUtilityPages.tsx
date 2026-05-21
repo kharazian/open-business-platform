@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 const utilityTemplates = [
   {
@@ -43,12 +44,7 @@ export function ThemeUtilityPages() {
         eyebrow="Foundation"
         title="Utility Pages"
         description="Reusable empty, error, maintenance, coming-soon, and blank page templates for complete admin flows."
-        actions={
-          <Button variant="outline">
-            <Home size={16} />
-            Preview dashboard
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Home} variant="outline">Preview dashboard</ThemeHeaderAction>}
       />
 
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">

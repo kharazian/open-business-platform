@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Select } from "../../components/ui/Select";
 import { StatCard } from "../../components/ui/StatCard";
 import { Table } from "../../components/ui/Table";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 import { cn } from "../../lib/cn";
 import { useThemeAppearance } from "../../context/ThemeAppearanceContext";
 
@@ -27,12 +28,7 @@ export function ThemeBilling() {
         eyebrow="Finance"
         title="Billing"
         description="Manage plan details, payment methods, invoice status, and billing history."
-        actions={
-          <Button variant="outline">
-            <Download size={16} />
-            Export invoices
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Download} variant="outline">Export invoices</ThemeHeaderAction>}
       />
 
       <div className="grid gap-4 md:grid-cols-3">

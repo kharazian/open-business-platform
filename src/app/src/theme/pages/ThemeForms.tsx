@@ -11,6 +11,7 @@ import { Select } from "../../components/ui/Select";
 import { Switch } from "../../components/ui/Switch";
 import { Table } from "../../components/ui/Table";
 import { Textarea } from "../../components/ui/Textarea";
+import { ThemeHeaderAction } from "../components/ThemeHeaderAction";
 
 export function ThemeForms() {
   return (
@@ -19,12 +20,7 @@ export function ThemeForms() {
         eyebrow="Foundation"
         title="Forms"
         description="Reusable form layouts for settings, access requests, filters, and workspace configuration screens."
-        actions={
-          <Button>
-            <Save size={16} />
-            Save draft
-          </Button>
-        }
+        actions={<ThemeHeaderAction icon={Save}>Save draft</ThemeHeaderAction>}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

@@ -33,8 +33,8 @@ export function Modal({
             <h2 className="text-xl font-bold text-foreground">{title}</h2>
             {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
           </div>
-          <Button variant="ghost" className="size-9 p-0" onClick={onClose} aria-label="Close modal">
-            <X className="size-4" />
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={onClose} aria-label="Close modal">
+            <X aria-hidden="true" className="size-5" strokeWidth={2.25} />
           </Button>
         </div>
         <div className={densityClasses.cardPadding}>{children}</div>
