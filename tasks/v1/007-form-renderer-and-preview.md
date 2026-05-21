@@ -21,13 +21,21 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current local form builder. A reusable V1 `FormRenderer` now renders schema layout and field controls, and the builder opens a local preview modal with mobile/tablet/desktop sizing and record-value validation. Preview uses local draft state only and does not submit records.
 
 ## Out of Scope
+
+- Persisting preview submissions as records.
+- Publishing form versions.
+- Backend draft schema persistence.
 
 Preview should reuse the same renderer as submitted forms.
 

@@ -4,7 +4,10 @@ import {
   type FormFieldOption,
   type FormFieldType,
   type FormLayout,
+  type FormLayoutColumn,
+  type FormLayoutSection,
   type FormRecordValue,
+  type ResponsiveSpan,
   type FormSchema
 } from "./types";
 
@@ -33,6 +36,15 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
+
+export type LayoutWidthValue = "full" | "half" | "third" | "twoThirds";
+
+export const layoutWidthOptions: Array<{ label: string; value: LayoutWidthValue; span: ResponsiveSpan }> = [
+  { label: "Full width", value: "full", span: { mobile: 12, tablet: 12, desktop: 12 } },
+  { label: "Half width", value: "half", span: { mobile: 12, tablet: 6, desktop: 6 } },
+  { label: "One third", value: "third", span: { mobile: 12, tablet: 4, desktop: 4 } },
+  { label: "Two thirds", value: "twoThirds", span: { mobile: 12, tablet: 8, desktop: 8 } }
+];
 
 type BuilderStorage = Pick<Storage, "getItem" | "setItem">;
 
@@ -90,6 +102,32 @@ export function deleteFieldFromSchema(schema: FormSchema, fieldId: string): Form
     ...schema,
     fields: schema.fields.filter((field) => field.id !== fieldId),
     layout: removeFieldFromLayout(schema.layout, fieldId)
+  };
+}
+
+export function getFieldLayoutWidth(schema: FormSchema, fieldId: string): LayoutWidthValue {
+  const column = findColumnForField(schema.layout, fieldId);
+  const desktopSpan = column?.span.desktop ?? 12;
+  return layoutWidthOptions.find((option) => option.span.desktop === desktopSpan)?.value ?? "full";
+}
+
+export function updateFieldLayoutWidth(schema: FormSchema, fieldId: string, width: LayoutWidthValue): FormSchema {
+  if (!schema.fields.some((field) => field.id === fieldId)) {
+    return schema;
+  }
+
+  const option = layoutWidthOptions.find((candidate) => candidate.value === width) ?? layoutWidthOptions[0];
+
+  return {
+    ...schema,
+    layout: {
+      pages: schema.layout.pages.map((page) => ({
+        ...page,
+        sections: page.sections.map((section) =>
+          sectionContainsField(section, fieldId) ? repackSectionRows(section, fieldId, option.span) : section
+        )
+      }))
+    }
   };
 }
 
@@ -284,6 +322,85 @@ function removeFieldFromLayout(layout: FormLayout, fieldId: string): FormLayout 
       }))
     }))
   };
+}
+
+function findColumnForField(layout: FormLayout, fieldId: string): FormLayoutColumn | undefined {
+  for (const page of layout.pages) {
+    for (const section of page.sections) {
+      for (const row of section.rows) {
+        const column = row.columns.find((candidate) => candidate.fields.includes(fieldId));
+        if (column) return column;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function sectionContainsField(section: FormLayoutSection, fieldId: string): boolean {
+  return section.rows.some((row) => row.columns.some((column) => column.fields.includes(fieldId)));
+}
+
+function repackSectionRows(section: FormLayoutSection, targetFieldId: string, targetSpan: ResponsiveSpan): FormLayoutSection {
+  const items = section.rows.flatMap((row) =>
+    row.columns.flatMap((column) =>
+      column.fields.map((fieldId) => ({
+        fieldId,
+        columnId: column.fields.length === 1 ? column.id : `col_${fieldId}`,
+        span: fieldId === targetFieldId ? targetSpan : normalizeLayoutSpan(column.span)
+      }))
+    )
+  );
+
+  const rows: FormLayoutSection["rows"] = [];
+  let currentColumns: FormLayoutColumn[] = [];
+  let currentDesktopSpan = 0;
+
+  for (const item of items) {
+    const desktopSpan = clampSpan(item.span.desktop);
+
+    if (currentColumns.length > 0 && currentDesktopSpan + desktopSpan > 12) {
+      rows.push(createPackedRow(currentColumns));
+      currentColumns = [];
+      currentDesktopSpan = 0;
+    }
+
+    currentColumns.push({
+      id: item.columnId,
+      span: normalizeLayoutSpan(item.span),
+      fields: [item.fieldId]
+    });
+    currentDesktopSpan += desktopSpan;
+  }
+
+  if (currentColumns.length > 0) {
+    rows.push(createPackedRow(currentColumns));
+  }
+
+  return {
+    ...section,
+    rows
+  };
+}
+
+function createPackedRow(columns: FormLayoutColumn[]): FormLayoutSection["rows"][number] {
+  return {
+    id: `row_${columns[0]?.fields[0] ?? "empty"}`,
+    columns
+  };
+}
+
+function normalizeLayoutSpan(span: ResponsiveSpan): ResponsiveSpan {
+  return {
+    mobile: 12,
+    tablet: clampSpan(span.tablet),
+    desktop: clampSpan(span.desktop)
+  };
+}
+
+function clampSpan(value: number): number {
+  if (!Number.isInteger(value)) return 12;
+  return Math.min(12, Math.max(1, value));
 }
 
 function isUsableSchema(value: Partial<FormSchema>): value is FormSchema {

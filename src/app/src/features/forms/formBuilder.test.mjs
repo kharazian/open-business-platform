@@ -37,8 +37,11 @@ const {
   createFormBuilderDraftStorageKey,
   deleteFieldFromSchema,
   fieldTypeLabels,
+  getFieldLayoutWidth,
+  layoutWidthOptions,
   loadFormBuilderDraft,
   saveFormBuilderDraft,
+  updateFieldLayoutWidth,
   updateFieldInSchema
 } = require(emittedBuilderPath);
 
@@ -56,9 +59,40 @@ assert.equal(textResult.field.label, "Text");
 assert.equal(textResult.schema.fields.length, 1);
 assert.equal(textResult.schema.layout.pages[0].sections[0].rows[0].columns[0].span.desktop, 12);
 assert.deepEqual(textResult.schema.layout.pages[0].sections[0].rows[0].columns[0].fields, ["text"]);
+assert.equal(getFieldLayoutWidth(textResult.schema, "text"), "full");
+assert.deepEqual(layoutWidthOptions.map((option) => option.value), ["full", "half", "third", "twoThirds"]);
 
 const secondTextResult = addFieldToSchema(textResult.schema, "text");
 assert.equal(secondTextResult.field.id, "text_2");
+
+const emailResult = addFieldToSchema(textResult.schema, "email");
+const halfTextSchema = updateFieldLayoutWidth(emailResult.schema, "text", "half");
+assert.deepEqual(halfTextSchema.layout.pages[0].sections[0].rows[0].columns[0].span, {
+  mobile: 12,
+  tablet: 6,
+  desktop: 6
+});
+assert.equal(getFieldLayoutWidth(halfTextSchema, "text"), "half");
+assert.equal(halfTextSchema.layout.pages[0].sections[0].rows.length, 2);
+
+const twoColumnSchema = updateFieldLayoutWidth(halfTextSchema, "email", "half");
+assert.equal(twoColumnSchema.layout.pages[0].sections[0].rows.length, 1);
+assert.deepEqual(
+  twoColumnSchema.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields),
+  [["text"], ["email"]]
+);
+assert.equal(getFieldLayoutWidth(twoColumnSchema, "email"), "half");
+
+const twoThirdsSchema = updateFieldLayoutWidth(twoColumnSchema, "text", "twoThirds");
+const thirdSchema = updateFieldLayoutWidth(twoThirdsSchema, "email", "third");
+assert.deepEqual(
+  thirdSchema.layout.pages[0].sections[0].rows[0].columns.map((column) => column.span.desktop),
+  [8, 4]
+);
+assert.equal(getFieldLayoutWidth(thirdSchema, "text"), "twoThirds");
+assert.equal(getFieldLayoutWidth(thirdSchema, "email"), "third");
+
+assert.deepEqual(updateFieldLayoutWidth(thirdSchema, "missing", "half"), thirdSchema);
 
 const selectResult = addFieldToSchema(emptySchema, "select");
 assert.equal(selectResult.field.options.length, 2);

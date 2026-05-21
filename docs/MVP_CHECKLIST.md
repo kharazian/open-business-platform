@@ -20,8 +20,8 @@ Use this checklist to track V1 delivery. Current skeleton work now includes setu
 - [ ] Edit form draft
 - [x] Add/edit/delete fields in local frontend draft builder
 - [x] Basic field settings in local frontend draft builder
-- [ ] Responsive layout settings
-- [ ] Form preview
+- [x] Responsive layout settings
+- [x] Form preview
 - [ ] Publish form version
 
 ### Records
