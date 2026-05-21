@@ -10,6 +10,16 @@ public static partial class FormSchemaValidator
 
     public static FormValidationResult ValidateSchema(FormSchemaDefinition? schema)
     {
+        return ValidateSchemaCore(schema, requireFields: true, requireLayoutRows: true);
+    }
+
+    public static FormValidationResult ValidateDraftSchema(FormSchemaDefinition? schema)
+    {
+        return ValidateSchemaCore(schema, requireFields: false, requireLayoutRows: false);
+    }
+
+    private static FormValidationResult ValidateSchemaCore(FormSchemaDefinition? schema, bool requireFields, bool requireLayoutRows)
+    {
         var errors = new List<FormValidationError>();
         var fieldIds = new HashSet<string>(StringComparer.Ordinal);
 
@@ -24,7 +34,11 @@ public static partial class FormSchemaValidator
             errors.Add(Error("schemaVersion", "schema.version", "Schema version must be 1."));
         }
 
-        if (schema.Fields is null || schema.Fields.Count == 0)
+        if (schema.Fields is null)
+        {
+            errors.Add(Error("fields", "fields.required", "Fields must be an array."));
+        }
+        else if (requireFields && schema.Fields.Count == 0)
         {
             errors.Add(Error("fields", "fields.required", "At least one field is required."));
         }
@@ -36,7 +50,7 @@ public static partial class FormSchemaValidator
             }
         }
 
-        ValidateLayout(schema.Layout, fieldIds, errors);
+        ValidateLayout(schema.Layout, fieldIds, errors, requireLayoutRows);
 
         return new FormValidationResult(errors);
     }
@@ -152,7 +166,8 @@ public static partial class FormSchemaValidator
     private static void ValidateLayout(
         FormLayoutDefinition? layout,
         HashSet<string> fieldIds,
-        List<FormValidationError> errors)
+        List<FormValidationError> errors,
+        bool requireRows)
     {
         var referencedFields = new HashSet<string>(StringComparer.Ordinal);
 
@@ -180,7 +195,7 @@ public static partial class FormSchemaValidator
 
             for (var sectionIndex = 0; sectionIndex < page.Sections.Count; sectionIndex++)
             {
-                ValidateSection(page.Sections[sectionIndex], $"{pagePath}.sections[{sectionIndex}]", fieldIds, referencedFields, errors);
+                ValidateSection(page.Sections[sectionIndex], $"{pagePath}.sections[{sectionIndex}]", fieldIds, referencedFields, errors, requireRows);
             }
         }
 
@@ -198,14 +213,21 @@ public static partial class FormSchemaValidator
         string sectionPath,
         HashSet<string> fieldIds,
         HashSet<string> referencedFields,
-        List<FormValidationError> errors)
+        List<FormValidationError> errors,
+        bool requireRows)
     {
         if (string.IsNullOrWhiteSpace(section.Id))
         {
             errors.Add(Error($"{sectionPath}.id", "layout.section_id_required", "Section id is required."));
         }
 
-        if (section.Rows is null || section.Rows.Count == 0)
+        if (section.Rows is null)
+        {
+            errors.Add(Error($"{sectionPath}.rows", "layout.rows_required", "Section rows must be an array."));
+            return;
+        }
+
+        if (requireRows && section.Rows.Count == 0)
         {
             errors.Add(Error($"{sectionPath}.rows", "layout.rows_required", "Each section requires at least one row."));
             return;

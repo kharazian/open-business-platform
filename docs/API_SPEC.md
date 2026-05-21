@@ -339,39 +339,187 @@ Request:
 
 Response: `201 Created` with a form summary. New forms are created as drafts.
 
-## Planned Form Editing
-
-### Future form editing
-
-The following form editing and publishing endpoints are planned for later V1 tasks.
-
 ### Get form draft
 
 `GET /api/forms/{formId}`
+
+Requires authentication plus form `manage` access or `forms.manage_all`.
+
+Response:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "name": "Employee Form",
+  "description": "Employee information",
+  "status": "draft",
+  "fieldCount": 1,
+  "currentVersionId": null,
+  "draftSchema": {
+    "schemaVersion": 1,
+    "fields": [
+      { "id": "first_name", "type": "text", "label": "First name", "required": true }
+    ],
+    "layout": {
+      "pages": [
+        {
+          "id": "page_1",
+          "sections": [
+            {
+              "id": "section_1",
+              "rows": [
+                {
+                  "id": "row_1",
+                  "columns": [
+                    {
+                      "id": "col_1",
+                      "span": { "mobile": 12, "tablet": 12, "desktop": 12 },
+                      "fields": ["first_name"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "concurrencyStamp": "stamp",
+  "createdAt": "2026-05-19T00:00:00Z",
+  "createdById": null,
+  "updatedAt": null,
+  "updatedById": null
+}
+```
+
+`draftSchema` is nullable when a form exists but no backend draft has been saved yet. Browser `localStorage` may be used by the frontend only as a recovery cache.
 
 ### Update form draft
 
 `PUT /api/forms/{formId}`
 
+Requires authentication plus form `manage` access or `forms.manage_all`.
+
 Request:
 
 ```json
 {
-  "name": "Employee Form",
-  "description": "Updated description",
   "schema": {
     "schemaVersion": 1,
     "fields": [],
-    "layout": { "pages": [] }
+    "layout": {
+      "pages": [
+        {
+          "id": "page_1",
+          "sections": [{ "id": "section_1", "rows": [] }]
+        }
+      ]
+    }
   }
 }
 ```
+
+Response: `200 OK` with the refreshed form detail. Draft saves allow incomplete builder schemas, but they still validate schema shape, field types, and layout references.
 
 ### Publish form
 
 `POST /api/forms/{formId}/publish`
 
-Creates immutable form version.
+Requires authentication plus form `manage` access or `forms.manage_all`.
+
+Publishes the saved backend draft. The request body is empty; the server does not publish browser-only draft state.
+
+Response:
+
+```json
+{
+  "form": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "name": "Employee Form",
+    "description": "Employee information",
+    "status": "published",
+    "fieldCount": 1,
+    "currentVersionId": "11111111-1111-1111-1111-111111111111",
+    "draftSchema": {
+      "schemaVersion": 1,
+      "fields": [
+        { "id": "first_name", "type": "text", "label": "First name", "required": true }
+      ],
+      "layout": {
+        "pages": [
+          {
+            "id": "page_1",
+            "sections": [
+              {
+                "id": "section_1",
+                "rows": [
+                  {
+                    "id": "row_1",
+                    "columns": [
+                      {
+                        "id": "col_1",
+                        "span": { "mobile": 12, "tablet": 12, "desktop": 12 },
+                        "fields": ["first_name"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "concurrencyStamp": "stamp",
+    "createdAt": "2026-05-19T00:00:00Z",
+    "createdById": null,
+    "updatedAt": "2026-05-21T00:00:00Z",
+    "updatedById": null
+  },
+  "version": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "formId": "00000000-0000-0000-0000-000000000000",
+    "versionNumber": 1,
+    "schema": {
+      "schemaVersion": 1,
+      "fields": [
+        { "id": "first_name", "type": "text", "label": "First name", "required": true }
+      ],
+      "layout": {
+        "pages": [
+          {
+            "id": "page_1",
+            "sections": [
+              {
+                "id": "section_1",
+                "rows": [
+                  {
+                    "id": "row_1",
+                    "columns": [
+                      {
+                        "id": "col_1",
+                        "span": { "mobile": 12, "tablet": 12, "desktop": 12 },
+                        "fields": ["first_name"]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "publishedById": null,
+    "publishedAt": "2026-05-21T00:00:00Z"
+  }
+}
+```
+
+Publishing validates the backend draft with the strict schema validator, creates an immutable `form_versions` row, updates `forms.current_version_id`, marks the form `published`, and writes a `form_published` audit entry.
+
+## Planned Form Version Reading
 
 ### Get published form version
 

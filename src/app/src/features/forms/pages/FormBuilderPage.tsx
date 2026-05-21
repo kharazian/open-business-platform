@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, Monitor, Plus, Save, Settings2, Smartphone, Tablet, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Monitor, Plus, Rocket, Save, Settings2, Smartphone, Tablet, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -13,7 +13,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { cn } from "../../../lib/cn";
-import { listForms } from "../api";
+import { getForm, publishForm, updateFormDraft } from "../api";
 import {
   addFieldToSchema,
   createEmptyFormBuilderSchema,
@@ -44,6 +44,7 @@ import {
   type FormSchema
 } from "../types";
 import { validateRecordValues } from "../validation";
+import { getFormStatusLabel, type FormStatus } from "../drafts";
 
 const fieldTypeOptions = formFieldTypes.map((type) => ({ label: fieldTypeLabels[type], value: type }));
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
@@ -85,7 +86,10 @@ export function FormBuilderPage() {
   );
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(() => schema.fields[0]?.id ?? null);
   const [formName, setFormName] = useState("Form draft");
+  const [formStatus, setFormStatus] = useState<FormStatus>("draft");
   const [loadingForm, setLoadingForm] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -109,11 +113,16 @@ export function FormBuilderPage() {
     setLoadingForm(true);
     setError(null);
 
-    listForms()
-      .then((forms) => {
+    getForm(resolvedFormId)
+      .then((form) => {
         if (!active) return;
-        const form = forms.find((candidate) => candidate.id === resolvedFormId);
-        setFormName(form?.name ?? `Form ${resolvedFormId}`);
+        setFormName(form.name);
+        setFormStatus(form.status);
+
+        if (form.draftSchema) {
+          setSchema(form.draftSchema);
+          saveFormBuilderDraft(resolvedFormId, form.draftSchema);
+        }
       })
       .catch((caught: unknown) => {
         if (!active) return;
@@ -159,9 +168,60 @@ export function FormBuilderPage() {
     setNotice(null);
   }
 
-  function handleSaveDraft() {
-    saveFormBuilderDraft(resolvedFormId, schema);
-    setNotice("Draft saved locally.");
+  async function handleSaveDraft() {
+    setSavingDraft(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const form = await updateFormDraft(resolvedFormId, schema);
+      setFormName(form.name);
+      setFormStatus(form.status);
+
+      if (form.draftSchema) {
+        setSchema(form.draftSchema);
+        saveFormBuilderDraft(resolvedFormId, form.draftSchema);
+      } else {
+        saveFormBuilderDraft(resolvedFormId, schema);
+      }
+
+      setNotice("Draft saved to backend. Recovery cache updated.");
+    } catch (caught) {
+      saveFormBuilderDraft(resolvedFormId, schema);
+      setError(getErrorMessage(caught));
+      setNotice("Backend save failed. Draft saved locally as a recovery cache.");
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  async function handlePublish() {
+    setPublishing(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const savedForm = await updateFormDraft(resolvedFormId, schema);
+      const schemaForCache = savedForm.draftSchema ?? schema;
+      saveFormBuilderDraft(resolvedFormId, schemaForCache);
+
+      const response = await publishForm(resolvedFormId);
+      setFormName(response.form.name);
+      setFormStatus(response.form.status);
+
+      if (response.form.draftSchema) {
+        setSchema(response.form.draftSchema);
+        saveFormBuilderDraft(resolvedFormId, response.form.draftSchema);
+      }
+
+      setNotice(`Published version ${response.version.versionNumber}.`);
+    } catch (caught) {
+      saveFormBuilderDraft(resolvedFormId, schema);
+      setError(getErrorMessage(caught));
+      setNotice("Publish failed. Draft saved locally as a recovery cache.");
+    } finally {
+      setPublishing(false);
+    }
   }
 
   function handleOpenPreview() {
@@ -188,9 +248,12 @@ export function FormBuilderPage() {
       <PageHeader
         eyebrow="Form builder"
         title={loadingForm ? "Loading form..." : formName}
-        description="Edit draft fields and responsive layout before preview, publishing, and records are added."
+        description="Edit backend-owned draft fields and responsive layout before preview and publishing."
         actions={
           <div className="flex flex-wrap gap-2">
+            <Badge variant={formStatus === "published" ? "success" : formStatus === "archived" ? "danger" : "warning"}>
+              {getFormStatusLabel(formStatus)}
+            </Badge>
             <Button onClick={() => navigate("/forms")} variant="outline">
               <ArrowLeft className="size-4" />
               Forms
@@ -199,9 +262,13 @@ export function FormBuilderPage() {
               <Eye className="size-4" />
               Preview
             </Button>
-            <Button onClick={handleSaveDraft}>
+            <Button disabled={savingDraft || publishing} onClick={handleSaveDraft}>
               <Save className="size-4" />
-              Save draft
+              {savingDraft ? "Saving..." : "Save draft"}
+            </Button>
+            <Button disabled={savingDraft || publishing} onClick={handlePublish} variant="secondary">
+              <Rocket className="size-4" />
+              {publishing ? "Publishing..." : "Publish"}
             </Button>
           </div>
         }

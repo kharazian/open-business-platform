@@ -170,6 +170,7 @@ Fields:
 - description
 - status: draft, published, archived
 - current_version_id nullable
+- draft_schema_json JSONB nullable
 - concurrency_stamp
 - extra_properties_json JSONB nullable
 - created_at
@@ -179,6 +180,8 @@ Fields:
 - is_deleted
 - deleted_at nullable
 - deleted_by_id nullable
+
+`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete V1 schema while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row.
 
 ### form_versions
 

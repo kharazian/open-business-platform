@@ -15,6 +15,8 @@ public sealed class FormDefinition : FullAuditedAggregateRoot<Guid>, IHasConcurr
 
     public FormVersion? CurrentVersion { get; set; }
 
+    public JsonDocument? DraftSchemaJson { get; set; }
+
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }

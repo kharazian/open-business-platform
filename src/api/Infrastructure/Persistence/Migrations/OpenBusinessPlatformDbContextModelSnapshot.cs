@@ -177,6 +177,10 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("description");
 
+                    b.Property<JsonDocument>("DraftSchemaJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("draft_schema_json");
+
                     b.Property<JsonDocument>("ExtraPropertiesJson")
                         .HasColumnType("jsonb")
                         .HasColumnName("extra_properties_json");

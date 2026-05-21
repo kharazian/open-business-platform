@@ -258,6 +258,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(form => form.Description).HasColumnName("description").HasMaxLength(1000);
             entity.Property(form => form.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
             entity.Property(form => form.CurrentVersionId).HasColumnName("current_version_id").HasColumnType("uuid");
+            entity.Property(form => form.DraftSchemaJson).HasColumnName("draft_schema_json").HasColumnType("jsonb");
             entity
                 .HasOne(form => form.CurrentVersion)
                 .WithMany()

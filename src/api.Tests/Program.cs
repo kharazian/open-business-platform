@@ -253,6 +253,88 @@ AssertEqual("Expense request", createForm.Name, "Create form request should carr
 AssertEqual("Employee reimbursement intake.", createForm.Description, "Create form request should carry the optional description.");
 AssertTypeAssignable<object, FormManagementService>();
 
+var emptyBuilderSchema = new FormSchemaDefinition(
+    1,
+    Array.Empty<FormFieldDefinition>(),
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            "Page 1",
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition("section_1", "Main", null, Array.Empty<FormLayoutRowDefinition>())
+            })
+    }));
+AssertTrue(FormSchemaValidator.ValidateDraftSchema(emptyBuilderSchema).Valid, "Empty builder drafts should save to the backend before they are publishable.");
+AssertFalse(FormSchemaValidator.ValidateSchema(emptyBuilderSchema).Valid, "Empty builder drafts should not publish.");
+
+var publishableSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("employee_name", FormFieldTypes.Text, "Employee name", Required: true)
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            "Page 1",
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition(
+                    "section_1",
+                    "Main",
+                    null,
+                    new[]
+                    {
+                        new FormLayoutRowDefinition(
+                            "row_1",
+                            new[]
+                            {
+                                new FormLayoutColumnDefinition(
+                                    "col_1",
+                                    new ResponsiveSpanDefinition(12, 12, 12),
+                                    new[] { "employee_name" })
+                            })
+                    })
+            })
+    }));
+var updateDraftRequest = new UpdateFormDraftRequest(publishableSchema);
+AssertEqual(publishableSchema, updateDraftRequest.Schema, "Update form draft requests should carry the backend-owned schema.");
+
+var formDetail = new FormDetailDto(
+    sampleDepartmentId,
+    "Expense request",
+    "Employee reimbursement intake.",
+    "draft",
+    1,
+    null,
+    publishableSchema,
+    "form-stamp",
+    sampleCreatedAt,
+    null,
+    sampleUpdatedAt,
+    null);
+AssertEqual(publishableSchema, formDetail.DraftSchema, "Form detail responses should expose the saved backend draft schema.");
+AssertJsonColumn<FormDefinition>(model, nameof(FormDefinition.DraftSchemaJson));
+
+var publishedVersion = new PublishedFormVersionDto(
+    Guid.Parse("44444444-4444-4444-4444-444444444444"),
+    sampleDepartmentId,
+    1,
+    publishableSchema,
+    sampleUserId,
+    sampleUpdatedAt);
+var publishResponse = new PublishFormResponse(
+    formDetail with { Status = FormStatuses.Published, CurrentVersionId = publishedVersion.Id },
+    publishedVersion);
+AssertEqual(FormStatuses.Published, publishResponse.Form.Status, "Publish responses should return refreshed form status.");
+AssertEqual(1, publishResponse.Version.VersionNumber, "Publish responses should expose the immutable version number.");
+AssertEqual(publishableSchema, publishResponse.Version.Schema, "Publish responses should expose the immutable published schema.");
+
 static void AssertEqual<T>(T expected, T actual, string message)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
