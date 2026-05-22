@@ -29,6 +29,7 @@ builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddScoped<IdentityManagementService>();
 builder.Services.AddScoped<FormManagementService>();
 builder.Services.AddScoped<RecordSubmissionService>();
+builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

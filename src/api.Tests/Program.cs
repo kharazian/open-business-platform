@@ -357,6 +357,37 @@ AssertEqual(publishedVersion.Id, recordDto.FormVersionId, "Record responses shou
 AssertEqual("Jane Cooper", recordDto.Values["employee_name"], "Record responses should expose submitted values.");
 AssertTypeAssignable<object, RecordSubmissionService>();
 
+var recordListRequest = new ListRecordsRequest(Page: 2, PageSize: 10, Search: "Jane");
+AssertEqual(2, recordListRequest.Page, "List records requests should carry the requested page.");
+AssertEqual(10, recordListRequest.PageSize, "List records requests should carry the requested page size.");
+AssertEqual("Jane", recordListRequest.Search, "List records requests should carry the search term.");
+
+var recordListItem = new FormRecordListItemDto(
+    recordDto.Id,
+    recordDto.FormId,
+    recordDto.FormVersionId,
+    RecordStatuses.Active,
+    recordDto.Values,
+    recordDto.CreatedAt,
+    recordDto.CreatedById);
+AssertEqual(recordDto.FormVersionId, recordListItem.FormVersionId, "Record list items should expose the stored form version id.");
+AssertEqual("Jane Cooper", recordListItem.Values["employee_name"], "Record list items should expose submitted values for default list views.");
+
+var recordDetail = new FormRecordDetailDto(
+    recordDto.Id,
+    recordDto.FormId,
+    recordDto.FormVersionId,
+    RecordStatuses.Active,
+    recordDto.Values,
+    publishableSchema,
+    recordDto.ConcurrencyStamp,
+    recordDto.CreatedAt,
+    recordDto.CreatedById,
+    null,
+    null);
+AssertEqual(publishableSchema, recordDetail.Schema, "Record details should return the immutable form version schema used at submission.");
+AssertTypeAssignable<object, RecordQueryService>();
+
 static void AssertEqual<T>(T expected, T actual, string message)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))

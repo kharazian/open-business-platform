@@ -50,6 +50,33 @@ export type FormRecord = {
   createdById?: string | null;
 };
 
+export type FormRecordListItem = {
+  id: string;
+  formId: string;
+  formVersionId: string;
+  status: string;
+  values: FormRecordValues;
+  createdAt: string;
+  createdById?: string | null;
+};
+
+export type FormRecordDetail = FormRecord & {
+  schema: FormSchema;
+  updatedAt?: string | null;
+  updatedById?: string | null;
+};
+
+export type ListRecordsOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
+
+export type PagedResult<T> = {
+  totalCount: number;
+  items: T[];
+};
+
 export class FormsApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -122,6 +149,34 @@ export async function submitRecord(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request)
     },
+    fetcher
+  );
+}
+
+export async function listRecords(
+  formId: string,
+  options: ListRecordsOptions = {},
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<PagedResult<FormRecordListItem>> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("page", String(options.page ?? 1));
+  searchParams.set("pageSize", String(options.pageSize ?? 25));
+
+  if (options.search && options.search.trim().length > 0) {
+    searchParams.set("search", options.search.trim());
+  }
+
+  return requestJson<PagedResult<FormRecordListItem>>(
+    `/api/forms/${encodeURIComponent(formId)}/records?${searchParams.toString()}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function getRecord(recordId: string, fetcher: FormsFetcher = defaultFetcher): Promise<FormRecordDetail> {
+  return requestJson<FormRecordDetail>(
+    `/api/records/${encodeURIComponent(recordId)}`,
+    { method: "GET", credentials: "include" },
     fetcher
   );
 }

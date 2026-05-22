@@ -187,6 +187,45 @@ if (input === "/api/forms" && init.method === "POST") {
     };
   }
 
+  if (input === "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant" && init.method === "GET") {
+    return {
+      ok: true,
+      json: async () => ({
+        totalCount: 1,
+        items: [
+          {
+            id: "record-1",
+            formId: "form-2",
+            formVersionId: "version-1",
+            status: "active",
+            values: { site_name: "North plant" },
+            createdAt: "2026-05-19T13:20:00.000Z",
+            createdById: null
+          }
+        ]
+      })
+    };
+  }
+
+  if (input === "/api/records/record-1" && init.method === "GET") {
+    return {
+      ok: true,
+      json: async () => ({
+        id: "record-1",
+        formId: "form-2",
+        formVersionId: "version-1",
+        status: "active",
+        values: { site_name: "North plant" },
+        schema: JSON.parse(calls[3].init.body).schema,
+        concurrencyStamp: "record-stamp",
+        createdAt: "2026-05-19T13:20:00.000Z",
+        createdById: null,
+        updatedAt: null,
+        updatedById: null
+      })
+    };
+  }
+
   return { ok: false, json: async () => ({ message: "Unexpected request." }) };
 };
 
@@ -196,6 +235,8 @@ const formDetail = await api.getForm("form-2", fetcher);
 const updatedDraft = await api.updateFormDraft("form-2", formDetail.draftSchema, fetcher);
 const published = await api.publishForm("form-2", fetcher);
 const submittedRecord = await api.submitRecord("form-2", { values: { site_name: "North plant" } }, fetcher);
+const listedRecords = await api.listRecords("form-2", { page: 2, pageSize: 10, search: "North plant" }, fetcher);
+const recordDetail = await api.getRecord("record-1", fetcher);
 
 assert.equal(forms[0].name, "Expense request");
 assert.equal(forms[0].fieldCount, 0);
@@ -206,6 +247,9 @@ assert.equal(published.form.status, "published");
 assert.equal(published.version.versionNumber, 1);
 assert.equal(submittedRecord.formVersionId, "version-1");
 assert.equal(submittedRecord.values.site_name, "North plant");
+assert.equal(listedRecords.totalCount, 1);
+assert.equal(listedRecords.items[0].formVersionId, "version-1");
+assert.equal(recordDetail.schema.fields[0].id, "site_name");
 assert.equal(calls[0].input, "/api/forms");
 assert.equal(calls[0].init.method, "GET");
 assert.equal(calls[0].init.credentials, "include");
@@ -231,6 +275,12 @@ assert.equal(calls[5].init.method, "POST");
 assert.equal(calls[5].init.credentials, "include");
 assert.equal(calls[5].init.headers["Content-Type"], "application/json");
 assert.deepEqual(JSON.parse(calls[5].init.body), { values: { site_name: "North plant" } });
+assert.equal(calls[6].input, "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant");
+assert.equal(calls[6].init.method, "GET");
+assert.equal(calls[6].init.credentials, "include");
+assert.equal(calls[7].input, "/api/records/record-1");
+assert.equal(calls[7].init.method, "GET");
+assert.equal(calls[7].init.credentials, "include");
 
 await assert.rejects(
   () => api.listForms(async () => ({ ok: true, json: async () => ({}) })),

@@ -67,7 +67,10 @@ const formColumns: Array<TableColumn<FormSummary>> = [
   {
     header: "Actions",
     render: (form) => (
-      <BuildFormLink formId={form.id} />
+      <div className="flex flex-wrap gap-2">
+        <BuildFormLink formId={form.id} />
+        <RecordsFormLink disabled={!form.currentVersionId} formId={form.id} />
+      </div>
     )
   }
 ];
@@ -309,7 +312,10 @@ function MobileFormSummary({ form }: { form: FormSummary }) {
           <dd className="mt-1 text-foreground">{formatDate(form.updatedAt ?? form.createdAt)}</dd>
         </div>
       </dl>
-      <BuildFormLink className="mt-4 w-full" formId={form.id} />
+      <div className="mt-4 grid gap-2">
+        <BuildFormLink className="w-full" formId={form.id} />
+        <RecordsFormLink className="w-full" disabled={!form.currentVersionId} formId={form.id} />
+      </div>
     </div>
   );
 }
@@ -325,6 +331,30 @@ function BuildFormLink({ className, formId }: { className?: string; formId: stri
     >
       <Wrench className="size-4" />
       Build
+    </Link>
+  );
+}
+
+function RecordsFormLink({ className, disabled, formId }: { className?: string; disabled?: boolean; formId: string }) {
+  const classes = cn(
+    "inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground transition hover:bg-muted",
+    disabled ? "pointer-events-none opacity-50" : "",
+    className
+  );
+
+  if (disabled) {
+    return (
+      <span className={classes}>
+        <FileText className="size-4" />
+        Records
+      </span>
+    );
+  }
+
+  return (
+    <Link className={classes} to={`/forms/${formId}/records`}>
+      <FileText className="size-4" />
+      Records
     </Link>
   );
 }

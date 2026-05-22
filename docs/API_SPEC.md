@@ -566,9 +566,64 @@ Record submission uses the form's current published version. The client sends on
 
 `GET /api/forms/{formId}/records?page=1&pageSize=25&search=john`
 
+Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access. `page` is 1-based and `pageSize` is clamped by the backend.
+
+Response:
+
+```json
+{
+  "totalCount": 1,
+  "items": [
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "formId": "11111111-1111-1111-1111-111111111111",
+      "formVersionId": "44444444-4444-4444-4444-444444444444",
+      "status": "active",
+      "values": {
+        "first_name": "John",
+        "email": "john@example.com"
+      },
+      "createdAt": "2026-05-21T00:00:00Z",
+      "createdById": "22222222-2222-2222-2222-222222222222"
+    }
+  ]
+}
+```
+
+V1 search matches the record id, form version id, status, value keys, and value text for records on the requested form.
+
 ### Get record detail
 
 `GET /api/records/{recordId}`
+
+Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access for the record's form.
+
+Response:
+
+```json
+{
+  "id": "55555555-5555-5555-5555-555555555555",
+  "formId": "11111111-1111-1111-1111-111111111111",
+  "formVersionId": "44444444-4444-4444-4444-444444444444",
+  "status": "active",
+  "values": {
+    "first_name": "John",
+    "email": "john@example.com"
+  },
+  "schema": {
+    "schemaVersion": 1,
+    "fields": [],
+    "layout": { "pages": [] }
+  },
+  "concurrencyStamp": "record-stamp",
+  "createdAt": "2026-05-21T00:00:00Z",
+  "createdById": "22222222-2222-2222-2222-222222222222",
+  "updatedAt": null,
+  "updatedById": null
+}
+```
+
+Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time.
 
 ### Update record
 

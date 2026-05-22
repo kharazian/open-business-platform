@@ -9,6 +9,32 @@ public static class RecordsEndpoints
     {
         var group = endpoints.MapGroup("/api/forms/{formId:guid}/records").WithTags("Records").RequireAuthorization();
 
+        group.MapGet("", async (
+            Guid formId,
+            int? page,
+            int? pageSize,
+            string? search,
+            RecordQueryService recordQuery,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var records = await recordQuery.ListRecordsAsync(
+                    formId,
+                    new ListRecordsRequest(page ?? 1, pageSize ?? 25, search),
+                    cancellationToken);
+
+                return Results.Ok(records);
+            });
+        });
+
         group.MapPost("", async (
             Guid formId,
             SubmitRecordRequest request,
@@ -29,6 +55,33 @@ public static class RecordsEndpoints
             });
         });
 
+        var detailGroup = endpoints.MapGroup("/api/records").WithTags("Records").RequireAuthorization();
+
+        detailGroup.MapGet("/{recordId:guid}", async (
+            Guid recordId,
+            RecordQueryService recordQuery,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var record = await recordQuery.GetRecordAsync(recordId, cancellationToken);
+                return Results.Ok(record);
+            });
+        });
+
         return endpoints;
     }
 
@@ -39,6 +92,11 @@ public static class RecordsEndpoints
             return await action();
         }
         catch (RecordSubmissionException exception)
+        {
+            var errors = exception.Errors.Count == 0 ? null : exception.Errors;
+            return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
+        }
+        catch (RecordQueryException exception)
         {
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
