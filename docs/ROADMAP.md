@@ -13,14 +13,15 @@
 - Cookie auth exists with bootstrap admin fallback and local PostgreSQL user login.
 - Users & Access workspace exists for local users, roles, menu permissions, and per-form role access.
 - Persistent Forms list/create API and frontend page exist.
-- Local frontend field-builder route exists for adding/editing/deleting V1 fields, with draft schemas saved in `localStorage`.
+- Backend-owned form draft editing, responsive layout, preview, immutable publishing, and submit-safe published form rendering exist.
+- Record submission, list/detail, edit, soft-delete, and browser print flows exist with backend permission checks and audit logs.
 - Real app appearance settings exist and are saved in browser localStorage.
 - `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
-- Lightweight frontend logic/API tests exist for module registry, form schema/records, forms API/list/builder helpers, auth, users, and shared UI helpers.
+- Lightweight frontend logic/API tests exist for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users, records, and shared UI helpers.
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
 
-Next: continue V1 with responsive layout builder, form renderer/preview, backend draft schema persistence, and immutable form publishing.
+Next: continue V1 with seed/demo data.
 
 ## V1: Foundation - Forms and Records
 

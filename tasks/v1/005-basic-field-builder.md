@@ -29,7 +29,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current frontend slice. Builders can open `/forms/:formId/builder`, add/edit/delete V1 fields, edit basic settings, and save/load draft schemas from browser `localStorage`. Backend draft schema persistence remains a later task before publishing.
+Completed for the current V1 slice. Builders can open `/forms/:formId/builder`, add/edit/delete V1 fields, edit basic settings, and save draft schemas through the backend draft endpoint.
 
 ## Out of Scope
 

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { FileText, Plus, RefreshCw, Search, Wrench } from "lucide-react";
+import { FileText, Plus, RefreshCw, Search, Send, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -69,6 +69,7 @@ const formColumns: Array<TableColumn<FormSummary>> = [
     render: (form) => (
       <div className="flex flex-wrap gap-2">
         <BuildFormLink formId={form.id} />
+        <SubmitFormLink disabled={!form.currentVersionId} formId={form.id} />
         <RecordsFormLink disabled={!form.currentVersionId} formId={form.id} />
       </div>
     )
@@ -314,6 +315,7 @@ function MobileFormSummary({ form }: { form: FormSummary }) {
       </dl>
       <div className="mt-4 grid gap-2">
         <BuildFormLink className="w-full" formId={form.id} />
+        <SubmitFormLink className="w-full" disabled={!form.currentVersionId} formId={form.id} />
         <RecordsFormLink className="w-full" disabled={!form.currentVersionId} formId={form.id} />
       </div>
     </div>
@@ -331,6 +333,30 @@ function BuildFormLink({ className, formId }: { className?: string; formId: stri
     >
       <Wrench className="size-4" />
       Build
+    </Link>
+  );
+}
+
+function SubmitFormLink({ className, disabled, formId }: { className?: string; disabled?: boolean; formId: string }) {
+  const classes = cn(
+    "inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground transition hover:bg-muted",
+    disabled ? "pointer-events-none opacity-50" : "",
+    className
+  );
+
+  if (disabled) {
+    return (
+      <span className={classes}>
+        <Send className="size-4" />
+        Submit
+      </span>
+    );
+  }
+
+  return (
+    <Link className={classes} to={`/forms/${formId}/submit`}>
+      <Send className="size-4" />
+      Submit
     </Link>
   );
 }

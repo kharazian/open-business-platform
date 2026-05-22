@@ -29,7 +29,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current local form builder. Field settings now include V1 width options (full, half, one third, two thirds), mobile remains full width, and the builder canvas renders fields through the page/section/row/column layout model with 12-column tablet/desktop spans.
+Completed for the current backend-owned form builder. Field settings now include V1 width options (full, half, one third, two thirds), mobile remains full width, and the builder canvas renders fields through the page/section/row/column layout model with 12-column tablet/desktop spans.
 
 ## Out of Scope
 

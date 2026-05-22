@@ -117,4 +117,69 @@
   .control-transition {
     @apply transition duration-200 ease-out hover:-translate-y-0.5;
   }
+
+  .print-only {
+    @apply hidden;
+  }
+
+  .print-card {
+    break-inside: avoid;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.6in;
+  }
+
+  html,
+  body {
+    color: #111827 !important;
+    background: #ffffff !important;
+  }
+
+  body {
+    background-image: none !important;
+  }
+
+  header,
+  aside,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-area {
+    display: grid !important;
+    gap: 1rem !important;
+    color: #111827 !important;
+  }
+
+  .print-card,
+  .print-area [class*="rounded"],
+  .print-area [class*="shadow"] {
+    border-color: #d1d5db !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-area table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  .print-area th,
+  .print-area td {
+    border: 1px solid #d1d5db !important;
+    padding: 0.45rem !important;
+    color: #111827 !important;
+    vertical-align: top !important;
+  }
 }

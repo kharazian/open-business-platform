@@ -25,6 +25,25 @@ public static class FormsEndpoints
             return Results.Ok(new { items = await formManagement.ListFormsAsync(cancellationToken) });
         });
 
+        group.MapGet("/{formId:guid}/published", async (
+            Guid formId,
+            FormManagementService formManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanSubmitFormAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleFormRequestAsync(async () =>
+            {
+                var form = await formManagement.GetPublishedFormForSubmissionAsync(formId, cancellationToken);
+                return Results.Ok(form);
+            });
+        });
+
         group.MapGet("/{formId:guid}", async (
             Guid formId,
             FormManagementService formManagement,
@@ -155,6 +174,15 @@ public static class FormsEndpoints
         CancellationToken cancellationToken)
     {
         return await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Manage, cancellationToken);
+    }
+
+    private static async Task<bool> CanSubmitFormAsync(
+        PermissionService permissionService,
+        HttpContext httpContext,
+        Guid formId,
+        CancellationToken cancellationToken)
+    {
+        return await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Submit, cancellationToken);
     }
 
     private static async Task<IResult> HandleFormRequestAsync(Func<Task<IResult>> action)

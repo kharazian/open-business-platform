@@ -21,11 +21,15 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current V1 slice. The backend exposes record list/detail endpoints with basic search and view-access checks, and the frontend includes authenticated record list and detail pages.
 
 ## Out of Scope
 

@@ -21,15 +21,15 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
 
 ## Current Status
 
-Partially complete. The current code has local users, roles, menu visibility, per-form role access rows, effective permissions, and backend checks for auth, users, roles, dashboard, and forms list/create. Record submit/view/edit/delete permission checks remain pending with the record engine tasks.
+Completed for the current V1 slice. The current code has local users, roles, menu visibility, per-form role access rows, effective permissions, and backend checks for auth, users, roles, dashboard, forms list/create/manage, and record submit/view/edit/delete.
 
 ## Out of Scope
 

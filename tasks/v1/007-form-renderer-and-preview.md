@@ -29,13 +29,12 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current local form builder. A reusable V1 `FormRenderer` now renders schema layout and field controls, and the builder opens a local preview modal with mobile/tablet/desktop sizing and record-value validation. Preview uses local draft state only and does not submit records.
+Completed for the current backend-owned form builder. A reusable V1 `FormRenderer` now renders schema layout and field controls, and the builder opens a preview modal with mobile/tablet/desktop sizing and record-value validation. Preview uses draft state only and does not submit records.
 
 ## Out of Scope
 
 - Persisting preview submissions as records.
 - Publishing form versions.
-- Backend draft schema persistence.
 
 Preview should reuse the same renderer as submitted forms.
 

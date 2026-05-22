@@ -1,5 +1,5 @@
 import type { FormSummary } from "./drafts";
-import type { FormRecordValues, FormSchema } from "./types";
+import type { FormRecordValues, FormSchema, ValidationError } from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -33,6 +33,15 @@ export type PublishedFormVersion = {
 export type PublishFormResponse = {
   form: FormDetail;
   version: PublishedFormVersion;
+};
+
+export type PublishedFormForSubmission = {
+  id: string;
+  name: string;
+  description?: string | null;
+  currentVersionId: string;
+  currentVersionNumber: number;
+  schema: FormSchema;
 };
 
 export type SubmitRecordRequest = {
@@ -83,9 +92,12 @@ export type PagedResult<T> = {
 };
 
 export class FormsApiError extends Error {
-  constructor(message: string) {
+  readonly errors: ValidationError[];
+
+  constructor(message: string, errors: ValidationError[] = []) {
     super(message);
     this.name = "FormsApiError";
+    this.errors = errors;
   }
 }
 
@@ -137,6 +149,17 @@ export async function publishForm(formId: string, fetcher: FormsFetcher = defaul
   return requestJson<PublishFormResponse>(
     `/api/forms/${encodeURIComponent(formId)}/publish`,
     { method: "POST", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function getPublishedFormForSubmission(
+  formId: string,
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<PublishedFormForSubmission> {
+  return requestJson<PublishedFormForSubmission>(
+    `/api/forms/${encodeURIComponent(formId)}/published`,
+    { method: "GET", credentials: "include" },
     fetcher
   );
 }
@@ -226,7 +249,7 @@ async function requestJson<T>(input: string, init: RequestInit, fetcher: FormsFe
   const body = await readJson(response);
 
   if (!response.ok) {
-    throw new FormsApiError(getErrorMessageFromBody(body));
+    throw new FormsApiError(getErrorMessageFromBody(body), getValidationErrorsFromBody(body));
   }
 
   return body as T;
@@ -234,9 +257,10 @@ async function requestJson<T>(input: string, init: RequestInit, fetcher: FormsFe
 
 async function requestNoContent(input: string, init: RequestInit, fetcher: FormsFetcher): Promise<void> {
   const response = await fetcher(input, init);
+  const body = await readJson(response);
 
   if (!response.ok) {
-    throw new FormsApiError(await getErrorMessage(response));
+    throw new FormsApiError(getErrorMessageFromBody(body), getValidationErrorsFromBody(body));
   }
 }
 
@@ -248,16 +272,29 @@ async function readJson(response: ApiFetchResponse): Promise<unknown> {
   }
 }
 
-async function getErrorMessage(response: ApiFetchResponse): Promise<string> {
-  return getErrorMessageFromBody(await readJson(response));
-}
-
 function getErrorMessageFromBody(body: unknown): string {
   if (isRecord(body) && typeof body.message === "string" && body.message.trim().length > 0) {
     return body.message;
   }
 
   return "Forms request failed.";
+}
+
+function getValidationErrorsFromBody(body: unknown): ValidationError[] {
+  if (!isRecord(body) || !Array.isArray(body.errors)) {
+    return [];
+  }
+
+  return body.errors.filter(isValidationError);
+}
+
+function isValidationError(value: unknown): value is ValidationError {
+  return (
+    isRecord(value) &&
+    typeof value.path === "string" &&
+    typeof value.code === "string" &&
+    typeof value.message === "string"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

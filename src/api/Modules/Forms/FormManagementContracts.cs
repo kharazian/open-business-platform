@@ -41,6 +41,14 @@ public sealed record PublishedFormVersionDto(
 
 public sealed record PublishFormResponse(FormDetailDto Form, PublishedFormVersionDto Version);
 
+public sealed record PublishedFormSubmissionDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    Guid CurrentVersionId,
+    int CurrentVersionNumber,
+    FormSchemaDefinition Schema);
+
 public sealed record FormErrorResponse(string Message, IReadOnlyList<FormValidationError>? Errors = null);
 
 public sealed class FormManagementException : Exception

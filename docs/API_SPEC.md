@@ -519,6 +519,56 @@ Response:
 
 Publishing validates the backend draft with the strict schema validator, creates an immutable `form_versions` row, updates `forms.current_version_id`, marks the form `published`, and writes a `form_published` audit entry.
 
+### Get published form for submission
+
+`GET /api/forms/{formId}/published`
+
+Requires authentication plus form `submit`, form `manage`, or `forms.manage_all` access. The response contains only the current published schema needed to render a submission form; it does not expose the editable draft schema.
+
+Response:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "name": "Employee Form",
+  "description": "Employee information",
+  "currentVersionId": "11111111-1111-1111-1111-111111111111",
+  "currentVersionNumber": 1,
+  "schema": {
+    "schemaVersion": 1,
+    "fields": [
+      { "id": "first_name", "type": "text", "label": "First name", "required": true }
+    ],
+    "layout": {
+      "pages": [
+        {
+          "id": "page_1",
+          "sections": [
+            {
+              "id": "section_1",
+              "rows": [
+                {
+                  "id": "row_1",
+                  "columns": [
+                    {
+                      "id": "col_1",
+                      "span": { "mobile": 12, "tablet": 12, "desktop": 12 },
+                      "fields": ["first_name"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+Draft, archived, deleted, and invalid published forms do not render a submission schema.
+
 ## Planned Form Version Reading
 
 ### Get published form version

@@ -1,6 +1,6 @@
 # MVP Checklist
 
-Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, and a local field-builder UI. Record workflows are still pending.
+Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, backend-owned field-builder UI, form publishing, authenticated record submission, record list/detail, record edit/delete, V1 record permissions, browser print, and audit logs for core form/record actions.
 
 ## V1 Must Have
 
@@ -18,43 +18,44 @@ Use this checklist to track V1 delivery. Current skeleton work now includes setu
 - [x] Form list
 - [x] Create form
 - [ ] Edit form draft
-- [x] Add/edit/delete fields in local frontend draft builder
-- [x] Basic field settings in local frontend draft builder
+- [x] Add/edit/delete fields in backend-owned draft builder
+- [x] Basic field settings in backend-owned draft builder
 - [x] Responsive layout settings
 - [x] Form preview
-- [ ] Publish form version
+- [x] Publish form version
 
 ### Records
 
-- [ ] Submit published form
-- [ ] Validate submitted values
-- [ ] Store record with form version
-- [ ] Record list
-- [ ] Record detail
-- [ ] Edit record
-- [ ] Delete/soft delete record
+- [x] Submit published form
+- [x] Validate submitted values
+- [x] Store record with form version
+- [x] Record list
+- [x] Record detail
+- [x] Edit record
+- [x] Delete/soft delete record
 
 ### Permissions
 
 - [x] Basic roles
-- [ ] Submit permission
-- [ ] View records permission
-- [ ] Edit records permission
+- [x] Submit permission
+- [x] View records permission
+- [x] Edit records permission
 - [x] Backend permission checks for auth, users, roles, dashboard, and forms list/create
-- [ ] Backend permission checks for record submit/view/edit/delete
+- [x] Backend permission checks for record submit
+- [x] Backend permission checks for record view/edit/delete
 
 ### Printing
 
-- [ ] Print record detail
-- [ ] Print record list
-- [ ] Basic print CSS
+- [x] Print record detail
+- [x] Print record list
+- [x] Basic print CSS
 
 ### Audit
 
-- [ ] Record created log
-- [ ] Record updated log
-- [ ] Record deleted log
-- [ ] Form published log
+- [x] Record created log
+- [x] Record updated log
+- [x] Record deleted log
+- [x] Form published log
 
 ### Quality
 

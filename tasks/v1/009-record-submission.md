@@ -21,11 +21,15 @@ Read before starting:
 
 ## Acceptance Criteria
 
-- [ ] The task goal is implemented.
-- [ ] Existing behavior is not broken.
-- [ ] Backend authorization is respected where applicable.
-- [ ] Build/test commands are run if available.
-- [ ] Files changed and risks are summarized.
+- [x] The task goal is implemented.
+- [x] Existing behavior is not broken.
+- [x] Backend authorization is respected where applicable.
+- [x] Build/test commands are run if available.
+- [x] Files changed and risks are summarized.
+
+## Current Status
+
+Completed for the current V1 slice. The backend exposes a submit-safe published form schema endpoint, record submission validates values against the current published schema and stores `form_version_id`, and the frontend includes an authenticated `/forms/:formId/submit` page using the shared form renderer.
 
 ## Out of Scope
 

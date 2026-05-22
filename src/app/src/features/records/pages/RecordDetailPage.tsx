@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Edit3, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit3, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -13,6 +13,7 @@ import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "..
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { validateRecordValues } from "../../forms/validation";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
+import { getRecordDetailPrintDescription, requestBrowserPrint } from "../recordPrint";
 
 export function RecordDetailPage() {
   const { recordId } = useParams();
@@ -122,56 +123,74 @@ export function RecordDetailPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        eyebrow="Record detail"
-        title={record ? shortId(record.id) : "Record"}
-        description={record ? `Submitted ${formatDateTime(record.createdAt)}` : "Submitted record values and form version."}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {record && editing ? (
-              <>
-                <Button disabled={saving || deleting} onClick={cancelEditing} variant="outline">
-                  <X className="size-4" />
-                  Cancel
+    <div className="grid gap-6 print-area">
+      {record ? (
+        <PrintHeader
+          description={getRecordDetailPrintDescription(formatDateTime(record.createdAt), shortId(record.formVersionId))}
+          title={`Record ${shortId(record.id)}`}
+        />
+      ) : null}
+      <div data-print-hide="true">
+        <PageHeader
+          eyebrow="Record detail"
+          title={record ? shortId(record.id) : "Record"}
+          description={record ? `Submitted ${formatDateTime(record.createdAt)}` : "Submitted record values and form version."}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              {record && editing ? (
+                <>
+                  <Button disabled={saving || deleting} onClick={cancelEditing} variant="outline">
+                    <X className="size-4" />
+                    Cancel
+                  </Button>
+                  <Button disabled={saving || deleting} onClick={() => void saveRecord()}>
+                    <Save className="size-4" />
+                    Save
+                  </Button>
+                </>
+              ) : record ? (
+                <Button disabled={loading || deleting} onClick={startEditing} variant="outline">
+                  <Edit3 className="size-4" />
+                  Edit
                 </Button>
-                <Button disabled={saving || deleting} onClick={() => void saveRecord()}>
-                  <Save className="size-4" />
-                  Save
+              ) : null}
+              {record ? (
+                <Button disabled={loading || saving || deleting} onClick={() => void removeRecord()} variant="danger">
+                  <Trash2 className="size-4" />
+                  Delete
                 </Button>
-              </>
-            ) : record ? (
-              <Button disabled={loading || deleting} onClick={startEditing} variant="outline">
-                <Edit3 className="size-4" />
-                Edit
+              ) : null}
+              {record ? (
+                <Button disabled={loading || saving || deleting || editing} onClick={() => requestBrowserPrint()} variant="outline">
+                  <Printer className="size-4" />
+                  Print
+                </Button>
+              ) : null}
+              <Button disabled={loading || saving || deleting} onClick={() => void refreshRecord()} variant="outline">
+                <RefreshCw className="size-4" />
+                Refresh
               </Button>
-            ) : null}
-            {record ? (
-              <Button disabled={loading || saving || deleting} onClick={() => void removeRecord()} variant="danger">
-                <Trash2 className="size-4" />
-                Delete
-              </Button>
-            ) : null}
-            <Button disabled={loading || saving || deleting} onClick={() => void refreshRecord()} variant="outline">
-              <RefreshCw className="size-4" />
-              Refresh
-            </Button>
-            {record ? (
-              <LinkButton to={getRecordListPath(record)}>
-                <ArrowLeft className="size-4" />
-                Records
-              </LinkButton>
-            ) : (
-              <LinkButton to="/forms">
-                <ArrowLeft className="size-4" />
-                Forms
-              </LinkButton>
-            )}
-          </div>
-        }
-      />
+              {record ? (
+                <LinkButton to={getRecordListPath(record)}>
+                  <ArrowLeft className="size-4" />
+                  Records
+                </LinkButton>
+              ) : (
+                <LinkButton to="/forms">
+                  <ArrowLeft className="size-4" />
+                  Forms
+                </LinkButton>
+              )}
+            </div>
+          }
+        />
+      </div>
 
-      {error ? <Alert title="Record detail">{error}</Alert> : null}
+      {error ? (
+        <div data-print-hide="true">
+          <Alert title="Record detail">{error}</Alert>
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingRecord />
@@ -183,7 +202,7 @@ export function RecordDetailPage() {
             <SummaryTile label="Created" value={formatDateTime(record.createdAt)} />
           </section>
 
-          <Card>
+          <Card className="print-card">
             <CardHeader>
               <CardTitle>{editing ? "Edit values" : "Values"}</CardTitle>
               <CardDescription>
@@ -251,6 +270,16 @@ function LinkButton({ children, to }: { children: ReactNode; to: string }) {
     >
       {children}
     </Link>
+  );
+}
+
+function PrintHeader({ description, title }: { description: string; title: string }) {
+  return (
+    <section className="print-only">
+      <p className="text-xs font-bold uppercase tracking-normal text-muted-foreground">Record detail</p>
+      <h1 className="mt-1 text-2xl font-bold text-foreground">{title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </section>
   );
 }
 

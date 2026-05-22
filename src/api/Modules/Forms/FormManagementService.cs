@@ -69,6 +69,51 @@ public sealed class FormManagementService
         return ToDetailDto(form);
     }
 
+    public async Task<PublishedFormSubmissionDto> GetPublishedFormForSubmissionAsync(
+        Guid formId,
+        CancellationToken cancellationToken)
+    {
+        var form = await dbContext.Forms
+            .AsNoTracking()
+            .Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == formId && !candidate.IsDeleted, cancellationToken);
+
+        if (form is null)
+        {
+            throw new FormManagementException(StatusCodes.Status404NotFound, "Form was not found.");
+        }
+
+        if (!string.Equals(form.Status, FormStatuses.Published, StringComparison.Ordinal)
+            || form.CurrentVersionId is null
+            || form.CurrentVersion is null)
+        {
+            throw new FormManagementException(StatusCodes.Status409Conflict, "Only published forms can be submitted.");
+        }
+
+        var schema = DeserializeSchema(form.CurrentVersion.SchemaJson);
+        if (schema is null)
+        {
+            throw new FormManagementException(StatusCodes.Status409Conflict, "Published form version schema is invalid.");
+        }
+
+        var validation = FormSchemaValidator.ValidateSchema(schema);
+        if (!validation.Valid)
+        {
+            throw new FormManagementException(
+                StatusCodes.Status409Conflict,
+                "Published form version schema is invalid.",
+                validation.Errors);
+        }
+
+        return new PublishedFormSubmissionDto(
+            form.Id,
+            form.Name,
+            form.Description,
+            form.CurrentVersion.Id,
+            form.CurrentVersion.VersionNumber,
+            schema);
+    }
+
     public async Task<FormDetailDto> UpdateDraftAsync(
         Guid formId,
         UpdateFormDraftRequest request,

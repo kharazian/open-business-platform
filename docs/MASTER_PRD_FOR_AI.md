@@ -29,10 +29,12 @@ The repository currently contains a working skeleton, not the full product:
 - `src/app`: React/React Router/Vite/TypeScript/Tailwind frontend
 - `src/app/src/components`: shared UI and layout primitives
 - `src/app/src/modules` and `src/app/src/platform`: current frontend module registry for permission-aware routes and navigation
-- `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, and local field builder
+- `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, backend-owned form builder, preview renderer, and submit form page
+- `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
 - `src/app/src/features/users`: users/access API client, types, and management workspace
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
-- `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create endpoints, and form access options for role permission setup
+- `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
+- `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Dashboard`: current dashboard summary API module
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, and audit logs
@@ -40,9 +42,9 @@ The repository currently contains a working skeleton, not the full product:
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
-- `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder helpers, auth, users API/types, and shared UI helpers
+- `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat dashboard/reports/settings/profile pages as starter UI. Forms and Users & Access now have real V1 foundations, but the form builder still saves schema drafts locally until backend draft-edit/publish endpoints are implemented. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat dashboard/reports/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, and core audit logs now have real V1 foundations. Seed/demo data remains the main open V1 task. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 

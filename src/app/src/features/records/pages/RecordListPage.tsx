@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, FileText, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, Eye, FileText, Printer, RefreshCw, Search } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -13,6 +13,7 @@ import { Table, type TableColumn } from "../../../components/ui/Table";
 import { cn } from "../../../lib/cn";
 import { listRecords, type FormRecordListItem } from "../../forms/api";
 import type { FormRecordValue } from "../../forms/types";
+import { getRecordListPrintDescription, requestBrowserPrint } from "../recordPrint";
 
 const pageSize = 25;
 
@@ -44,7 +45,11 @@ const recordColumns: Array<TableColumn<FormRecordListItem>> = [
   },
   {
     header: "Actions",
-    render: (record) => <RecordDetailLink recordId={record.id} />
+    render: (record) => (
+      <div data-print-hide="true">
+        <RecordDetailLink recordId={record.id} />
+      </div>
+    )
   }
 ];
 
@@ -99,34 +104,48 @@ export function RecordListPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        eyebrow="Records"
+    <div className="grid gap-6 print-area">
+      <PrintHeader
+        description={getRecordListPrintDescription(totalCount, page, totalPages, submittedQuery)}
         title="Submitted records"
-        description="Browse submitted records for this form."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={loading} onClick={() => void refreshRecords()} variant="outline">
-              <RefreshCw className="size-4" />
-              Refresh
-            </Button>
-            <LinkButton to="/forms">
-              <ArrowLeft className="size-4" />
-              Forms
-            </LinkButton>
-          </div>
-        }
       />
+      <div data-print-hide="true">
+        <PageHeader
+          eyebrow="Records"
+          title="Submitted records"
+          description="Browse submitted records for this form."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={loading || records.length === 0} onClick={() => requestBrowserPrint()} variant="outline">
+                <Printer className="size-4" />
+                Print
+              </Button>
+              <Button disabled={loading} onClick={() => void refreshRecords()} variant="outline">
+                <RefreshCw className="size-4" />
+                Refresh
+              </Button>
+              <LinkButton to="/forms">
+                <ArrowLeft className="size-4" />
+                Forms
+              </LinkButton>
+            </div>
+          }
+        />
+      </div>
 
-      {error ? <Alert title="Records">{error}</Alert> : null}
+      {error ? (
+        <div data-print-hide="true">
+          <Alert title="Records">{error}</Alert>
+        </div>
+      ) : null}
 
-      <Card>
+      <Card className="print-card">
         <CardHeader>
           <CardTitle>Records</CardTitle>
           <CardDescription>{totalCount} total submitted record{totalCount === 1 ? "" : "s"}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]" onSubmit={handleSearch}>
+          <form className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]" data-print-hide="true" onSubmit={handleSearch}>
             <Input
               aria-label="Search records"
               icon={<Search className="size-4" />}
@@ -147,10 +166,10 @@ export function RecordListPage() {
             <LoadingRecords />
           ) : records.length > 0 ? (
             <>
-              <div className="hidden md:block">
+              <div className="hidden md:block print:block">
                 <Table columns={recordColumns} rows={records} />
               </div>
-              <div className="grid gap-3 md:hidden">
+              <div className="grid gap-3 md:hidden print:hidden">
                 {records.map((record) => (
                   <MobileRecordSummary key={record.id} record={record} />
                 ))}
@@ -236,6 +255,16 @@ function LinkButton({ children, to }: { children: ReactNode; to: string }) {
   );
 }
 
+function PrintHeader({ description, title }: { description: string; title: string }) {
+  return (
+    <section className="print-only">
+      <p className="text-xs font-bold uppercase tracking-normal text-muted-foreground">Records</p>
+      <h1 className="mt-1 text-2xl font-bold text-foreground">{title}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </section>
+  );
+}
+
 function RecordPager({
   loading,
   onPageChange,
@@ -248,7 +277,7 @@ function RecordPager({
   totalPages: number;
 }) {
   return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm" data-print-hide="true">
       <span className="font-semibold text-muted-foreground">
         Page {page} of {totalPages}
       </span>

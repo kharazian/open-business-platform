@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: planned. Current reports pages are starter/sample UI. Real report builder work begins in V2 after V1 forms and records are stable.
+Status: V1 browser print is implemented for record list/detail pages. Current reports pages are starter/sample UI. Real report builder work begins in V2 after V1 forms and records are stable.
 
 ## Principle
 
@@ -59,7 +59,7 @@ Displays widgets:
 
 ## V1 Printing
 
-V1 should support browser print only:
+V1 supports browser print only:
 
 - Print record detail
 - Print current record list

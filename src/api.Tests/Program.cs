@@ -336,6 +336,18 @@ AssertEqual(FormStatuses.Published, publishResponse.Form.Status, "Publish respon
 AssertEqual(1, publishResponse.Version.VersionNumber, "Publish responses should expose the immutable version number.");
 AssertEqual(publishableSchema, publishResponse.Version.Schema, "Publish responses should expose the immutable published schema.");
 
+var publishedSubmission = new PublishedFormSubmissionDto(
+    sampleDepartmentId,
+    "Expense request",
+    "Employee reimbursement intake.",
+    publishedVersion.Id,
+    1,
+    publishableSchema);
+AssertEqual(publishedVersion.Id, publishedSubmission.CurrentVersionId, "Published submission responses should expose the immutable current version id.");
+AssertEqual(1, publishedSubmission.CurrentVersionNumber, "Published submission responses should expose the immutable current version number.");
+AssertEqual(publishableSchema, publishedSubmission.Schema, "Published submission responses should expose only the published schema.");
+AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Submit), "Form actions should include submit access for published form rendering.");
+
 var submitRecordRequest = new SubmitRecordRequest(new Dictionary<string, object?>
 {
     ["employee_name"] = "Jane Cooper"

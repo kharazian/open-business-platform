@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node viteConfig.test.mjs && node src/platform/moduleRegistry.test.mjs && node src/features/forms/formSchema.test.mjs && node src/features/forms/formDrafts.test.mjs && node src/features/forms/formsApi.test.mjs && node src/features/records/recordEditor.test.mjs && node src/features/forms/formBuilder.test.mjs && node src/features/forms/formRenderer.test.mjs && node src/features/auth/authClient.test.mjs && node src/features/users/userTypes.test.mjs && node src/features/users/usersApi.test.mjs && node src/components/ui/pageHeader.test.mjs && node src/components/ui/modal.test.mjs && node src/theme/components/themeHeaderAction.test.mjs",
+    "test": "node viteConfig.test.mjs && node src/platform/moduleRegistry.test.mjs && node src/features/forms/formSchema.test.mjs && node src/features/forms/formDrafts.test.mjs && node src/features/forms/formsApi.test.mjs && node src/features/forms/formSubmission.test.mjs && node src/features/records/recordEditor.test.mjs && node src/features/records/recordPrint.test.mjs && node src/features/forms/formBuilder.test.mjs && node src/features/forms/formRenderer.test.mjs && node src/features/auth/authClient.test.mjs && node src/features/users/userTypes.test.mjs && node src/features/users/usersApi.test.mjs && node src/components/ui/pageHeader.test.mjs && node src/components/ui/modal.test.mjs && node src/theme/components/themeHeaderAction.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
