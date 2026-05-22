@@ -1,6 +1,6 @@
 # MVP Checklist
 
-Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, backend-owned field-builder UI, form publishing, authenticated record submission, record list/detail, record edit/delete, V1 record permissions, browser print, and audit logs for core form/record actions.
+Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, backend-owned field-builder UI, form publishing, authenticated record submission, record list/detail, record edit/delete, V1 record permissions, browser print, audit logs for core form/record actions, and startup demo data.
 
 ## V1 Must Have
 
@@ -62,6 +62,6 @@ Use this checklist to track V1 delivery. Current skeleton work now includes setu
 - [x] Backend build passes
 - [x] Frontend build passes
 - [x] Core tests pass
-- [ ] Seed data exists
+- [x] Seed data exists
 
 Note: the current code declares Node.js `>=20.19.0`. `npm test`, `npm run build`, the backend harness, and `dotnet build` passed with Node.js `v24.14.1` and .NET SDK `10.0.107`.

@@ -114,6 +114,21 @@ BOOTSTRAP_ADMIN_PASSWORD=change-me-before-use
 
 The bootstrap admin is a setup fallback with full built-in permissions. Local users and roles can also sign in after they are created through Users & Access.
 
+In development, API startup also seeds demo database users when PostgreSQL is available and migrations have been applied:
+
+```text
+admin.demo@company.test
+builder.demo@company.test
+user.demo@company.test
+viewer.demo@company.test
+```
+
+All seeded demo users use:
+
+```text
+DemoUser!2026
+```
+
 Run the frontend in another terminal:
 
 ```bash

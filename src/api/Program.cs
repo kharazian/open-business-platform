@@ -83,6 +83,7 @@ if (app.Environment.IsDevelopment())
     });
     app.MapScalarApiReference();
     app.UseCors("LocalDevelopment");
+    await DemoDataSeeder.SeedDevelopmentAsync(app.Services);
 }
 
 app.UseAuthentication();

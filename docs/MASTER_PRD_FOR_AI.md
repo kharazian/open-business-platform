@@ -35,6 +35,7 @@ The repository currently contains a working skeleton, not the full product:
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
+- `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Dashboard`: current dashboard summary API module
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, and audit logs
@@ -44,7 +45,7 @@ The repository currently contains a working skeleton, not the full product:
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat dashboard/reports/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, and core audit logs now have real V1 foundations. Seed/demo data remains the main open V1 task. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat dashboard/reports/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs now have real V1 foundations. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 

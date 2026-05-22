@@ -24,13 +24,13 @@ The repository currently has the project skeleton plus the first V1 foundations:
 - Cookie auth with bootstrap admin fallback and local PostgreSQL user login
 - Users & Access workspace for local users, roles, menu permissions, and per-form role access
 - Persistent Forms list/create page and backend-owned field-builder page
-- Form draft persistence, responsive layout, preview, publishing, published-form submission, record list/detail, record edit/delete, browser print, basic record permissions, and core audit logs
+- Form draft persistence, responsive layout, preview, publishing, published-form submission, record list/detail, record edit/delete, browser print, startup demo data, basic record permissions, and core audit logs
 - Real app appearance settings for palette, density, layout, radius, and shadow
 - Lightweight frontend tests for module registry, form schema/record validation, forms API/list/builder helpers, auth, users, and shared UI helpers
 - `/theme` playground with sample data
 - Docker Compose for PostgreSQL and Redis
 
-The product features in this PRD should be implemented task by task. Dashboard, reports, settings/profile, and `/theme` remain starter/sample surfaces until real modules are added. Forms, Users & Access, records, record-level permissions, browser print, and core audit logs now have V1 foundations. Seed/demo data is still pending.
+The product features in this PRD should be implemented task by task. Dashboard, reports, settings/profile, and `/theme` remain starter/sample surfaces until real modules are added. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs now have V1 foundations.
 
 ## Problem
 
