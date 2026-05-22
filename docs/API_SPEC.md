@@ -629,11 +629,56 @@ Record detail returns the immutable schema from the stored `formVersionId` so va
 
 `PUT /api/records/{recordId}`
 
+Requires authentication plus form `edit`, form `manage`, or `forms.manage_all` access for the record's form. Updates validate values against the immutable schema for the stored `formVersionId`; they do not move the record to a newer form version.
+
+Request:
+
+```json
+{
+  "values": {
+    "first_name": "Jane",
+    "email": "jane@example.com"
+  },
+  "concurrencyStamp": "record-stamp"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "55555555-5555-5555-5555-555555555555",
+  "formId": "11111111-1111-1111-1111-111111111111",
+  "formVersionId": "44444444-4444-4444-4444-444444444444",
+  "status": "active",
+  "values": {
+    "first_name": "Jane",
+    "email": "jane@example.com"
+  },
+  "schema": {
+    "schemaVersion": 1,
+    "fields": [],
+    "layout": { "pages": [] }
+  },
+  "concurrencyStamp": "new-record-stamp",
+  "createdAt": "2026-05-21T00:00:00Z",
+  "createdById": "22222222-2222-2222-2222-222222222222",
+  "updatedAt": "2026-05-22T00:00:00Z",
+  "updatedById": "22222222-2222-2222-2222-222222222222"
+}
+```
+
+The backend returns `409` when the supplied `concurrencyStamp` is stale and writes a `record_updated` audit entry on success.
+
 ### Delete record
 
 `DELETE /api/records/{recordId}`
 
-Use soft delete where possible.
+Requires authentication plus form `delete`, form `manage`, or `forms.manage_all` access for the record's form.
+
+Response: `204 No Content`
+
+Delete uses soft delete, marks the record status `deleted`, and writes a `record_deleted` audit entry.
 
 ## Reports V2
 

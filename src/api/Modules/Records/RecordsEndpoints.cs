@@ -82,6 +82,58 @@ public static class RecordsEndpoints
             });
         });
 
+        detailGroup.MapPut("/{recordId:guid}", async (
+            Guid recordId,
+            UpdateRecordRequest request,
+            RecordQueryService recordQuery,
+            RecordMutationService recordMutation,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.Edit, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var record = await recordMutation.UpdateRecordAsync(recordId, request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Ok(record);
+            });
+        });
+
+        detailGroup.MapDelete("/{recordId:guid}", async (
+            Guid recordId,
+            RecordQueryService recordQuery,
+            RecordMutationService recordMutation,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.Delete, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+                await recordMutation.DeleteRecordAsync(recordId, GetCurrentUserId(httpContext), cancellationToken)
+                    ? Results.NoContent()
+                    : Results.NotFound(new RecordErrorResponse("Record was not found.")));
+        });
+
         return endpoints;
     }
 
@@ -97,6 +149,11 @@ public static class RecordsEndpoints
             return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
         }
         catch (RecordQueryException exception)
+        {
+            var errors = exception.Errors.Count == 0 ? null : exception.Errors;
+            return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
+        }
+        catch (RecordMutationException exception)
         {
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);

@@ -72,6 +72,7 @@ Current frontend shell/theme behavior:
 - `src/app/src/config/branding.ts` reads frontend branding from `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`.
 - `AuthContext` loads the signed-in user from `/api/auth/me`, stores effective permissions, and supports login/logout through cookie auth.
 - The Forms feature currently includes a persisted list/create page plus a local field-builder page that stores draft schemas in browser `localStorage`.
+- The Records feature currently includes form-scoped record lists, record detail, edit, and soft-delete views backed by the records API.
 - The Users feature currently includes a Users & Access workspace for users, roles, role permissions, and per-form role access.
 
 Future feature structure:
@@ -141,6 +142,7 @@ Current backend module behavior:
 - `Modules/Identity` maps bootstrap-admin cookie authentication, local PostgreSQL user login, user management, role management, password reset, role permissions, and effective permission endpoints.
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
+- `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
 - `Directory.Build.props` redirects API build output to `.artifacts/api`.

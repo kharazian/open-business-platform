@@ -39,6 +39,11 @@ export type SubmitRecordRequest = {
   values: FormRecordValues;
 };
 
+export type UpdateRecordRequest = {
+  values: FormRecordValues;
+  concurrencyStamp: string;
+};
+
 export type FormRecord = {
   id: string;
   formId: string;
@@ -181,6 +186,31 @@ export async function getRecord(recordId: string, fetcher: FormsFetcher = defaul
   );
 }
 
+export async function updateRecord(
+  recordId: string,
+  request: UpdateRecordRequest,
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<FormRecordDetail> {
+  return requestJson<FormRecordDetail>(
+    `/api/records/${encodeURIComponent(recordId)}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function deleteRecord(recordId: string, fetcher: FormsFetcher = defaultFetcher): Promise<void> {
+  await requestNoContent(
+    `/api/records/${encodeURIComponent(recordId)}`,
+    { method: "DELETE", credentials: "include" },
+    fetcher
+  );
+}
+
 async function requestItems<T>(input: string, init: RequestInit, fetcher: FormsFetcher): Promise<T[]> {
   const body = await requestJson<unknown>(input, init, fetcher);
 
@@ -202,12 +232,24 @@ async function requestJson<T>(input: string, init: RequestInit, fetcher: FormsFe
   return body as T;
 }
 
+async function requestNoContent(input: string, init: RequestInit, fetcher: FormsFetcher): Promise<void> {
+  const response = await fetcher(input, init);
+
+  if (!response.ok) {
+    throw new FormsApiError(await getErrorMessage(response));
+  }
+}
+
 async function readJson(response: ApiFetchResponse): Promise<unknown> {
   try {
     return await response.json();
   } catch {
     return null;
   }
+}
+
+async function getErrorMessage(response: ApiFetchResponse): Promise<string> {
+  return getErrorMessageFromBody(await readJson(response));
 }
 
 function getErrorMessageFromBody(body: unknown): string {

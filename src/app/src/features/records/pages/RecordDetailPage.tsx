@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FileText, RefreshCw } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, Edit3, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -8,14 +8,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { getRecord, type FormRecordDetail } from "../../forms/api";
-import type { FormField, FormRecordValue } from "../../forms/types";
+import { FormRenderer } from "../../forms/components/FormRenderer";
+import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "../../forms/api";
+import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
+import { validateRecordValues } from "../../forms/validation";
+import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
 
 export function RecordDetailPage() {
   const { recordId } = useParams();
+  const navigate = useNavigate();
   const resolvedRecordId = recordId ?? "";
   const [record, setRecord] = useState<FormRecordDetail | null>(null);
+  const [draftValues, setDraftValues] = useState<FormRecordValues>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,11 +46,78 @@ export function RecordDetailPage() {
     setError(null);
 
     try {
-      setRecord(await getRecord(resolvedRecordId));
+      const loadedRecord = await getRecord(resolvedRecordId);
+      setRecord(loadedRecord);
+      setDraftValues(createRecordEditDraft(loadedRecord));
+      setValidationErrors([]);
+      setEditing(false);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setLoading(false);
+    }
+  }
+
+  function startEditing() {
+    if (!record) return;
+    setDraftValues(createRecordEditDraft(record));
+    setValidationErrors([]);
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    if (!record) return;
+    setDraftValues(createRecordEditDraft(record));
+    setValidationErrors([]);
+    setEditing(false);
+  }
+
+  function handleDraftChange(fieldId: string, value: FormRecordValue) {
+    setDraftValues((current) => ({ ...current, [fieldId]: value }));
+  }
+
+  async function saveRecord() {
+    if (!record) return;
+
+    const validation = validateRecordValues(record.schema, draftValues);
+    setValidationErrors(validation.errors);
+
+    if (!validation.valid) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const updatedRecord = await updateRecord(record.id, createUpdateRecordRequest(record, draftValues));
+      setRecord(updatedRecord);
+      setDraftValues(createRecordEditDraft(updatedRecord));
+      setValidationErrors([]);
+      setEditing(false);
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeRecord() {
+    if (!record) return;
+
+    if (!window.confirm("Delete this record?")) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      await deleteRecord(record.id);
+      navigate(getRecordListPath(record));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setDeleting(false);
     }
   }
 
@@ -53,12 +129,35 @@ export function RecordDetailPage() {
         description={record ? `Submitted ${formatDateTime(record.createdAt)}` : "Submitted record values and form version."}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button disabled={loading} onClick={() => void refreshRecord()} variant="outline">
+            {record && editing ? (
+              <>
+                <Button disabled={saving || deleting} onClick={cancelEditing} variant="outline">
+                  <X className="size-4" />
+                  Cancel
+                </Button>
+                <Button disabled={saving || deleting} onClick={() => void saveRecord()}>
+                  <Save className="size-4" />
+                  Save
+                </Button>
+              </>
+            ) : record ? (
+              <Button disabled={loading || deleting} onClick={startEditing} variant="outline">
+                <Edit3 className="size-4" />
+                Edit
+              </Button>
+            ) : null}
+            {record ? (
+              <Button disabled={loading || saving || deleting} onClick={() => void removeRecord()} variant="danger">
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            ) : null}
+            <Button disabled={loading || saving || deleting} onClick={() => void refreshRecord()} variant="outline">
               <RefreshCw className="size-4" />
               Refresh
             </Button>
             {record ? (
-              <LinkButton to={`/forms/${record.formId}/records`}>
+              <LinkButton to={getRecordListPath(record)}>
                 <ArrowLeft className="size-4" />
                 Records
               </LinkButton>
@@ -86,20 +185,33 @@ export function RecordDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Values</CardTitle>
-              <CardDescription>Values captured against the stored form version schema.</CardDescription>
+              <CardTitle>{editing ? "Edit values" : "Values"}</CardTitle>
+              <CardDescription>
+                {editing ? "Update values against the stored form version schema." : "Values captured against the stored form version schema."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3">
-                {record.schema.fields.map((field) => (
-                  <ValueRow field={field} key={field.id} value={record.values[field.id]} />
-                ))}
-                {Object.keys(record.values)
-                  .filter((fieldId) => !fieldsById.has(fieldId))
-                  .map((fieldId) => (
-                    <ValueRow key={fieldId} label={fieldId} value={record.values[fieldId]} />
+              {editing ? (
+                <FormRenderer
+                  errors={validationErrors}
+                  onChange={handleDraftChange}
+                  onSubmit={() => void saveRecord()}
+                  schema={record.schema}
+                  submitLabel={saving ? "Saving" : "Save changes"}
+                  values={draftValues}
+                />
+              ) : (
+                <div className="grid gap-3">
+                  {record.schema.fields.map((field) => (
+                    <ValueRow field={field} key={field.id} value={record.values[field.id]} />
                   ))}
-              </div>
+                  {Object.keys(record.values)
+                    .filter((fieldId) => !fieldsById.has(fieldId))
+                    .map((fieldId) => (
+                      <ValueRow key={fieldId} label={fieldId} value={record.values[fieldId]} />
+                    ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </>

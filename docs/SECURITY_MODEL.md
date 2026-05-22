@@ -1,6 +1,6 @@
 # Security Model
 
-Status: evolving model. The current skeleton implements bootstrap-admin cookie authentication, local PostgreSQL user login, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, and form list/create endpoints. Record-level and field-level authorization are still future V1 work.
+Status: evolving model. The current skeleton implements bootstrap-admin cookie authentication, local PostgreSQL user login, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, forms, and V1 record submit/list/detail/edit/delete endpoints. Field-level authorization is still future V1 work.
 
 ## Core Rules
 

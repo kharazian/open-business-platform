@@ -388,6 +388,16 @@ var recordDetail = new FormRecordDetailDto(
 AssertEqual(publishableSchema, recordDetail.Schema, "Record details should return the immutable form version schema used at submission.");
 AssertTypeAssignable<object, RecordQueryService>();
 
+var updateRecordRequest = new UpdateRecordRequest(
+    new Dictionary<string, object?>
+    {
+        ["employee_name"] = "Jordan Lee"
+    },
+    recordDto.ConcurrencyStamp);
+AssertEqual("Jordan Lee", updateRecordRequest.Values["employee_name"], "Update record requests should carry replacement field values.");
+AssertEqual(recordDto.ConcurrencyStamp, updateRecordRequest.ConcurrencyStamp, "Update record requests should carry concurrency stamps.");
+AssertTypeAssignable<object, RecordMutationService>();
+
 static void AssertEqual<T>(T expected, T actual, string message)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
