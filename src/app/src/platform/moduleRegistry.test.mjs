@@ -1,93 +1,63 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
+import { test } from "vitest";
+import * as registry from "./moduleRegistry.ts";
 
-const outDir = "/tmp/obp-platform-module-registry-test";
+test("module registry sorts and filters navigation and routes", () => {
+  const modules = [
+    {
+      id: "app.finance-dashboard",
+      name: "Finance Dashboard",
+      owner: "app",
+      order: 30,
+      navigation: [{ label: "Finance", path: "/finance-dashboard", order: 30, permission: "menu.finance" }],
+      routes: [{ path: "/finance-dashboard", element: "finance", permission: "menu.finance" }]
+    },
+    {
+      id: "core.dashboard",
+      name: "Dashboard",
+      owner: "core",
+      order: 10,
+      navigation: [{ label: "Dashboard", path: "/dashboard", order: 10, permission: "menu.dashboard" }],
+      routes: [
+        { index: true, element: "home" },
+        { path: "/dashboard", element: "dashboard" }
+      ]
+    }
+  ];
 
-rmSync(outDir, { recursive: true, force: true });
-execFileSync(
-  "npx",
-  [
-    "tsc",
-    "src/platform/moduleRegistry.ts",
-    "--ignoreConfig",
-    "--target",
-    "ES2022",
-    "--module",
-    "CommonJS",
-    "--moduleResolution",
-    "Node",
-    "--ignoreDeprecations",
-    "6.0",
-    "--outDir",
-    outDir,
-    "--skipLibCheck",
-    "--strict"
-  ],
-  { stdio: "inherit" }
-);
+  assert.deepEqual(
+    registry.getModuleNavigation(modules).map((item) => item.label),
+    ["Dashboard", "Finance"]
+  );
 
-const emittedRegistryPath = existsSync(`${outDir}/platform/moduleRegistry.js`)
-  ? `${outDir}/platform/moduleRegistry.js`
-  : `${outDir}/moduleRegistry.js`;
-const require = createRequire(import.meta.url);
-const registry = require(emittedRegistryPath);
+  assert.deepEqual(
+    registry.filterNavigationByPermissions(registry.getModuleNavigation(modules), new Set(["menu.dashboard"])).map((item) => item.label),
+    ["Dashboard"]
+  );
 
-const modules = [
-  {
-    id: "app.finance-dashboard",
-    name: "Finance Dashboard",
-    owner: "app",
-    order: 30,
-    navigation: [{ label: "Finance", path: "/finance-dashboard", order: 30, permission: "menu.finance" }],
-    routes: [{ path: "/finance-dashboard", element: "finance", permission: "menu.finance" }]
-  },
-  {
-    id: "core.dashboard",
-    name: "Dashboard",
-    owner: "core",
-    order: 10,
-    navigation: [{ label: "Dashboard", path: "/dashboard", order: 10, permission: "menu.dashboard" }],
-    routes: [
-      { index: true, element: "home" },
-      { path: "/dashboard", element: "dashboard" }
-    ]
-  }
-];
+  assert.deepEqual(
+    registry.filterNavigationByPermissions(
+      [
+        {
+          label: "Admin",
+          children: [
+            { label: "Users", path: "/users", permission: "menu.users_access" },
+            { label: "Reports", path: "/reports", permission: "menu.reports" }
+          ]
+        }
+      ],
+      new Set(["menu.reports"])
+    ),
+    [{ label: "Admin", children: [{ label: "Reports", path: "/reports", permission: "menu.reports" }] }]
+  );
 
-assert.deepEqual(
-  registry.getModuleNavigation(modules).map((item) => item.label),
-  ["Dashboard", "Finance"]
-);
+  assert.deepEqual(
+    registry.getModuleRoutes(modules).map((route) => route.path ?? "index"),
+    ["index", "/dashboard", "/finance-dashboard"]
+  );
 
-assert.deepEqual(
-  registry.filterNavigationByPermissions(registry.getModuleNavigation(modules), new Set(["menu.dashboard"])).map((item) => item.label),
-  ["Dashboard"]
-);
-
-assert.deepEqual(
-  registry.filterNavigationByPermissions(
-    [
-      {
-        label: "Admin",
-        children: [
-          { label: "Users", path: "/users", permission: "menu.users_access" },
-          { label: "Reports", path: "/reports", permission: "menu.reports" }
-        ]
-      }
-    ],
-    new Set(["menu.reports"])
-  ),
-  [{ label: "Admin", children: [{ label: "Reports", path: "/reports", permission: "menu.reports" }] }]
-);
-
-assert.deepEqual(
-  registry.getModuleRoutes(modules).map((route) => route.path ?? "index"),
-  ["index", "/dashboard", "/finance-dashboard"]
-);
-
-assert.deepEqual(
-  registry.getModulesByOwner(modules, "app").map((module) => module.id),
-  ["app.finance-dashboard"]
-);
+  assert.deepEqual(
+    registry.getModulesByOwner(modules, "app").map((module) => module.id),
+    ["app.finance-dashboard"]
+  );
+});

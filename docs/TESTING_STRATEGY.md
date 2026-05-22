@@ -20,7 +20,7 @@ cd src/api
 dotnet build
 ```
 
-The current frontend `npm test` command runs lightweight Node-based tests for shared TypeScript logic, API clients, module navigation filtering, auth parsing, users/forms types, form-builder helpers, and small shared UI helper coverage. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, role/form permission mappings, password hashing, permission constants, form DTOs, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
+The current frontend `npm test` command runs Vitest-based tests for shared TypeScript logic, API clients, module navigation filtering, auth parsing, users/forms types, form-builder helpers, and small shared UI helper coverage. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, role/form permission mappings, password hashing, permission constants, form DTOs, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 ## Backend Tests
 
@@ -100,6 +100,8 @@ Frontend:
 cd src/app
 npm test
 ```
+
+Frontend tests are discovered by Vitest from `*.test.*` files instead of being listed manually in `package.json`.
 
 Backend:
 
