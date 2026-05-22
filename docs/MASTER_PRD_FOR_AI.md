@@ -23,7 +23,7 @@ The goal is to start simple and grow step by step into a comprehensive internal 
 
 ## 1.1 Current Repository State
 
-The repository currently contains a working skeleton, not the full product:
+The repository currently contains a finalized V1 foundation, not the full product:
 
 - `src/api`: ASP.NET Core minimal API host targeting .NET 10
 - `src/app`: React/React Router/Vite/TypeScript/Tailwind frontend
@@ -32,20 +32,22 @@ The repository currently contains a working skeleton, not the full product:
 - `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, backend-owned form builder, preview renderer, and submit form page
 - `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
 - `src/app/src/features/users`: users/access API client, types, and management workspace
+- `src/app/src/features/reports`: current V2 list report definition API/types/page
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
+- `src/api/Modules/Reports`: current V2 list report definition endpoints, config validation, permission checks, and `report_created` audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Dashboard`: current dashboard summary API module
-- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, and audit logs
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, audit logs, and current V2 report definitions
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat dashboard/reports/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs now have real V1 foundations. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat dashboard/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions; report running, CSV export, and cleaner print layouts remain upcoming V2 work. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -685,6 +687,8 @@ src/app/src/
   pages/
   features/
     forms/
+    records/
+    reports/
     users/
   modules/
   platform/
@@ -692,7 +696,7 @@ src/app/src/
   lib/
 ```
 
-Planned product feature folders should be added under `src/app/src/features/` as their tasks are implemented: records, reports, permissions, triggers, workflows, printing, audit, and notifications.
+Planned product feature folders should be added under `src/app/src/features/` as their tasks are implemented: permissions, triggers, workflows, printing, audit, and notifications.
 
 Current frontend shell/theme details:
 
@@ -718,12 +722,14 @@ src/api/
     Dashboard/
     Forms/
     Identity/
+    Records/
+    Reports/
   Platform/
   Configuration/
   Program.cs
 ```
 
-Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: records, reports, permissions, triggers, workflows, printing, audit, and notifications.
+Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: permissions, triggers, workflows, printing, audit, and notifications.
 
 Current backend configuration details:
 
@@ -732,7 +738,7 @@ Current backend configuration details:
 - `OpenBusinessPlatformDbContext` maps the V1 database foundation and uses EF Core migrations under `src/api/Infrastructure/Persistence/Migrations`.
 - Persisted domain entities use PostgreSQL `uuid` / C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, and CRUD application primitives under `src/api/Application/Common`.
 - `Directory.Build.props` writes API build output under `.artifacts/api`.
-- `PermissionService` provides the current global and per-form role checks for auth, Users & Access, and form list/create endpoints.
+- `PermissionService` provides the current global and per-form role checks for auth, Users & Access, forms, records, and report definition endpoints.
 
 Docs and AI task files:
 
@@ -782,7 +788,7 @@ Start with these V1 tasks:
 14. Audit log basics
 15. Seed data
 
-Do not skip to reports, triggers, or workflow before the V1 foundation is stable.
+The V1 foundation is now stable; continue later work through the roadmap/task order and do not skip ahead to triggers or workflow before their versions.
 
 ## 10. Codex / AI Instructions
 
@@ -807,19 +813,15 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current priority is V1. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, local field-builder UI, and the first users/roles access foundation are complete or partially complete in the current skeleton.
+The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 saved list report definitions now exist with column, filter, sort, backend validation, and permission-checked persistence.
 
-Next concrete V1 work should continue from the form lifecycle:
+V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-- Responsive layout builder
-- Form renderer and preview
-- Backend draft schema persistence
-- Publish immutable form versions
-- Submit forms and store records with form version IDs
-- View/edit/delete records with backend permission checks
-- Basic browser print
-- Record/form audit log coverage
-- Seed data
+Next concrete work should continue V2 reports and better printing:
+
+- Report viewer
+- CSV export
+- Cleaner print layouts
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

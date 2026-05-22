@@ -1,6 +1,6 @@
 # MVP Checklist
 
-Use this checklist to track V1 delivery. Current skeleton work now includes setup, database/auth foundations, Users & Access, persisted form list/create, backend-owned field-builder UI, form publishing, authenticated record submission, record list/detail, record edit/delete, V1 record permissions, browser print, audit logs for core form/record actions, and startup demo data.
+Use this checklist to track V1 delivery. V1 is complete for the current repository: setup, database/auth foundations, Users & Access, persisted form list/create, backend-owned draft metadata and field-builder UI, form publishing, authenticated record submission, record list/detail, record edit/delete, V1 record permissions, browser print, audit logs for core form/record actions, and startup demo data are implemented.
 
 ## V1 Must Have
 
@@ -17,7 +17,7 @@ Use this checklist to track V1 delivery. Current skeleton work now includes setu
 - [x] Form schema and record value validation helpers
 - [x] Form list
 - [x] Create form
-- [ ] Edit form draft
+- [x] Edit form draft
 - [x] Add/edit/delete fields in backend-owned draft builder
 - [x] Basic field settings in backend-owned draft builder
 - [x] Responsive layout settings
@@ -65,3 +65,5 @@ Use this checklist to track V1 delivery. Current skeleton work now includes setu
 - [x] Seed data exists
 
 Note: the current code declares Node.js `>=20.19.0`. `npm test`, `npm run build`, the backend harness, and `dotnet build` passed with Node.js `v24.14.1` and .NET SDK `10.0.107`.
+
+V1 finalization smoke checks also passed against the compose API and PostgreSQL service for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.

@@ -33,6 +33,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<FormRecord> Records => Set<FormRecord>();
 
+    public DbSet<ReportDefinition> Reports => Set<ReportDefinition>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -66,6 +68,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureUsers(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
+        ConfigureReports(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -323,6 +326,26 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(record => record.DepartmentId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureReports(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ReportDefinition>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "reports");
+            entity.HasIndex(report => report.FormId);
+            entity.HasIndex(report => report.Type);
+            entity.HasIndex(report => report.CreatedById);
+            entity.Property(report => report.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(report => report.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(report => report.Type).HasColumnName("type").HasMaxLength(40).IsRequired();
+            entity.Property(report => report.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity
+                .HasOne(report => report.Form)
+                .WithMany()
+                .HasForeignKey(report => report.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

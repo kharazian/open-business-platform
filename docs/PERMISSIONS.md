@@ -74,6 +74,7 @@ Platform actions:
 - `roles.manage`
 - `forms.create`
 - `forms.manage_all`
+- `reports.manage`
 
 Per-form actions:
 
@@ -84,6 +85,8 @@ Per-form actions:
 - `manage`
 
 The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
+
+V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation.
 
 ## Permission Actions
 

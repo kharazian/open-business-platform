@@ -22,7 +22,8 @@ export const platformPermissionOptions = [
   { label: "Manage users", value: "users.manage" },
   { label: "Manage roles", value: "roles.manage" },
   { label: "Create forms", value: "forms.create" },
-  { label: "Manage all forms", value: "forms.manage_all" }
+  { label: "Manage all forms", value: "forms.manage_all" },
+  { label: "Manage reports", value: "reports.manage" }
 ] as const;
 
 export type UserStatus = (typeof userStatuses)[number];

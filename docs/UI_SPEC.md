@@ -13,7 +13,7 @@ The frontend already has a shared app shell and design-system foundation:
 
 The `/theme` playground can demonstrate many layouts and pages, but it should not own reusable UI primitives.
 
-Current Forms and Users & Access pages use real API clients. Dashboard, reports, settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
+Current Forms, Records, Users & Access, and V2 list report builder pages use real API clients. Dashboard, settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
 
 Current real app appearance settings live on the Settings page and are stored in browser `localStorage` under `appThemeSettings`. They support palette, light/dark/system mode, density, main app layout, border radius, and shadow. These settings affect the real app shell only; the `/theme` playground has its own layout and appearance controls.
 
@@ -32,7 +32,7 @@ Target navigation:
 - Users & Access
 - Settings
 
-For V1, only Forms, Records, and basic Settings may be needed.
+V1 requires Forms, Records, Users & Access, and basic Settings/Profile shell behavior. Reports start in V2.
 
 Current main app navigation is permission-aware and includes:
 
@@ -48,7 +48,7 @@ As product features are added, replace remaining starter pages with real module 
 
 ## Form Builder Layout
 
-Current status: the frontend has a local V1 field-builder page at `/forms/:formId/builder`. It supports adding/editing/deleting fields and saves draft schemas in `localStorage`. Backend draft schema persistence, responsive width editing, preview, and publishing still need later V1 tasks.
+Current status: the V1 builder at `/forms/:formId/builder` is backend-owned. It supports draft metadata editing, adding/editing/deleting fields, responsive width settings, preview, and publishing. The browser may keep local draft state during editing, but the backend draft schema is the source for publishing.
 
 The builder should use three panels:
 
@@ -118,7 +118,7 @@ Mobile should default to full width.
 
 ## Form Preview
 
-Preview should render the form using the same FormRenderer used for real submissions.
+Preview renders the form using the same FormRenderer used for real submissions.
 
 ## Record List
 
@@ -130,6 +130,7 @@ V1:
 - Created date
 - Created by
 - Open detail
+- Print current list
 
 V2:
 
@@ -141,7 +142,7 @@ V2:
 
 ## Record Detail
 
-Show submitted values using the form layout.
+Show submitted values using the immutable form version schema stored on the record.
 
 Actions:
 
@@ -151,11 +152,11 @@ Actions:
 
 ## Permissions UI
 
-V1 simple permissions:
+V1 implemented permissions:
 
-- Who can submit?
-- Who can view records?
-- Who can edit records?
+- Global role permissions for menu visibility and platform actions
+- Per-form role access for submit, view, edit, delete, and manage
+- Backend checks for forms, records, users, roles, dashboard, and report definition management
 
 Options:
 

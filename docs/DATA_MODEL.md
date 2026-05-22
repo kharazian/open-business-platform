@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V1 database foundation implemented for core identity, form, record, role permission, form permission, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V1 database foundation finalized for core identity, form, record, role permission, form permission, and audit tables. Current V2 work also adds the first reports table. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -13,9 +13,10 @@ The current migrations include:
 - `departments`, `user_departments`
 - `forms`, `form_versions`
 - `records`
+- `reports`
 - `audit_logs`
 
-Reports, advanced permission rules, groups, triggers, trigger logs, and print templates remain target tables for later tasks.
+Advanced permission rules, groups, triggers, trigger logs, and print templates remain target tables for later tasks.
 
 Recommended approach:
 
@@ -242,14 +243,28 @@ V1 record submission stores values against the form's current published `form_ve
 
 Fields:
 
-- id
-- form_id
+- id uuid
+- form_id uuid
 - name
-- type: list, detail, summary, dashboard
+- type: list
 - config_json JSONB
-- created_by_id
+- concurrency_stamp
+- extra_properties_json JSONB nullable
 - created_at
-- updated_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+- is_deleted
+- deleted_at nullable
+- deleted_by_id nullable
+
+Indexes:
+
+- form_id
+- type
+- created_by_id
+
+The current V2 report definition stores list report configuration in `config_json`: selected columns, filters, and sort order. Report execution, CSV export, cleaner print layouts, and report-level permission rows are later V2/V3 work.
 
 ## Permissions
 

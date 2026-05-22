@@ -25,7 +25,7 @@ Provide one modular platform where teams can:
 
 ## V1 Outcome
 
-V1 should prove the core loop:
+V1 proves the core loop:
 
 1. Create a form.
 2. Add fields and responsive layout.
@@ -33,6 +33,8 @@ V1 should prove the core loop:
 4. Submit records.
 5. View, edit, delete, and print records with basic permissions.
 6. Write audit logs.
+
+Status: complete for the current repository. V1 is now the baseline for future V2+ work.
 
 ## Non-Goals For V1
 

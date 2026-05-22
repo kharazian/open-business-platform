@@ -29,7 +29,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current skeleton. `GET /api/forms` and `POST /api/forms` persist draft forms through the Forms backend module, and the `/forms` frontend page lists, filters, refreshes, and creates forms through `src/app/src/features/forms/api.ts`.
+Completed for the V1 baseline. `GET /api/forms` and `POST /api/forms` persist draft forms through the Forms backend module, and the `/forms` frontend page lists, filters, refreshes, and creates forms through `src/app/src/features/forms/api.ts`.
 
 ## Out of Scope
 

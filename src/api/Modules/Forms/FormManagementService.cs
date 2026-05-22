@@ -139,6 +139,19 @@ public sealed class FormManagementService
             throw new FormManagementException(StatusCodes.Status400BadRequest, "Draft schema is invalid.", validation.Errors);
         }
 
+        if (request.Name is not null)
+        {
+            var name = request.Name.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new FormManagementException(StatusCodes.Status400BadRequest, "Form name is required.");
+            }
+
+            form.Name = name;
+            form.Description = NormalizeOptionalText(request.Description);
+        }
+
         form.DraftSchemaJson = SerializeSchema(request.Schema);
 
         await dbContext.SaveChangesAsync(cancellationToken);

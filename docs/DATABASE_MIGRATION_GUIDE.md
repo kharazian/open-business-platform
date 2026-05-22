@@ -71,6 +71,8 @@ Records:
 Reports:
 
 - form_id
+- type
+- created_by_id
 
 Audit logs:
 

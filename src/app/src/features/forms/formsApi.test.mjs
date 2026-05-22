@@ -91,16 +91,18 @@ test("forms API client maps requests, responses, and errors", async () => {
   }
 
   if (input === "/api/forms/form-2" && init.method === "PUT") {
+    const body = JSON.parse(init.body);
+
     return {
       ok: true,
       json: async () => ({
         id: "form-2",
-        name: "Safety inspection",
-        description: null,
+        name: body.name,
+        description: body.description,
         status: "draft",
-        fieldCount: JSON.parse(init.body).schema.fields.length,
+        fieldCount: body.schema.fields.length,
         currentVersionId: null,
-        draftSchema: JSON.parse(init.body).schema,
+        draftSchema: body.schema,
         concurrencyStamp: "stamp-4",
         createdAt: "2026-05-19T13:00:00.000Z",
         createdById: null,
@@ -238,7 +240,11 @@ test("forms API client maps requests, responses, and errors", async () => {
 const forms = await api.listForms(fetcher);
 const created = await api.createForm({ name: "Safety inspection", description: "" }, fetcher);
 const formDetail = await api.getForm("form-2", fetcher);
-const updatedDraft = await api.updateFormDraft("form-2", formDetail.draftSchema, fetcher);
+const updatedDraft = await api.updateFormDraft(
+  "form-2",
+  { name: "Updated safety inspection", description: "Quarterly site checklist.", schema: formDetail.draftSchema },
+  fetcher
+);
 const published = await api.publishForm("form-2", fetcher);
 const publishedSubmissionForm = await api.getPublishedFormForSubmission("form-2", fetcher);
 const submittedRecord = await api.submitRecord("form-2", { values: { site_name: "North plant" } }, fetcher);
@@ -255,6 +261,8 @@ assert.equal(forms[0].name, "Expense request");
 assert.equal(forms[0].fieldCount, 0);
 assert.equal(created.status, "draft");
 assert.equal(formDetail.draftSchema.fields[0].id, "site_name");
+assert.equal(updatedDraft.name, "Updated safety inspection");
+assert.equal(updatedDraft.description, "Quarterly site checklist.");
 assert.equal(updatedDraft.fieldCount, 1);
 assert.equal(published.form.status, "published");
 assert.equal(published.version.versionNumber, 1);
@@ -282,6 +290,8 @@ assert.equal(calls[3].input, "/api/forms/form-2");
 assert.equal(calls[3].init.method, "PUT");
 assert.equal(calls[3].init.credentials, "include");
 assert.equal(calls[3].init.headers["Content-Type"], "application/json");
+assert.equal(JSON.parse(calls[3].init.body).name, "Updated safety inspection");
+assert.equal(JSON.parse(calls[3].init.body).description, "Quarterly site checklist.");
 assert.equal(JSON.parse(calls[3].init.body).schema.fields[0].id, "site_name");
 assert.equal(calls[4].input, "/api/forms/form-2/publish");
 assert.equal(calls[4].init.method, "POST");

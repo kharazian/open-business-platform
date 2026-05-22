@@ -29,7 +29,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current skeleton. EF Core/Npgsql entities, mappings, migrations, indexes, JSONB columns, Guid IDs, audited entity bases, and lightweight backend harness checks exist for users, roles, departments, forms, form versions, records, role permissions, form permissions, and audit logs.
+Completed for the V1 baseline. EF Core/Npgsql entities, mappings, migrations, indexes, JSONB columns, Guid IDs, audited entity bases, and lightweight backend harness checks exist for users, roles, departments, forms, form versions, records, role permissions, form permissions, and audit logs.
 
 ## Out of Scope
 

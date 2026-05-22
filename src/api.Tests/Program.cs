@@ -9,6 +9,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Records;
+using OpenBusinessPlatform.Api.Modules.Reports;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
 {
@@ -72,6 +73,7 @@ AssertTable<UserDepartment>(model, "user_departments");
 AssertTable<FormDefinition>(model, "forms");
 AssertTable<FormVersion>(model, "form_versions");
 AssertTable<FormRecord>(model, "records");
+AssertTable<ReportDefinition>(model, "reports");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -82,6 +84,7 @@ AssertTypeAssignable<AuditedAggregateRoot<Guid>, Department>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormDefinition>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, FormVersion>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormRecord>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -92,6 +95,7 @@ AssertGuidId<Department>(model);
 AssertGuidId<FormDefinition>(model);
 AssertGuidId<FormVersion>(model);
 AssertGuidId<FormRecord>(model);
+AssertGuidId<ReportDefinition>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -104,6 +108,7 @@ AssertJsonColumn<FormVersion>(model, nameof(FormVersion.SchemaJson));
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.LayoutJson));
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.ValidationJson));
 AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ValuesJson));
+AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ConfigJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -112,6 +117,7 @@ AssertJsonColumn<Role>(model, nameof(Role.ExtraPropertiesJson));
 AssertJsonColumn<Department>(model, nameof(Department.ExtraPropertiesJson));
 AssertJsonColumn<FormDefinition>(model, nameof(FormDefinition.ExtraPropertiesJson));
 AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ExtraPropertiesJson));
+AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -123,6 +129,9 @@ AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.OwnerId) }, "Records sh
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.DepartmentId) }, "Records should be indexed by department.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedById) }, "Records should be indexed by creator.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedAt) }, "Records should be indexed by created date.");
+AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.FormId) }, "Reports should be indexed by form.");
+AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.Type) }, "Reports should be indexed by type.");
+AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.CreatedById) }, "Reports should be indexed by creator.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId) }, "Role form permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.FormId) }, "Role form permissions should be indexed by form.");
@@ -145,6 +154,7 @@ AssertEqual(10, DemoDataSeeder.DemoEmployeeRecords.Count, "Demo seed data should
 
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
+AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Reports.Manage), "Built-in permissions should include report management.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.View), "Form actions should include view.");
 
 var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
@@ -312,6 +322,9 @@ var publishableSchema = new FormSchemaDefinition(
     }));
 var updateDraftRequest = new UpdateFormDraftRequest(publishableSchema);
 AssertEqual(publishableSchema, updateDraftRequest.Schema, "Update form draft requests should carry the backend-owned schema.");
+var updateDraftMetadataRequest = new UpdateFormDraftRequest(publishableSchema, "Updated expense request", null);
+AssertEqual("Updated expense request", updateDraftMetadataRequest.Name, "Update form draft requests should carry optional form names.");
+AssertNull(updateDraftMetadataRequest.Description, "Update form draft requests should allow clearing optional descriptions.");
 
 var formDetail = new FormDetailDto(
     sampleDepartmentId,
@@ -416,6 +429,50 @@ var updateRecordRequest = new UpdateRecordRequest(
 AssertEqual("Jordan Lee", updateRecordRequest.Values["employee_name"], "Update record requests should carry replacement field values.");
 AssertEqual(recordDto.ConcurrencyStamp, updateRecordRequest.ConcurrencyStamp, "Update record requests should carry concurrency stamps.");
 AssertTypeAssignable<object, RecordMutationService>();
+
+var listReportConfig = new ListReportConfigDefinition(
+    1,
+    new[]
+    {
+        new ListReportColumnDefinition("employee_name", "Employee name", true, 180)
+    },
+    new[]
+    {
+        new ListReportFilterDefinition("status", ReportFilterOperators.Equal, "active")
+    },
+    new[]
+    {
+        new ListReportSortDefinition("created_at", ReportSortDirections.Desc)
+    });
+var createReportRequest = new CreateListReportRequest("Employee directory", listReportConfig);
+AssertEqual("Employee directory", createReportRequest.Name, "Create list report requests should carry the report name.");
+AssertTrue(ListReportConfigValidator.Validate(publishableSchema, listReportConfig).Valid, "List report configs should validate against known form fields and system fields.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        publishableSchema,
+        listReportConfig with
+        {
+            Columns = new[] { new ListReportColumnDefinition("missing_field", "Missing", true, 180) }
+        }).Valid,
+    "List report configs should reject unknown fields.");
+
+var reportSummary = new ListReportSummaryDto(
+    Guid.Parse("66666666-6666-6666-6666-666666666666"),
+    sampleDepartmentId,
+    "Expense request",
+    "Employee directory",
+    ReportTypes.List,
+    1,
+    1,
+    1,
+    "report-stamp",
+    sampleUpdatedAt,
+    sampleUserId,
+    null,
+    null);
+AssertEqual(1, reportSummary.ColumnCount, "List report summaries should expose configured column counts.");
+AssertEqual("Employee directory", reportSummary.Name, "List report summaries should expose names.");
+AssertTypeAssignable<object, ReportManagementService>();
 
 static void AssertEqual<T>(T expected, T actual, string message)
 {

@@ -29,7 +29,7 @@ Read before starting:
 
 ## Current Status
 
-Completed for the current skeleton. Shared V1 form field, layout, form version, validation, and record value contracts exist in `src/app/src/features/forms` and `src/api/Modules/Forms`. `npm test`, `npm run build`, and `dotnet build` passed.
+Completed for the V1 baseline. Shared V1 form field, layout, form version, validation, and record value contracts exist in `src/app/src/features/forms` and `src/api/Modules/Forms`. `npm test`, `npm run build`, and `dotnet build` passed.
 
 ## Out of Scope
 

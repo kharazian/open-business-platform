@@ -86,6 +86,8 @@ export function FormBuilderPage() {
   );
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(() => schema.fields[0]?.id ?? null);
   const [formName, setFormName] = useState("Form draft");
+  const [formDescription, setFormDescription] = useState("");
+  const [formNameError, setFormNameError] = useState<string | undefined>();
   const [formStatus, setFormStatus] = useState<FormStatus>("draft");
   const [loadingForm, setLoadingForm] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -117,6 +119,8 @@ export function FormBuilderPage() {
       .then((form) => {
         if (!active) return;
         setFormName(form.name);
+        setFormDescription(form.description ?? "");
+        setFormNameError(undefined);
         setFormStatus(form.status);
 
         if (form.draftSchema) {
@@ -127,6 +131,7 @@ export function FormBuilderPage() {
       .catch((caught: unknown) => {
         if (!active) return;
         setFormName(`Form ${resolvedFormId}`);
+        setFormDescription("");
         setError(getErrorMessage(caught));
       })
       .finally(() => {
@@ -169,13 +174,19 @@ export function FormBuilderPage() {
   }
 
   async function handleSaveDraft() {
-    setSavingDraft(true);
     setError(null);
     setNotice(null);
+    const request = createDraftUpdateRequest();
+
+    if (!request) return;
+
+    setSavingDraft(true);
 
     try {
-      const form = await updateFormDraft(resolvedFormId, schema);
+      const form = await updateFormDraft(resolvedFormId, request);
       setFormName(form.name);
+      setFormDescription(form.description ?? "");
+      setFormNameError(undefined);
       setFormStatus(form.status);
 
       if (form.draftSchema) {
@@ -196,17 +207,23 @@ export function FormBuilderPage() {
   }
 
   async function handlePublish() {
-    setPublishing(true);
     setError(null);
     setNotice(null);
+    const request = createDraftUpdateRequest();
+
+    if (!request) return;
+
+    setPublishing(true);
 
     try {
-      const savedForm = await updateFormDraft(resolvedFormId, schema);
+      const savedForm = await updateFormDraft(resolvedFormId, request);
       const schemaForCache = savedForm.draftSchema ?? schema;
       saveFormBuilderDraft(resolvedFormId, schemaForCache);
 
       const response = await publishForm(resolvedFormId);
       setFormName(response.form.name);
+      setFormDescription(response.form.description ?? "");
+      setFormNameError(undefined);
       setFormStatus(response.form.status);
 
       if (response.form.draftSchema) {
@@ -222,6 +239,33 @@ export function FormBuilderPage() {
     } finally {
       setPublishing(false);
     }
+  }
+
+  function createDraftUpdateRequest() {
+    const name = formName.trim();
+
+    if (!name) {
+      setFormNameError("Form name is required.");
+      setError("Form name is required.");
+      return null;
+    }
+
+    return { name, description: formDescription, schema };
+  }
+
+  function handleFormNameChange(value: string) {
+    setFormName(value);
+    setNotice(null);
+
+    if (formNameError) {
+      setFormNameError(undefined);
+      setError(null);
+    }
+  }
+
+  function handleFormDescriptionChange(value: string) {
+    setFormDescription(value);
+    setNotice(null);
   }
 
   function handleOpenPreview() {
@@ -282,7 +326,17 @@ export function FormBuilderPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[17rem_minmax(0,1fr)_24rem]">
-        <FieldPalette onAddField={handleAddField} />
+        <div className="grid gap-4 self-start">
+          <DraftMetadataSettings
+            description={formDescription}
+            disabled={loadingForm || savingDraft || publishing}
+            name={formName}
+            nameError={formNameError}
+            onDescriptionChange={handleFormDescriptionChange}
+            onNameChange={handleFormNameChange}
+          />
+          <FieldPalette onAddField={handleAddField} />
+        </div>
         <BuilderCanvas schema={schema} selectedFieldId={selectedFieldId} onSelectField={setSelectedFieldId} />
         <FieldSettings
           field={selectedField}
@@ -331,6 +385,48 @@ export function FormBuilderPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function DraftMetadataSettings({
+  description,
+  disabled,
+  name,
+  nameError,
+  onDescriptionChange,
+  onNameChange
+}: {
+  description: string;
+  disabled: boolean;
+  name: string;
+  nameError?: string;
+  onDescriptionChange: (value: string) => void;
+  onNameChange: (value: string) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Draft details</CardTitle>
+        <CardDescription>Name and description.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={preventSubmit}>
+          <Input
+            disabled={disabled}
+            error={nameError}
+            label="Form name"
+            onChange={(event) => onNameChange(event.target.value)}
+            value={name}
+          />
+          <Textarea
+            disabled={disabled}
+            label="Description"
+            onChange={(event) => onDescriptionChange(event.target.value)}
+            value={description}
+          />
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

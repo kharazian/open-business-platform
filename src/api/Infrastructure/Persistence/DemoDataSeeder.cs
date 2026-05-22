@@ -203,7 +203,14 @@ public static class DemoDataSeeder
         await EnsureBuiltInPermissionsAsync(
             dbContext,
             roles[PlatformRoles.Builder],
-            new[] { PlatformPermissions.Menu.Dashboard, PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create },
+            new[]
+            {
+                PlatformPermissions.Menu.Dashboard,
+                PlatformPermissions.Menu.Forms,
+                PlatformPermissions.Menu.Reports,
+                PlatformPermissions.Forms.Create,
+                PlatformPermissions.Reports.Manage
+            },
             cancellationToken);
         await EnsureBuiltInPermissionsAsync(
             dbContext,

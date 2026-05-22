@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The current skeleton has build validation, lightweight frontend logic/API tests, and a lightweight backend executable test harness.
+The current repository has build validation, lightweight frontend logic/API tests, a lightweight backend executable test harness, and manual API smoke coverage for the finalized V1 baseline.
 
 The frontend package declares Node.js `>=20.19.0`. `npm run build` relies on Vite and should be run with that Node version or newer.
 
@@ -21,6 +21,8 @@ dotnet build
 ```
 
 The current frontend `npm test` command runs Vitest-based tests for shared TypeScript logic, API clients, module navigation filtering, auth parsing, users/forms types, form-builder helpers, and small shared UI helper coverage. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, role/form permission mappings, password hashing, permission constants, form DTOs, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
+
+The V1 finalization smoke path should cover health, demo login, current session, forms list, published form rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
 ## Backend Tests
 
@@ -89,6 +91,8 @@ Use for:
 - Backend permission checks
 - Form version immutability
 - Basic FormRenderer component
+
+Status: covered by the current lightweight test suite and V1 smoke checks at the foundation level. Broader integration and component test suites should be added as later modules increase risk.
 
 ## Test Commands
 

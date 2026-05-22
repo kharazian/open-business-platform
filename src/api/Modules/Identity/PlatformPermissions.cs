@@ -13,7 +13,8 @@ public static class PlatformPermissions
         Users.Manage,
         Roles.Manage,
         Forms.Create,
-        Forms.ManageAll
+        Forms.ManageAll,
+        Reports.Manage
     };
 
     public static readonly IReadOnlyCollection<string> FormActions = new[]
@@ -49,6 +50,11 @@ public static class PlatformPermissions
     {
         public const string Create = "forms.create";
         public const string ManageAll = "forms.manage_all";
+    }
+
+    public static class Reports
+    {
+        public const string Manage = "reports.manage";
     }
 
     public static class Form

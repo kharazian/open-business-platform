@@ -29,7 +29,7 @@ public sealed record FormDetailDto(
 
 public sealed record CreateFormRequest(string Name, string? Description);
 
-public sealed record UpdateFormDraftRequest(FormSchemaDefinition Schema);
+public sealed record UpdateFormDraftRequest(FormSchemaDefinition Schema, string? Name = null, string? Description = null);
 
 public sealed record PublishedFormVersionDto(
     Guid Id,

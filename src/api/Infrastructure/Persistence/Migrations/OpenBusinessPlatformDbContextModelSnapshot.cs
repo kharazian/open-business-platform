@@ -315,6 +315,85 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("records", (string)null);
                 });
 
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.ReportDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<JsonDocument>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("config_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by_id");
+
+                    b.Property<JsonDocument>("ExtraPropertiesJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("extra_properties_json");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("Type");
+
+                    b.ToTable("reports", (string)null);
+                });
+
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.FormVersion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -671,6 +750,17 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("FormVersion");
 
                     b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.ReportDefinition", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Form");
                 });
 
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.FormVersion", b =>

@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving. The current API exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, and persisted form list/create endpoints. Add product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -157,7 +157,8 @@ Response:
       "users.manage",
       "roles.manage",
       "forms.create",
-      "forms.manage_all"
+      "forms.manage_all",
+      "reports.manage"
     ]
   }
 }
@@ -405,6 +406,8 @@ Request:
 
 ```json
 {
+  "name": "Employee Form",
+  "description": "Employee information",
   "schema": {
     "schemaVersion": 1,
     "fields": [],
@@ -420,7 +423,7 @@ Request:
 }
 ```
 
-Response: `200 OK` with the refreshed form detail. Draft saves allow incomplete builder schemas, but they still validate schema shape, field types, and layout references.
+Response: `200 OK` with the refreshed form detail. Draft saves update the editable draft metadata and schema together. `name` is trimmed and required; a blank or omitted `description` is stored as null. Draft saves allow incomplete builder schemas, but they still validate schema shape, field types, and layout references.
 
 ### Publish form
 
@@ -736,17 +739,83 @@ Delete uses soft delete, marks the record status `deleted`, and writes a `record
 
 `GET /api/forms/{formId}/reports`
 
+Requires authentication plus `menu.reports` and form `view`, form `manage`, or `forms.manage_all` access.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "formId": "00000000-0000-0000-0000-000000000000",
+      "formName": "Employee Form",
+      "name": "Employee directory",
+      "type": "list",
+      "columnCount": 3,
+      "filterCount": 1,
+      "sortCount": 1,
+      "concurrencyStamp": "stamp",
+      "createdAt": "2026-05-22T00:00:00Z",
+      "createdById": null,
+      "updatedAt": null,
+      "updatedById": null
+    }
+  ]
+}
+```
+
 ### Create report
 
 `POST /api/forms/{formId}/reports`
+
+Requires authentication plus `reports.manage` and form `manage` or `forms.manage_all` access.
+
+Request:
+
+```json
+{
+  "name": "Employee directory",
+  "config": {
+    "schemaVersion": 1,
+    "columns": [
+      {
+        "fieldId": "first_name",
+        "label": "First name",
+        "visible": true,
+        "width": 180
+      }
+    ],
+    "filters": [
+      {
+        "fieldId": "status",
+        "operator": "equals",
+        "value": "active"
+      }
+    ],
+    "sort": [
+      {
+        "fieldId": "created_at",
+        "direction": "desc"
+      }
+    ]
+  }
+}
+```
+
+Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus system fields `status`, `created_at`, and `created_by_id`. Supported filter operators are `equals`, `contains`, `is_empty`, and `is_not_empty`; supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
 
 ### Run report
 
 `POST /api/reports/{reportId}/run`
 
+Not implemented yet.
+
 ### Export report CSV
 
 `POST /api/reports/{reportId}/export/csv`
+
+Not implemented yet.
 
 ## Permissions V3
 

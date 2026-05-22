@@ -12,7 +12,7 @@ The first product direction is a business form platform: users can create respon
 - Cache/queue foundation: Redis
 - Local orchestration: Docker Compose
 
-## Current Skeleton
+## Current State
 
 The repository currently includes:
 
@@ -25,9 +25,14 @@ The repository currently includes:
 - Cookie authentication with a bootstrap admin fallback plus local PostgreSQL users
 - Users & Access workspace for local users, roles, menu permissions, and per-form role access
 - Forms list/create API and frontend page backed by PostgreSQL
-- Local frontend field-builder route at `/forms/:formId/builder`
+- Backend-owned form builder route at `/forms/:formId/builder` for draft metadata, fields, responsive layout, preview, and publishing
+- Published form submission route at `/forms/:formId/submit`
+- Record list/detail/edit/delete flows with backend value validation, permission checks, soft delete, and audit logging
+- Browser print support for record lists and record details
+- Development seed data for demo users, roles, departments, a published Employee Information Form, per-form access, and 10 sample records
 - Main app appearance settings with palette, color mode, density, layout, radius, and shadow controls saved in browser `localStorage`
 - Permission-aware main app routes for dashboard, forms, users/access, reports, settings, and profile
+- Saved V2 list report definitions with selected columns, one UI filter, one UI sort, backend validation, and permission-checked persistence
 - `/theme` playground for sample-data UI, layout, component, workspace, and authentication demos
 - Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
@@ -38,17 +43,17 @@ The repository currently includes:
 
 V1 focuses on:
 
-- Form list and form draft creation
-- Basic field builder
-- Responsive layout builder
-- Form preview and publish
-- Record submission and record management
-- Basic permissions
-- Browser printing
-- Audit logs
-- Seed/demo data
+- Form list and form draft creation: complete
+- Basic field builder: complete
+- Responsive layout builder: complete
+- Form preview and publish: complete
+- Record submission and record management: complete
+- Basic permissions: complete
+- Browser printing: complete
+- Audit logs: complete
+- Seed/demo data: complete
 
-Future versions add report builder, cleaner printing, advanced permissions, triggers, workflows, PDF templates, dashboards, integrations, and enterprise features.
+V1 is the finalized foundation. Current V2 work starts with saved list report definitions, then continues with report viewer/run behavior, CSV export, and cleaner print layouts. Later versions add advanced permissions, triggers, workflows, PDF templates, dashboards, integrations, and enterprise features.
 
 ## Prerequisites
 
@@ -183,6 +188,15 @@ dotnet build
 The API writes generated build artifacts to `.artifacts/api` so local runs are isolated from stale `bin` or `obj` folders.
 
 The backend persistence foundation uses EF Core with PostgreSQL `uuid`/C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, role/form permission tables for the first access model, and reusable CRUD primitives under `src/api/Application/Common`.
+
+Recent V1 finalization checks:
+
+- `npm test`
+- `npm run build`
+- `dotnet run --project src/api.Tests/OpenBusinessPlatform.Api.Tests.csproj`
+- `dotnet restore`
+- `dotnet build`
+- Compose API smoke tests for health, demo login, forms, published form rendering, records, record detail, and permission denials
 
 ## Local Services
 

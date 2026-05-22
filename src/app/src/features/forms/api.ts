@@ -14,6 +14,12 @@ export type CreateFormRequest = {
   description?: string;
 };
 
+export type UpdateFormDraftRequest = {
+  name: string;
+  description?: string | null;
+  schema: FormSchema;
+};
+
 export type FormDetail = FormSummary & {
   draftSchema?: FormSchema | null;
   concurrencyStamp: string;
@@ -130,7 +136,7 @@ export async function createForm(request: CreateFormRequest, fetcher: FormsFetch
 
 export async function updateFormDraft(
   formId: string,
-  schema: FormSchema,
+  request: UpdateFormDraftRequest,
   fetcher: FormsFetcher = defaultFetcher
 ): Promise<FormDetail> {
   return requestJson<FormDetail>(
@@ -139,7 +145,7 @@ export async function updateFormDraft(
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ schema })
+      body: JSON.stringify(request)
     },
     fetcher
   );

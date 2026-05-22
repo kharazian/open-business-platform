@@ -22,14 +22,16 @@ Current runtime/configuration details:
 - EF Core persistence lives in `src/api/Infrastructure/Persistence`, domain entity bases in `src/api/Domain/Common`, domain entities in `src/api/Domain/Entities`, and CRUD application primitives in `src/api/Application/Common`.
 - Internal persisted entities use PostgreSQL `uuid` / C# `Guid` IDs, with external auth IDs stored separately on users.
 - Cookie authentication uses a server-only bootstrap admin fallback and local PostgreSQL users. Effective permissions come from role permissions and per-form role access rows.
-- The current Forms module exposes persisted list/create endpoints and a form access option endpoint for role permission setup.
+- The current Forms module exposes persisted list/create, backend draft update, publish, published rendering, and form access option endpoints.
+- The current Records module exposes submit, list, detail, edit, and soft-delete endpoints.
+- The current Reports module exposes V2 saved list report definition endpoints.
 
 ## Current Frontend Foundation
 
 - TypeScript is enabled in strict mode.
 - Tailwind CSS theme tokens and shared UI components already exist.
 - The real app and `/theme` playground share the same shell and UI primitives.
-- Current real app feature code includes `features/forms` for schema, form APIs, list/create, and local field-builder behavior, and `features/users` for Users & Access APIs/types/pages.
+- Current real app feature code includes `features/forms` for schema, form APIs, list/create, backend-owned builder behavior, renderer/preview/submission helpers, `features/records` for records pages/helpers, `features/users` for Users & Access APIs/types/pages, and `features/reports` for V2 list report definition APIs/types/pages.
 
 ## Recommended Frontend Additions
 

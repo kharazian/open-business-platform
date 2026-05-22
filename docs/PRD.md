@@ -12,25 +12,26 @@ The first version should focus on a strong foundation: form builder, responsive 
 
 ## Current Repository State
 
-The repository currently has the project skeleton plus the first V1 foundations:
+The repository currently has the V1 foundation implemented and verified:
 
 - ASP.NET Core minimal API host
 - React frontend shell
 - Frontend module registry for permission-aware app routes/navigation
 - Shared UI/layout component foundation
 - Shared V1 form schema contracts and validation helpers in frontend and backend code
-- API health, authenticated dashboard summary, auth, users, roles, role permissions, and forms list/create endpoints
+- API health, authenticated dashboard summary, auth, users, roles, role permissions, forms, published form submission, records, and V2 report definition endpoints
 - EF Core/Npgsql persistence foundation for users, roles, departments, forms, form versions, records, role/form permissions, and audit logs
 - Cookie auth with bootstrap admin fallback and local PostgreSQL user login
 - Users & Access workspace for local users, roles, menu permissions, and per-form role access
 - Persistent Forms list/create page and backend-owned field-builder page
 - Form draft persistence, responsive layout, preview, publishing, published-form submission, record list/detail, record edit/delete, browser print, startup demo data, basic record permissions, and core audit logs
+- Saved V2 list report definitions with selected columns, one UI filter, one UI sort, backend validation, and permission-checked persistence
 - Real app appearance settings for palette, density, layout, radius, and shadow
 - Lightweight frontend tests for module registry, form schema/record validation, forms API/list/builder helpers, auth, users, and shared UI helpers
 - `/theme` playground with sample data
 - Docker Compose for PostgreSQL and Redis
 
-The product features in this PRD should be implemented task by task. Dashboard, reports, settings/profile, and `/theme` remain starter/sample surfaces until real modules are added. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs now have V1 foundations.
+The product features in this PRD should be implemented task by task. Dashboard, settings/profile, and `/theme` remain starter/sample surfaces. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs are the finalized V1 baseline. Reports have begun V2 with saved list report definitions, but report running, CSV export, and cleaner print layouts remain upcoming V2 work.
 
 ## Problem
 
@@ -136,6 +137,8 @@ Reviews records and participates in workflow approval.
 - Basic audit logging
 - Seed/demo data
 
+Status: complete and verified for the current repository.
+
 ## Acceptance Criteria for V1
 
 - A builder can create and publish a form.
@@ -146,3 +149,5 @@ Reviews records and participates in workflow approval.
 - Unauthorized users cannot access restricted records through the backend API.
 - Records can be printed with browser print.
 - Basic audit logs are written for create/update/delete actions.
+
+V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for authentication, form rendering, record list/detail, and backend permission denials.

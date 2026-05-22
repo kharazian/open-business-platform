@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Foundation In Progress
+## Current State: V1 Finalized, V2 Started
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -13,20 +13,24 @@
 - Cookie auth exists with bootstrap admin fallback and local PostgreSQL user login.
 - Users & Access workspace exists for local users, roles, menu permissions, and per-form role access.
 - Persistent Forms list/create API and frontend page exist.
-- Backend-owned form draft editing, responsive layout, preview, immutable publishing, and submit-safe published form rendering exist.
+- Backend-owned form draft metadata editing, field editing, responsive layout, preview, immutable publishing, and submit-safe published form rendering exist.
 - Record submission, list/detail, edit, soft-delete, and browser print flows exist with backend permission checks and audit logs.
+- Saved V2 list report definitions exist with column, filter, sort, backend validation, and report management permission checks.
 - Development startup seed data exists for demo users, roles, departments, a published sample form, permissions, and records.
 - Real app appearance settings exist and are saved in browser localStorage.
 - `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
 - Lightweight frontend logic/API tests exist for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users, records, and shared UI helpers.
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
+- V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: clarify the remaining form draft metadata-editing checklist item, then begin V2 report builder work.
+Next: continue V2 with report viewer/run behavior, then CSV export and cleaner print layouts.
 
 ## V1: Foundation - Forms and Records
 
 Goal: create a working product foundation.
+
+Status: complete and verified.
 
 Features:
 

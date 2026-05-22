@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. Current reports pages are starter/sample UI. Real report builder work begins in V2 after V1 forms and records are stable.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, and permission checks. Report running, CSV export, and cleaner print layouts are still upcoming V2 work.
 
 ## Principle
 
@@ -18,13 +18,13 @@ Displays many records in a table.
 
 V2 features:
 
-- Select columns
-- Reorder columns
-- Rename columns
-- Filters
-- Sorting
-- Search
-- Saved reports
+- Select columns: implemented for saved definitions
+- Reorder columns: not implemented yet
+- Rename columns: labels are saved from the selected form fields
+- Filters: one saved filter in the current builder, config supports multiple
+- Sorting: one saved sort in the current builder, config supports multiple
+- Search: not implemented yet
+- Saved reports: implemented
 - Print
 - Export CSV
 

@@ -6,6 +6,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Records;
+using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Platform;
 using Scalar.AspNetCore;
 
@@ -31,6 +32,7 @@ builder.Services.AddScoped<FormManagementService>();
 builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
+builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
