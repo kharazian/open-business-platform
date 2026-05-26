@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 using System.Security.Claims;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
@@ -35,11 +36,31 @@ var missingConfigurationDirectory = new BootstrapAdminUserDirectory(Options.Crea
 var missingConfigurationUser = missingConfigurationDirectory.ValidateCredentials(new LoginRequest("admin@company.test", "correct-password"));
 AssertNull(missingConfigurationUser, "Missing bootstrap admin configuration should disable login.");
 
+using (var appSettings = JsonDocument.Parse(File.ReadAllText(GetRepositoryFilePath("src", "api", "appsettings.json"))))
+{
+    var configuredPostgres = appSettings
+        .RootElement
+        .GetProperty("ConnectionStrings")
+        .GetProperty("Postgres")
+        .GetString();
+
+    AssertEqual(
+        "Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password",
+        configuredPostgres,
+        "Checked-in API appsettings should match the project Compose PostgreSQL host port.");
+}
+
 RunWithEnvironment(
     new Dictionary<string, string?>
     {
         ["AUTH_COOKIE_NAME"] = "obp_test.auth",
         ["Authentication__CookieName"] = null,
+        ["ConnectionStrings__Postgres"] = null,
+        ["POSTGRES_HOST"] = null,
+        ["POSTGRES_PORT"] = null,
+        ["POSTGRES_DB"] = null,
+        ["POSTGRES_USER"] = null,
+        ["POSTGRES_PASSWORD"] = null,
         ["API_PORT"] = "5099",
         ["ASPNETCORE_URLS"] = null,
         ["VITE_APP_HOST"] = "127.0.0.1",
@@ -52,6 +73,10 @@ RunWithEnvironment(
         EnvironmentConfiguration.ApplyDerivedValues();
 
         AssertEqual("obp_test.auth", Environment.GetEnvironmentVariable("Authentication__CookieName"), "Auth cookie name should be configurable per local clone.");
+        AssertEqual(
+            "Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password",
+            Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
+            "Host-run API development should default to the project Compose PostgreSQL port instead of the common local PostgreSQL port.");
         AssertEqual("http://localhost:5099", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"), "API URL should be derived from API_PORT when not explicitly set.");
         AssertEqual("http://127.0.0.1:5199", Environment.GetEnvironmentVariable("Cors__AllowedOrigins__0"), "CORS should include the configured Vite host and port.");
         AssertEqual("http://localhost:5199", Environment.GetEnvironmentVariable("Cors__AllowedOrigins__1"), "CORS should still include localhost for browser fallback.");
@@ -552,6 +577,25 @@ static void RunWithEnvironment(IReadOnlyDictionary<string, string?> values, Acti
             Environment.SetEnvironmentVariable(key, value);
         }
     }
+}
+
+static string GetRepositoryFilePath(params string[] relativeSegments)
+{
+    var currentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
+
+    while (currentDirectory is not null)
+    {
+        var candidate = Path.Combine(new[] { currentDirectory.FullName }.Concat(relativeSegments).ToArray());
+
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        currentDirectory = currentDirectory.Parent;
+    }
+
+    throw new InvalidOperationException($"Could not find repository file: {string.Join("/", relativeSegments)}.");
 }
 
 static void AssertTable<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel model, string expectedTable)

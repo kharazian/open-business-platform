@@ -38,7 +38,7 @@ dotnet ef database update \
   --startup-project src/api/OpenBusinessPlatform.Api.csproj
 ```
 
-If `database update` reports password authentication failures, the existing Docker volume may have been initialized with older credentials. Either use the password that initialized the volume or intentionally recreate the local development volume after confirming no local data needs to be kept.
+Host-run local development uses PostgreSQL on `localhost:55432` by default so it does not collide with a machine-level PostgreSQL service on `5432`. If `database update` reports password authentication failures, first confirm the API and EF commands are using the project Compose port. If the port is correct, the existing Docker volume may have been initialized with older credentials. Either use the password that initialized the volume or intentionally recreate the local development volume after confirming no local data needs to be kept.
 
 Check that the model matches the committed migration:
 

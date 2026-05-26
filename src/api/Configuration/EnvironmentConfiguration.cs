@@ -26,7 +26,7 @@ public static class EnvironmentConfiguration
     private static string BuildPostgresConnectionString()
     {
         var host = GetValue("POSTGRES_HOST", "localhost");
-        var port = GetValue("POSTGRES_PORT", "5432");
+        var port = GetValue("POSTGRES_PORT", "55432");
         var database = GetValue("POSTGRES_DB", "open_business_platform");
         var username = GetValue("POSTGRES_USER", "obp");
         var password = GetValue("POSTGRES_PASSWORD", "obp_dev_password");

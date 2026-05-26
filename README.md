@@ -32,7 +32,7 @@ The repository currently includes:
 - Development seed data for demo users, roles, departments, a published Employee Information Form, per-form access, and 10 sample records
 - Main app appearance settings with palette, color mode, density, layout, radius, and shadow controls saved in browser `localStorage`
 - Permission-aware main app routes for dashboard, forms, users/access, reports, settings, and profile
-- Saved V2 list report definitions with selected columns, one UI filter, one UI sort, backend validation, and permission-checked persistence
+- Saved V2 preview list report definitions with selected columns, one UI filter, one UI sort, backend validation, and permission-checked persistence
 - `/theme` playground for sample-data UI, layout, component, workspace, and authentication demos
 - Docker Compose services for PostgreSQL and Redis
 - API health endpoint at `http://localhost:5080/health`
@@ -156,7 +156,7 @@ Useful frontend routes:
 - `/forms`
 - `/forms/:formId/builder`
 - `/users`
-- `/reports`
+- `/reports` V2 preview
 - `/settings`
 - `/profile`
 - `/theme`
@@ -202,13 +202,13 @@ Recent V1 finalization checks:
 
 Docker Compose exposes:
 
-- PostgreSQL: `localhost:${POSTGRES_PORT:-5432}`
+- PostgreSQL: `localhost:${POSTGRES_PORT:-55432}`
 - Redis: `localhost:${REDIS_PORT:-6379}`
 
 Development PostgreSQL connection:
 
 ```text
-Host=localhost;Port=5432;Database=open_business_platform;Username=obp;Password=obp_dev_password
+Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password
 ```
 
 Apply EF Core migrations after PostgreSQL is running:
@@ -224,7 +224,7 @@ The root `.env` file is for local development and is ignored by git. Use `.env.e
 Important variables:
 
 - `COMPOSE_PROJECT_NAME`: controls Docker Compose container, network, image, and volume naming so multiple clones can run at once.
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: used by Docker Compose and the backend PostgreSQL connection.
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: used by Docker Compose and the backend PostgreSQL connection. The default host port is `55432` to avoid collisions with a local PostgreSQL service on `5432`.
 - `REDIS_HOST`, `REDIS_PORT`: used by Docker Compose and the backend Redis connection.
 - `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL for host-run API development.
 - `VITE_APP_HOST`, `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
@@ -241,7 +241,7 @@ Use a different `.env` in each clone. Clone A can keep the defaults:
 
 ```env
 COMPOSE_PROJECT_NAME=obp_a
-POSTGRES_PORT=5432
+POSTGRES_PORT=55432
 REDIS_PORT=6379
 API_PORT=5080
 ASPNETCORE_URLS=http://localhost:5080
@@ -255,7 +255,7 @@ Clone B should use different host ports and a different cookie name:
 
 ```env
 COMPOSE_PROJECT_NAME=obp_b
-POSTGRES_PORT=5433
+POSTGRES_PORT=55433
 REDIS_PORT=6380
 API_PORT=5081
 ASPNETCORE_URLS=http://localhost:5081

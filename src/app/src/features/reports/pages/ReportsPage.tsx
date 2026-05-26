@@ -217,9 +217,9 @@ export function ReportsPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Reports"
-        title="List report builder"
-        description="Create saved list report definitions from form fields."
+        eyebrow="Reports V2 preview"
+        title="List report definitions"
+        description="Create saved V2 list report definitions from form fields."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button disabled={!selectedFormId || loadingReports} onClick={handleRefresh} variant="outline">
