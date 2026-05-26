@@ -12,6 +12,7 @@ public static class EnvironmentConfiguration
         CopyIfPresent("BOOTSTRAP_ADMIN_EMAIL", "BootstrapAdmin__Email");
         CopyIfPresent("BOOTSTRAP_ADMIN_PASSWORD", "BootstrapAdmin__Password");
         CopyIfPresent("AUTH_COOKIE_NAME", "Authentication__CookieName");
+        CopyIfPresent("AUTH_COOKIE_REQUIRE_SECURE", "Authentication__RequireSecureCookies");
 
         SetIfMissing("ConnectionStrings__Postgres", BuildPostgresConnectionString());
         SetIfMissing("ConnectionStrings__Redis", BuildRedisConnectionString());

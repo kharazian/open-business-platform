@@ -1,0 +1,39 @@
+# PRIVATE PROJECT: copy this file to .github/workflows/deploy-stage.yml
+# after replacing server paths, branch names, and GitHub secret names.
+name: Deploy Stage
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: stage
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.OBP_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OBP_DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.OBP_DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_obp_deploy
+          chmod 600 ~/.ssh/id_obp_deploy
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy stage from source on the server
+        env:
+          DEPLOY_HOST: ${{ secrets.OBP_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OBP_DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/id_obp_deploy "$DEPLOY_USER@$DEPLOY_HOST" <<'REMOTE'
+          set -eu
+          cd /opt/open-business-platform/stage
+          git pull --ff-only
+          docker compose --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml build
+          docker compose --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml up -d --remove-orphans
+          docker compose --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml ps
+          REMOTE

@@ -9,6 +9,7 @@ The current repository starts with:
 - `src/api`: ASP.NET Core minimal API host
 - `src/app`: React frontend
 - `docker-compose.yml`: PostgreSQL and Redis for local development
+- `deploy/`: reusable server deployment templates for projects that consume the core
 - `docs`: product and architecture documentation
 - `tasks`: implementation tasks
 
@@ -147,6 +148,22 @@ Current backend module behavior:
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
 - `Directory.Build.props` redirects API build output to `.artifacts/api`.
+- In non-development environments, `Program.cs` applies forwarded headers before authentication and marks auth cookies as secure by default so the API can sit behind Caddy or Nginx TLS termination. Temporary HTTP-only staging can opt out through `AUTH_COOKIE_REQUIRE_SECURE=false`.
+
+## Deployment Architecture
+
+Local development stays in the root `docker-compose.yml`. Server deployment templates live in `deploy/` so private projects can copy or overlay them without putting private domains or secrets into the core repo.
+
+The generic server runtime is:
+
+```txt
+proxy -> web
+proxy -> api
+api   -> postgres
+api   -> redis
+```
+
+The frontend container serves the built React app through Nginx. The proxy keeps browser traffic same-origin by routing `/api/*` and `/health` to the API while routing all other paths to the web container. Staging and production should use separate Compose project names, volumes, cookie names, and env files.
 
 Future backend module structure:
 

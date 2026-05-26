@@ -189,6 +189,19 @@ The API writes generated build artifacts to `.artifacts/api` so local runs are i
 
 The backend persistence foundation uses EF Core with PostgreSQL `uuid`/C# `Guid` IDs, framework-lite audited entity base classes under `src/api/Domain/Common`, role/form permission tables for the first access model, and reusable CRUD primitives under `src/api/Application/Common`.
 
+## Deployment Kit
+
+The root `docker-compose.yml` is for local development. Reusable server deployment templates live in `deploy/`:
+
+- `deploy/compose.yml`: generic server runtime for web, API, PostgreSQL, and Redis.
+- `deploy/compose.proxy.yml`: optional Caddy reverse proxy for same-origin `/api` and React app traffic.
+- `deploy/env/*.env.example`: safe templates only, with placeholders for private values.
+- `deploy/github-actions/*.example`: inactive deploy workflow examples for private projects.
+
+This core repo keeps the reusable configuration, while private projects should own real domains, secrets, active deploy workflows, and server paths. Docker image publishing is intentionally deferred for now; the deployment examples build from source on the server.
+
+For local production-like testing, use `deploy/env/local.env.example` with `deploy/compose.local.example.yml`. That stack can run fully in Docker, or you can stop the Docker `web`/`api` services and run the frontend/API from the shell while Docker keeps PostgreSQL, Redis, and the proxy available. Apply EF Core migrations before the first bootstrap login against a fresh deployment database. See `deploy/README.md` for the full runbook.
+
 Recent V1 finalization checks:
 
 - `npm test`
@@ -229,6 +242,7 @@ Important variables:
 - `API_PORT`, `ASPNETCORE_URLS`: control the backend local URL for host-run API development.
 - `VITE_APP_HOST`, `VITE_APP_PORT`, `VITE_API_BASE_URL`: control the Vite dev server and API proxy.
 - `AUTH_COOKIE_NAME`: controls the auth cookie name. Use a different value per local clone to avoid browser cookie collisions on `localhost`.
+- `AUTH_COOKIE_REQUIRE_SECURE`: controls whether non-development auth cookies must be marked secure. Keep this `true` for production HTTPS; use `false` only for temporary HTTP-only staging/testing.
 - `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`: control frontend branding defaults shown in the navbar, sidebar, settings, and login screen.
 - `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin fallback credentials for local setup and access recovery.
 - `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: backend branding defaults until company settings move into the database.

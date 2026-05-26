@@ -16,8 +16,11 @@ Current runtime/configuration details:
 
 - The frontend app requires Node.js `>=20.19.0` according to `src/app/package.json`.
 - Docker Compose uses `COMPOSE_PROJECT_NAME` for isolated local clone resources and includes an optional `api` profile for building the backend container from the current clone's code.
+- Server deployment templates live under `deploy/` and are separate from the root local-development Compose file.
+- The reusable deployment kit builds an API image from `src/api/Dockerfile` and a web image from `src/app/Dockerfile`, then serves the frontend through Nginx behind an optional Caddy proxy.
 - Vite loads the repository root `.env` through `envDir`, binds to `VITE_APP_HOST`/`VITE_APP_PORT`, uses strict ports, and proxies `/api` and `/health` to `VITE_API_BASE_URL`.
 - The backend loads the nearest `.env` file, derives PostgreSQL/Redis connection strings, maps `AUTH_COOKIE_NAME`, and configures local CORS from `VITE_APP_HOST`/`VITE_APP_PORT`.
+- In non-development environments, the backend uses forwarded headers and secure cookies so it can run behind the deployment proxy. Temporary HTTP-only staging can opt out with `AUTH_COOKIE_REQUIRE_SECURE=false`; production should keep it `true`.
 - The API uses minimal endpoint modules discovered through `IPlatformApiModule`; it does not use controllers yet.
 - EF Core persistence lives in `src/api/Infrastructure/Persistence`, domain entity bases in `src/api/Domain/Common`, domain entities in `src/api/Domain/Entities`, and CRUD application primitives in `src/api/Application/Common`.
 - Internal persisted entities use PostgreSQL `uuid` / C# `Guid` IDs, with external auth IDs stored separately on users.
@@ -115,6 +118,12 @@ Run local services:
 ```bash
 cp .env.example .env
 docker compose up -d
+```
+
+Render the reusable deployment Compose configuration:
+
+```bash
+docker compose --env-file deploy/env/stage.env.example -f deploy/compose.yml -f deploy/compose.stage.example.yml -f deploy/compose.proxy.yml config
 ```
 
 Run development servers:

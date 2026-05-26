@@ -34,4 +34,6 @@ public sealed class LocalAuthenticationOptions
     public const string SectionName = "Authentication";
 
     public string CookieName { get; init; } = "obp.auth";
+
+    public bool RequireSecureCookies { get; init; } = true;
 }

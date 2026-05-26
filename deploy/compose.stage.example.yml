@@ -1,0 +1,10 @@
+# PRIVATE PROJECT: copy this file to deploy/compose.stage.yml when you need
+# stage-only runtime overrides that should live outside the core template.
+services:
+  api:
+    environment:
+      APP_ENV: ${APP_ENV:-Staging}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Staging}
+
+  web:
+    image: ${WEB_IMAGE:-open-business-platform-web:stage}

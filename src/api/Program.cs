@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
@@ -34,6 +35,12 @@ builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -45,7 +52,9 @@ builder.Services
         options.Cookie.HttpOnly = true;
         options.Cookie.Name = string.IsNullOrWhiteSpace(authOptions.CookieName) ? "obp.auth" : authOptions.CookieName;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || !authOptions.RequireSecureCookies
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
         options.Events.OnRedirectToAccessDenied = context =>
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -86,6 +95,10 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
     app.UseCors("LocalDevelopment");
     await DemoDataSeeder.SeedDevelopmentAsync(app.Services);
+}
+else
+{
+    app.UseForwardedHeaders();
 }
 
 app.UseAuthentication();

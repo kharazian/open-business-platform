@@ -1,0 +1,10 @@
+# PRIVATE PROJECT: copy this file to deploy/compose.prod.yml when you need
+# production-only runtime overrides that should live outside the core template.
+services:
+  api:
+    environment:
+      APP_ENV: ${APP_ENV:-Production}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+
+  web:
+    image: ${WEB_IMAGE:-open-business-platform-web:prod}

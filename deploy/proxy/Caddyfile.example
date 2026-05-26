@@ -1,0 +1,19 @@
+# PRIVATE PROJECT: set PUBLIC_HOST in deploy/env/stage.env or prod.env.
+# For first IP-based testing, use PUBLIC_SCHEME=http and PUBLIC_HOST=10.10.50.60.
+# For real staging/production, use PUBLIC_SCHEME=https and a real DNS name.
+
+{$PUBLIC_SCHEME:http}://{$PUBLIC_HOST:localhost} {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy {$API_UPSTREAM:api:5080}
+    }
+
+    handle /health {
+        reverse_proxy {$API_UPSTREAM:api:5080}
+    }
+
+    handle {
+        reverse_proxy {$WEB_UPSTREAM:web:80}
+    }
+}

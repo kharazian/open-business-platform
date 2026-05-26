@@ -54,7 +54,9 @@ RunWithEnvironment(
     new Dictionary<string, string?>
     {
         ["AUTH_COOKIE_NAME"] = "obp_test.auth",
+        ["AUTH_COOKIE_REQUIRE_SECURE"] = "false",
         ["Authentication__CookieName"] = null,
+        ["Authentication__RequireSecureCookies"] = null,
         ["ConnectionStrings__Postgres"] = null,
         ["POSTGRES_HOST"] = null,
         ["POSTGRES_PORT"] = null,
@@ -73,6 +75,7 @@ RunWithEnvironment(
         EnvironmentConfiguration.ApplyDerivedValues();
 
         AssertEqual("obp_test.auth", Environment.GetEnvironmentVariable("Authentication__CookieName"), "Auth cookie name should be configurable per local clone.");
+        AssertEqual("false", Environment.GetEnvironmentVariable("Authentication__RequireSecureCookies"), "Secure auth cookies should be configurable for temporary HTTP-only staging.");
         AssertEqual(
             "Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password",
             Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
