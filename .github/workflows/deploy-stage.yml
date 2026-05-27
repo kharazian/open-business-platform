@@ -1,5 +1,3 @@
-# PRIVATE PROJECT: copy this file to .github/workflows/deploy-stage.yml
-# after replacing runner labels, server paths, branch names, and secret names.
 name: Deploy Stage
 
 on:

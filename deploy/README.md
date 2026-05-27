@@ -4,13 +4,14 @@ This directory is a reusable deployment blueprint for projects that use Open Bus
 
 ## What Lives Here
 
-- `compose.yml`: generic server runtime with `web`, `api`, `postgres`, and `redis`.
+- `compose.yml`: generic server runtime with `web`, `api`, `migrator`, `postgres`, and `redis`.
 - `compose.proxy.yml`: optional Caddy edge proxy for HTTP/HTTPS traffic.
 - `compose.stage.example.yml` and `compose.prod.example.yml`: private-project override templates.
 - `env/*.env.example`: environment templates with placeholder values only.
 - `proxy/Caddyfile.example`: same-origin routing for `/api`, `/health`, and the React app.
 - `github-actions/*.example`: inactive deploy workflow examples for private projects.
 - `scripts/deploy.example.sh`: source-build deployment example for a server with Docker.
+- `.github/workflows/deploy-stage.yml` and `.github/workflows/deploy-prod.yml`: active stage/prod deployment workflows.
 
 ## Core Repo Versus Private Project
 
@@ -24,9 +25,11 @@ deploy/compose.proxy.yml
 deploy/env/*.env.example
 deploy/proxy/Caddyfile.example
 deploy/github-actions/*.example
+.github/workflows/deploy-stage.yml
+.github/workflows/deploy-prod.yml
 ```
 
-Private project:
+Private or server-only values:
 
 ```txt
 deploy/compose.stage.yml
@@ -34,8 +37,6 @@ deploy/compose.prod.yml
 deploy/env/stage.env
 deploy/env/prod.env
 deploy/proxy/Caddyfile
-.github/workflows/deploy-stage.yml
-.github/workflows/deploy-prod.yml
 ```
 
 Do not commit real `stage.env`, `prod.env`, private SSH keys, production bootstrap passwords, or database passwords.
@@ -70,11 +71,34 @@ cp deploy/env/stage.env.example deploy/env/stage.env
 cp deploy/compose.stage.example.yml deploy/compose.stage.yml
 
 docker compose \
+  --profile migrate \
   --env-file deploy/env/stage.env \
   -f deploy/compose.yml \
   -f deploy/compose.stage.yml \
   -f deploy/compose.proxy.yml \
   build
+
+docker compose \
+  --env-file deploy/env/stage.env \
+  -f deploy/compose.yml \
+  -f deploy/compose.stage.yml \
+  -f deploy/compose.proxy.yml \
+  up -d postgres redis
+
+docker compose \
+  --env-file deploy/env/stage.env \
+  -f deploy/compose.yml \
+  -f deploy/compose.stage.yml \
+  -f deploy/compose.proxy.yml \
+  stop api web
+
+docker compose \
+  --profile migrate \
+  --env-file deploy/env/stage.env \
+  -f deploy/compose.yml \
+  -f deploy/compose.stage.yml \
+  -f deploy/compose.proxy.yml \
+  run --rm migrator
 
 docker compose \
   --env-file deploy/env/stage.env \
@@ -90,13 +114,28 @@ The example script wraps those commands:
 sh deploy/scripts/deploy.example.sh stage
 ```
 
-Apply EF Core migrations before the first login against a fresh deployment database. The `/health` endpoint can return healthy before migrations because it only verifies that the API process is running; auth, forms, records, users, and reports need the database schema.
-
-Private projects should wire migrations into their own release process. For the local default deployment stack, use the command in the next section after PostgreSQL is running.
+The `migrator` service is a one-shot EF Core migration runner. It uses the same database environment as the API, waits for PostgreSQL to be healthy, applies migrations, and exits. The deploy sequence keeps PostgreSQL and Redis running, stops the app containers before applying migrations, then starts the app on the new images. Keep the migrator behind the `migrate` Compose profile so normal `up` commands do not leave it running.
 
 ## GitHub Actions
 
-The active workflow in `.github/workflows/ci.yml` only tests and builds this core repo. It does not publish images and does not deploy.
+The active `.github/workflows/ci.yml` workflow tests and builds this core repo. The active deploy workflows are split by environment:
+
+```txt
+.github/workflows/deploy-stage.yml
+.github/workflows/deploy-prod.yml
+```
+
+`deploy-stage.yml` runs on pushes to `develop` and can also be started manually. `deploy-prod.yml` is manual-only.
+
+Deploy workflows do not use SSH. They require a self-hosted GitHub Actions runner installed on the Docker server with labels matching:
+
+```txt
+self-hosted
+linux
+obp-deploy
+```
+
+The runner connects outbound to GitHub, receives the job, and runs Docker commands locally on the server. This keeps deployment close to the CI style while avoiding inbound SSH access from GitHub.
 
 Private projects can copy:
 
@@ -112,7 +151,27 @@ to:
 .github/workflows/deploy-prod.yml
 ```
 
-Then replace the server path, branch, and secret names. The examples assume the private deployment server has a checked-out repository and real env files already present.
+The deploy workflows assume the server has checked-out repositories under stable paths:
+
+```txt
+/opt/open-business-platform/stage  # deploys origin/develop
+/opt/open-business-platform/prod   # deploys origin/main
+```
+
+The self-hosted runner user must be able to:
+
+- read and write those checkout directories
+- run `git fetch`, `git checkout`, and `git merge --ff-only`
+- run `docker compose`
+
+Use GitHub environments named `stage` and `prod`. The workflows can either use env files already present on the server or refresh them from GitHub environment secrets named `STAGE_ENV_FILE` and `PROD_ENV_FILE`. When those secrets are set, the workflow writes them with `umask 077` to:
+
+```txt
+deploy/env/stage.env
+deploy/env/prod.env
+```
+
+inside the stable server checkout before running Compose. Keep long-running bind-mounted config, such as proxy config, in the stable checkout or a host-owned path such as `/etc/open-business-platform/stage`; do not depend on the self-hosted runner `_work` directory for files that running containers need after the deploy job ends.
 
 ## Later Registry Flow
 
@@ -163,14 +222,14 @@ curl -I http://localhost:8080/
 Apply migrations to the local deployment database before signing in:
 
 ```bash
-POSTGRES_HOST=127.0.0.1 \
-POSTGRES_PORT=55440 \
-POSTGRES_DB=open_business_platform_local_deploy \
-POSTGRES_USER=obp_local_deploy \
-POSTGRES_PASSWORD=local-deploy-postgres-password \
-dotnet ef database update \
-  --project src/api/OpenBusinessPlatform.Api.csproj \
-  --startup-project src/api/OpenBusinessPlatform.Api.csproj
+docker compose \
+  --profile migrate \
+  --env-file deploy/env/local.env.example \
+  -f deploy/compose.yml \
+  -f deploy/compose.stage.example.yml \
+  -f deploy/compose.local.example.yml \
+  -f deploy/compose.proxy.yml \
+  run --rm --build migrator
 ```
 
 If your agent sandbox cannot reach Docker-published host ports, test from inside the proxy container:

@@ -20,23 +20,28 @@ if [ ! -f "${override_file}" ]; then
   exit 1
 fi
 
-docker compose \
-  --env-file "${env_file}" \
-  -f "${deploy_dir}/compose.yml" \
-  -f "${override_file}" \
-  -f "${deploy_dir}/compose.proxy.yml" \
-  build
+compose() {
+  docker compose \
+    --env-file "${env_file}" \
+    -f "${deploy_dir}/compose.yml" \
+    -f "${override_file}" \
+    -f "${deploy_dir}/compose.proxy.yml" \
+    "$@"
+}
 
-docker compose \
-  --env-file "${env_file}" \
-  -f "${deploy_dir}/compose.yml" \
-  -f "${override_file}" \
-  -f "${deploy_dir}/compose.proxy.yml" \
-  up -d --remove-orphans
+compose_with_migrator() {
+  docker compose \
+    --profile migrate \
+    --env-file "${env_file}" \
+    -f "${deploy_dir}/compose.yml" \
+    -f "${override_file}" \
+    -f "${deploy_dir}/compose.proxy.yml" \
+    "$@"
+}
 
-docker compose \
-  --env-file "${env_file}" \
-  -f "${deploy_dir}/compose.yml" \
-  -f "${override_file}" \
-  -f "${deploy_dir}/compose.proxy.yml" \
-  ps
+compose_with_migrator build
+compose up -d postgres redis
+compose stop api web
+compose_with_migrator run --rm migrator
+compose up -d --remove-orphans
+compose ps

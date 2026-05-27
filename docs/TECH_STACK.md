@@ -123,7 +123,7 @@ docker compose up -d
 Render the reusable deployment Compose configuration:
 
 ```bash
-docker compose --env-file deploy/env/stage.env.example -f deploy/compose.yml -f deploy/compose.stage.example.yml -f deploy/compose.proxy.yml config
+docker compose --profile migrate --env-file deploy/env/stage.env.example -f deploy/compose.yml -f deploy/compose.stage.example.yml -f deploy/compose.proxy.yml config
 ```
 
 Run development servers:

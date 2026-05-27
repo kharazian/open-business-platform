@@ -1,5 +1,26 @@
 name: ${COMPOSE_PROJECT_NAME:-open-business-platform}
 
+x-api-environment: &api-environment
+  APP_NAME: ${APP_NAME:-Open Business Platform}
+  APP_ENV: ${APP_ENV:-Production}
+  ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+  ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+  ASPNETCORE_URLS: http://+:5080
+  AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-obp.auth}
+  AUTH_COOKIE_REQUIRE_SECURE: ${AUTH_COOKIE_REQUIRE_SECURE:-true}
+  BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL in the environment file}
+  BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in the environment file}
+  BRAND_LOGO_TEXT: ${BRAND_LOGO_TEXT:-OBP}
+  DEFAULT_COMPANY_NAME: ${DEFAULT_COMPANY_NAME:-Your Company}
+  DEFAULT_COMPANY_LOGO_URL: ${DEFAULT_COMPANY_LOGO_URL:-/logo.svg}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB:-open_business_platform}
+  POSTGRES_USER: ${POSTGRES_USER:-obp}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment file}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -37,26 +58,7 @@ services:
       dockerfile: Dockerfile
     image: ${API_IMAGE:-open-business-platform-api:local}
     restart: unless-stopped
-    environment:
-      APP_NAME: ${APP_NAME:-Open Business Platform}
-      APP_ENV: ${APP_ENV:-Production}
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      ASPNETCORE_URLS: http://+:5080
-      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-obp.auth}
-      AUTH_COOKIE_REQUIRE_SECURE: ${AUTH_COOKIE_REQUIRE_SECURE:-true}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL in the environment file}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in the environment file}
-      BRAND_LOGO_TEXT: ${BRAND_LOGO_TEXT:-OBP}
-      DEFAULT_COMPANY_NAME: ${DEFAULT_COMPANY_NAME:-Your Company}
-      DEFAULT_COMPANY_LOGO_URL: ${DEFAULT_COMPANY_LOGO_URL:-/logo.svg}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-open_business_platform}
-      POSTGRES_USER: ${POSTGRES_USER:-obp}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the environment file}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+    environment: *api-environment
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +72,21 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - app
+
+  migrator:
+    build:
+      context: ../src/api
+      dockerfile: Dockerfile
+      target: migrator
+    image: ${API_MIGRATOR_IMAGE:-open-business-platform-api-migrator:local}
+    profiles:
+      - migrate
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - app
 

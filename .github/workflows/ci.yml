@@ -39,8 +39,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Render deployment Compose config
-        run: docker compose --env-file deploy/env/stage.env.example -f deploy/compose.yml -f deploy/compose.stage.example.yml -f deploy/compose.proxy.yml config
+        run: docker compose --profile migrate --env-file deploy/env/stage.env.example -f deploy/compose.yml -f deploy/compose.stage.example.yml -f deploy/compose.proxy.yml config
       - name: Build API image
         run: docker build -t open-business-platform-api:ci src/api
+      - name: Build API migrator image
+        run: docker build --target migrator -t open-business-platform-api-migrator:ci src/api
       - name: Build web image
         run: docker build -t open-business-platform-web:ci src/app
