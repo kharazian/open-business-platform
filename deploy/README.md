@@ -11,7 +11,6 @@ This directory is a reusable deployment blueprint for projects that use Open Bus
 - `proxy/Caddyfile.example`: same-origin routing for `/api`, `/health`, and the React app.
 - `github-actions/*.example`: inactive deploy workflow examples for private projects.
 - `scripts/deploy.example.sh`: source-build deployment example for a server with Docker.
-- `.github/workflows/deploy-stage.yml` and `.github/workflows/deploy-prod.yml`: active stage/prod deployment workflows.
 
 ## Core Repo Versus Private Project
 
@@ -25,8 +24,6 @@ deploy/compose.proxy.yml
 deploy/env/*.env.example
 deploy/proxy/Caddyfile.example
 deploy/github-actions/*.example
-.github/workflows/deploy-stage.yml
-.github/workflows/deploy-prod.yml
 ```
 
 Private or server-only values:
@@ -118,24 +115,7 @@ The `migrator` service is a one-shot EF Core migration runner. It uses the same 
 
 ## GitHub Actions
 
-The active `.github/workflows/ci.yml` workflow tests and builds this core repo. The active deploy workflows are split by environment:
-
-```txt
-.github/workflows/deploy-stage.yml
-.github/workflows/deploy-prod.yml
-```
-
-`deploy-stage.yml` runs on pushes to `dev` and can also be started manually. `deploy-prod.yml` is manual-only.
-
-Deploy workflows do not use SSH. They require a self-hosted GitHub Actions runner installed on the Docker server with labels matching:
-
-```txt
-self-hosted
-linux
-obp-deploy
-```
-
-The runner connects outbound to GitHub, receives the job, and runs Docker commands locally on the server. This keeps deployment close to the CI style while avoiding inbound SSH access from GitHub.
+Only `.github/workflows/ci.yml` is active in this core repo. Stage and production deploy workflows are intentionally stored as inactive examples so this repo does not require a self-hosted runner.
 
 Private projects can copy:
 
@@ -150,6 +130,18 @@ to:
 .github/workflows/deploy-stage.yml
 .github/workflows/deploy-prod.yml
 ```
+
+In the private project, `deploy-stage.yml` runs on pushes to `dev` and can also be started manually. `deploy-prod.yml` is manual-only.
+
+Deploy workflows do not use SSH. When enabled in a private project, they require a self-hosted GitHub Actions runner installed on the Docker server with labels matching:
+
+```txt
+self-hosted
+linux
+obp-deploy
+```
+
+The runner connects outbound to GitHub, receives the job, and runs Docker commands locally on the server. This keeps deployment close to the CI style while avoiding inbound SSH access from GitHub.
 
 The deploy workflows assume the server has checked-out repositories under stable paths:
 
