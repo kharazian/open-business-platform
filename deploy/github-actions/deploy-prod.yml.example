@@ -1,5 +1,5 @@
 # PRIVATE PROJECT: copy this file to .github/workflows/deploy-prod.yml
-# after replacing runner labels, server paths, branch names, and secret names.
+# after replacing runner labels, branch names, Compose project names, and secret names.
 name: Deploy Prod
 
 on:
@@ -13,32 +13,36 @@ jobs:
   deploy:
     runs-on: [self-hosted, linux, obp-deploy]
     environment: prod
-    defaults:
-      run:
-        working-directory: /opt/open-business-platform/prod
+    env:
+      COMPOSE_PROJECT_NAME: obp-prod
+      DEPLOY_ENV_FILE_NAME: obp-prod.env
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Write prod env file on the server
         env:
           DEPLOY_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
+          set -eu
+          DEPLOY_ENV_FILE_PATH="${RUNNER_TEMP}/${DEPLOY_ENV_FILE_NAME}"
+
           if [ -z "${DEPLOY_ENV_FILE:-}" ]; then
-            echo "PROD_ENV_FILE is empty; using the existing server env file."
-            exit 0
+            echo "::error::PROD_ENV_FILE is empty; set it in the prod environment."
+            exit 1
           fi
 
           umask 077
-          mkdir -p deploy/env
-          printf '%s\n' "$DEPLOY_ENV_FILE" > deploy/env/prod.env
+          printf '%s\n' "$DEPLOY_ENV_FILE" > "$DEPLOY_ENV_FILE_PATH"
 
-      - name: Deploy prod from source on the server
+      - name: Deploy prod from checked-out source
         run: |
           set -eu
-          git fetch origin main
-          git checkout main
-          git merge --ff-only origin/main
-          docker compose --profile migrate --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml build
-          docker compose --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml up -d postgres redis
-          docker compose --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml stop api web
-          docker compose --profile migrate --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml run --rm migrator
-          docker compose --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml up -d --remove-orphans
-          docker compose --env-file deploy/env/prod.env -f deploy/compose.yml -f deploy/compose.prod.yml -f deploy/compose.proxy.yml ps
+          DEPLOY_ENV_FILE_PATH="${RUNNER_TEMP}/${DEPLOY_ENV_FILE_NAME}"
+          docker compose -p "$COMPOSE_PROJECT_NAME" --profile migrate --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml build
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml up -d postgres redis
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml stop api web
+          docker compose -p "$COMPOSE_PROJECT_NAME" --profile migrate --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml run --rm migrator
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml up -d --remove-orphans
+          docker compose -p "$COMPOSE_PROJECT_NAME" --env-file "$DEPLOY_ENV_FILE_PATH" -f deploy/compose.yml -f deploy/compose.prod.example.yml -f deploy/compose.proxy.yml ps

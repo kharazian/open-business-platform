@@ -143,27 +143,23 @@ obp-deploy
 
 The runner connects outbound to GitHub, receives the job, and runs Docker commands locally on the server. This keeps deployment close to the CI style while avoiding inbound SSH access from GitHub.
 
-The deploy workflows assume the server has checked-out repositories under stable paths:
+The deploy workflows use `actions/checkout` on the self-hosted runner, so the source is deployed from the GitHub Actions runner workspace instead of a pre-created server checkout.
 
-```txt
-/opt/open-business-platform/stage  # deploys origin/dev
-/opt/open-business-platform/prod   # deploys origin/main
-```
+Stage checks out `dev`; prod checks out `main`.
 
 The self-hosted runner user must be able to:
 
-- read and write those checkout directories
-- run `git fetch`, `git checkout`, and `git merge --ff-only`
+- read and write the runner workspace
 - run `docker compose`
 
-Use GitHub environments named `stage` and `prod`. The workflows can either use env files already present on the server or refresh them from GitHub environment secrets named `STAGE_ENV_FILE` and `PROD_ENV_FILE`. When those secrets are set, the workflow writes them with `umask 077` to:
+Use GitHub environments named `stage` and `prod`. Store the full env file contents in GitHub environment secrets named `STAGE_ENV_FILE` and `PROD_ENV_FILE`. The workflow writes those secrets with `umask 077` to temporary files under the runner temp directory:
 
 ```txt
-deploy/env/stage.env
-deploy/env/prod.env
+$RUNNER_TEMP/obp-stage.env
+$RUNNER_TEMP/obp-prod.env
 ```
 
-inside the stable server checkout before running Compose. Keep long-running bind-mounted config, such as proxy config, in the stable checkout or a host-owned path such as `/etc/open-business-platform/stage`; do not depend on the self-hosted runner `_work` directory for files that running containers need after the deploy job ends.
+Compose runs with explicit project names, `obp-stage` and `obp-prod`, so stage and prod do not collide when both deploy from the runner workspace. Keep long-running bind-mounted config, such as proxy config, in the checked-out `deploy/` tree or a host-owned path such as `/etc/open-business-platform/stage`.
 
 ## Later Registry Flow
 
