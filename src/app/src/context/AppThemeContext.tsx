@@ -32,9 +32,9 @@ export const appThemeStorageKey = "appThemeSettings";
 
 export const defaultAppThemeSettings: AppThemeSettings = {
   paletteId: "slate-blue",
-  colorMode: "system",
+  colorMode: "light",
   density: "comfortable",
-  layout: "topbar",
+  layout: "collapsed-sidebar",
   radius: "lg",
   shadow: "md"
 };
