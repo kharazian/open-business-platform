@@ -154,7 +154,7 @@ to:
 The deploy workflows assume the server has checked-out repositories under stable paths:
 
 ```txt
-/opt/open-business-platform/stage  # deploys origin/develop
+/opt/open-business-platform/stage  # deploys origin/dev
 /opt/open-business-platform/prod   # deploys origin/main
 ```
 

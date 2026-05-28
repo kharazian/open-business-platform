@@ -5,7 +5,7 @@ name: Deploy Stage
 on:
   push:
     branches:
-      - develop
+      - dev
   workflow_dispatch:
 
 concurrency:
@@ -36,9 +36,9 @@ jobs:
       - name: Deploy stage from source on the server
         run: |
           set -eu
-          git fetch origin develop
-          git checkout develop
-          git merge --ff-only origin/develop
+          git fetch origin dev
+          git checkout dev
+          git merge --ff-only origin/dev
           docker compose --profile migrate --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml build
           docker compose --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml up -d postgres redis
           docker compose --env-file deploy/env/stage.env -f deploy/compose.yml -f deploy/compose.stage.yml -f deploy/compose.proxy.yml stop api web
