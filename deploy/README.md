@@ -125,7 +125,7 @@ The active `.github/workflows/ci.yml` workflow tests and builds this core repo. 
 .github/workflows/deploy-prod.yml
 ```
 
-`deploy-stage.yml` runs on pushes to `develop` and can also be started manually. `deploy-prod.yml` is manual-only.
+`deploy-stage.yml` runs on pushes to `dev` and can also be started manually. `deploy-prod.yml` is manual-only.
 
 Deploy workflows do not use SSH. They require a self-hosted GitHub Actions runner installed on the Docker server with labels matching:
 
