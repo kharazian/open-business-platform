@@ -1,6 +1,20 @@
 # Triggers and Workflows
 
-Status: planned. Do not implement triggers or workflows in V1 unless a task explicitly says so.
+Status: planned. Do not implement triggers or workflows before the report/data spine and validation-rule foundations are stable unless a task explicitly says so.
+
+## Automation North Star
+
+Triggers and workflows should share a small, safe action engine.
+
+The platform needs to support:
+
+- Event triggers, such as record created, record updated, field changed, and status changed.
+- Scheduled triggers, such as daily, weekly, monthly, or one-time runs.
+- Workflow starts from events, schedules, or manual actions.
+- Actions such as create/update record, send email, call API/webhook, write notification, generate document later, start workflow, or call another approved action.
+- Execution logs for every trigger, workflow step, and action.
+
+Custom code should not be the first automation primitive. Start with approved, typed actions that can be validated, permission-checked, audited, retried, and monitored. If custom code is added later, it should run in a restricted, auditable execution model.
 
 ## Difference Between Trigger and Workflow
 
@@ -43,6 +57,8 @@ then execute actions.
 - record.assigned
 - comment.added
 - schedule.daily later
+- schedule.weekly later
+- schedule.monthly later
 - webhook.received later
 
 ## Trigger Conditions
@@ -63,10 +79,55 @@ then execute actions.
 - Change status
 - Assign user
 - Assign group
+- Create record
+- Update related record
 - Add comment
-- Call webhook
+- Call API/webhook
 - Generate PDF later
 - Start workflow later
+- Start another trigger/action chain later
+
+## Scheduled Trigger Model Later
+
+Scheduled triggers should run through the same trigger engine as event triggers.
+
+Recommended fields:
+
+- Trigger ID
+- Name
+- Enabled state
+- Schedule type: once, daily, weekly, monthly, or cron-like later
+- Time zone
+- Next run time
+- Last run time
+- Conditions or guard rules
+- Action or workflow to start
+- Retry policy
+- Owner and permission metadata
+
+The scheduler should enqueue approved trigger executions. The trigger engine should still evaluate permissions, conditions, action validation, and logs before doing work.
+
+## Action Engine
+
+Actions are reusable units used by triggers and workflows.
+
+Initial action types:
+
+- Send email
+- Create record
+- Update record field/status
+- Assign user or group
+- Add audit/comment entry
+- Call API/webhook
+- Start workflow
+
+Later action types:
+
+- Generate PDF
+- Export data
+- Run approved custom code in a restricted execution model
+
+Every action should define typed inputs, validation rules, permission needs, audit/log output, and failure behavior.
 
 ## Trigger Logs
 
@@ -96,6 +157,8 @@ Core concepts:
 - Condition
 - Action
 - History
+
+Workflows should use the same validation, permission, audit, notification, and action primitives as triggers. A workflow step should be able to call approved actions, and a trigger should be able to start a workflow.
 
 ## Workflow States
 

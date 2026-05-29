@@ -10,6 +10,13 @@ V1 is complete for the current repository. Forms can be created, drafted, publis
 
 V2 has already started with saved list report definitions. Users with report management and form manage access can save list report definitions with selected columns, one UI filter, and one UI sort. The backend stores report config as JSONB, validates config against the form schema and supported system fields, checks permissions, and writes report audit entries.
 
+The wider platform direction is an engine-based business app builder:
+
+- Forms define fields, layout, validation, draft editing, published versions, and form detail/open/edit surfaces.
+- Records store submitted values, preserve submitted form versions, support detail/edit views, and produce single-record print output.
+- Reports show form records in table format and become the shared query path for report viewing, table widgets, export, and report print.
+- Validation rules, triggers, workflows, schedules, notifications, API calls, record creation/update actions, and future print/PDF actions should build on the same normalized form/record/report data spine.
+
 The new V2 focus is:
 
 1. Make form data reliable for reporting.
@@ -33,6 +40,8 @@ The new V2 focus is:
 - No workflow or approval builder.
 - No XYFlow in V2.
 - No trigger engine.
+- No scheduled trigger runner.
+- No general action engine.
 - No custom PDF templates.
 - No advanced record/field-level permission model beyond the current backend checks.
 - No full BI engine, expression language, joins across unrelated forms, or cross-workspace analytics.
@@ -44,6 +53,8 @@ Use a report-first data spine.
 Report execution becomes the shared backend path for list reports, dashboard table widgets, CSV export, and print. Dashboard chart widgets can either point at a saved report or use the same form/query primitives with an aggregation config.
 
 This avoids separate query logic for reports and dashboards.
+
+This also keeps later automation reachable. Validation rules, triggers, workflows, scheduled jobs, and action execution should consume the same reportable field metadata and record-value normalization rather than inventing separate ways to understand form data.
 
 ## V2 Task Sequence
 

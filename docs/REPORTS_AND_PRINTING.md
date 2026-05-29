@@ -10,6 +10,8 @@ A report displays data.
 
 Keep report configuration separate from form configuration.
 
+Reports and print output are the next bridge from the V1 form/record foundation toward automation. Workflows, triggers, validations, and scheduled actions all need the same reliable field metadata, record values, system fields, permissions, and form-version awareness that runnable reports require.
+
 ## Report Types
 
 ### List Report
@@ -78,6 +80,10 @@ Add cleaner layouts:
 - Date/time
 - User name optional
 - Report title
+- Single-record detail print
+- Report table print
+
+Do single-record and report table printing before custom PDF templates. They prove the display contract that later PDF generation and workflow email attachments can reuse.
 
 ## V6 PDF and Templates
 

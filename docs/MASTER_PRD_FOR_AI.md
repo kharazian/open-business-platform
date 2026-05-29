@@ -65,6 +65,7 @@ The platform should be separated into these modules:
 - Permission Engine
 - Trigger Engine
 - Workflow Builder
+- Action Engine
 - Print/PDF Engine
 - Audit Log Engine
 - Notification Engine
@@ -79,6 +80,7 @@ Report displays records.
 Permission controls who can do what.
 Trigger reacts when something changes.
 Workflow controls multi-step process.
+Action performs safe work for triggers/workflows.
 Print template controls printed output.
 ```
 
@@ -389,9 +391,11 @@ Trigger actions:
 - Unlock record
 - Start workflow
 
-V4 should add the trigger engine.
+V4 should add the trigger engine and a small shared action engine foundation.
 
 V1 should not include advanced triggers.
+
+The action engine should start with typed, approved actions such as sending email, creating/updating records, assigning users, adding comments/audit entries, calling APIs/webhooks, and starting workflows. Custom code should only be considered later behind a restricted, auditable execution model.
 
 ### 4.8 Workflow Builder
 
@@ -418,10 +422,19 @@ Workflow should support:
 - Approval/rejection
 - Return for correction
 - Workflow history
+- Actions through the shared action engine
 
 XYFlow can be used here in later versions.
 
 Do not start with full workflow in V1.
+
+Reachable automation order:
+
+1. Build reliable form/record/report data first.
+2. Add validation/rule definitions.
+3. Add event triggers and approved actions.
+4. Add workflow definitions and runner.
+5. Add scheduled triggers and richer integration actions.
 
 ### 4.9 Audit Logs
 

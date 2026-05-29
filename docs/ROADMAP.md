@@ -26,6 +26,28 @@
 
 Next: continue V2 with form data readiness, report viewer/run behavior, real dashboard summaries, chart/dashboard builder lite, then CSV export and cleaner print layouts.
 
+## Product Engine Path
+
+The long-term product should be built as cooperating engines:
+
+- **Form engine:** create forms, edit drafts, publish immutable versions, open forms, and show form details.
+- **Record engine:** create, open, edit, show details, soft-delete, audit, and print individual records.
+- **Report engine:** show each form's records in table reports with saved columns, filters, search, sorting, pagination, permissions, export, and print.
+- **Print engine:** support clean single-record print and report table print first, then PDF/template output later.
+- **Validation/rule engine:** enforce field validation first, then conditional record rules.
+- **Trigger engine:** start automation from record events, status/field changes, schedules, and webhooks.
+- **Workflow engine:** define multi-step status transitions, approvals, assignments, and workflow history.
+- **Action engine:** provide safe workflow/trigger actions such as create/update record, send email, call API/webhook, generate document later, and start another workflow.
+
+The reachable sequence is:
+
+1. Finish the form and record data spine.
+2. Build runnable reports and cleaner print output on top of that data.
+3. Add validation/rule definitions that can be reused by records, reports, triggers, and workflows.
+4. Add event triggers and a small action engine.
+5. Add workflow definitions and a workflow runner.
+6. Add scheduled triggers, webhook/integration triggers, and richer action connectors.
+
 ## V1: Foundation - Forms and Records
 
 Goal: create a working product foundation.
@@ -94,21 +116,28 @@ Features:
 
 ## V4: Trigger Engine
 
-Goal: automate actions after data changes.
+Goal: automate safe, auditable actions after data changes.
 
 Features:
 
 - Trigger list
 - Trigger builder
 - Event-based triggers
+- On record created
+- On record updated
+- On field changed
+- On status changed
 - Conditions
-- Actions
+- Action engine foundation
 - Email/in-app notifications
 - Update fields
 - Change status
 - Assign users
+- Create related records
 - Webhook call
 - Trigger logs
+- Retry failed triggers later
+- Scheduled triggers later in the automation/integration path
 
 ## V5: Workflow and Approval
 
@@ -123,6 +152,7 @@ Features:
 - Department manager approval
 - Workflow history
 - Optional XYFlow visual workflow builder
+- Workflow actions such as sending email, updating records, calling APIs, or creating related records through the shared action engine
 
 ## V6: Print Templates and PDF
 
@@ -152,15 +182,18 @@ Features:
 
 ## V8: Integrations and API
 
-Goal: connect to external systems.
+Goal: connect to external systems and expand scheduled automation.
 
 Features:
 
 - Webhooks
 - API keys
 - Scheduled triggers
+- Daily/weekly/monthly trigger definitions
+- Scheduled workflow starts
 - Import records
 - External exports
+- External API calls from approved action definitions
 - Integration logs
 - Retry failed integrations
 
