@@ -38,6 +38,14 @@ import {
   type RolePermissionsDto,
   type UserDto
 } from "../types";
+import {
+  minimumPasswordLength,
+  validateResetPassword,
+  validateRoleDraft,
+  validateUserDraft,
+  type RoleDraftValidationErrors,
+  type UserDraftValidationErrors
+} from "../validation";
 
 type AccessTab = "users" | "roles";
 
@@ -96,6 +104,10 @@ export function UsersAccessPage() {
   const [userDraft, setUserDraft] = useState<UserDraft>(emptyUserDraft);
   const [roleDraft, setRoleDraft] = useState<RoleDraft>(emptyRoleDraft);
   const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [userFormErrors, setUserFormErrors] = useState<UserDraftValidationErrors>({});
+  const [roleFormErrors, setRoleFormErrors] = useState<RoleDraftValidationErrors>({});
+  const [resetPasswordError, setResetPasswordError] = useState<string | undefined>();
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshWorkspace();
@@ -188,10 +200,12 @@ export function UsersAccessPage() {
 
   function openCreateUser() {
     setUserDraft(emptyUserDraft);
+    clearModalFeedback();
     setCreateUserOpen(true);
   }
 
   function openEditUser(user: UserDto) {
+    clearModalFeedback();
     setEditingUser(user);
     setUserDraft({
       name: user.name,
@@ -203,16 +217,19 @@ export function UsersAccessPage() {
   }
 
   function openResetPassword(user: UserDto) {
+    clearModalFeedback();
     setResetUser(user);
     setResetPasswordValue("");
   }
 
   function openCreateRole() {
     setRoleDraft(emptyRoleDraft);
+    clearModalFeedback();
     setCreateRoleOpen(true);
   }
 
   function openEditRole(role: RoleDto) {
+    clearModalFeedback();
     setEditingRole(role);
     setRoleDraft({
       name: role.name,
@@ -224,14 +241,24 @@ export function UsersAccessPage() {
   async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setModalError(null);
+
+    const validation = validateUserDraft(userDraft, "create");
+
+    if (!validation.valid) {
+      setUserFormErrors(validation.errors);
+      return;
+    }
+
+    setUserFormErrors({});
 
     try {
-      const created = await createUser({ ...userDraft, departmentIds: [] });
+      const created = await createUser({ ...validation.value, departmentIds: [] });
       setUsers((current) => [created, ...current]);
       setCreateUserOpen(false);
       setNotice("User created.");
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      setModalError(getErrorMessage(caught));
     }
   }
 
@@ -239,12 +266,22 @@ export function UsersAccessPage() {
     event.preventDefault();
     if (!editingUser) return;
     setError(null);
+    setModalError(null);
+
+    const validation = validateUserDraft(userDraft, "edit");
+
+    if (!validation.valid) {
+      setUserFormErrors(validation.errors);
+      return;
+    }
+
+    setUserFormErrors({});
 
     try {
       const updated = await updateUser(editingUser.id, {
-        name: userDraft.name,
-        isActive: userDraft.isActive,
-        roleIds: userDraft.roleIds,
+        name: validation.value.name,
+        isActive: validation.value.isActive,
+        roleIds: validation.value.roleIds,
         departmentIds: editingUser.departments.map((department) => department.id),
         concurrencyStamp: editingUser.concurrencyStamp
       });
@@ -252,7 +289,7 @@ export function UsersAccessPage() {
       setEditingUser(null);
       setNotice("User updated.");
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      setModalError(getErrorMessage(caught));
     }
   }
 
@@ -260,25 +297,45 @@ export function UsersAccessPage() {
     event.preventDefault();
     if (!resetUser) return;
     setError(null);
+    setModalError(null);
+
+    const validation = validateResetPassword(resetPasswordValue);
+
+    if (!validation.valid) {
+      setResetPasswordError(validation.error);
+      return;
+    }
+
+    setResetPasswordError(undefined);
 
     try {
-      await resetUserPassword(resetUser.id, { newPassword: resetPasswordValue });
+      await resetUserPassword(resetUser.id, { newPassword: validation.value });
       setResetUser(null);
       setNotice("Password reset.");
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      setModalError(getErrorMessage(caught));
     }
   }
 
   async function handleCreateRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setModalError(null);
+
+    const validation = validateRoleDraft(roleDraft);
+
+    if (!validation.valid) {
+      setRoleFormErrors(validation.errors);
+      return;
+    }
+
+    setRoleFormErrors({});
 
     try {
       const created = await createRole({
-        name: roleDraft.name,
-        description: roleDraft.description || null,
-        isActive: roleDraft.isActive
+        name: validation.value.name,
+        description: validation.value.description || null,
+        isActive: validation.value.isActive
       });
       setRoles((current) => [created, ...current]);
       setSelectedRoleId(created.id);
@@ -286,7 +343,7 @@ export function UsersAccessPage() {
       setCreateRoleOpen(false);
       setNotice("Role created.");
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      setModalError(getErrorMessage(caught));
     }
   }
 
@@ -294,19 +351,29 @@ export function UsersAccessPage() {
     event.preventDefault();
     if (!editingRole) return;
     setError(null);
+    setModalError(null);
+
+    const validation = validateRoleDraft(roleDraft);
+
+    if (!validation.valid) {
+      setRoleFormErrors(validation.errors);
+      return;
+    }
+
+    setRoleFormErrors({});
 
     try {
       const updated = await updateRole(editingRole.id, {
-        name: roleDraft.name,
-        description: roleDraft.description || null,
-        isActive: roleDraft.isActive,
+        name: validation.value.name,
+        description: validation.value.description || null,
+        isActive: validation.value.isActive,
         concurrencyStamp: editingRole.concurrencyStamp
       });
       setRoles((current) => current.map((role) => (role.id === updated.id ? updated : role)));
       setEditingRole(null);
       setNotice("Role updated.");
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      setModalError(getErrorMessage(caught));
     }
   }
 
@@ -362,6 +429,33 @@ export function UsersAccessPage() {
     });
   }
 
+  function clearModalFeedback() {
+    setModalError(null);
+    setUserFormErrors({});
+    setRoleFormErrors({});
+    setResetPasswordError(undefined);
+  }
+
+  function clearUserFieldError(field: keyof UserDraftValidationErrors) {
+    setModalError(null);
+    setUserFormErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function clearRoleFieldError(field: keyof RoleDraftValidationErrors) {
+    setModalError(null);
+    setRoleFormErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   return (
     <div className="grid gap-6">
       <PageHeader
@@ -393,12 +487,18 @@ export function UsersAccessPage() {
 
       <Modal
         open={createUserOpen}
-        onClose={() => setCreateUserOpen(false)}
+        onClose={() => {
+          setCreateUserOpen(false);
+          clearModalFeedback();
+        }}
         title="Create user"
         description="Create a local account and assign one or more roles."
         footer={
           <>
-            <Button onClick={() => setCreateUserOpen(false)} variant="outline">
+            <Button onClick={() => {
+              setCreateUserOpen(false);
+              clearModalFeedback();
+            }} variant="outline">
               Cancel
             </Button>
             <Button form="create-user" type="submit">
@@ -407,17 +507,36 @@ export function UsersAccessPage() {
           </>
         }
       >
-        <UserForm formId="create-user" roles={roles} userDraft={userDraft} onSubmit={handleCreateUser} onChange={setUserDraft} onToggleRole={toggleRoleOnDraft} mode="create" />
+        <div className="grid gap-4">
+          {modalError ? <Alert title="Create user">{modalError}</Alert> : null}
+          <UserForm
+            errors={userFormErrors}
+            formId="create-user"
+            roles={roles}
+            userDraft={userDraft}
+            onClearError={clearUserFieldError}
+            onSubmit={handleCreateUser}
+            onChange={setUserDraft}
+            onToggleRole={toggleRoleOnDraft}
+            mode="create"
+          />
+        </div>
       </Modal>
 
       <Modal
         open={Boolean(editingUser)}
-        onClose={() => setEditingUser(null)}
+        onClose={() => {
+          setEditingUser(null);
+          clearModalFeedback();
+        }}
         title="Edit user"
         description="Update account status and role assignments."
         footer={
           <>
-            <Button onClick={() => setEditingUser(null)} variant="outline">
+            <Button onClick={() => {
+              setEditingUser(null);
+              clearModalFeedback();
+            }} variant="outline">
               Cancel
             </Button>
             <Button form="edit-user" type="submit">
@@ -426,17 +545,36 @@ export function UsersAccessPage() {
           </>
         }
       >
-        <UserForm formId="edit-user" roles={roles} userDraft={userDraft} onSubmit={handleUpdateUser} onChange={setUserDraft} onToggleRole={toggleRoleOnDraft} mode="edit" />
+        <div className="grid gap-4">
+          {modalError ? <Alert title="Edit user">{modalError}</Alert> : null}
+          <UserForm
+            errors={userFormErrors}
+            formId="edit-user"
+            roles={roles}
+            userDraft={userDraft}
+            onClearError={clearUserFieldError}
+            onSubmit={handleUpdateUser}
+            onChange={setUserDraft}
+            onToggleRole={toggleRoleOnDraft}
+            mode="edit"
+          />
+        </div>
       </Modal>
 
       <Modal
         open={Boolean(resetUser)}
-        onClose={() => setResetUser(null)}
+        onClose={() => {
+          setResetUser(null);
+          clearModalFeedback();
+        }}
         title="Reset password"
         description={resetUser ? `Set a new temporary password for ${resetUser.name}.` : undefined}
         footer={
           <>
-            <Button onClick={() => setResetUser(null)} variant="outline">
+            <Button onClick={() => {
+              setResetUser(null);
+              clearModalFeedback();
+            }} variant="outline">
               Cancel
             </Button>
             <Button form="reset-password" type="submit">
@@ -445,10 +583,20 @@ export function UsersAccessPage() {
           </>
         }
       >
-        <form className="grid gap-4" id="reset-password" onSubmit={handleResetPassword}>
+        <form className="grid gap-4" id="reset-password" noValidate onSubmit={handleResetPassword}>
+          {modalError ? <Alert title="Reset password">{modalError}</Alert> : null}
           <Input
+            autoComplete="new-password"
+            error={resetPasswordError}
+            helperText="At least 8 characters."
             label="New temporary password"
-            onChange={(event) => setResetPasswordValue(event.target.value)}
+            minLength={minimumPasswordLength}
+            onChange={(event) => {
+              setResetPasswordValue(event.target.value);
+              setModalError(null);
+              if (resetPasswordError) setResetPasswordError(undefined);
+            }}
+            required
             type="password"
             value={resetPasswordValue}
           />
@@ -457,12 +605,18 @@ export function UsersAccessPage() {
 
       <Modal
         open={createRoleOpen}
-        onClose={() => setCreateRoleOpen(false)}
+        onClose={() => {
+          setCreateRoleOpen(false);
+          clearModalFeedback();
+        }}
         title="Create role"
         description="Create a reusable role for menu and form access."
         footer={
           <>
-            <Button onClick={() => setCreateRoleOpen(false)} variant="outline">
+            <Button onClick={() => {
+              setCreateRoleOpen(false);
+              clearModalFeedback();
+            }} variant="outline">
               Cancel
             </Button>
             <Button form="create-role" type="submit">
@@ -471,17 +625,26 @@ export function UsersAccessPage() {
           </>
         }
       >
-        <RoleForm formId="create-role" roleDraft={roleDraft} onChange={setRoleDraft} onSubmit={handleCreateRole} />
+        <div className="grid gap-4">
+          {modalError ? <Alert title="Create role">{modalError}</Alert> : null}
+          <RoleForm errors={roleFormErrors} formId="create-role" roleDraft={roleDraft} onClearError={clearRoleFieldError} onChange={setRoleDraft} onSubmit={handleCreateRole} />
+        </div>
       </Modal>
 
       <Modal
         open={Boolean(editingRole)}
-        onClose={() => setEditingRole(null)}
+        onClose={() => {
+          setEditingRole(null);
+          clearModalFeedback();
+        }}
         title="Edit role"
         description="Update role details and active status."
         footer={
           <>
-            <Button onClick={() => setEditingRole(null)} variant="outline">
+            <Button onClick={() => {
+              setEditingRole(null);
+              clearModalFeedback();
+            }} variant="outline">
               Cancel
             </Button>
             <Button form="edit-role" type="submit">
@@ -490,7 +653,10 @@ export function UsersAccessPage() {
           </>
         }
       >
-        <RoleForm formId="edit-role" roleDraft={roleDraft} onChange={setRoleDraft} onSubmit={handleUpdateRole} />
+        <div className="grid gap-4">
+          {modalError ? <Alert title="Edit role">{modalError}</Alert> : null}
+          <RoleForm errors={roleFormErrors} formId="edit-role" roleDraft={roleDraft} onClearError={clearRoleFieldError} onChange={setRoleDraft} onSubmit={handleUpdateRole} />
+        </div>
       </Modal>
     </div>
   );
@@ -688,36 +854,62 @@ export function UsersAccessPage() {
 }
 
 function UserForm({
+  errors = {},
   formId,
   mode,
   roles,
   userDraft,
+  onClearError,
   onChange,
   onSubmit,
   onToggleRole
 }: {
+  errors?: UserDraftValidationErrors;
   formId: string;
   mode: "create" | "edit";
   roles: RoleDto[];
   userDraft: UserDraft;
+  onClearError: (field: keyof UserDraftValidationErrors) => void;
   onChange: (value: UserDraft) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleRole: (roleId: string) => void;
 }) {
   return (
-    <form className="grid gap-4" id={formId} onSubmit={onSubmit}>
-      <Input label="Full name" onChange={(event) => onChange({ ...userDraft, name: event.target.value })} value={userDraft.name} />
+    <form className="grid gap-4" id={formId} noValidate onSubmit={onSubmit}>
+      <Input
+        error={errors.name}
+        label="Full name"
+        onChange={(event) => {
+          onChange({ ...userDraft, name: event.target.value });
+          onClearError("name");
+        }}
+        required
+        value={userDraft.name}
+      />
       <Input
         disabled={mode === "edit"}
+        error={errors.email}
         label="Email"
-        onChange={(event) => onChange({ ...userDraft, email: event.target.value })}
+        onChange={(event) => {
+          onChange({ ...userDraft, email: event.target.value });
+          onClearError("email");
+        }}
+        required
         type="email"
         value={userDraft.email}
       />
       {mode === "create" ? (
         <Input
+          autoComplete="new-password"
+          error={errors.password}
+          helperText="At least 8 characters."
           label="Initial password"
-          onChange={(event) => onChange({ ...userDraft, password: event.target.value })}
+          minLength={minimumPasswordLength}
+          onChange={(event) => {
+            onChange({ ...userDraft, password: event.target.value });
+            onClearError("password");
+          }}
+          required
           type="password"
           value={userDraft.password}
         />
@@ -749,19 +941,32 @@ function UserForm({
 }
 
 function RoleForm({
+  errors = {},
   formId,
   roleDraft,
+  onClearError,
   onChange,
   onSubmit
 }: {
+  errors?: RoleDraftValidationErrors;
   formId: string;
   roleDraft: RoleDraft;
+  onClearError: (field: keyof RoleDraftValidationErrors) => void;
   onChange: (value: RoleDraft) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <form className="grid gap-4" id={formId} onSubmit={onSubmit}>
-      <Input label="Role name" onChange={(event) => onChange({ ...roleDraft, name: event.target.value })} value={roleDraft.name} />
+    <form className="grid gap-4" id={formId} noValidate onSubmit={onSubmit}>
+      <Input
+        error={errors.name}
+        label="Role name"
+        onChange={(event) => {
+          onChange({ ...roleDraft, name: event.target.value });
+          onClearError("name");
+        }}
+        required
+        value={roleDraft.name}
+      />
       <Textarea
         label="Description"
         onChange={(event) => onChange({ ...roleDraft, description: event.target.value })}
