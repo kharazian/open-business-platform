@@ -1,0 +1,22 @@
+# V2 Task Index
+
+V2 now focuses on the path from form data to runnable reports, dashboard summaries, charts, and exports.
+
+## Recommended Execution Order
+
+1. `001-list-report-builder.md` - complete.
+2. `005-form-data-readiness.md`
+3. `002-report-viewer.md`
+4. `006-dashboard-summary-api.md`
+5. `007-chart-builder-lite.md`
+6. `008-dashboard-builder-lite.md`
+7. `003-csv-export.md`
+8. `004-clean-print-layouts.md`
+
+## Scope Rules
+
+- Keep forms, reports, dashboards, and records separate.
+- Reuse backend report execution for report viewing, dashboard table widgets, export, and print.
+- Enforce permissions on the backend.
+- Do not add XYFlow in V2.
+- Do not implement triggers, workflows, PDF templates, or advanced permissions in V2 unless a later task explicitly changes the roadmap.

@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, and permission checks. Report running, CSV export, and cleaner print layouts are still upcoming V2 work.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, and permission checks. V2 has been expanded to use form data as the source for runnable reports, real dashboard summaries, chart widgets, CSV export, and cleaner print layouts.
 
 ## Principle
 
@@ -39,7 +39,7 @@ Can be used for:
 - Approval review
 - PDF generation later
 
-### Summary Report Later
+### Summary Report V2
 
 Provides aggregation:
 
@@ -48,14 +48,16 @@ Provides aggregation:
 - Average
 - Group by department/status/date
 
-### Dashboard Later
+### Dashboard V2
 
 Displays widgets:
 
 - Number cards
 - Charts
 - Tables
-- Pending approvals
+- Pending approvals later, after workflow/approval tasks
+
+V2 dashboards should start with real database-backed summaries and chart widgets. Saved custom dashboard layouts can be added after report execution and chart aggregation are stable.
 
 ## V1 Printing
 

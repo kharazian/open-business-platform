@@ -217,19 +217,25 @@ Report types:
 
 - List report
 - Detail report
-- Summary report later
-- Dashboard later
+- Summary report in adjusted V2
+- Dashboard/chart lite in adjusted V2
+- Advanced analytics later
 
 V1 may have only a default record list.
 
-V2 should add report builder features:
+V2 should add report builder and dashboard-lite features:
 
+- Form data readiness for reporting
 - Select columns
 - Reorder columns
 - Rename columns
 - Filters
 - Sorting
 - Search
+- Runnable report viewer
+- Real dashboard summaries
+- Chart widgets
+- Dashboard builder lite
 - Print list
 - Export CSV
 - Report permissions
@@ -503,12 +509,13 @@ Do not include in V1:
 - Dashboards
 - Integrations
 
-### Version 2: Report Builder + Better Printing
+### Version 2: Form Data, Reports, Dashboards, Charts, and Better Printing
 
-Goal: allow users to create useful record lists and print/export them.
+Goal: turn submitted form data into runnable reports, dashboard summaries, simple charts, exports, and cleaner printed views.
 
 Features:
 
+- Form data readiness for reporting
 - Create list report
 - Select columns
 - Reorder columns
@@ -517,6 +524,10 @@ Features:
 - Sorting
 - Search
 - Saved reports
+- Run saved reports against real records
+- Real dashboard summary API
+- Chart builder lite
+- Dashboard builder lite
 - Print list report
 - Print record detail with cleaner layout
 - Export CSV
@@ -599,16 +610,16 @@ Features:
 - PDF generation
 - Attach PDF to email triggers
 
-### Version 7: Dashboards and Analytics
+### Version 7: Advanced Dashboards and Analytics
 
-Goal: move from record lists to summaries and dashboards.
+Goal: deepen the V2 dashboard foundation into richer analytics.
 
 Features:
 
-- Summary reports
-- Grouped reports
-- Charts
-- Dashboard builder
+- Advanced summary reports
+- Advanced grouped reports
+- Richer charts
+- Advanced dashboard builder
 - Number cards
 - Pending approvals
 - Status summaries
@@ -817,9 +828,13 @@ The current V1 foundation is complete and verified. Project inventory/setup, sha
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should continue V2 reports and better printing:
+Next concrete work should continue the adjusted V2 focus: form data readiness, runnable reports, real dashboard summaries, chart/dashboard builder lite, export, and better printing.
 
+- Form data readiness
 - Report viewer
+- Dashboard summary API
+- Chart builder lite
+- Dashboard builder lite
 - CSV export
 - Cleaner print layouts
 

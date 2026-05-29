@@ -24,7 +24,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: continue V2 with report viewer/run behavior, then CSV export and cleaner print layouts.
+Next: continue V2 with form data readiness, report viewer/run behavior, real dashboard summaries, chart/dashboard builder lite, then CSV export and cleaner print layouts.
 
 ## V1: Foundation - Forms and Records
 
@@ -52,12 +52,13 @@ Features:
 - Basic audit logs
 - Seed data
 
-## V2: Reports and Better Printing
+## V2: Form Data, Reports, Dashboards, Charts, and Better Printing
 
-Goal: allow users to define useful record views.
+Goal: turn submitted form data into runnable reports, dashboard summaries, simple charts, exports, and cleaner printed views.
 
 Features:
 
+- Form data readiness for reporting
 - List report builder
 - Column selection
 - Column ordering
@@ -65,6 +66,10 @@ Features:
 - Sorting
 - Search
 - Saved reports
+- Runnable report viewer
+- Real dashboard summary API
+- Chart builder lite
+- Dashboard builder lite
 - CSV export
 - Cleaner print layouts
 - Basic report permissions
@@ -132,15 +137,15 @@ Features:
 - Signature blocks
 - Attach PDF to email triggers
 
-## V7: Dashboards and Analytics
+## V7: Advanced Dashboards and Analytics
 
-Goal: management-level summaries.
+Goal: deepen the V2 dashboard foundation into richer analytics.
 
 Features:
 
-- Summary reports
-- Charts
-- Dashboard builder
+- Advanced summary reports
+- Richer charts
+- Advanced dashboard builder
 - Number cards
 - Pending approvals
 - Status/department summaries
