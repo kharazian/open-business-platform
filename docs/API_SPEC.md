@@ -854,13 +854,53 @@ Request:
 }
 ```
 
-Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus system fields `status`, `created_at`, and `created_by_id`. Supported filter operators are `equals`, `contains`, `is_empty`, and `is_not_empty`; supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
+Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. Supported filter operators are `equals`, `contains`, `is_empty`, and `is_not_empty`; supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
 
 ### Run report
 
-`POST /api/reports/{reportId}/run`
+`GET /api/forms/{formId}/reports/{reportId}/run?page=1&pageSize=25&search=Jane`
 
-Not implemented yet.
+Requires authentication plus `menu.reports` and form `view`, form `manage`, or `forms.manage_all` access.
+
+Runs a saved list report against non-deleted records for the form. The backend applies the saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells.
+
+Response:
+
+```json
+{
+  "reportId": "00000000-0000-0000-0000-000000000000",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "reportName": "Employee directory",
+  "formName": "Employee Form",
+  "page": 1,
+  "pageSize": 25,
+  "totalCount": 1,
+  "columns": [
+    {
+      "fieldId": "first_name",
+      "label": "First name",
+      "type": "text",
+      "source": "form",
+      "width": 180
+    }
+  ],
+  "rows": [
+    {
+      "recordId": "00000000-0000-0000-0000-000000000000",
+      "status": "active",
+      "cells": {
+        "first_name": {
+          "value": "Jane",
+          "displayValue": "Jane"
+        }
+      },
+      "createdAt": "2026-05-22T00:00:00Z"
+    }
+  ]
+}
+```
+
+Returns `404` when the report does not exist for the form and `409` when the saved report config no longer matches the runnable form schema.
 
 ### Export report CSV
 

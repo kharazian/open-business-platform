@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { FileText, Plus, RefreshCw, Save } from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, FileText, Play, Plus, RefreshCw, Save, Search } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -13,13 +13,17 @@ import { Table, type TableColumn } from "../../../components/ui/Table";
 import { getForm, listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
-import { createListReport, listReports } from "../api";
+import { createListReport, executeListReport, listReports } from "../api";
 import {
+  type ListReportExecution,
+  type ListReportExecutionRow,
   type ListReportFilter,
   type ListReportSummary,
   type ReportFilterOperator,
   type ReportSortDirection
 } from "../types";
+
+const reportPageSize = 10;
 
 const filterOperatorOptions = [
   { label: "Equals", value: "equals" },
@@ -32,24 +36,15 @@ const sortDirectionOptions = [
   { label: "Descending", value: "desc" }
 ];
 
-const reportColumns: Array<TableColumn<ListReportSummary>> = [
-  { header: "Report", accessor: "name" },
-  { header: "Form", accessor: "formName" },
-  {
-    header: "Config",
-    render: (report) => `${report.columnCount} columns, ${report.filterCount} filters, ${report.sortCount} sorts`
-  },
-  {
-    header: "Updated",
-    render: (report) => formatDate(report.updatedAt ?? report.createdAt)
-  }
-];
-
 export function ReportsPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
+  const [selectedReportId, setSelectedReportId] = useState("");
+  const [reportExecution, setReportExecution] = useState<ListReportExecution | null>(null);
+  const [reportSearch, setReportSearch] = useState("");
+  const [reportPage, setReportPage] = useState(1);
   const [reportName, setReportName] = useState("");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
   const [filterFieldId, setFilterFieldId] = useState("");
@@ -61,7 +56,9 @@ export function ReportsPage() {
   const [loadingFormDetail, setLoadingFormDetail] = useState(false);
   const [loadingReports, setLoadingReports] = useState(false);
   const [savingReport, setSavingReport] = useState(false);
+  const [runningReport, setRunningReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewerError, setViewerError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reportNameError, setReportNameError] = useState<string | undefined>();
 
@@ -93,6 +90,8 @@ export function ReportsPage() {
     if (!selectedFormId) {
       setFormDetail(null);
       setReports([]);
+      setSelectedReportId("");
+      setReportExecution(null);
       return;
     }
 
@@ -100,7 +99,12 @@ export function ReportsPage() {
     setLoadingFormDetail(true);
     setLoadingReports(true);
     setError(null);
+    setViewerError(null);
     setNotice(null);
+    setSelectedReportId("");
+    setReportExecution(null);
+    setReportSearch("");
+    setReportPage(1);
 
     Promise.all([getForm(selectedFormId), listReports(selectedFormId)])
       .then(([form, reportItems]) => {
@@ -149,6 +153,48 @@ export function ReportsPage() {
     filters: buildFilters(),
     sort: buildSort()
   });
+  const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
+  const totalReportPages = reportExecution ? Math.max(1, Math.ceil(reportExecution.totalCount / reportExecution.pageSize)) : 1;
+  const executionColumns = useMemo<Array<TableColumn<ListReportExecutionRow>>>(
+    () =>
+      reportExecution?.columns.map((column) => ({
+        header: column.label,
+        render: (row) => {
+          const value = row.cells[column.fieldId]?.displayValue?.trim();
+          return value ? value : <span className="text-muted-foreground">-</span>;
+        }
+      })) ?? [],
+    [reportExecution]
+  );
+  const reportColumns = useMemo<Array<TableColumn<ListReportSummary>>>(
+    () => [
+      { header: "Report", accessor: "name" },
+      { header: "Form", accessor: "formName" },
+      {
+        header: "Config",
+        render: (report) => `${report.columnCount} columns, ${report.filterCount} filters, ${report.sortCount} sorts`
+      },
+      {
+        header: "Updated",
+        render: (report) => formatDate(report.updatedAt ?? report.createdAt)
+      },
+      {
+        header: "Run",
+        render: (report) => (
+          <Button
+            disabled={runningReport && selectedReportId === report.id}
+            onClick={() => handleRunReport(report.id, 1)}
+            size="sm"
+            variant={selectedReportId === report.id ? "secondary" : "outline"}
+          >
+            <Play className="size-4" />
+            {runningReport && selectedReportId === report.id ? "Running..." : "Run"}
+          </Button>
+        )
+      }
+    ],
+    [runningReport, selectedReportId]
+  );
 
   async function handleRefresh() {
     if (!selectedFormId) return;
@@ -157,7 +203,13 @@ export function ReportsPage() {
     setNotice(null);
 
     try {
-      setReports(await listReports(selectedFormId));
+      const refreshedReports = await listReports(selectedFormId);
+      setReports(refreshedReports);
+
+      if (selectedReportId && !refreshedReports.some((report) => report.id === selectedReportId)) {
+        setSelectedReportId("");
+        setReportExecution(null);
+      }
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -179,11 +231,12 @@ export function ReportsPage() {
     setSavingReport(true);
 
     try {
-      await createListReport(selectedFormId, { name, config: previewConfig });
+      const createdReport = await createListReport(selectedFormId, { name, config: previewConfig });
       setReports(await listReports(selectedFormId));
       setNotice("List report saved.");
       setReportName(`${formDetail?.name ?? "Form"} list`);
       setReportNameError(undefined);
+      await handleRunReport(createdReport.id, 1);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -212,6 +265,31 @@ export function ReportsPage() {
 
   function buildSort() {
     return sortFieldId ? [{ fieldId: sortFieldId, direction: sortDirection }] : [];
+  }
+
+  async function handleRunReport(reportId: string, page: number) {
+    if (!selectedFormId || !reportId) {
+      return;
+    }
+
+    setSelectedReportId(reportId);
+    setReportPage(page);
+    setRunningReport(true);
+    setViewerError(null);
+
+    try {
+      setReportExecution(await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search: reportSearch }));
+    } catch (caught) {
+      setViewerError(getErrorMessage(caught));
+      setReportExecution(null);
+    } finally {
+      setRunningReport(false);
+    }
+  }
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void handleRunReport(selectedReportId, 1);
   }
 
   return (
@@ -391,6 +469,107 @@ export function ReportsPage() {
               }
               description={loadingReports ? "Fetching report definitions." : "Save a list report definition for this form."}
               title={loadingReports ? "Loading reports" : "No reports"}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Report viewer</CardTitle>
+              <CardDescription>{selectedReport ? selectedReport.name : "Run a saved list report."}</CardDescription>
+            </div>
+            <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleSearchSubmit}>
+            <Input
+              disabled={!selectedReportId || runningReport}
+              icon={<Search className="size-4" />}
+              label="Search"
+              onChange={(event) => setReportSearch(event.target.value)}
+              placeholder="Search visible report columns"
+              value={reportSearch}
+            />
+            <div className="flex flex-wrap items-end gap-2">
+              <Button disabled={!selectedReportId || runningReport} type="submit" variant="outline">
+                <Search className="size-4" />
+                Search
+              </Button>
+              <Button disabled={!selectedReportId || runningReport} onClick={() => handleRunReport(selectedReportId, reportPage)} variant="outline">
+                <RefreshCw className="size-4" />
+                Refresh
+              </Button>
+            </div>
+          </form>
+
+          {viewerError ? <Alert title="Report viewer">{viewerError}</Alert> : null}
+
+          {runningReport ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/40 p-8 text-center">
+              <RefreshCw className="mx-auto size-8 animate-spin text-muted-foreground" />
+              <p className="mt-3 text-sm font-bold text-foreground">Running report</p>
+            </div>
+          ) : reportExecution && reportExecution.rows.length > 0 ? (
+            <div className="grid gap-4">
+              <Table columns={executionColumns} rows={reportExecution.rows} />
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
+                <span className="font-semibold text-muted-foreground">
+                  Page {reportExecution.page} of {totalReportPages}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    disabled={reportExecution.page <= 1 || runningReport}
+                    onClick={() => handleRunReport(reportExecution.reportId, reportExecution.page - 1)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <ChevronLeft className="size-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    disabled={reportExecution.page >= totalReportPages || runningReport}
+                    onClick={() => handleRunReport(reportExecution.reportId, reportExecution.page + 1)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Next
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : reportExecution ? (
+            <EmptyState
+              action={
+                <Button disabled={runningReport} onClick={() => handleRunReport(reportExecution.reportId, 1)} variant="outline">
+                  <RefreshCw className="size-4" />
+                  Refresh
+                </Button>
+              }
+              description="The saved filters and search did not match any records."
+              title="No matching rows"
+            />
+          ) : (
+            <EmptyState
+              action={
+                selectedReport ? (
+                  <Button disabled={runningReport} onClick={() => handleRunReport(selectedReport.id, 1)} variant="outline">
+                    <Play className="size-4" />
+                    Run report
+                  </Button>
+                ) : (
+                  <Button disabled variant="outline">
+                    <Play className="size-4" />
+                    Run report
+                  </Button>
+                )
+              }
+              description="Choose Run from a saved list report."
+              title="No report result"
             />
           )}
         </CardContent>

@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, and permission checks. V2 has been expanded to use form data as the source for runnable reports, real dashboard summaries, chart widgets, CSV export, and cleaner print layouts.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, and runnable list report viewing over real record data. V2 has been expanded to use form data as the source for real dashboard summaries, chart widgets, CSV export, and cleaner print layouts.
 
 ## Principle
 
@@ -25,8 +25,9 @@ V2 features:
 - Rename columns: labels are saved from the selected form fields
 - Filters: one saved filter in the current builder, config supports multiple
 - Sorting: one saved sort in the current builder, config supports multiple
-- Search: not implemented yet
+- Search: implemented at runtime in the report viewer for visible searchable columns
 - Saved reports: implemented
+- Runnable viewer: implemented for saved list reports
 - Print
 - Export CSV
 

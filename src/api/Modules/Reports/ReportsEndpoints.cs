@@ -48,6 +48,34 @@ public static class ReportsEndpoints
             });
         });
 
+        group.MapGet("/{reportId:guid}/run", async (
+            Guid formId,
+            Guid reportId,
+            int? page,
+            int? pageSize,
+            string? search,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                var report = await reportManagement.ExecuteListReportAsync(
+                    formId,
+                    reportId,
+                    new RunListReportRequest(page ?? 1, pageSize ?? 25, search),
+                    cancellationToken);
+
+                return Results.Ok(report);
+            });
+        });
+
         return endpoints;
     }
 

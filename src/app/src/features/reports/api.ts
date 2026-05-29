@@ -1,4 +1,11 @@
-import type { CreateListReportRequest, ListReportDetail, ListReportSummary, ReportValidationError } from "./types";
+import type {
+  CreateListReportRequest,
+  ExecuteListReportOptions,
+  ListReportDetail,
+  ListReportExecution,
+  ListReportSummary,
+  ReportValidationError
+} from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -41,6 +48,35 @@ export async function createListReport(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request)
     },
+    fetcher
+  );
+}
+
+export async function executeListReport(
+  formId: string,
+  reportId: string,
+  options: ExecuteListReportOptions = {},
+  fetcher: ReportsFetcher = defaultFetcher
+): Promise<ListReportExecution> {
+  const query = new URLSearchParams();
+
+  if (options.page !== undefined) {
+    query.set("page", String(options.page));
+  }
+
+  if (options.pageSize !== undefined) {
+    query.set("pageSize", String(options.pageSize));
+  }
+
+  if (options.search?.trim()) {
+    query.set("search", options.search.trim());
+  }
+
+  const queryString = query.toString();
+
+  return requestJson<ListReportExecution>(
+    `/api/forms/${encodeURIComponent(formId)}/reports/${encodeURIComponent(reportId)}/run${queryString ? `?${queryString}` : ""}`,
+    { method: "GET", credentials: "include" },
     fetcher
   );
 }

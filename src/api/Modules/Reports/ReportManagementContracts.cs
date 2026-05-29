@@ -59,6 +59,34 @@ public sealed record ListReportConfigDefinition(
 
 public sealed record CreateListReportRequest(string Name, ListReportConfigDefinition Config);
 
+public sealed record RunListReportRequest(int Page = 1, int PageSize = 25, string? Search = null);
+
+public sealed record ListReportExecutionColumnDto(
+    string FieldId,
+    string Label,
+    string Type,
+    string Source,
+    int? Width);
+
+public sealed record ListReportExecutionCellDto(object? Value, string DisplayValue);
+
+public sealed record ListReportExecutionRowDto(
+    Guid RecordId,
+    string Status,
+    IReadOnlyDictionary<string, ListReportExecutionCellDto> Cells,
+    DateTimeOffset CreatedAt);
+
+public sealed record ListReportExecutionDto(
+    Guid ReportId,
+    Guid FormId,
+    string ReportName,
+    string FormName,
+    int Page,
+    int PageSize,
+    long TotalCount,
+    IReadOnlyList<ListReportExecutionColumnDto> Columns,
+    IReadOnlyList<ListReportExecutionRowDto> Rows);
+
 public sealed record ListReportSummaryDto(
     Guid Id,
     Guid FormId,

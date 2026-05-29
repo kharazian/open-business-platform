@@ -38,6 +38,44 @@ export type CreateListReportRequest = {
   config: ListReportConfig;
 };
 
+export type ExecuteListReportOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
+
+export type ListReportExecutionColumn = {
+  fieldId: string;
+  label: string;
+  type: string;
+  source: "form" | "system";
+  width?: number | null;
+};
+
+export type ListReportExecutionCell = {
+  value: string | number | boolean | null;
+  displayValue: string;
+};
+
+export type ListReportExecutionRow = {
+  recordId: EntityId;
+  status: string;
+  cells: Record<string, ListReportExecutionCell | undefined>;
+  createdAt: string;
+};
+
+export type ListReportExecution = {
+  reportId: EntityId;
+  formId: EntityId;
+  reportName: string;
+  formName: string;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  columns: ListReportExecutionColumn[];
+  rows: ListReportExecutionRow[];
+};
+
 export interface ListReportSummary extends AuditedEntityDto, ConcurrencyStampedDto {
   formId: EntityId;
   formName: string;

@@ -60,16 +60,51 @@ test("reports API client maps list report requests and errors", async () => {
       };
     }
 
+    if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane" && init.method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          reportId: "report-1",
+          formId: "form-2",
+          reportName: "Open inspections",
+          formName: "Safety inspection",
+          page: 2,
+          pageSize: 10,
+          totalCount: 12,
+          columns: [{ fieldId: "site_name", label: "Site name", type: "text", source: "form", width: 180 }],
+          rows: [
+            {
+              recordId: "record-1",
+              status: "active",
+              cells: {
+                site_name: { value: "Warehouse A", displayValue: "Warehouse A" }
+              },
+              createdAt: "2026-05-22T12:10:00.000Z"
+            }
+          ]
+        })
+      };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
   const reports = await api.listReports("form-2", fetcher);
   const created = await api.createListReport("form-2", { name: "Open inspections", config }, fetcher);
+  const executed = await api.executeListReport(
+    "form-2",
+    "report-1",
+    { page: 2, pageSize: 10, search: "Jane" },
+    fetcher
+  );
 
   assert.equal(reports[0].name, "Open inspections");
   assert.equal(reports[0].columnCount, 1);
   assert.equal(created.name, "Open inspections");
   assert.equal(created.config.columns[0].fieldId, "site_name");
+  assert.equal(executed.totalCount, 12);
+  assert.equal(executed.columns[0].fieldId, "site_name");
+  assert.equal(executed.rows[0].cells.site_name.displayValue, "Warehouse A");
   assert.equal(calls[0].input, "/api/forms/form-2/reports");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -79,6 +114,9 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[1].init.headers["Content-Type"], "application/json");
   assert.equal(JSON.parse(calls[1].init.body).name, "Open inspections");
   assert.deepEqual(JSON.parse(calls[1].init.body).config, config);
+  assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane");
+  assert.equal(calls[2].init.method, "GET");
+  assert.equal(calls[2].init.credentials, "include");
 
   await assert.rejects(
     () => api.listReports("form-2", async () => ({ ok: true, json: async () => ({}) })),

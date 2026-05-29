@@ -572,6 +572,92 @@ var reportSummary = new ListReportSummaryDto(
     null);
 AssertEqual(1, reportSummary.ColumnCount, "List report summaries should expose configured column counts.");
 AssertEqual("Employee directory", reportSummary.Name, "List report summaries should expose names.");
+
+var executionConfig = listReportConfig with
+{
+    Columns = new[]
+    {
+        new ListReportColumnDefinition("employee_name", "Employee name", true, 180),
+        new ListReportColumnDefinition("salary", "Salary", true, 120),
+        new ListReportColumnDefinition(ReportableSystemFields.Status, "Status", true, 100)
+    },
+    Filters = new[] { new ListReportFilterDefinition(ReportableSystemFields.Status, ReportFilterOperators.Equal, RecordStatuses.Active) },
+    Sort = new[] { new ListReportSortDefinition("salary", ReportSortDirections.Desc) }
+};
+var executionRecords = new[]
+{
+    new FormRecord
+    {
+        Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+        FormId = sampleDepartmentId,
+        FormVersionId = publishedVersion.Id,
+        Status = RecordStatuses.Active,
+        ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+        {
+            ["employee_name"] = "Jordan Lee",
+            ["salary"] = 80000,
+            ["department"] = "finance"
+        }),
+        CreatedAt = sampleCreatedAt,
+        CreatedById = sampleUserId
+    },
+    new FormRecord
+    {
+        Id = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+        FormId = sampleDepartmentId,
+        FormVersionId = publishedVersion.Id,
+        Status = RecordStatuses.Active,
+        ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+        {
+            ["employee_name"] = "Jane Cooper",
+            ["salary"] = 120000,
+            ["department"] = "hr"
+        }),
+        CreatedAt = sampleCreatedAt.AddMinutes(1),
+        CreatedById = sampleUserId
+    },
+    new FormRecord
+    {
+        Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+        FormId = sampleDepartmentId,
+        FormVersionId = publishedVersion.Id,
+        Status = RecordStatuses.Deleted,
+        ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+        {
+            ["employee_name"] = "Archived Person",
+            ["salary"] = 200000,
+            ["department"] = "hr"
+        }),
+        CreatedAt = sampleCreatedAt.AddMinutes(2),
+        CreatedById = sampleUserId
+    }
+};
+
+var executedReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 10, Search: "Jane"));
+AssertEqual(1, executedReport.TotalCount, "Report execution should apply runtime search after saved filters.");
+AssertEqual("Jane Cooper", executedReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report rows should expose display cells by field.");
+AssertEqual(RecordStatuses.Active, executedReport.Rows.Single().Cells[ReportableSystemFields.Status].Value, "Report rows should expose system field values.");
+
+var pagedExecutionReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 1));
+AssertEqual(2, pagedExecutionReport.TotalCount, "Report execution should count rows after saved filters and before pagination.");
+AssertEqual(1, pagedExecutionReport.Rows.Count, "Report execution should page rows.");
+AssertEqual("Jane Cooper", pagedExecutionReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report execution should apply saved sort before pagination.");
 AssertTypeAssignable<object, ReportManagementService>();
 
 static void AssertEqual<T>(T expected, T actual, string message)

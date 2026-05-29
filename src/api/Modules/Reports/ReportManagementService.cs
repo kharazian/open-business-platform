@@ -94,6 +94,61 @@ public sealed class ReportManagementService
         return ToDetailDto(report);
     }
 
+    public async Task<ListReportExecutionDto> ExecuteListReportAsync(
+        Guid formId,
+        Guid reportId,
+        RunListReportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var report = await dbContext.Reports
+            .AsNoTracking()
+            .Include(candidate => candidate.Form)
+            .ThenInclude(form => form!.CurrentVersion)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == reportId
+                && candidate.FormId == formId
+                && candidate.Type == ReportTypes.List
+                && !candidate.IsDeleted
+                && candidate.Form != null
+                && !candidate.Form.IsDeleted,
+                cancellationToken);
+
+        if (report is null || report.Form is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status404NotFound, "Report was not found.");
+        }
+
+        var schema = ResolveExecutionSchema(report.Form);
+
+        if (schema is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status409Conflict, "Form schema is not available for report running.");
+        }
+
+        var config = DeserializeConfig(report.ConfigJson);
+        var validation = ListReportConfigValidator.Validate(schema, config);
+
+        if (!validation.Valid)
+        {
+            throw new ReportManagementException(StatusCodes.Status409Conflict, "Report config no longer matches the form schema.", validation.Errors);
+        }
+
+        var records = await dbContext.Records
+            .AsNoTracking()
+            .Where(record => record.FormId == formId && !record.IsDeleted)
+            .ToArrayAsync(cancellationToken);
+
+        return ListReportExecutionEngine.Execute(
+            report.Id,
+            report.FormId,
+            report.Name,
+            report.Form.Name,
+            config,
+            schema,
+            records,
+            request);
+    }
+
     private static ListReportSummaryDto ToSummaryDto(ReportDefinition report)
     {
         var config = DeserializeConfig(report.ConfigJson);
@@ -173,6 +228,11 @@ public sealed class ReportManagementService
     private static FormSchemaDefinition? ResolveReportSchema(FormDefinition form)
     {
         return DeserializeSchema(form.DraftSchemaJson) ?? DeserializeSchema(form.CurrentVersion?.SchemaJson);
+    }
+
+    private static FormSchemaDefinition? ResolveExecutionSchema(FormDefinition form)
+    {
+        return DeserializeSchema(form.CurrentVersion?.SchemaJson) ?? DeserializeSchema(form.DraftSchemaJson);
     }
 
     private static JsonDocument SerializeConfig(ListReportConfigDefinition config)
