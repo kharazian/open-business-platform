@@ -123,7 +123,7 @@ Backend APIs must validate schema changes and submitted record values before per
 
 ## Auth
 
-The current V1 auth foundation uses cookie auth with local PostgreSQL users plus a server-only bootstrap admin configured through `.env` as a setup fallback.
+The current V1 auth foundation uses cookie auth with local PostgreSQL users plus a server-only bootstrap admin configured through `.env` as a setup fallback. Self-service password recovery is available for active persistent users with local password hashes. The bootstrap admin fallback is recovered by changing its server-side environment configuration.
 
 ### Login
 
@@ -177,6 +177,57 @@ Requires authentication.
 `POST /api/auth/logout`
 
 Requires authentication and clears the auth cookie.
+
+### Request password reset
+
+`POST /api/auth/forgot-password`
+
+Request:
+
+```json
+{
+  "email": "jane@company.test"
+}
+```
+
+Response:
+
+```json
+{
+  "message": "If the email belongs to an active user, a password reset link will be sent."
+}
+```
+
+The response is intentionally generic to avoid exposing whether an email belongs to a user. If the email belongs to an active persistent local user, the backend creates a short-lived password reset token, stores only the token hash, writes a `user_password_reset_requested` audit entry, and sends a reset email through configured SMTP. In development, if SMTP is not configured, the email body is logged by the API.
+
+### Complete password reset
+
+`POST /api/auth/reset-password`
+
+Request:
+
+```json
+{
+  "token": "raw-token-from-reset-link",
+  "newPassword": "new-temporary-password-2"
+}
+```
+
+Response: `204 No Content`
+
+The backend rejects missing, expired, already-used, or unknown tokens with `400 Bad Request`, updates the user's password hash on success, marks the token as used, and writes a `user_password_reset_completed` audit entry.
+
+Password recovery configuration can be supplied through environment variables:
+
+- `PASSWORD_RESET_URL`
+- `PASSWORD_RESET_TOKEN_MINUTES`
+- `EMAIL_FROM_ADDRESS`
+- `EMAIL_FROM_NAME`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_USE_STARTTLS`
 
 ## Users & Access
 

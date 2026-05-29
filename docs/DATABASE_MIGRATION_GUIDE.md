@@ -92,6 +92,12 @@ Audit logs:
 - user_id
 - created_at
 
+Password reset tokens:
+
+- token_hash unique
+- user_id
+- expires_at
+
 Triggers:
 
 - form_id

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -73,6 +73,9 @@ export function Login() {
             type="password"
             value={password}
           />
+          <Link className="-mt-2 justify-self-end text-sm font-bold text-muted-foreground hover:text-foreground" to="/forgot-password">
+            Forgot password?
+          </Link>
           <Button type="submit" className="mt-2 w-full" disabled={submitting}>
             {submitting ? "Signing in..." : "Sign in"}
           </Button>

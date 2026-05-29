@@ -37,3 +37,31 @@ public sealed class LocalAuthenticationOptions
 
     public bool RequireSecureCookies { get; init; } = true;
 }
+
+public sealed class EmailOptions
+{
+    public const string SectionName = "Email";
+
+    public string FromAddress { get; init; } = "no-reply@company.test";
+
+    public string FromName { get; init; } = "Open Business Platform";
+
+    public string SmtpHost { get; init; } = "";
+
+    public int SmtpPort { get; init; } = 587;
+
+    public string SmtpUsername { get; init; } = "";
+
+    public string SmtpPassword { get; init; } = "";
+
+    public bool UseStartTls { get; init; } = true;
+}
+
+public sealed class PasswordRecoveryOptions
+{
+    public const string SectionName = "PasswordRecovery";
+
+    public string ResetPasswordUrl { get; init; } = "http://localhost:5174/reset-password";
+
+    public int TokenLifetimeMinutes { get; init; } = 60;
+}

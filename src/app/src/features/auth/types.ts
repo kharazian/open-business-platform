@@ -13,6 +13,11 @@ export type LoginCredentials = {
   password: string;
 };
 
+export type CompletePasswordResetRequest = {
+  token: string;
+  newPassword: string;
+};
+
 export type AuthSessionResponse = {
   user: AuthUser;
 };

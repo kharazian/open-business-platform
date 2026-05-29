@@ -38,16 +38,17 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
 - `src/api/Modules/Reports`: current V2 list report definition endpoints, config validation, permission checks, and `report_created` audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
-- `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, users/roles management endpoints, password hashing, and permission service
+- `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles management endpoints, password hashing, and permission service
+- `src/api/Modules/Notifications`: current minimal email sender abstraction for password recovery, with SMTP delivery when configured and development logging when SMTP is not configured
 - `src/api/Modules/Dashboard`: current dashboard summary API module
-- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, roles, role permissions, form permissions, forms, form versions, records, departments, audit logs, and current V2 report definitions
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, role permissions, form permissions, forms, form versions, records, departments, audit logs, and current V2 report definitions
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat dashboard/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions; report running, CSV export, and cleaner print layouts remain upcoming V2 work. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat dashboard/settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions; report running, CSV export, and cleaner print layouts remain upcoming V2 work. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 

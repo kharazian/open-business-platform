@@ -1,4 +1,4 @@
-import type { AuthSessionResponse, AuthUser, LoginCredentials } from "./types";
+import type { AuthSessionResponse, AuthUser, CompletePasswordResetRequest, LoginCredentials } from "./types";
 
 type AuthFetchResponse = {
   ok: boolean;
@@ -52,6 +52,28 @@ export async function logout(fetcher: AuthFetcher = defaultFetcher): Promise<voi
   }
 }
 
+export async function requestPasswordReset(email: string, fetcher: AuthFetcher = defaultFetcher): Promise<void> {
+  const response = await fetcher("/api/auth/forgot-password", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+
+  await parseEmptyResponse(response, "Password reset request failed.");
+}
+
+export async function completePasswordReset(request: CompletePasswordResetRequest, fetcher: AuthFetcher = defaultFetcher): Promise<void> {
+  const response = await fetcher("/api/auth/reset-password", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+
+  await parseEmptyResponse(response, "Password reset failed.");
+}
+
 async function parseRequiredAuthUser(response: AuthFetchResponse): Promise<AuthUser> {
   const body = await readJson(response);
 
@@ -66,6 +88,14 @@ async function parseRequiredAuthUser(response: AuthFetchResponse): Promise<AuthU
   return body.user;
 }
 
+async function parseEmptyResponse(response: AuthFetchResponse, fallbackMessage: string): Promise<void> {
+  const body = await readJson(response);
+
+  if (!response.ok) {
+    throw new AuthRequestError(getErrorMessage(body, fallbackMessage));
+  }
+}
+
 async function readJson(response: AuthFetchResponse): Promise<unknown> {
   try {
     return await response.json();
@@ -74,12 +104,12 @@ async function readJson(response: AuthFetchResponse): Promise<unknown> {
   }
 }
 
-function getErrorMessage(body: unknown): string {
+function getErrorMessage(body: unknown, fallback = "Authentication failed."): string {
   if (isRecord(body) && typeof body.message === "string" && body.message.trim().length > 0) {
     return body.message;
   }
 
-  return "Authentication failed.";
+  return fallback;
 }
 
 function isAuthSessionResponse(value: unknown): value is AuthSessionResponse {

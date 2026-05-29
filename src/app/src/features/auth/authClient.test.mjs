@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { getCurrentUser, login, logout } from "./authClient.ts";
+import { completePasswordReset, getCurrentUser, login, logout, requestPasswordReset } from "./authClient.ts";
 
 test("auth client maps login, session, logout, and auth errors", async () => {
   const loginCalls = [];
@@ -101,4 +101,55 @@ test("auth client maps login, session, logout, and auth errors", async () => {
   assert.equal(logoutCalls[0].input, "/api/auth/logout");
   assert.equal(logoutCalls[0].init.method, "POST");
   assert.equal(logoutCalls[0].init.credentials, "include");
+});
+
+test("auth client maps forgot and reset password requests", async () => {
+  const forgotCalls = [];
+  await requestPasswordReset("jane@company.test", async (input, init) => {
+    forgotCalls.push({ input, init });
+    return {
+      ok: true,
+      json: async () => ({
+        message: "If the email belongs to an active user, a password reset link will be sent."
+      })
+    };
+  });
+
+  assert.equal(forgotCalls[0].input, "/api/auth/forgot-password");
+  assert.equal(forgotCalls[0].init.method, "POST");
+  assert.equal(forgotCalls[0].init.credentials, "include");
+  assert.equal(forgotCalls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(forgotCalls[0].init.body), {
+    email: "jane@company.test"
+  });
+
+  const resetCalls = [];
+  await completePasswordReset(
+    { token: "raw-reset-token", newPassword: "new-temporary-password-2" },
+    async (input, init) => {
+      resetCalls.push({ input, init });
+      return { ok: true, json: async () => ({}) };
+    }
+  );
+
+  assert.equal(resetCalls[0].input, "/api/auth/reset-password");
+  assert.equal(resetCalls[0].init.method, "POST");
+  assert.equal(resetCalls[0].init.credentials, "include");
+  assert.equal(resetCalls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(resetCalls[0].init.body), {
+    token: "raw-reset-token",
+    newPassword: "new-temporary-password-2"
+  });
+
+  await assert.rejects(
+    () =>
+      completePasswordReset(
+        { token: "bad-token", newPassword: "new-temporary-password-2" },
+        async () => ({
+          ok: false,
+          json: async () => ({ message: "Reset token is invalid or expired." })
+        })
+      ),
+    /Reset token is invalid or expired\./
+  );
 });

@@ -6,6 +6,7 @@ using OpenBusinessPlatform.Api.Configuration;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Platform;
@@ -20,6 +21,8 @@ builder.Services.Configure<ApplicationOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection(BrandingOptions.SectionName));
 builder.Services.Configure<BootstrapAdminOptions>(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName));
 builder.Services.Configure<LocalAuthenticationOptions>(builder.Configuration.GetSection(LocalAuthenticationOptions.SectionName));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<PasswordRecoveryOptions>(builder.Configuration.GetSection(PasswordRecoveryOptions.SectionName));
 builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
@@ -28,7 +31,11 @@ builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
+builder.Services.AddSingleton<PasswordResetTokenGenerator>();
+builder.Services.AddSingleton<PasswordResetTokenHasher>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IdentityManagementService>();
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<FormManagementService>();
 builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();

@@ -15,6 +15,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
     public DbSet<Role> Roles => Set<Role>();
 
     public DbSet<UserRole> UserRoles => Set<UserRole>();
@@ -141,6 +143,27 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(user => user.ExternalUserId).HasColumnName("external_user_id").HasMaxLength(256);
             entity.Property(user => user.PasswordHash).HasColumnName("password_hash").HasMaxLength(512);
             entity.Property(user => user.PasswordUpdatedAt).HasColumnName("password_updated_at");
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("password_reset_tokens");
+            entity.HasKey(token => token.Id);
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => token.UserId);
+            entity.HasIndex(token => token.ExpiresAt);
+            entity.Property(token => token.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(token => token.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(token => token.TokenHash).HasColumnName("token_hash").HasMaxLength(128).IsRequired();
+            entity.Property(token => token.ExpiresAt).HasColumnName("expires_at").IsRequired();
+            entity.Property(token => token.UsedAt).HasColumnName("used_at");
+            entity.Property(token => token.CreatedIp).HasColumnName("created_ip").HasMaxLength(80);
+            entity.Property(token => token.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity
+                .HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Role>(entity =>

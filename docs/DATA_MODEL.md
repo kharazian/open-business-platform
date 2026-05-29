@@ -9,6 +9,7 @@ Status: V1 database foundation finalized for core identity, form, record, role p
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
+- `password_reset_tokens`
 - `role_permissions`, `role_form_permissions`
 - `departments`, `user_departments`
 - `forms`, `form_versions`
@@ -66,6 +67,26 @@ Fields:
 - created_by_id nullable
 - updated_at nullable
 - updated_by_id nullable
+
+### password_reset_tokens
+
+Stores self-service password recovery tokens for persistent local users. Raw tokens are sent only in email reset links; PostgreSQL stores only a hash.
+
+Fields:
+
+- id uuid
+- user_id uuid
+- token_hash
+- expires_at
+- used_at nullable
+- created_ip nullable
+- created_at
+
+Indexes:
+
+- unique token_hash
+- user_id
+- expires_at
 
 ### roles
 

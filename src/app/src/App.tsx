@@ -2,7 +2,9 @@ import { lazy, useEffect, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "./layouts/AppLayout";
 import { ThemeLayout } from "./layouts/ThemeLayout";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
+import { ResetPassword } from "./pages/ResetPassword";
 import { AppThemeProvider } from "./context/AppThemeContext";
 import { useAuth } from "./context/AuthContext";
 import { platformModules } from "./modules";
@@ -38,6 +40,8 @@ function App() {
     <AppThemeProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           element={
             <RequireAuth>

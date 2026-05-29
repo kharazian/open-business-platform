@@ -17,6 +17,29 @@ public static class IdentityEndpoints
             PermissionService permissionService,
             HttpContext httpContext,
             CancellationToken cancellationToken) => await SignInAsync(request, userDirectory, identityManagement, permissionService, httpContext, cancellationToken));
+        group.MapPost("/forgot-password", async (
+            RequestPasswordResetRequest request,
+            IPasswordRecoveryService passwordRecovery,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                await passwordRecovery.RequestResetAsync(request, httpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken);
+                return Results.Ok(PasswordRecoveryService.CreateGenericResponse());
+            });
+        });
+        group.MapPost("/reset-password", async (
+            CompletePasswordResetRequest request,
+            IPasswordRecoveryService passwordRecovery,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                await passwordRecovery.CompleteResetAsync(request, cancellationToken);
+                return Results.NoContent();
+            });
+        });
         group.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
         group.MapPost("/logout", async (HttpContext httpContext) => await SignOutAsync(httpContext)).RequireAuthorization();
 

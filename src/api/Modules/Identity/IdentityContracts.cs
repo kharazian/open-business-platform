@@ -10,6 +10,12 @@ public static class PlatformRoles
 
 public sealed record LoginRequest(string Email, string Password);
 
+public sealed record RequestPasswordResetRequest(string Email);
+
+public sealed record PasswordResetRequestedResponse(string Message);
+
+public sealed record CompletePasswordResetRequest(string Token, string NewPassword);
+
 public sealed record AuthenticatedUser(
     string Id,
     string Name,

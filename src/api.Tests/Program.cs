@@ -9,6 +9,7 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 
@@ -92,6 +93,7 @@ using var dbContext = new OpenBusinessPlatformDbContext(dbOptions);
 var model = dbContext.Model;
 
 AssertTable<User>(model, "users");
+AssertTable<PasswordResetToken>(model, "password_reset_tokens");
 AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
 AssertTable<RolePermission>(model, "role_permissions");
@@ -105,6 +107,7 @@ AssertTable<ReportDefinition>(model, "reports");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
+AssertTypeAssignable<Entity<Guid>, PasswordResetToken>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, Role>();
 AssertTypeAssignable<Entity<Guid>, RolePermission>();
 AssertTypeAssignable<Entity<Guid>, RoleFormPermission>();
@@ -116,6 +119,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
+AssertGuidId<PasswordResetToken>(model);
 AssertGuidId<Role>(model);
 AssertGuidId<RolePermission>(model);
 AssertGuidId<RoleFormPermission>(model);
@@ -149,7 +153,14 @@ AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertie
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
+AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UserId), "user_id", "Password reset tokens should be tied to users.");
+AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.TokenHash), "token_hash", "Password reset tokens should store only token hashes.");
+AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.ExpiresAt), "expires_at", "Password reset tokens should expire.");
+AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UsedAt), "used_at", "Password reset tokens should track use.");
 
+AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
+AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
+AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormVersionId) }, "Records should be indexed by form version.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.Status) }, "Records should be indexed by status.");
@@ -172,6 +183,26 @@ var passwordHash = passwordHasher.HashPassword("temporary-password-1");
 AssertNotEqual("temporary-password-1", passwordHash, "Password hashes should not store the raw password.");
 AssertTrue(passwordHasher.VerifyPassword("temporary-password-1", passwordHash), "Password hasher should verify the original password.");
 AssertFalse(passwordHasher.VerifyPassword("wrong-password", passwordHash), "Password hasher should reject an incorrect password.");
+
+var resetTokenGenerator = new PasswordResetTokenGenerator();
+var rawResetToken = resetTokenGenerator.Generate();
+AssertFalse(string.IsNullOrWhiteSpace(rawResetToken), "Password reset tokens should be non-empty.");
+AssertTrue(rawResetToken.Length >= 43, "Password reset tokens should have enough entropy for email recovery.");
+
+var resetTokenHasher = new PasswordResetTokenHasher();
+var resetTokenHash = resetTokenHasher.Hash(rawResetToken);
+AssertNotEqual(rawResetToken, resetTokenHash, "Password reset token hashes should not store the raw token.");
+AssertTrue(resetTokenHasher.Verify(rawResetToken, resetTokenHash), "Password reset token hasher should verify the original token.");
+AssertFalse(resetTokenHasher.Verify($"{rawResetToken}x", resetTokenHash), "Password reset token hasher should reject a different token.");
+
+var resetLink = PasswordRecoveryEmailFactory.BuildResetLink("http://localhost:5174/reset-password", rawResetToken);
+AssertTrue(resetLink.StartsWith("http://localhost:5174/reset-password?token=", StringComparison.Ordinal), "Password reset links should point to the configured reset page.");
+AssertTrue(resetLink.Contains(Uri.EscapeDataString(rawResetToken), StringComparison.Ordinal), "Password reset links should include the raw token only in the email URL.");
+
+var recoveryEmail = PasswordRecoveryEmailFactory.CreateResetEmail("jane@company.test", resetLink, TimeSpan.FromMinutes(60));
+AssertEqual("jane@company.test", recoveryEmail.ToEmail, "Password recovery emails should target the requested user email.");
+AssertTrue(recoveryEmail.Subject.Contains("password", StringComparison.OrdinalIgnoreCase), "Password recovery emails should describe the password reset.");
+AssertTrue(recoveryEmail.TextBody.Contains(resetLink, StringComparison.Ordinal), "Password recovery emails should include the reset link.");
 
 var demoSchema = DemoDataSeeder.CreateEmployeeInformationSchema();
 AssertEqual(8, demoSchema.Fields.Count, "Demo seed data should include the V1 employee information fields.");
@@ -261,6 +292,11 @@ AssertEqual("user-stamp", updateUser.ConcurrencyStamp, "Update user request shou
 
 var resetPassword = new ResetUserPasswordRequest("new-temporary-password-2");
 AssertEqual("new-temporary-password-2", resetPassword.NewPassword, "Reset password request should carry the replacement password.");
+var requestPasswordReset = new RequestPasswordResetRequest("jane@company.test");
+AssertEqual("jane@company.test", requestPasswordReset.Email, "Password reset requests should carry the recovery email.");
+var completePasswordReset = new CompletePasswordResetRequest("reset-token", "new-temporary-password-2");
+AssertEqual("reset-token", completePasswordReset.Token, "Complete password reset requests should carry the raw token.");
+AssertEqual("new-temporary-password-2", completePasswordReset.NewPassword, "Complete password reset requests should carry the replacement password.");
 
 var rolePermissions = new RolePermissionsDto(
     sampleRoleId,

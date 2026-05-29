@@ -13,6 +13,15 @@ public static class EnvironmentConfiguration
         CopyIfPresent("BOOTSTRAP_ADMIN_PASSWORD", "BootstrapAdmin__Password");
         CopyIfPresent("AUTH_COOKIE_NAME", "Authentication__CookieName");
         CopyIfPresent("AUTH_COOKIE_REQUIRE_SECURE", "Authentication__RequireSecureCookies");
+        CopyIfPresent("EMAIL_FROM_ADDRESS", "Email__FromAddress");
+        CopyIfPresent("EMAIL_FROM_NAME", "Email__FromName");
+        CopyIfPresent("SMTP_HOST", "Email__SmtpHost");
+        CopyIfPresent("SMTP_PORT", "Email__SmtpPort");
+        CopyIfPresent("SMTP_USERNAME", "Email__SmtpUsername");
+        CopyIfPresent("SMTP_PASSWORD", "Email__SmtpPassword");
+        CopyIfPresent("SMTP_USE_STARTTLS", "Email__UseStartTls");
+        CopyIfPresent("PASSWORD_RESET_URL", "PasswordRecovery__ResetPasswordUrl");
+        CopyIfPresent("PASSWORD_RESET_TOKEN_MINUTES", "PasswordRecovery__TokenLifetimeMinutes");
 
         SetIfMissing("ConnectionStrings__Postgres", BuildPostgresConnectionString());
         SetIfMissing("ConnectionStrings__Redis", BuildRedisConnectionString());

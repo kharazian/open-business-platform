@@ -1,6 +1,6 @@
 # Security Model
 
-Status: V1 security baseline complete for the current repository. The platform implements bootstrap-admin cookie authentication, local PostgreSQL user login, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, forms, V1 record submit/list/detail/edit/delete endpoints, and V2 report definition management. Field-level authorization remains future advanced-permissions work.
+Status: V1 security baseline complete for the current repository. The platform implements bootstrap-admin cookie authentication, local PostgreSQL user login, self-service password recovery for persistent users, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, forms, V1 record submit/list/detail/edit/delete endpoints, and V2 report definition management. Field-level authorization remains future advanced-permissions work.
 
 ## Core Rules
 
@@ -12,6 +12,7 @@ Status: V1 security baseline complete for the current repository. The platform i
 - Use audit logs for sensitive actions.
 - Use soft delete for important business records where possible.
 - Do not allow users to update form version records after publish.
+- Store only hashes of password reset tokens, use generic forgot-password responses, and expire/mark reset tokens as used.
 
 ## API Security
 
@@ -46,6 +47,8 @@ Log these actions:
 - Record printed
 - Report exported
 - Permission changed
+- Password reset requested
+- Password reset completed
 - Trigger executed
 - Workflow transition later
 
