@@ -1,3 +1,5 @@
+using OpenBusinessPlatform.Api.Modules.Forms;
+
 namespace OpenBusinessPlatform.Api.Modules.Reports;
 
 public static class ReportFilterOperators
@@ -30,16 +32,17 @@ public static class ReportSortDirections
 
 public static class ReportSystemFields
 {
-    public const string Status = "status";
-    public const string CreatedAt = "created_at";
-    public const string CreatedById = "created_by_id";
+    public const string Status = ReportableSystemFields.Status;
+    public const string CreatedAt = ReportableSystemFields.CreatedAt;
+    public const string CreatedById = ReportableSystemFields.CreatedById;
+    public const string UpdatedAt = ReportableSystemFields.UpdatedAt;
+    public const string UpdatedById = ReportableSystemFields.UpdatedById;
+    public const string OwnerId = ReportableSystemFields.OwnerId;
+    public const string DepartmentId = ReportableSystemFields.DepartmentId;
 
-    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
-    {
-        Status,
-        CreatedAt,
-        CreatedById
-    };
+    public static IReadOnlySet<string> Supported { get; } = FormReportableFieldMetadata.SystemFields
+        .Select(field => field.Id)
+        .ToHashSet(StringComparer.Ordinal);
 }
 
 public sealed record ListReportColumnDefinition(string FieldId, string Label, bool Visible = true, int? Width = null);

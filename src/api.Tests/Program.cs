@@ -494,6 +494,32 @@ AssertEqual("Jordan Lee", updateRecordRequest.Values["employee_name"], "Update r
 AssertEqual(recordDto.ConcurrencyStamp, updateRecordRequest.ConcurrencyStamp, "Update record requests should carry concurrency stamps.");
 AssertTypeAssignable<object, RecordMutationService>();
 
+var reportingSchema = publishableSchema with
+{
+    Fields = new FormFieldDefinition[]
+    {
+        new("employee_name", FormFieldTypes.Text, "Employee name", Required: true),
+        new("salary", FormFieldTypes.Number, "Salary"),
+        new(
+            "department",
+            FormFieldTypes.Select,
+            "Department",
+            Options: new[]
+            {
+                new FormFieldOptionDefinition("opt_hr", "Human Resources", "hr"),
+                new FormFieldOptionDefinition("opt_finance", "Finance", "finance")
+            })
+    }
+};
+var reportableFields = FormReportableFieldMetadata.GetReportableFields(reportingSchema);
+AssertTrue(reportableFields.Any(field => field.Id == "employee_name" && field.Label == "Employee name" && field.Source == ReportableFieldSources.Form), "Reportable metadata should include form text fields.");
+AssertTrue(reportableFields.Any(field => field.Id == "salary" && field.SupportsAggregation), "Reportable metadata should mark number fields as aggregatable.");
+AssertTrue(reportableFields.Any(field => field.Id == "department" && field.SupportsChoiceGrouping), "Reportable metadata should mark choice fields as groupable.");
+AssertEqual("Human Resources", reportableFields.Single(field => field.Id == "department").Options.Single(option => option.Value == "hr").Label, "Reportable metadata should preserve option labels.");
+AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.UpdatedAt), "Reportable metadata should include updated date system field.");
+AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.OwnerId), "Reportable metadata should include owner system field.");
+AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.DepartmentId), "Reportable metadata should include department system field.");
+
 var listReportConfig = new ListReportConfigDefinition(
     1,
     new[]
@@ -511,6 +537,16 @@ var listReportConfig = new ListReportConfigDefinition(
 var createReportRequest = new CreateListReportRequest("Employee directory", listReportConfig);
 AssertEqual("Employee directory", createReportRequest.Name, "Create list report requests should carry the report name.");
 AssertTrue(ListReportConfigValidator.Validate(publishableSchema, listReportConfig).Valid, "List report configs should validate against known form fields and system fields.");
+AssertTrue(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with
+        {
+            Columns = new[] { new ListReportColumnDefinition(ReportableSystemFields.UpdatedAt, "Updated date", true, 140) },
+            Filters = new[] { new ListReportFilterDefinition(ReportableSystemFields.DepartmentId, ReportFilterOperators.Equal, sampleDepartmentId.ToString()) },
+            Sort = new[] { new ListReportSortDefinition(ReportableSystemFields.OwnerId, ReportSortDirections.Asc) }
+        }).Valid,
+    "List report configs should validate against normalized system field metadata.");
 AssertFalse(
     ListReportConfigValidator.Validate(
         publishableSchema,

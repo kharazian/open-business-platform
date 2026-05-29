@@ -1,17 +1,17 @@
-import type { FormField, FormSchema } from "../forms/types";
-import { reportSystemFields, type ListReportConfig, type ListReportFilter, type ListReportSort } from "./types";
+import { getReportableFields, type ReportableField, type ReportableFieldOption } from "../forms/reportableFields";
+import type { FormSchema } from "../forms/types";
+import type { ListReportConfig, ListReportFilter, ListReportSort } from "./types";
 
 export type ReportFieldOption = {
   id: string;
   label: string;
+  type: string;
   source: "form" | "system";
+  options: ReportableFieldOption[];
 };
 
 export function getReportFieldOptions(schema: FormSchema | null | undefined): ReportFieldOption[] {
-  const formFields = schema?.fields.map(toReportFieldOption) ?? [];
-  const systemFields = reportSystemFields.map((field) => ({ id: field.id, label: field.label, source: "system" as const }));
-
-  return [...formFields, ...systemFields];
+  return getReportableFields(schema).map(toReportFieldOption);
 }
 
 export function createListReportConfig(input: {
@@ -38,10 +38,12 @@ export function createListReportConfig(input: {
   };
 }
 
-function toReportFieldOption(field: FormField): ReportFieldOption {
+function toReportFieldOption(field: ReportableField): ReportFieldOption {
   return {
     id: field.id,
     label: field.label,
-    source: "form"
+    type: field.type,
+    source: field.source,
+    options: field.options
   };
 }

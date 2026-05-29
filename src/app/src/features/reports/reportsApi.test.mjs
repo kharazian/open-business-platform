@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import * as api from "./api.ts";
+import { createListReportConfig, getReportFieldOptions } from "./builder.ts";
 
 test("reports API client maps list report requests and errors", async () => {
   const calls = [];
@@ -104,4 +105,26 @@ test("reports API client maps list report requests and errors", async () => {
       return true;
     }
   );
+});
+
+test("report builder field options use shared reportable metadata", () => {
+  const schema = {
+    schemaVersion: 1,
+    fields: [
+      {
+        id: "department",
+        type: "select",
+        label: "Department",
+        options: [{ id: "opt_hr", label: "Human Resources", value: "hr" }]
+      }
+    ],
+    layout: { pages: [] }
+  };
+
+  const fields = getReportFieldOptions(schema);
+
+  assert.equal(fields.some((field) => field.id === "updated_at" && field.source === "system"), true);
+  assert.equal(fields.find((field) => field.id === "department").type, "select");
+  assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
+  assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
 });

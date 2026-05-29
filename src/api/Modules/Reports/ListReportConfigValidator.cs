@@ -21,10 +21,7 @@ public static class ListReportConfigValidator
             errors.Add(new ReportValidationError("config.schemaVersion", "report.schemaVersion.unsupported", "Report config schema version is not supported."));
         }
 
-        var validFields = schema.Fields
-            .Select(field => field.Id)
-            .Concat(ReportSystemFields.Supported)
-            .ToHashSet(StringComparer.Ordinal);
+        var validFields = FormReportableFieldMetadata.GetReportableFieldsById(schema);
 
         ValidateColumns(config.Columns, validFields, errors);
         ValidateFilters(config.Filters, validFields, errors);
@@ -35,7 +32,7 @@ public static class ListReportConfigValidator
 
     private static void ValidateColumns(
         IReadOnlyList<ListReportColumnDefinition>? columns,
-        IReadOnlySet<string> validFields,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> validFields,
         List<ReportValidationError> errors)
     {
         if (columns is null || columns.Count == 0 || columns.All(column => !column.Visible))
@@ -74,7 +71,7 @@ public static class ListReportConfigValidator
 
     private static void ValidateFilters(
         IReadOnlyList<ListReportFilterDefinition>? filters,
-        IReadOnlySet<string> validFields,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> validFields,
         List<ReportValidationError> errors)
     {
         if (filters is null)
@@ -104,7 +101,7 @@ public static class ListReportConfigValidator
 
     private static void ValidateSort(
         IReadOnlyList<ListReportSortDefinition>? sort,
-        IReadOnlySet<string> validFields,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> validFields,
         List<ReportValidationError> errors)
     {
         if (sort is null)
@@ -136,7 +133,7 @@ public static class ListReportConfigValidator
 
     private static void ValidateKnownField(
         string fieldId,
-        IReadOnlySet<string> validFields,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> validFields,
         string path,
         List<ReportValidationError> errors)
     {
@@ -146,7 +143,7 @@ public static class ListReportConfigValidator
             return;
         }
 
-        if (!validFields.Contains(fieldId))
+        if (!validFields.ContainsKey(fieldId))
         {
             errors.Add(new ReportValidationError(path, "report.field.unknown", "Report field does not exist on this form."));
         }
