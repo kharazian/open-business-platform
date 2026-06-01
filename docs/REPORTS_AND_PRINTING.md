@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page. CSV export remains an upcoming V2 task.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, CSV export for all matching report rows, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page.
 
 ## Principle
 
@@ -29,7 +29,7 @@ V2 features:
 - Saved reports: implemented
 - Runnable viewer: implemented for saved list reports
 - Print: implemented for the currently visible report viewer page
-- Export CSV: upcoming
+- Export CSV: implemented for all matching permitted report rows and visible report columns
 
 ### Detail Report
 

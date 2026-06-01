@@ -21,21 +21,11 @@ public static class ListReportExecutionEngine
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var search = Normalize(request.Search);
-        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
-        var columns = GetVisibleColumns(config, fieldsById);
-
-        var preparedRecords = records
-            .Select(record => new PreparedReportRecord(record, DeserializeValues(record.ValuesJson)))
-            .Where(record => MatchesFilters(record, config.Filters))
-            .Where(record => MatchesSearch(record, columns, fieldsById, search))
-            .ToArray();
-
-        var sortedRecords = SortRecords(preparedRecords, config.Sort);
-        var pageRecords = sortedRecords
+        var preparedReport = PrepareReport(config, schema, records, request.Search);
+        var pageRecords = preparedReport.Records
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(record => ToRowDto(record, columns))
+            .Select(record => ToRowDto(record, preparedReport.Columns))
             .ToArray();
 
         return new ListReportExecutionDto(
@@ -45,9 +35,54 @@ public static class ListReportExecutionEngine
             formName,
             page,
             pageSize,
-            preparedRecords.LongLength,
-            columns,
+            preparedReport.Records.LongLength,
+            preparedReport.Columns,
             pageRecords);
+    }
+
+    public static ListReportExecutionDto ExecuteAll(
+        Guid reportId,
+        Guid formId,
+        string reportName,
+        string formName,
+        ListReportConfigDefinition config,
+        FormSchemaDefinition schema,
+        IReadOnlyCollection<FormRecord> records,
+        string? search = null)
+    {
+        var preparedReport = PrepareReport(config, schema, records, search);
+        var rows = preparedReport.Records
+            .Select(record => ToRowDto(record, preparedReport.Columns))
+            .ToArray();
+
+        return new ListReportExecutionDto(
+            reportId,
+            formId,
+            reportName,
+            formName,
+            1,
+            Math.Max(1, rows.Length),
+            preparedReport.Records.LongLength,
+            preparedReport.Columns,
+            rows);
+    }
+
+    private static PreparedReport PrepareReport(
+        ListReportConfigDefinition config,
+        FormSchemaDefinition schema,
+        IReadOnlyCollection<FormRecord> records,
+        string? search)
+    {
+        var normalizedSearch = Normalize(search);
+        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
+        var columns = GetVisibleColumns(config, fieldsById);
+        var preparedRecords = records
+            .Select(record => new PreparedReportRecord(record, DeserializeValues(record.ValuesJson)))
+            .Where(record => MatchesFilters(record, config.Filters))
+            .Where(record => MatchesSearch(record, columns, fieldsById, normalizedSearch))
+            .ToArray();
+
+        return new PreparedReport(columns, SortRecords(preparedRecords, config.Sort));
     }
 
     private static IReadOnlyList<ListReportExecutionColumnDto> GetVisibleColumns(
@@ -312,6 +347,8 @@ public static class ListReportExecutionEngine
     }
 
     private sealed record PreparedReportRecord(FormRecord Record, IReadOnlyDictionary<string, object?> Values);
+
+    private sealed record PreparedReport(IReadOnlyList<ListReportExecutionColumnDto> Columns, PreparedReportRecord[] Records);
 
     private sealed record ReportSortValue(bool IsEmpty, decimal? Number, DateTimeOffset? DateTime, string Text)
     {

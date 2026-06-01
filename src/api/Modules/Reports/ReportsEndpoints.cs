@@ -1,3 +1,4 @@
+using System.Text;
 using System.Security.Claims;
 using OpenBusinessPlatform.Api.Modules.Identity;
 
@@ -73,6 +74,36 @@ public static class ReportsEndpoints
                     cancellationToken);
 
                 return Results.Ok(report);
+            });
+        });
+
+        group.MapGet("/{reportId:guid}/export.csv", async (
+            Guid formId,
+            Guid reportId,
+            string? search,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                var export = await reportManagement.ExportListReportCsvAsync(
+                    formId,
+                    reportId,
+                    search,
+                    GetCurrentUserId(httpContext),
+                    cancellationToken);
+
+                return Results.File(
+                    Encoding.UTF8.GetBytes(export.Content),
+                    ListReportCsvExporter.ContentType,
+                    export.FileName);
             });
         });
 

@@ -10,7 +10,7 @@ V2 now focuses on the path from form data to runnable reports, dashboard summari
 4. `006-dashboard-summary-api.md` - complete.
 5. `007-chart-builder-lite.md` - complete.
 6. `008-dashboard-builder-lite.md` - complete.
-7. `003-csv-export.md`
+7. `003-csv-export.md` - complete.
 8. `004-clean-print-layouts.md` - complete.
 
 ## Scope Rules

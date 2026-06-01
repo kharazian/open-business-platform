@@ -14,6 +14,7 @@ type ApiFetchResponse = {
 };
 
 export type ReportsFetcher = (input: string, init?: RequestInit) => Promise<ApiFetchResponse>;
+export type ReportCsvDownloader = (url: string) => void;
 
 export class ReportsApiError extends Error {
   readonly errors: ReportValidationError[];
@@ -26,6 +27,9 @@ export class ReportsApiError extends Error {
 }
 
 const defaultFetcher: ReportsFetcher = (input, init) => fetch(input, init);
+const defaultCsvDownloader: ReportCsvDownloader = (url) => {
+  window.location.assign(url);
+};
 
 export async function listReports(formId: string, fetcher: ReportsFetcher = defaultFetcher): Promise<ListReportSummary[]> {
   return requestItems<ListReportSummary>(
@@ -79,6 +83,30 @@ export async function executeListReport(
     { method: "GET", credentials: "include" },
     fetcher
   );
+}
+
+export function getListReportCsvExportUrl(
+  formId: string,
+  reportId: string,
+  options: Pick<ExecuteListReportOptions, "search"> = {}
+): string {
+  const query = new URLSearchParams();
+
+  if (options.search?.trim()) {
+    query.set("search", options.search.trim());
+  }
+
+  const queryString = query.toString();
+  return `/api/forms/${encodeURIComponent(formId)}/reports/${encodeURIComponent(reportId)}/export.csv${queryString ? `?${queryString}` : ""}`;
+}
+
+export function downloadListReportCsv(
+  formId: string,
+  reportId: string,
+  options: Pick<ExecuteListReportOptions, "search"> = {},
+  downloader: ReportCsvDownloader = defaultCsvDownloader
+): void {
+  downloader(getListReportCsvExportUrl(formId, reportId, options));
 }
 
 async function requestItems<T>(input: string, init: RequestInit, fetcher: ReportsFetcher): Promise<T[]> {

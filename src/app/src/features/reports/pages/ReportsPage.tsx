@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -15,7 +15,7 @@ import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
-import { createListReport, executeListReport, listReports } from "../api";
+import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
 import {
   type ListReportExecution,
@@ -516,6 +516,18 @@ export function ReportsPage() {
               <Button disabled={!reportExecution || runningReport} onClick={() => requestBrowserPrint()} variant="outline">
                 <Printer className="size-4" />
                 Print
+              </Button>
+              <Button
+                disabled={!reportExecution || runningReport}
+                onClick={() => {
+                  if (reportExecution) {
+                    downloadListReportCsv(reportExecution.formId, reportExecution.reportId, { search: executedReportSearch });
+                  }
+                }}
+                variant="outline"
+              >
+                <Download className="size-4" />
+                Export CSV
               </Button>
             </div>
           </div>

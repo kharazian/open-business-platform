@@ -687,6 +687,49 @@ var pagedExecutionReport = ListReportExecutionEngine.Execute(
 AssertEqual(2, pagedExecutionReport.TotalCount, "Report execution should count rows after saved filters and before pagination.");
 AssertEqual(1, pagedExecutionReport.Rows.Count, "Report execution should page rows.");
 AssertEqual("Jane Cooper", pagedExecutionReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report execution should apply saved sort before pagination.");
+var fullExecutionReport = ListReportExecutionEngine.ExecuteAll(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    search: null);
+AssertEqual(2, fullExecutionReport.Rows.Count, "Report CSV export should be able to execute all matching rows without pagination.");
+AssertEqual("Jane Cooper", fullExecutionReport.Rows.First().Cells["employee_name"].DisplayValue, "Full report execution should preserve saved sort order.");
+
+var csvReport = new ListReportExecutionDto(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Employee directory / export",
+    "Employee information",
+    1,
+    1,
+    1,
+    new[]
+    {
+        new ListReportExecutionColumnDto("employee_name", "Employee, name", FormFieldTypes.Text, ReportableFieldSources.Form, 180),
+        new ListReportExecutionColumnDto("notes", "Notes", FormFieldTypes.Textarea, ReportableFieldSources.Form, 240)
+    },
+    new[]
+    {
+        new ListReportExecutionRowDto(
+            Guid.Parse("aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa"),
+            RecordStatuses.Active,
+            new Dictionary<string, ListReportExecutionCellDto>
+            {
+                ["employee_name"] = new("Jane \"JJ\" Cooper", "Jane \"JJ\" Cooper"),
+                ["notes"] = new("Line one\nLine two, checked", "Line one\nLine two, checked")
+            },
+            sampleCreatedAt)
+    });
+var csvExport = ListReportCsvExporter.Export(csvReport);
+AssertEqual("employee-directory-export.csv", csvExport.FileName, "CSV export filenames should be safe and based on the report name.");
+AssertEqual(
+    "\"Employee, name\",Notes\r\n\"Jane \"\"JJ\"\" Cooper\",\"Line one\nLine two, checked\"\r\n",
+    csvExport.Content,
+    "CSV export should include visible column labels and escape commas, quotes, and newlines.");
 AssertTypeAssignable<object, ReportManagementService>();
 
 var chartConfig = new ChartWidgetConfigDefinition(

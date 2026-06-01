@@ -97,6 +97,11 @@ test("reports API client maps list report requests and errors", async () => {
     { page: 2, pageSize: 10, search: "Jane" },
     fetcher
   );
+  const exportUrl = api.getListReportCsvExportUrl("form-2", "report-1", { search: " Jane " });
+  let downloadedUrl = "";
+  api.downloadListReportCsv("form-2", "report-1", { search: " Jane " }, (url) => {
+    downloadedUrl = url;
+  });
 
   assert.equal(reports[0].name, "Open inspections");
   assert.equal(reports[0].columnCount, 1);
@@ -117,6 +122,8 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane");
   assert.equal(calls[2].init.method, "GET");
   assert.equal(calls[2].init.credentials, "include");
+  assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane");
+  assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane");
 
   await assert.rejects(
     () => api.listReports("form-2", async () => ({ ok: true, json: async () => ({}) })),

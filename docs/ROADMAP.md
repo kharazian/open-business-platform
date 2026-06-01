@@ -26,7 +26,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: continue V2 with CSV export and cleaner print layouts.
+Next: V2 task list is complete. Continue with V3 advanced permissions or start the next approved product slice.
 
 ## Product Engine Path
 

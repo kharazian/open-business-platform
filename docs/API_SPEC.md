@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, real dashboard summary data, chart widget previews, and saved dashboard definitions. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -103,6 +103,23 @@ Response:
 ```
 
 Table widgets return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid configs, `403` for failed permission checks, `404` when the form or source report is missing, and `409` when the form or report schema cannot be used for charting.
+
+### Export list report CSV
+
+`GET /api/forms/{formId}/reports/{reportId}/export.csv`
+
+Requires authentication plus `menu.reports` and form `view` access. Exports all report rows matching the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order. Export requests write a `report_exported` audit log entry after the report is resolved.
+
+Query parameters:
+
+- `search` optional runtime search string, applied the same way as `GET /api/forms/{formId}/reports/{reportId}/run`
+
+Response:
+
+- `200 text/csv; charset=utf-8` with a safe report-based filename
+- `403` for failed permission checks
+- `404` when the form or report is missing
+- `409` when the saved report config no longer matches the form schema
 
 ### Saved dashboards
 

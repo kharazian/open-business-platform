@@ -100,6 +100,48 @@ public sealed class ReportManagementService
         RunListReportRequest request,
         CancellationToken cancellationToken)
     {
+        var executionContext = await LoadReportExecutionContextAsync(formId, reportId, cancellationToken);
+
+        return ListReportExecutionEngine.Execute(
+            executionContext.Report.Id,
+            executionContext.Report.FormId,
+            executionContext.Report.Name,
+            executionContext.Report.Form!.Name,
+            executionContext.Config,
+            executionContext.Schema,
+            executionContext.Records,
+            request);
+    }
+
+    public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
+        Guid formId,
+        Guid reportId,
+        string? search,
+        Guid? exportedById,
+        CancellationToken cancellationToken)
+    {
+        var executionContext = await LoadReportExecutionContextAsync(formId, reportId, cancellationToken);
+        var report = ListReportExecutionEngine.ExecuteAll(
+            executionContext.Report.Id,
+            executionContext.Report.FormId,
+            executionContext.Report.Name,
+            executionContext.Report.Form!.Name,
+            executionContext.Config,
+            executionContext.Schema,
+            executionContext.Records,
+            search);
+
+        AddAudit("Report", reportId, "report_exported", exportedById);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ListReportCsvExporter.Export(report);
+    }
+
+    private async Task<ListReportExecutionContext> LoadReportExecutionContextAsync(
+        Guid formId,
+        Guid reportId,
+        CancellationToken cancellationToken)
+    {
         var report = await dbContext.Reports
             .AsNoTracking()
             .Include(candidate => candidate.Form)
@@ -138,15 +180,7 @@ public sealed class ReportManagementService
             .Where(record => record.FormId == formId && !record.IsDeleted)
             .ToArrayAsync(cancellationToken);
 
-        return ListReportExecutionEngine.Execute(
-            report.Id,
-            report.FormId,
-            report.Name,
-            report.Form.Name,
-            config,
-            schema,
-            records,
-            request);
+        return new ListReportExecutionContext(report, schema, config, records);
     }
 
     private static ListReportSummaryDto ToSummaryDto(ReportDefinition report)
@@ -250,4 +284,10 @@ public sealed class ReportManagementService
     {
         return schemaJson?.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions);
     }
+
+    private sealed record ListReportExecutionContext(
+        ReportDefinition Report,
+        FormSchemaDefinition Schema,
+        ListReportConfigDefinition Config,
+        IReadOnlyCollection<FormRecord> Records);
 }

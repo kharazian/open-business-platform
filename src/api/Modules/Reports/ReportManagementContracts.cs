@@ -115,6 +115,8 @@ public sealed record ListReportDetailDto(
     DateTimeOffset? UpdatedAt,
     Guid? UpdatedById);
 
+public sealed record ListReportCsvExportDto(string FileName, string Content);
+
 public sealed record ReportValidationError(string Path, string Code, string Message);
 
 public sealed record ReportValidationResult(IReadOnlyList<ReportValidationError> Errors)
