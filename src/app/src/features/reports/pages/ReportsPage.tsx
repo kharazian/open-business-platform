@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Play, Plus, RefreshCw, Save, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -12,8 +12,11 @@ import { Select } from "../../../components/ui/Select";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { getForm, listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
+import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
+import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, executeListReport, listReports } from "../api";
+import { getReportTablePrintDescription } from "../reportPrint";
 import {
   type ListReportExecution,
   type ListReportExecutionRow,
@@ -44,6 +47,7 @@ export function ReportsPage() {
   const [selectedReportId, setSelectedReportId] = useState("");
   const [reportExecution, setReportExecution] = useState<ListReportExecution | null>(null);
   const [reportSearch, setReportSearch] = useState("");
+  const [executedReportSearch, setExecutedReportSearch] = useState("");
   const [reportPage, setReportPage] = useState(1);
   const [reportName, setReportName] = useState("");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
@@ -104,6 +108,7 @@ export function ReportsPage() {
     setSelectedReportId("");
     setReportExecution(null);
     setReportSearch("");
+    setExecutedReportSearch("");
     setReportPage(1);
 
     Promise.all([getForm(selectedFormId), listReports(selectedFormId)])
@@ -155,6 +160,9 @@ export function ReportsPage() {
   });
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
   const totalReportPages = reportExecution ? Math.max(1, Math.ceil(reportExecution.totalCount / reportExecution.pageSize)) : 1;
+  const reportPrintDescription = reportExecution
+    ? getReportTablePrintDescription(reportExecution.totalCount, reportExecution.page, totalReportPages, executedReportSearch)
+    : "";
   const executionColumns = useMemo<Array<TableColumn<ListReportExecutionRow>>>(
     () =>
       reportExecution?.columns.map((column) => ({
@@ -209,6 +217,7 @@ export function ReportsPage() {
       if (selectedReportId && !refreshedReports.some((report) => report.id === selectedReportId)) {
         setSelectedReportId("");
         setReportExecution(null);
+        setExecutedReportSearch("");
       }
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -278,7 +287,9 @@ export function ReportsPage() {
     setViewerError(null);
 
     try {
-      setReportExecution(await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search: reportSearch }));
+      const search = reportSearch;
+      setReportExecution(await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search }));
+      setExecutedReportSearch(search);
     } catch (caught) {
       setViewerError(getErrorMessage(caught));
       setReportExecution(null);
@@ -293,29 +304,48 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <PageHeader
-        eyebrow="Reports V2 preview"
-        title="List report definitions"
-        description="Create saved V2 list report definitions from form fields."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button disabled={!selectedFormId || loadingReports} onClick={handleRefresh} variant="outline">
-              <RefreshCw className="size-4" />
-              Refresh
-            </Button>
-            <Button disabled={!selectedFormId || fieldOptions.length === 0 || savingReport} onClick={handleCreateReport}>
-              <Save className="size-4" />
-              {savingReport ? "Saving..." : "Save report"}
-            </Button>
-          </div>
-        }
-      />
+    <div className="grid gap-6 print-area">
+      {reportExecution ? (
+        <PrintDocumentHeader
+          description={reportPrintDescription}
+          eyebrow="Report table"
+          metadata={[reportExecution.formName, getGeneratedAtPrintMetadata()]}
+          title={reportExecution.reportName}
+        />
+      ) : null}
 
-      {error ? <Alert title="Reports">{error}</Alert> : null}
-      {notice ? <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-semibold text-success">{notice}</div> : null}
+      <div data-print-hide="true">
+        <PageHeader
+          eyebrow="Reports V2 preview"
+          title="List report definitions"
+          description="Create saved V2 list report definitions from form fields."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!selectedFormId || loadingReports} onClick={handleRefresh} variant="outline">
+                <RefreshCw className="size-4" />
+                Refresh
+              </Button>
+              <Button disabled={!selectedFormId || fieldOptions.length === 0 || savingReport} onClick={handleCreateReport}>
+                <Save className="size-4" />
+                {savingReport ? "Saving..." : "Save report"}
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
-      <section className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      {error ? (
+        <div data-print-hide="true">
+          <Alert title="Reports">{error}</Alert>
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-semibold text-success" data-print-hide="true">
+          {notice}
+        </div>
+      ) : null}
+
+      <section className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]" data-print-hide="true">
         <Card className="self-start">
           <CardHeader>
             <CardTitle>Form</CardTitle>
@@ -446,7 +476,7 @@ export function ReportsPage() {
         </Card>
       </section>
 
-      <Card>
+      <Card data-print-hide="true">
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -474,18 +504,24 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="print-card">
+        <CardHeader data-print-hide="true">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Report viewer</CardTitle>
               <CardDescription>{selectedReport ? selectedReport.name : "Run a saved list report."}</CardDescription>
             </div>
-            <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
+              <Button disabled={!reportExecution || runningReport} onClick={() => requestBrowserPrint()} variant="outline">
+                <Printer className="size-4" />
+                Print
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handleSearchSubmit}>
+          <form className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]" data-print-hide="true" onSubmit={handleSearchSubmit}>
             <Input
               disabled={!selectedReportId || runningReport}
               icon={<Search className="size-4" />}
@@ -574,6 +610,7 @@ export function ReportsPage() {
           )}
         </CardContent>
       </Card>
+      {reportExecution ? <PrintDocumentFooter /> : null}
     </div>
   );
 }

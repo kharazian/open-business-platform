@@ -1,6 +1,6 @@
-export function requestBrowserPrint(printAction: () => void = () => window.print()): void {
-  printAction();
-}
+import { joinPrintMetadata, requestBrowserPrint } from "../printing/printLayout";
+
+export { requestBrowserPrint };
 
 export function getRecordListPrintDescription(
   totalCount: number,
@@ -9,14 +9,12 @@ export function getRecordListPrintDescription(
   search: string
 ): string {
   const recordLabel = totalCount === 1 ? "record" : "records";
-  const parts = [`${totalCount} total ${recordLabel}`, `Page ${page} of ${totalPages}`];
   const trimmedSearch = search.trim();
-
-  if (trimmedSearch.length > 0) {
-    parts.push(`Filter: ${trimmedSearch}`);
-  }
-
-  return parts.join(" | ");
+  return joinPrintMetadata([
+    `${totalCount} total ${recordLabel}`,
+    `Page ${page} of ${totalPages}`,
+    trimmedSearch ? `Filter: ${trimmedSearch}` : null
+  ]);
 }
 
 export function getRecordDetailPrintDescription(createdAt: string, formVersionId: string): string {

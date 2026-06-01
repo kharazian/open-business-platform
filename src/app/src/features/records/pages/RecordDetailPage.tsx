@@ -12,6 +12,8 @@ import { FormRenderer } from "../../forms/components/FormRenderer";
 import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { validateRecordValues } from "../../forms/validation";
+import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
+import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
 import { getRecordDetailPrintDescription, requestBrowserPrint } from "../recordPrint";
 
@@ -125,8 +127,10 @@ export function RecordDetailPage() {
   return (
     <div className="grid gap-6 print-area">
       {record ? (
-        <PrintHeader
+        <PrintDocumentHeader
           description={getRecordDetailPrintDescription(formatDateTime(record.createdAt), shortId(record.formVersionId))}
+          eyebrow="Record detail"
+          metadata={[getGeneratedAtPrintMetadata()]}
           title={`Record ${shortId(record.id)}`}
         />
       ) : null}
@@ -233,6 +237,7 @@ export function RecordDetailPage() {
               )}
             </CardContent>
           </Card>
+          <PrintDocumentFooter />
         </>
       ) : (
         <EmptyState title="Record not found" description="The requested record could not be loaded." action={<LinkButton to="/forms">Forms</LinkButton>} />
@@ -243,7 +248,7 @@ export function RecordDetailPage() {
 
 function ValueRow({ field, label, value }: { field?: FormField; label?: string; value: FormRecordValue | undefined }) {
   return (
-    <div className="grid gap-2 rounded-xl border border-border bg-card/70 p-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+    <div className="print-value-row grid gap-2 rounded-xl border border-border bg-card/70 p-4 md:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="min-w-0">
         <p className="truncate font-bold text-foreground">{field?.label ?? label}</p>
         {field ? <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-muted-foreground">{field.type}</p> : null}
@@ -270,16 +275,6 @@ function LinkButton({ children, to }: { children: ReactNode; to: string }) {
     >
       {children}
     </Link>
-  );
-}
-
-function PrintHeader({ description, title }: { description: string; title: string }) {
-  return (
-    <section className="print-only">
-      <p className="text-xs font-bold uppercase tracking-normal text-muted-foreground">Record detail</p>
-      <h1 className="mt-1 text-2xl font-bold text-foreground">{title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </section>
   );
 }
 

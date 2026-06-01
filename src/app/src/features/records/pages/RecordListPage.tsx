@@ -11,6 +11,8 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { cn } from "../../../lib/cn";
+import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
+import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
 import { listRecords, type FormRecordListItem } from "../../forms/api";
 import type { FormRecordValue } from "../../forms/types";
 import { getRecordListPrintDescription, requestBrowserPrint } from "../recordPrint";
@@ -45,6 +47,7 @@ const recordColumns: Array<TableColumn<FormRecordListItem>> = [
   },
   {
     header: "Actions",
+    hideOnPrint: true,
     render: (record) => (
       <div data-print-hide="true">
         <RecordDetailLink recordId={record.id} />
@@ -105,8 +108,10 @@ export function RecordListPage() {
 
   return (
     <div className="grid gap-6 print-area">
-      <PrintHeader
+      <PrintDocumentHeader
         description={getRecordListPrintDescription(totalCount, page, totalPages, submittedQuery)}
+        eyebrow="Records"
+        metadata={[getGeneratedAtPrintMetadata()]}
         title="Submitted records"
       />
       <div data-print-hide="true">
@@ -202,6 +207,7 @@ export function RecordListPage() {
           )}
         </CardContent>
       </Card>
+      <PrintDocumentFooter />
     </div>
   );
 }
@@ -252,16 +258,6 @@ function LinkButton({ children, to }: { children: ReactNode; to: string }) {
     >
       {children}
     </Link>
-  );
-}
-
-function PrintHeader({ description, title }: { description: string; title: string }) {
-  return (
-    <section className="print-only">
-      <p className="text-xs font-bold uppercase tracking-normal text-muted-foreground">Records</p>
-      <h1 className="mt-1 text-2xl font-bold text-foreground">{title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </section>
   );
 }
 

@@ -5,6 +5,7 @@ import { useDesignTheme } from "../../context/useDesignTheme";
 export type TableColumn<T> = {
   header: string;
   accessor?: keyof T;
+  hideOnPrint?: boolean;
   render?: (row: T) => ReactNode;
 };
 
@@ -24,7 +25,11 @@ export function Table<T extends object>({ columns, data, rows }: TableProps<T>) 
         <thead className="bg-muted/70">
           <tr>
             {columns.map((column) => (
-              <th className={cn("font-bold text-muted-foreground", densityClasses.tableCell)} key={column.header}>
+              <th
+                className={cn("font-bold text-muted-foreground", densityClasses.tableCell)}
+                data-print-hide={column.hideOnPrint ? "true" : undefined}
+                key={column.header}
+              >
                 {column.header}
               </th>
             ))}
@@ -34,7 +39,11 @@ export function Table<T extends object>({ columns, data, rows }: TableProps<T>) 
           {tableRows.map((row, index) => (
             <tr className={cn("transition hover:bg-muted/50", index % 2 ? "bg-muted/20" : "")} key={index}>
               {columns.map((column) => (
-                <td className={cn("text-foreground", densityClasses.tableCell)} key={column.header}>
+                <td
+                  className={cn("text-foreground", densityClasses.tableCell)}
+                  data-print-hide={column.hideOnPrint ? "true" : undefined}
+                  key={column.header}
+                >
                   {column.render ? column.render(row) : column.accessor ? String(row[column.accessor] ?? "") : null}
                 </td>
               ))}

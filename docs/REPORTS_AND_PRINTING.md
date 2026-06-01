@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, and saved dashboard layouts. V2 has been expanded to use form data as the source for CSV export and cleaner print layouts.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page. CSV export remains an upcoming V2 task.
 
 ## Principle
 
@@ -28,8 +28,8 @@ V2 features:
 - Search: implemented at runtime in the report viewer for visible searchable columns
 - Saved reports: implemented
 - Runnable viewer: implemented for saved list reports
-- Print
-- Export CSV
+- Print: implemented for the currently visible report viewer page
+- Export CSV: upcoming
 
 ### Detail Report
 
@@ -75,14 +75,14 @@ Use CSS print styles where possible.
 
 Add cleaner layouts:
 
-- Header
-- Footer
+- Header: implemented for record list, record detail, and visible report table print
+- Footer: implemented for record list, record detail, and visible report table print
 - Logo optional
-- Date/time
+- Date/time: implemented as generated-at metadata
 - User name optional
 - Report title
-- Single-record detail print
-- Report table print
+- Single-record detail print: implemented
+- Report table print: implemented for the currently visible report page
 
 Do single-record and report table printing before custom PDF templates. They prove the display contract that later PDF generation and workflow email attachments can reuse.
 

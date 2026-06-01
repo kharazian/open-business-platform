@@ -14,10 +14,10 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Feature works according to V2 roadmap.
-- [ ] Backend permission checks are included.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
+- [x] Feature works according to V2 roadmap.
+- [x] Backend permission checks are included through the existing record and report APIs used by browser print.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
 
 ## Out of Scope
 

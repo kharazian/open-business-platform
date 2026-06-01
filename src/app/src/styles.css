@@ -125,11 +125,16 @@
   .print-card {
     break-inside: avoid;
   }
+
+  .print-document-header,
+  .print-document-footer {
+    @apply hidden;
+  }
 }
 
 @media print {
   @page {
-    margin: 0.6in;
+    margin: 0.55in;
   }
 
   html,
@@ -156,6 +161,59 @@
     display: block !important;
   }
 
+  .print-document-header {
+    display: block !important;
+    border-bottom: 2px solid #111827 !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .print-document-header-row {
+    align-items: flex-start !important;
+    display: flex !important;
+    gap: 1rem !important;
+    justify-content: space-between !important;
+  }
+
+  .print-document-eyebrow,
+  .print-document-brand,
+  .print-document-metadata,
+  .print-document-description {
+    color: #4b5563 !important;
+  }
+
+  .print-document-eyebrow,
+  .print-document-brand {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .print-document-title {
+    color: #111827 !important;
+    font-size: 1.55rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    margin: 0.15rem 0 0 !important;
+  }
+
+  .print-document-description,
+  .print-document-metadata {
+    font-size: 0.85rem !important;
+    line-height: 1.45 !important;
+    margin: 0.35rem 0 0 !important;
+  }
+
+  .print-document-footer {
+    border-top: 1px solid #d1d5db !important;
+    color: #4b5563 !important;
+    display: block !important;
+    font-size: 0.75rem !important;
+    margin-top: 1rem !important;
+    padding-top: 0.5rem !important;
+  }
+
   .print-area {
     display: grid !important;
     gap: 1rem !important;
@@ -170,16 +228,49 @@
     box-shadow: none !important;
   }
 
+  .print-card {
+    background: #ffffff !important;
+    break-inside: auto !important;
+    padding: 0 !important;
+  }
+
+  .print-value-row {
+    break-inside: avoid !important;
+    padding: 0.55rem !important;
+  }
+
   .print-area table {
     width: 100% !important;
     border-collapse: collapse !important;
+    font-size: 0.78rem !important;
+    page-break-inside: auto !important;
+  }
+
+  .print-area thead {
+    display: table-header-group !important;
+  }
+
+  .print-area tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .print-area th,
   .print-area td {
     border: 1px solid #d1d5db !important;
-    padding: 0.45rem !important;
+    padding: 0.38rem !important;
     color: #111827 !important;
+    line-height: 1.35 !important;
     vertical-align: top !important;
+  }
+
+  .print-area th {
+    background: #f3f4f6 !important;
+    font-weight: 800 !important;
+  }
+
+  .print-area a {
+    color: inherit !important;
+    text-decoration: none !important;
   }
 }
