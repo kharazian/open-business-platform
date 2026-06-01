@@ -1,4 +1,12 @@
-import type { ChartWidgetConfig, ChartWidgetPreview, DashboardSummary } from "./types";
+import type {
+  ChartWidgetConfig,
+  ChartWidgetPreview,
+  CreateDashboardRequest,
+  DashboardDetail,
+  DashboardSummary,
+  DashboardSummaryItem,
+  UpdateDashboardRequest
+} from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -21,6 +29,51 @@ export async function getDashboardSummary(fetcher: DashboardFetcher = defaultFet
   return requestJson<DashboardSummary>("/api/dashboard/summary", { method: "GET", credentials: "include" }, fetcher);
 }
 
+export async function listDashboards(fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardSummaryItem[]> {
+  return requestItems<DashboardSummaryItem>("/api/dashboards", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function getDashboard(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(
+    `/api/dashboards/${encodeURIComponent(dashboardId)}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function createDashboard(
+  request: CreateDashboardRequest,
+  fetcher: DashboardFetcher = defaultFetcher
+): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(
+    "/api/dashboards",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function updateDashboard(
+  dashboardId: string,
+  request: UpdateDashboardRequest,
+  fetcher: DashboardFetcher = defaultFetcher
+): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(
+    `/api/dashboards/${encodeURIComponent(dashboardId)}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
 export async function previewChartWidget(
   formId: string,
   request: ChartWidgetConfig,
@@ -36,6 +89,16 @@ export async function previewChartWidget(
     },
     fetcher
   );
+}
+
+async function requestItems<T>(input: string, init: RequestInit, fetcher: DashboardFetcher): Promise<T[]> {
+  const body = await requestJson<unknown>(input, init, fetcher);
+
+  if (!isRecord(body) || !Array.isArray(body.items)) {
+    throw new DashboardApiError("API response did not include an items collection.");
+  }
+
+  return body.items as T[];
 }
 
 async function requestJson<T>(input: string, init: RequestInit, fetcher: DashboardFetcher): Promise<T> {

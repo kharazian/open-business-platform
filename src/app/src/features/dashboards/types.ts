@@ -76,3 +76,58 @@ export type ChartWidgetPreview = {
   rows: ChartTableRow[];
   totalCount: number;
 };
+
+export const dashboardWidgetWidths = ["small", "medium", "wide", "full"] as const;
+
+export type DashboardWidgetWidth = (typeof dashboardWidgetWidths)[number];
+
+export type SavedDashboardWidget = {
+  id: string;
+  title: string;
+  sourceFormId: EntityId;
+  chart: ChartWidgetConfig;
+};
+
+export type SavedDashboardConfig = {
+  schemaVersion: 1;
+  widgets: SavedDashboardWidget[];
+};
+
+export type SavedDashboardWidgetLayout = {
+  id: string;
+  width: DashboardWidgetWidth;
+  order: number;
+};
+
+export type SavedDashboardLayout = {
+  schemaVersion: 1;
+  widgets: SavedDashboardWidgetLayout[];
+};
+
+export type DashboardSummaryItem = {
+  id: EntityId;
+  name: string;
+  description?: string | null;
+  widgetCount: number;
+  concurrencyStamp: string;
+  createdAt: string;
+  createdById?: EntityId | null;
+  updatedAt?: string | null;
+  updatedById?: EntityId | null;
+};
+
+export type DashboardDetail = DashboardSummaryItem & {
+  config: SavedDashboardConfig;
+  layout: SavedDashboardLayout;
+};
+
+export type CreateDashboardRequest = {
+  name: string;
+  description?: string | null;
+  config: SavedDashboardConfig;
+  layout: SavedDashboardLayout;
+};
+
+export type UpdateDashboardRequest = CreateDashboardRequest & {
+  concurrencyStamp: string;
+};
