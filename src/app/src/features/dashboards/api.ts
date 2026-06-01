@@ -1,4 +1,4 @@
-import type { DashboardSummary } from "./types";
+import type { ChartWidgetConfig, ChartWidgetPreview, DashboardSummary } from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -19,6 +19,23 @@ const defaultFetcher: DashboardFetcher = (input, init) => fetch(input, init);
 
 export async function getDashboardSummary(fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardSummary> {
   return requestJson<DashboardSummary>("/api/dashboard/summary", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function previewChartWidget(
+  formId: string,
+  request: ChartWidgetConfig,
+  fetcher: DashboardFetcher = defaultFetcher
+): Promise<ChartWidgetPreview> {
+  return requestJson<ChartWidgetPreview>(
+    `/api/forms/${encodeURIComponent(formId)}/chart-widgets/preview`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
 }
 
 async function requestJson<T>(input: string, init: RequestInit, fetcher: DashboardFetcher): Promise<T> {

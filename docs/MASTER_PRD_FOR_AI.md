@@ -33,7 +33,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
 - `src/app/src/features/users`: users/access API client, types, and management workspace
 - `src/app/src/features/reports`: current V2 list report definition and report execution API/types/page
-- `src/app/src/features/dashboards`: current V2 dashboard summary API client/types
+- `src/app/src/features/dashboards`: current V2 dashboard summary API client/types and chart builder preview page
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
@@ -41,7 +41,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Notifications`: current minimal email sender abstraction for password recovery, with SMTP delivery when configured and development logging when SMTP is not configured
-- `src/api/Modules/Dashboard`: current database-backed dashboard summary API module
+- `src/api/Modules/Dashboard`: current database-backed dashboard summary API and chart widget preview module
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, role permissions, form permissions, forms, form versions, records, departments, audit logs, and current V2 report definitions
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
@@ -49,7 +49,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions and runnable report viewing; dashboard summaries now use real database-backed metrics and recent audit activity. CSV export, chart/dashboard builder lite, and cleaner print layouts remain upcoming V2 work. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions, runnable report viewing, and chart previews; dashboard summaries now use real database-backed metrics and recent audit activity. CSV export, dashboard builder lite, and cleaner print layouts remain upcoming V2 work. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -839,13 +839,12 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 saved list report definitions now exist with column, filter, sort, backend validation, permission-checked persistence, runnable report viewing, and real dashboard summary data.
+The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 saved list report definitions now exist with column, filter, sort, backend validation, permission-checked persistence, runnable report viewing, real dashboard summary data, and chart widget previews.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should continue the adjusted V2 focus: chart/dashboard builder lite, export, and better printing.
+Next concrete work should continue the adjusted V2 focus: dashboard builder lite, export, and better printing.
 
-- Chart builder lite
 - Dashboard builder lite
 - CSV export
 - Cleaner print layouts

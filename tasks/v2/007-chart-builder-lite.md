@@ -15,12 +15,16 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Supported widgets include number card, bar chart, date trend, status/choice breakdown, and table.
-- [ ] Chart configs validate selected fields, metrics, and groupings against the source form/report.
-- [ ] Backend aggregation endpoints enforce permissions.
-- [ ] Frontend renders chart widgets without adding a large chart dependency unless justified.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
+- [x] Supported widgets include number card, bar chart, date trend, status/choice breakdown, and table.
+- [x] Chart configs validate selected fields, metrics, and groupings against the source form/report.
+- [x] Backend aggregation endpoints enforce permissions.
+- [x] Frontend renders chart widgets without adding a large chart dependency unless justified.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
+
+## Current Status
+
+Completed for the current V2 slice. The backend exposes a permission-checked chart widget preview endpoint that validates widget configs against reportable form metadata, can use all form records or a saved report's filters as the source, and returns number, grouped, trend, or table preview data. The frontend adds a Charts V2 preview page with lightweight renderers and no charting dependency.
 
 ## Out of Scope
 

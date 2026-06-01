@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, and a real database-backed dashboard summary API. V2 has been expanded to use form data as the source for chart widgets, CSV export, and cleaner print layouts.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, a real database-backed dashboard summary API, and chart widget previews over permitted form/report data. V2 has been expanded to use form data as the source for CSV export and cleaner print layouts.
 
 ## Principle
 
@@ -60,7 +60,7 @@ Displays widgets:
 - Tables
 - Pending approvals later, after workflow/approval tasks
 
-V2 dashboards now start with real database-backed workspace summaries and recent audit activity. Chart widgets and saved custom dashboard layouts can be added after report execution and chart aggregation are stable.
+V2 dashboards now start with real database-backed workspace summaries, recent audit activity, and previewable chart widgets. Saved custom dashboard layouts can be added after report execution and chart aggregation are stable.
 
 ## V1 Printing
 

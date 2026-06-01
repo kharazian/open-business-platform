@@ -43,6 +43,7 @@ builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<DashboardSummaryService>();
+builder.Services.AddScoped<ChartAggregationService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

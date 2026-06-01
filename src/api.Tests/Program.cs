@@ -679,6 +679,42 @@ AssertEqual(1, pagedExecutionReport.Rows.Count, "Report execution should page ro
 AssertEqual("Jane Cooper", pagedExecutionReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report execution should apply saved sort before pagination.");
 AssertTypeAssignable<object, ReportManagementService>();
 
+var chartConfig = new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.BarChart,
+    new ChartMetricDefinition(ChartMetricTypes.Count, null),
+    GroupByFieldId: "department",
+    DateFieldId: null,
+    Columns: Array.Empty<string>(),
+    Limit: 5,
+    ReportId: null);
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, chartConfig).Valid, "Chart widget configs should validate groupable fields.");
+
+var chartResult = ChartAggregationEngine.Execute(
+    sampleDepartmentId,
+    "Employee information",
+    chartConfig,
+    reportingSchema,
+    executionRecords.Where(record => record.Status == RecordStatuses.Active).ToArray());
+AssertEqual(ChartWidgetTypes.BarChart, chartResult.WidgetType, "Chart aggregation should return the requested widget type.");
+AssertEqual(2, chartResult.Series.Count, "Bar chart aggregation should group active records.");
+AssertEqual("Human Resources", chartResult.Series.Single(point => point.Key == "hr").Label, "Choice chart labels should use option labels.");
+AssertEqual(1m, chartResult.Series.Single(point => point.Key == "hr").Value, "Count chart values should count records per group.");
+
+var tableChartResult = ChartAggregationEngine.Execute(
+    sampleDepartmentId,
+    "Employee information",
+    chartConfig with
+    {
+        WidgetType = ChartWidgetTypes.Table,
+        Columns = new[] { "employee_name", ReportableSystemFields.Status },
+        GroupByFieldId = null
+    },
+    reportingSchema,
+    executionRecords.Where(record => record.Status == RecordStatuses.Active).ToArray());
+AssertEqual(2, tableChartResult.Rows.Count, "Table chart widgets should return record rows.");
+AssertEqual("Jane Cooper", tableChartResult.Rows.First().Cells["employee_name"].DisplayValue, "Table chart rows should expose display cells.");
+AssertTypeAssignable<object, ChartAggregationService>();
+
 static void AssertEqual<T>(T expected, T actual, string message)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))

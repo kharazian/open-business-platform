@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, and real dashboard summary data. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, real dashboard summary data, and chart widget previews. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -60,6 +60,49 @@ Current response:
 ```
 
 Metrics are counted from PostgreSQL. Users count active users, forms/reports count non-deleted definitions, records count non-deleted active records, and audit logs count audit entries. Recent activity is sourced from the latest audit log rows.
+
+### Preview chart widget
+
+`POST /api/forms/{formId}/chart-widgets/preview`
+
+Requires authentication plus `menu.reports` and form `view`, form `manage`, or `forms.manage_all` access.
+
+Runs a non-persisted chart widget config against permitted form records. `reportId` is optional; when supplied, the saved list report's filters are used as the chart source.
+
+Request:
+
+```json
+{
+  "widgetType": "bar_chart",
+  "metric": { "type": "count", "fieldId": null },
+  "groupByFieldId": "status",
+  "dateFieldId": null,
+  "columns": [],
+  "limit": 10,
+  "reportId": null
+}
+```
+
+Supported `widgetType` values are `number_card`, `bar_chart`, `date_trend`, `choice_breakdown`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field.
+
+Response:
+
+```json
+{
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "formName": "Employee information",
+  "widgetType": "bar_chart",
+  "metric": { "type": "count", "fieldId": null },
+  "columns": [],
+  "series": [
+    { "key": "active", "label": "Active", "value": 10 }
+  ],
+  "rows": [],
+  "totalCount": 10
+}
+```
+
+Table widgets return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid configs, `403` for failed permission checks, `404` when the form or source report is missing, and `409` when the form or report schema cannot be used for charting.
 
 ## Shared V1 Form Schema Contract
 

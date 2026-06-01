@@ -16,6 +16,7 @@
 - Backend-owned form draft metadata editing, field editing, responsive layout, preview, immutable publishing, and submit-safe published form rendering exist.
 - Record submission, list/detail, edit, soft-delete, and browser print flows exist with backend permission checks and audit logs.
 - Saved V2 list report definitions exist with column, filter, sort, backend validation, and report management permission checks.
+- Chart widget previews exist for number cards, bar charts, date trends, choice/status breakdowns, and table widgets over permitted form/report data.
 - Development startup seed data exists for demo users, roles, departments, a published sample form, permissions, and records.
 - Real app appearance settings exist and are saved in browser localStorage.
 - `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
@@ -24,7 +25,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: continue V2 with chart/dashboard builder lite, then CSV export and cleaner print layouts.
+Next: continue V2 with dashboard builder lite, then CSV export and cleaner print layouts.
 
 ## Product Engine Path
 

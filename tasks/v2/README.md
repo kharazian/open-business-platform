@@ -8,7 +8,7 @@ V2 now focuses on the path from form data to runnable reports, dashboard summari
 2. `005-form-data-readiness.md` - complete.
 3. `002-report-viewer.md` - complete.
 4. `006-dashboard-summary-api.md` - complete.
-5. `007-chart-builder-lite.md`
+5. `007-chart-builder-lite.md` - complete.
 6. `008-dashboard-builder-lite.md`
 7. `003-csv-export.md`
 8. `004-clean-print-layouts.md`
