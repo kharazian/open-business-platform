@@ -5,6 +5,7 @@ using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Dashboard;
+using OpenBusinessPlatform.Api.Modules.Dashboards;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
@@ -44,6 +45,7 @@ builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();
+builder.Services.AddScoped<DashboardDefinitionService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

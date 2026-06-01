@@ -14,6 +14,7 @@ using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
+using OpenBusinessPlatform.Api.Platform;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
 {
@@ -770,6 +771,16 @@ var invalidLayout = dashboardLayout with
     }
 };
 AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig, invalidLayout, dashboardSources).Valid, "Dashboard configs should reject layout widgets that do not match config widgets.");
+
+var createDashboardRequest = new CreateDashboardRequest(
+    "Operations dashboard",
+    "Saved widgets for V2 dashboards.",
+    dashboardConfig,
+    dashboardLayout);
+AssertEqual("Operations dashboard", createDashboardRequest.Name, "Create dashboard requests should carry dashboard names.");
+AssertEqual(1, createDashboardRequest.Config.Widgets.Count, "Create dashboard requests should carry widgets.");
+AssertTypeAssignable<object, DashboardDefinitionService>();
+AssertTypeAssignable<IPlatformApiModule, DashboardsModule>();
 
 static void AssertEqual<T>(T expected, T actual, string message)
 {
