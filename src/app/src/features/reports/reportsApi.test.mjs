@@ -173,3 +173,25 @@ test("report builder field options use shared reportable metadata", () => {
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
 });
+
+test("report builder preserves selected column order and custom labels", () => {
+  const fields = [
+    { id: "employee_name", label: "Employee name", type: "text", source: "form", options: [] },
+    { id: "department", label: "Department", type: "select", source: "form", options: [] },
+    { id: "created_at", label: "Created date", type: "datetime", source: "system", options: [] }
+  ];
+
+  const config = createListReportConfig({
+    fieldOptions: fields,
+    selectedFieldIds: ["created_at", "employee_name", "employee_name", "department"],
+    columnLabels: {
+      created_at: "Submitted",
+      employee_name: "Employee",
+      department: "Team"
+    }
+  });
+
+  assert.deepEqual(config.columns.map((column) => column.fieldId), ["created_at", "employee_name", "department"]);
+  assert.deepEqual(config.columns.map((column) => column.label), ["Submitted", "Employee", "Team"]);
+  assert.equal(config.columns[0].width, 140);
+});

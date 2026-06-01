@@ -21,8 +21,8 @@ Displays many records in a table.
 V2 features:
 
 - Select columns: implemented for saved definitions
-- Reorder columns: not implemented yet
-- Rename columns: labels are saved from the selected form fields
+- Reorder columns: implemented in the list report builder selected-columns panel
+- Rename columns: implemented as saved custom column labels
 - Filters: one saved filter in the current builder, config supports multiple
 - Sorting: one saved sort in the current builder, config supports multiple
 - Search: implemented at runtime in the report viewer for visible searchable columns

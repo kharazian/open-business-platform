@@ -17,15 +17,18 @@ export function getReportFieldOptions(schema: FormSchema | null | undefined): Re
 export function createListReportConfig(input: {
   fieldOptions: ReportFieldOption[];
   selectedFieldIds: string[];
+  columnLabels?: Record<string, string | undefined>;
   filters?: ListReportFilter[];
   sort?: ListReportSort[];
 }): ListReportConfig {
   const selectedFields = input.selectedFieldIds.filter((fieldId, index, fields) => fields.indexOf(fieldId) === index);
-  const columns = input.fieldOptions
-    .filter((field) => selectedFields.includes(field.id))
+  const fieldsById = new Map(input.fieldOptions.map((field) => [field.id, field]));
+  const columns = selectedFields
+    .map((fieldId) => fieldsById.get(fieldId))
+    .filter((field): field is ReportFieldOption => Boolean(field))
     .map((field) => ({
       fieldId: field.id,
-      label: field.label,
+      label: input.columnLabels?.[field.id]?.trim() || field.label,
       visible: true,
       width: field.source === "system" ? 140 : 180
     }));

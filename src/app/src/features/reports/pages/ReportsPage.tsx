@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -51,6 +51,7 @@ export function ReportsPage() {
   const [reportPage, setReportPage] = useState(1);
   const [reportName, setReportName] = useState("");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
+  const [columnLabels, setColumnLabels] = useState<Record<string, string>>({});
   const [filterFieldId, setFilterFieldId] = useState("");
   const [filterOperator, setFilterOperator] = useState<ReportFilterOperator>("equals");
   const [filterValue, setFilterValue] = useState("");
@@ -140,12 +141,23 @@ export function ReportsPage() {
   useEffect(() => {
     if (fieldOptions.length === 0) {
       setSelectedFieldIds([]);
+      setColumnLabels({});
       return;
     }
 
     setSelectedFieldIds((current) => {
       const validCurrent = current.filter((fieldId) => fieldOptions.some((field) => field.id === fieldId));
       return validCurrent.length > 0 ? validCurrent : fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id);
+    });
+
+    setColumnLabels((current) => {
+      const nextLabels: Record<string, string> = {};
+
+      for (const field of fieldOptions) {
+        nextLabels[field.id] = current[field.id] ?? field.label;
+      }
+
+      return nextLabels;
     });
   }, [fieldOptions]);
 
@@ -155,6 +167,7 @@ export function ReportsPage() {
   const previewConfig = createListReportConfig({
     fieldOptions,
     selectedFieldIds,
+    columnLabels,
     filters: buildFilters(),
     sort: buildSort()
   });
@@ -262,6 +275,35 @@ export function ReportsPage() {
 
       return current.filter((currentFieldId) => currentFieldId !== fieldId);
     });
+
+    if (selected) {
+      const field = fieldOptions.find((option) => option.id === fieldId);
+      if (field) {
+        setColumnLabels((current) => ({ ...current, [fieldId]: current[fieldId] ?? field.label }));
+      }
+    }
+  }
+
+  function handleMoveSelectedField(fieldId: string, direction: -1 | 1) {
+    setNotice(null);
+    setSelectedFieldIds((current) => {
+      const index = current.indexOf(fieldId);
+      const targetIndex = index + direction;
+
+      if (index < 0 || targetIndex < 0 || targetIndex >= current.length) {
+        return current;
+      }
+
+      const nextFieldIds = [...current];
+      const [field] = nextFieldIds.splice(index, 1);
+      nextFieldIds.splice(targetIndex, 0, field);
+      return nextFieldIds;
+    });
+  }
+
+  function handleColumnLabelChange(fieldId: string, label: string) {
+    setNotice(null);
+    setColumnLabels((current) => ({ ...current, [fieldId]: label }));
   }
 
   function buildFilters(): ListReportFilter[] {
@@ -431,6 +473,56 @@ export function ReportsPage() {
                     ))}
                   </div>
                 </div>
+                {selectedFieldIds.length > 0 ? (
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-foreground">Selected columns</p>
+                      <Badge>{selectedFieldIds.length} ordered</Badge>
+                    </div>
+                    <div className="grid gap-2">
+                      {selectedFieldIds.map((fieldId, index) => {
+                        const field = fieldOptions.find((option) => option.id === fieldId);
+
+                        if (!field) {
+                          return null;
+                        }
+
+                        return (
+                          <div className="grid gap-2 rounded-xl border border-border bg-muted/20 p-3 md:grid-cols-[auto_minmax(0,1fr)_auto]" key={fieldId}>
+                            <Badge>{index + 1}</Badge>
+                            <Input
+                              label={field.label}
+                              onChange={(event) => handleColumnLabelChange(fieldId, event.target.value)}
+                              value={columnLabels[fieldId] ?? field.label}
+                            />
+                            <div className="flex items-end gap-2">
+                              <Button
+                                aria-label={`Move ${field.label} up`}
+                                disabled={index === 0}
+                                onClick={() => handleMoveSelectedField(fieldId, -1)}
+                                size="icon"
+                                title={`Move ${field.label} up`}
+                                variant="outline"
+                              >
+                                <ArrowUp className="size-4" />
+                              </Button>
+                              <Button
+                                aria-label={`Move ${field.label} down`}
+                                disabled={index === selectedFieldIds.length - 1}
+                                onClick={() => handleMoveSelectedField(fieldId, 1)}
+                                size="icon"
+                                title={`Move ${field.label} down`}
+                                variant="outline"
+                              >
+                                <ArrowDown className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="grid gap-4 lg:grid-cols-3">
                   <Select label="Filter field" onChange={(event) => setFilterFieldId(event.target.value)} value={filterFieldId}>
                     {fieldSelectOptions.map((option) => (

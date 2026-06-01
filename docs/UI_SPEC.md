@@ -13,7 +13,7 @@ The frontend already has a shared app shell and design-system foundation:
 
 The `/theme` playground can demonstrate many layouts and pages, but it should not own reusable UI primitives.
 
-Current Forms, Records, Users & Access, and V2 list report builder pages use real API clients. Dashboard, settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
+Current Forms, Records, Users & Access, V2 Reports, Dashboard summary, Charts, and saved Dashboards pages use real API clients. Settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
 
 Current real app appearance settings live on the Settings page and are stored in browser `localStorage` under `appThemeSettings`. They support palette, light/dark/system mode, density, main app layout, border radius, and shadow. These settings affect the real app shell only; the `/theme` playground has its own layout and appearance controls.
 
@@ -32,7 +32,7 @@ Target navigation:
 - Users & Access
 - Settings
 
-V1 requires Forms, Records, Users & Access, and basic Settings/Profile shell behavior. Reports start in V2.
+V1 requires Forms, Records, Users & Access, and basic Settings/Profile shell behavior. Reports, charts, dashboard summaries, and saved dashboards are implemented for the current V2 scope.
 
 Current main app navigation is permission-aware and includes:
 

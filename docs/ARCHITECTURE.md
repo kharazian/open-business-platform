@@ -107,7 +107,7 @@ Important frontend separation:
 - `ReportBuilder` configures report definitions.
 - `ReportViewer` displays configured reports.
 - `/theme` demonstrates shared UI/layout components with sample data only.
-- Real app product pages should use API/data services as they mature; Forms, Users & Access, and the V2 list report builder already do, while dashboard remains a starter surface.
+- Real app product pages should use API/data services as they mature; Forms, Users & Access, Records, V2 Reports, Dashboard summary, Charts, and saved Dashboards now use real API-backed product surfaces. Settings/profile and `/theme` remain starter/sample surfaces.
 
 ## Backend Architecture
 
@@ -144,7 +144,7 @@ Current backend module behavior:
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
-- `Modules/Reports` contains the current V2 list report definition endpoints, config validation, report management permission checks, and `report_created` audit logging.
+- `Modules/Reports` contains the current V2 list report definition, execution, and CSV export endpoints, config validation, report management/view permission checks, and report audit logging.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
 - `Directory.Build.props` redirects API build output to `.artifacts/api`.

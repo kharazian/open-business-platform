@@ -32,12 +32,12 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, backend-owned form builder, preview renderer, and submit form page
 - `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
 - `src/app/src/features/users`: users/access API client, types, and management workspace
-- `src/app/src/features/reports`: current V2 list report definition and report execution API/types/page
+- `src/app/src/features/reports`: current V2 list report definition, report execution, CSV export, and report print API/types/page
 - `src/app/src/features/dashboards`: current V2 dashboard summary API client/types, chart builder preview page, and saved dashboard builder/viewer page
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
-- `src/api/Modules/Reports`: current V2 list report definition and execution endpoints, config validation, permission checks, and `report_created` audit logging
+- `src/api/Modules/Reports`: current V2 list report definition, execution, and CSV export endpoints, config validation, permission checks, and report audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles management endpoints, password hashing, and permission service
 - `src/api/Modules/Notifications`: current minimal email sender abstraction for password recovery, with SMTP delivery when configured and development logging when SMTP is not configured
@@ -50,7 +50,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. Reports have started V2 with saved list report definitions, runnable report viewing, chart previews, and saved dashboard layouts; dashboard summaries now use real database-backed metrics and recent audit activity. CSV export and cleaner print layouts remain upcoming V2 work. Workspace ownership for dashboards remains a later workspace module. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. V2 is complete for the current task list: saved list report definitions, column ordering, custom column labels, runnable report viewing, CSV export, chart previews, saved dashboard layouts, cleaner print layouts, and real database-backed dashboard summaries are implemented. Workspace ownership for dashboards remains a later workspace module. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -840,14 +840,11 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 saved list report definitions now exist with column, filter, sort, backend validation, permission-checked persistence, runnable report viewing, real dashboard summary data, chart widget previews, and saved dashboard definitions.
+The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 is complete for the current task list: saved list report definitions, column selection/order/custom labels, filters, sort, backend validation, permission-checked persistence, runnable report viewing, CSV export, cleaner print layouts, real dashboard summary data, chart widget previews, and saved dashboard definitions are implemented.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should continue the adjusted V2 focus: export and better printing.
-
-- CSV export
-- Cleaner print layouts
+Next concrete work should move to V3 advanced permissions or a newly approved product slice.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 
