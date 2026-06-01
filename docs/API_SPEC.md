@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, real dashboard summary data, and chart widget previews. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, real dashboard summary data, chart widget previews, and saved dashboard definitions. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -103,6 +103,28 @@ Response:
 ```
 
 Table widgets return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid configs, `403` for failed permission checks, `404` when the form or source report is missing, and `409` when the form or report schema cannot be used for charting.
+
+### Saved dashboards
+
+`GET /api/dashboards`
+
+Lists saved dashboard definitions. Requires authentication and `menu.dashboard`.
+
+`GET /api/dashboards/{dashboardId}`
+
+Returns a saved dashboard definition with `config` and `layout`. Requires authentication and `menu.dashboard`.
+
+`POST /api/dashboards`
+
+Creates a saved dashboard definition. Requires authentication and `reports.manage`.
+
+`PUT /api/dashboards/{dashboardId}`
+
+Updates a saved dashboard definition. Requires authentication and `reports.manage`.
+
+Dashboard config stores widget definitions, and dashboard layout stores responsive width/order metadata. Supported widths are `small`, `medium`, `wide`, and `full`. Saved widgets reuse chart widget config values and are validated against source forms, source reports, fields, metrics, and widget types before save.
+
+Saved dashboard definitions are persisted in the `dashboards` table added by the `DashboardDefinitions` EF Core migration. Workspace ownership is intentionally deferred to a later workspace module.
 
 ## Shared V1 Form Schema Contract
 

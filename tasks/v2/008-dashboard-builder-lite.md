@@ -15,13 +15,17 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Dashboard definitions can be saved with widget config and layout JSON.
-- [ ] Backend validation rejects unknown source forms/reports, fields, metrics, and widget types.
-- [ ] Backend authorization is enforced.
-- [ ] Frontend can create, view, and update a dashboard layout.
-- [ ] Database migration is documented if a dashboards table is added.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
+- [x] Dashboard definitions can be saved with widget config and layout JSON.
+- [x] Backend validation rejects unknown source forms/reports, fields, metrics, and widget types.
+- [x] Backend authorization is enforced.
+- [x] Frontend can create, view, and update a dashboard layout.
+- [x] Database migration is documented if a dashboards table is added.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
+
+## Current Status
+
+Completed for the current V2 slice. Saved dashboard definitions can be created, viewed, and updated separately from the system dashboard summary. Dashboard widget configs and layout JSON are persisted in PostgreSQL, validated on the backend, and rendered through the existing chart preview path. Workspace ownership is intentionally deferred to a later workspace module.
 
 ## Out of Scope
 
