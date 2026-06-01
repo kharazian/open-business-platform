@@ -37,6 +37,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<ReportDefinition> Reports => Set<ReportDefinition>();
 
+    public DbSet<DashboardDefinition> Dashboards => Set<DashboardDefinition>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -71,6 +73,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
         ConfigureReports(modelBuilder);
+        ConfigureDashboards(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -369,6 +372,20 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(report => report.FormId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureDashboards(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<DashboardDefinition>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "dashboards");
+            entity.HasIndex(dashboard => dashboard.CreatedById);
+            entity.HasIndex(dashboard => dashboard.Name);
+            entity.Property(dashboard => dashboard.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(dashboard => dashboard.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(dashboard => dashboard.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(dashboard => dashboard.LayoutJson).HasColumnName("layout_json").HasColumnType("jsonb").IsRequired();
         });
     }
 

@@ -105,6 +105,7 @@ AssertTable<FormDefinition>(model, "forms");
 AssertTable<FormVersion>(model, "form_versions");
 AssertTable<FormRecord>(model, "records");
 AssertTable<ReportDefinition>(model, "reports");
+AssertTable<DashboardDefinition>(model, "dashboards");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -117,6 +118,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormDefinition>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, FormVersion>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormRecord>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, DashboardDefinition>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -129,6 +131,7 @@ AssertGuidId<FormDefinition>(model);
 AssertGuidId<FormVersion>(model);
 AssertGuidId<FormRecord>(model);
 AssertGuidId<ReportDefinition>(model);
+AssertGuidId<DashboardDefinition>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -142,6 +145,8 @@ AssertJsonColumn<FormVersion>(model, nameof(FormVersion.LayoutJson));
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.ValidationJson));
 AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ValuesJson));
 AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ConfigJson));
+AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ConfigJson));
+AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.LayoutJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -151,6 +156,7 @@ AssertJsonColumn<Department>(model, nameof(Department.ExtraPropertiesJson));
 AssertJsonColumn<FormDefinition>(model, nameof(FormDefinition.ExtraPropertiesJson));
 AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ExtraPropertiesJson));
 AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertiesJson));
+AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -172,6 +178,8 @@ AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedAt) }, "Records 
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.FormId) }, "Reports should be indexed by form.");
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.Type) }, "Reports should be indexed by type.");
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.CreatedById) }, "Reports should be indexed by creator.");
+AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.CreatedById) }, "Dashboards should be indexed by creator.");
+AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.Name) }, "Dashboards should be indexed by name.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId) }, "Role form permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.FormId) }, "Role form permissions should be indexed by form.");
