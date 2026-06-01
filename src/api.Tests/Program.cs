@@ -9,6 +9,7 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Dashboard;
+using OpenBusinessPlatform.Api.Modules.Dashboards;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
@@ -722,6 +723,53 @@ var tableChartResult = ChartAggregationEngine.Execute(
 AssertEqual(2, tableChartResult.Rows.Count, "Table chart widgets should return record rows.");
 AssertEqual("Jane Cooper", tableChartResult.Rows.First().Cells["employee_name"].DisplayValue, "Table chart rows should expose display cells.");
 AssertTypeAssignable<object, ChartAggregationService>();
+
+var dashboardConfig = new SavedDashboardConfigDefinition(
+    1,
+    new[]
+    {
+        new SavedDashboardWidgetDefinition(
+            "widget-1",
+            "Employees by department",
+            sampleDepartmentId,
+            chartConfig)
+    });
+var dashboardLayout = new SavedDashboardLayoutDefinition(
+    1,
+    new[]
+    {
+        new SavedDashboardWidgetLayoutDefinition("widget-1", DashboardWidgetWidths.Wide, 1)
+    });
+var dashboardSources = new[]
+{
+    new DashboardSourceDefinition(
+        sampleDepartmentId,
+        reportingSchema,
+        new[]
+        {
+            new DashboardSourceReportDefinition(Guid.Parse("99999999-9999-9999-9999-999999999999"), ReportTypes.List)
+        })
+};
+AssertTrue(DashboardDefinitionValidator.Validate(dashboardConfig, dashboardLayout, dashboardSources).Valid, "Dashboard configs should validate known chart widgets and layout ids.");
+
+var invalidDashboardConfig = dashboardConfig with
+{
+    Widgets = new[]
+    {
+        dashboardConfig.Widgets.Single(),
+        dashboardConfig.Widgets.Single() with { Title = "Duplicate id" }
+    }
+};
+AssertFalse(DashboardDefinitionValidator.Validate(invalidDashboardConfig, dashboardLayout, dashboardSources).Valid, "Dashboard configs should reject duplicate widget ids.");
+
+var invalidLayout = dashboardLayout with
+{
+    Widgets = new[]
+    {
+        new SavedDashboardWidgetLayoutDefinition("missing-widget", DashboardWidgetWidths.Full, 1)
+    }
+};
+AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig, invalidLayout, dashboardSources).Valid, "Dashboard configs should reject layout widgets that do not match config widgets.");
 
 static void AssertEqual<T>(T expected, T actual, string message)
 {
