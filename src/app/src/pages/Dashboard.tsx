@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart3, FileText, RefreshCcw, ShieldCheck } from "lucide-react";
+import { BarChart3, FileText, LayoutDashboard, RefreshCcw, ShieldCheck } from "lucide-react";
 import { getDashboardSummary } from "../features/dashboards/api";
 import type { DashboardActivityItem, DashboardSummary } from "../features/dashboards/types";
 import { Alert } from "../components/ui/Alert";
@@ -35,7 +35,8 @@ const statToneClasses: Record<string, string> = {
 const quickActions = [
   { label: "Review permissions", description: "Roles and form access.", icon: ShieldCheck, path: "/users" },
   { label: "Open forms", description: "Drafts and published forms.", icon: FileText, path: "/forms" },
-  { label: "Run reports", description: "Saved report views.", icon: BarChart3, path: "/reports" }
+  { label: "Run reports", description: "Saved report views.", icon: BarChart3, path: "/reports" },
+  { label: "Build dashboards", description: "Saved chart layouts.", icon: LayoutDashboard, path: "/dashboards" }
 ];
 
 export function Dashboard() {
