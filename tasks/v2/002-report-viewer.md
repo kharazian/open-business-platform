@@ -14,10 +14,14 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Feature works according to V2 roadmap.
-- [ ] Backend permission checks are included.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
+- [x] Feature works according to V2 roadmap.
+- [x] Backend permission checks are included.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
+
+## Current Status
+
+Completed for the current V2 slice. Saved list reports can run against real form records through the backend report execution path with saved filters, runtime search, saved sort, pagination, display-ready cells, form view permission checks, and frontend viewer controls in the reports workspace.
 
 ## Out of Scope
 

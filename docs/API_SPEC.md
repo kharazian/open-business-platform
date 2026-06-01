@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, and real dashboard summary data. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -33,7 +33,7 @@ Current response:
 
 `GET /api/dashboard/summary`
 
-Requires authentication.
+Requires authentication and `menu.dashboard`.
 
 Current response:
 
@@ -41,15 +41,25 @@ Current response:
 {
   "title": "Open Business Platform",
   "metrics": [
-    { "label": "Users", "value": 0 },
-    { "label": "Roles", "value": 0 },
-    { "label": "Permissions", "value": 0 },
-    { "label": "Audit logs", "value": 0 }
+    { "key": "users", "label": "Users", "value": 4 },
+    { "key": "forms", "label": "Forms", "value": 3 },
+    { "key": "records", "label": "Records", "value": 10 },
+    { "key": "reports", "label": "Reports", "value": 2 },
+    { "key": "audit_logs", "label": "Audit logs", "value": 7 }
+  ],
+  "recentActivity": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "event": "Record created",
+      "actor": "Jane Cooper",
+      "createdAt": "2026-05-22T12:00:00Z",
+      "status": "Completed"
+    }
   ]
 }
 ```
 
-The dashboard endpoint currently returns starter shell metrics. It is protected by authentication, but its metric values are not connected to PostgreSQL yet.
+Metrics are counted from PostgreSQL. Users count active users, forms/reports count non-deleted definitions, records count non-deleted active records, and audit logs count audit entries. Recent activity is sourced from the latest audit log rows.
 
 ## Shared V1 Form Schema Contract
 

@@ -285,7 +285,7 @@ Indexes:
 - type
 - created_by_id
 
-The current V2 report definition stores list report configuration in `config_json`: selected columns, filters, and sort order. Report execution, CSV export, cleaner print layouts, and report-level permission rows are later V2/V3 work.
+The current V2 report definition stores list report configuration in `config_json`: selected columns, filters, and sort order. Report execution now runs saved list reports over real record data. CSV export, cleaner print layouts, and report-level permission rows are later V2/V3 work.
 
 ## Permissions
 

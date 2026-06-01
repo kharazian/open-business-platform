@@ -7,7 +7,7 @@
 - Shared UI/layout components exist.
 - Frontend app modules and permission-aware route/navigation registry exist.
 - Backend minimal API module discovery exists.
-- Authenticated dashboard summary endpoint exists.
+- Authenticated, permission-checked, database-backed dashboard summary endpoint exists.
 - Shared V1 form schema contracts and validators exist in frontend and backend code.
 - EF Core/Npgsql database foundation exists for users, roles, role permissions, form permissions, departments, forms, form versions, records, and audit logs.
 - Cookie auth exists with bootstrap admin fallback and local PostgreSQL user login.
@@ -24,7 +24,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: continue V2 with form data readiness, report viewer/run behavior, real dashboard summaries, chart/dashboard builder lite, then CSV export and cleaner print layouts.
+Next: continue V2 with chart/dashboard builder lite, then CSV export and cleaner print layouts.
 
 ## Product Engine Path
 

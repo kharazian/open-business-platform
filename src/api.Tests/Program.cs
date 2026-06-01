@@ -8,6 +8,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Dashboard;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
@@ -236,6 +237,24 @@ var sampleRoleId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 var sampleDepartmentId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 var sampleCreatedAt = new DateTimeOffset(2026, 5, 19, 12, 0, 0, TimeSpan.Zero);
 var sampleUpdatedAt = sampleCreatedAt.AddMinutes(5);
+
+var dashboardSummary = new DashboardSummaryResponse(
+    "Open Business Platform",
+    new[]
+    {
+        new DashboardMetric("users", "Users", 4),
+        new DashboardMetric("forms", "Forms", 3),
+        new DashboardMetric("records", "Records", 10),
+        new DashboardMetric("reports", "Reports", 2),
+        new DashboardMetric("audit_logs", "Audit logs", 7)
+    },
+    new[]
+    {
+        new DashboardActivityItem(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), "Record created", "Jane Cooper", sampleCreatedAt, "Completed")
+    });
+AssertEqual(4, dashboardSummary.Metrics.Single(metric => metric.Key == "users").Value, "Dashboard summary metrics should expose database-backed counts by key.");
+AssertEqual("Record created", dashboardSummary.RecentActivity.Single().Event, "Dashboard summaries should expose recent audit activity.");
+AssertTypeAssignable<object, DashboardSummaryService>();
 
 var userDto = new UserDto(
     sampleUserId,

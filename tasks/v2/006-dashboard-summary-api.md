@@ -15,12 +15,16 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Dashboard summary endpoint returns real database-backed metrics.
-- [ ] Backend authorization is enforced.
-- [ ] Frontend dashboard uses the dashboard API instead of sample data.
-- [ ] Loading, empty, and error states are handled.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
+- [x] Dashboard summary endpoint returns real database-backed metrics.
+- [x] Backend authorization is enforced.
+- [x] Frontend dashboard uses the dashboard API instead of sample data.
+- [x] Loading, empty, and error states are handled.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
+
+## Current Status
+
+Completed for the current V2 slice. The dashboard summary endpoint now requires `menu.dashboard`, returns database-backed counts for users, forms, records, reports, and audit logs, and includes recent audit activity. The frontend dashboard uses this API with loading, retry/error, and empty activity states instead of starter sample dashboard data.
 
 ## Out of Scope
 
