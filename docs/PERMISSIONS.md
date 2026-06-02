@@ -113,7 +113,7 @@ Scopes:
 - `group`
 - `assigned`
 
-Multiple role grants combine with OR semantics. `manage`, `forms.manage_all`, Admin, and the bootstrap admin retain all-access behavior.
+Multiple role grants combine with OR semantics. Per-form `manage` grants imply the other form actions but still use their configured record scope. `forms.manage_all`, Admin, and the bootstrap admin retain all-access behavior.
 
 ## Implemented V3 Field Rules
 

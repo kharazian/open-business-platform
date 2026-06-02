@@ -141,19 +141,10 @@ public sealed class PermissionService
             .SelectMany(userRole => userRole.Role!.FormPermissions)
             .Where(permission => permission.FormId == formId)
             .Where(permission => permission.Action == action || permission.Action == PlatformPermissions.Form.Manage)
-            .Select(permission => new { permission.Action, permission.Scope })
+            .Select(permission => new RoleFormPermissionDto(permission.FormId, permission.Action, permission.Scope))
             .ToArrayAsync(cancellationToken);
 
-        if (scopedPermissions.Any(permission => permission.Action == PlatformPermissions.Form.Manage))
-        {
-            return new[] { PlatformPermissions.RecordScopes.All };
-        }
-
-        return scopedPermissions
-            .Select(permission => NormalizeScope(permission.Scope))
-            .Where(PlatformPermissions.RecordScopes.Supported.Contains)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        return ResolveRecordScopes(scopedPermissions, action);
     }
 
     public async Task<IQueryable<FormRecord>> ApplyRecordAccessAsync(
@@ -328,6 +319,18 @@ public sealed class PermissionService
     private static string NormalizeScope(string? scope)
     {
         return string.IsNullOrWhiteSpace(scope) ? PlatformPermissions.RecordScopes.All : scope.Trim();
+    }
+
+    private static IReadOnlyCollection<string> ResolveRecordScopes(
+        IReadOnlyCollection<RoleFormPermissionDto> scopedPermissions,
+        string action)
+    {
+        return scopedPermissions
+            .Where(permission => permission.Action == action || permission.Action == PlatformPermissions.Form.Manage)
+            .Select(permission => NormalizeScope(permission.Scope))
+            .Where(PlatformPermissions.RecordScopes.Supported.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static bool HasAllAccess(ClaimsPrincipal principal)

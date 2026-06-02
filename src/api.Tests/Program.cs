@@ -437,6 +437,39 @@ var normalizedFormPermissions = (IReadOnlyCollection<RoleFormPermissionDto>)norm
     })!;
 AssertEqual(1, normalizedFormPermissions.Count, "Form permissions should be unique by form and action.");
 AssertEqual(PlatformPermissions.RecordScopes.Department, normalizedFormPermissions.Single().Scope, "Broader record scopes should win duplicate form action grants.");
+var resolveRecordScopes = typeof(PermissionService).GetMethod(
+    "ResolveRecordScopes",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(resolveRecordScopes, "Permission service should resolve implied manage scopes through a focused helper.");
+var managedOwnScopes = (IReadOnlyCollection<string>)resolveRecordScopes!.Invoke(
+    null,
+    new object[]
+    {
+        new[]
+        {
+            new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.Manage, PlatformPermissions.RecordScopes.Own)
+        },
+        PlatformPermissions.Form.View
+    })!;
+AssertSequenceEqual(
+    new[] { PlatformPermissions.RecordScopes.Own },
+    managedOwnScopes,
+    "Form manage grants should imply record actions without widening the configured record scope.");
+var managedPlusDirectScopes = (IReadOnlyCollection<string>)resolveRecordScopes.Invoke(
+    null,
+    new object[]
+    {
+        new[]
+        {
+            new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.Manage, PlatformPermissions.RecordScopes.Own),
+            new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View, PlatformPermissions.RecordScopes.Department)
+        },
+        PlatformPermissions.Form.View
+    })!;
+AssertSequenceEqual(
+    new[] { PlatformPermissions.RecordScopes.Department, PlatformPermissions.RecordScopes.Own },
+    managedPlusDirectScopes.OrderBy(scope => scope).ToArray(),
+    "Direct action scopes and implied manage scopes should combine with OR semantics.");
 
 var normalizeFieldPermissions = typeof(IdentityManagementService).GetMethod(
     "NormalizeFieldPermissions",
