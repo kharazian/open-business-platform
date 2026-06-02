@@ -13,7 +13,7 @@ The frontend already has a shared app shell and design-system foundation:
 
 The `/theme` playground can demonstrate many layouts and pages, but it should not own reusable UI primitives.
 
-Current Forms, Records, Users & Access, V2 Reports, Dashboard summary, Charts, and saved Dashboards pages use real API clients. Settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
+Current Forms, Records, Users & Access, V2 Reports, Dashboard summary, Charts, saved Dashboards, Triggers, and Notifications pages use real API clients. Settings, profile, and `/theme` pages remain starter or sample surfaces until their product modules are implemented.
 
 Current real app appearance settings live on the Settings page and are stored in browser `localStorage` under `appThemeSettings`. They support palette, light/dark/system mode, density, main app layout, border radius, and shadow. These settings affect the real app shell only; the `/theme` playground has its own layout and appearance controls.
 
@@ -39,6 +39,7 @@ Current main app navigation is permission-aware and includes:
 - Home/Dashboard
 - Forms
 - Triggers
+- Notifications
 - Users
 - Reports
 - Settings
@@ -58,6 +59,21 @@ The trigger workspace uses:
 - Execution log viewer with status, event/entity metadata, timestamps, errors, input JSON, result JSON, and failed-log retry actions.
 
 The builder exposes only the V4 backend-supported events, conditions, and actions. It is intentionally not a diagram surface and does not use XYFlow. Backend permission checks remain authoritative.
+
+## Notification Inbox UI
+
+Current status: V4 task 006 adds a real `/notifications` page for the authenticated user's in-app notifications.
+
+The notification inbox uses:
+
+- Current-user notification list ordered newest first.
+- Unread count display.
+- Read/unread state badges.
+- Single notification mark-read action.
+- Mark-all-read action.
+- Header bell link to the notifications route.
+
+The page does not include push delivery, websockets, preferences, admin notification browsing, or header unread badges in this slice.
 
 ## Form Builder Layout
 

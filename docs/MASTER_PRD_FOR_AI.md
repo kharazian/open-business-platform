@@ -35,13 +35,14 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/features/reports`: current V2 list report definition, report execution, CSV export, and report print API/types/page
 - `src/app/src/features/dashboards`: current V2 dashboard summary API client/types, chart builder preview page, and saved dashboard builder/viewer page
 - `src/app/src/features/triggers`: current V4 trigger management API client, builder helpers, form-scoped trigger workspace, logs viewer, failed-log retry UI, and notification action editor
+- `src/app/src/features/notifications`: current V4 notification inbox API client/types/page for current-user notifications and read state
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
 - `src/api/Modules/Reports`: current V2 list report definition, execution, and CSV export endpoints, config validation, permission checks, and report audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles/groups/departments management endpoints, password hashing, scoped permission service, and field access service
-- `src/api/Modules/Notifications`: current minimal email sender abstraction for password recovery, with SMTP delivery when configured and development logging when SMTP is not configured
+- `src/api/Modules/Notifications`: current email sender abstraction for password recovery plus current-user notification inbox APIs/read-state service
 - `src/api/Modules/Triggers`: current V4 backend trigger definitions, validation, detail/list/create/update APIs, event dispatch, starter action execution, trigger logs, manual failed-log retry recovery, and in-app notification trigger action
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API and chart widget preview module
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
@@ -52,7 +53,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, trigger API/builder helpers, and shared UI helpers
 
-Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. V2 is complete for the current task list: saved list report definitions, column ordering, custom column labels, runnable report viewing, CSV export, chart previews, saved dashboard layouts, cleaner print layouts, and real database-backed dashboard summaries are implemented. V3 is complete for the current task list: groups, departments, department managers, scoped record access, report permissions, action permissions, assignment/status record actions, and basic field hidden/read-only rules are implemented. V4 task 001 is complete for the backend trigger foundation: trigger definitions, trigger logs, management APIs, record event dispatch, supported conditions, audit/email/status/assignment starter actions, and non-recursive action execution. V4 task 002 is complete for the trigger management UI: form-scoped trigger list, builder, enable/disable editing, and logs viewer. V4 task 003 is complete for current-record `update_field` trigger actions. V4 task 004 is complete for manual retry recovery of failed trigger logs. V4 task 005 is complete for database-backed in-app notification trigger actions. Richer actions, automatic retry queues, schedules, webhooks, workflows, notification inbox UI, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. V2 is complete for the current task list: saved list report definitions, column ordering, custom column labels, runnable report viewing, CSV export, chart previews, saved dashboard layouts, cleaner print layouts, and real database-backed dashboard summaries are implemented. V3 is complete for the current task list: groups, departments, department managers, scoped record access, report permissions, action permissions, assignment/status record actions, and basic field hidden/read-only rules are implemented. V4 task 001 is complete for the backend trigger foundation: trigger definitions, trigger logs, management APIs, record event dispatch, supported conditions, audit/email/status/assignment starter actions, and non-recursive action execution. V4 task 002 is complete for the trigger management UI: form-scoped trigger list, builder, enable/disable editing, and logs viewer. V4 task 003 is complete for current-record `update_field` trigger actions. V4 task 004 is complete for manual retry recovery of failed trigger logs. V4 task 005 is complete for database-backed in-app notification trigger actions. V4 task 006 is complete for current-user notification inbox APIs, unread counts, read state, and the real `/notifications` page. Richer actions, automatic retry queues, schedules, webhooks, workflows, notification preferences/badges, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 
@@ -593,6 +594,7 @@ Features:
 - Update field implemented in V4 task 003
 - Manual failed-log retry implemented in V4 task 004
 - Send notification implemented in V4 task 005
+- Notification inbox and read state implemented in V4 task 006
 - Call webhook later
 - Automatic retry queues and retry policies later
 
@@ -717,9 +719,12 @@ src/app/src/
   layouts/
   pages/
   features/
+    dashboards/
     forms/
+    notifications/
     records/
     reports/
+    triggers/
     users/
   modules/
   platform/
@@ -727,7 +732,7 @@ src/app/src/
   lib/
 ```
 
-Planned product feature folders should be added under `src/app/src/features/` as their tasks are implemented: permissions, triggers, workflows, printing, audit, and notifications.
+Planned product feature folders should be added under `src/app/src/features/` as their tasks are implemented: permissions, workflows, audit, and richer notification/preferences surfaces.
 
 Current frontend shell/theme details:
 
@@ -751,16 +756,19 @@ src/api/
     Persistence/
   Modules/
     Dashboard/
+    Dashboards/
     Forms/
     Identity/
+    Notifications/
     Records/
     Reports/
+    Triggers/
   Platform/
   Configuration/
   Program.cs
 ```
 
-Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: permissions, triggers, workflows, printing, audit, and notifications.
+Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: workflows, printing, audit, and richer notification/preferences surfaces.
 
 Current backend configuration details:
 
@@ -844,11 +852,11 @@ Read docs/MASTER_PRD_FOR_AI.md, AGENTS.md, and the selected task file. Implement
 
 ## 11. Current Priority
 
-The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 is complete for the current task list: saved list report definitions, column selection/order/custom labels, filters, sort, backend validation, permission-checked persistence, runnable report viewing, CSV export, cleaner print layouts, real dashboard summary data, chart widget previews, and saved dashboard definitions are implemented. V3 is complete for advanced permissions. V4 task 001 is complete for the backend trigger engine foundation, V4 task 002 is complete for the trigger management UI, V4 task 003 is complete for update-field trigger actions, V4 task 004 is complete for manual failed-log retry recovery, and V4 task 005 is complete for in-app notification trigger actions.
+The current V1 foundation is complete and verified. Project inventory/setup, shared core form schema work, database foundation, persistent form list/create, backend-owned draft metadata and schema editing, responsive layout, preview, immutable publishing, users/roles access, record submission, record list/detail, record edit/delete, basic print, audit log coverage, and seed data are implemented. V2 is complete for the current task list: saved list report definitions, column selection/order/custom labels, filters, sort, backend validation, permission-checked persistence, runnable report viewing, CSV export, cleaner print layouts, real dashboard summary data, chart widget previews, and saved dashboard definitions are implemented. V3 is complete for advanced permissions. V4 task 001 is complete for the backend trigger engine foundation, V4 task 002 is complete for the trigger management UI, V4 task 003 is complete for update-field trigger actions, V4 task 004 is complete for manual failed-log retry recovery, V4 task 005 is complete for in-app notification trigger actions, and V4 task 006 is complete for notification inbox/read state.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should continue with richer trigger actions, notification inbox/read APIs, automatic retry policies, or the next approved product slice.
+Next concrete work should continue with richer trigger actions, notification badges/preferences, automatic retry policies, or the next approved product slice.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

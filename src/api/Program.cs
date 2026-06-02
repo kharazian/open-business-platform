@@ -37,6 +37,7 @@ builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddSingleton<PasswordResetTokenGenerator>();
 builder.Services.AddSingleton<PasswordResetTokenHasher>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<NotificationQueryService>();
 builder.Services.AddScoped<IdentityManagementService>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<FormManagementService>();

@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, and in-app notification tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, and in-app notification tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -433,7 +433,7 @@ Indexes:
 - created_at
 - source_type + source_id
 
-V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. Notification inbox UI, unread counters, and read/unread APIs remain future work.
+V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. V4 task 006 uses `read_at` for current-user inbox read state, unread counts, single-notification read marking, and mark-all-read APIs. Push delivery, websockets, notification preferences, and admin notification management remain future work.
 
 ## Audit Logs
 

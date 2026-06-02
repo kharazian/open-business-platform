@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, and current-user notification inbox/read-state APIs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1129,6 +1129,58 @@ Exports all permitted report rows matching the saved report config and optional 
 ### Update permissions
 
 `PUT /api/permissions`
+
+## Notifications V4
+
+Notification inbox APIs require authentication and always use the authenticated current user id. They do not expose cross-user notification browsing or mutation. Bootstrap/setup identities that do not map to a persisted user `Guid` receive an empty inbox and unread count.
+
+### List current-user notifications
+
+`GET /api/notifications`
+
+Response: `200 OK` with `{ "items": [...] }`, ordered newest first.
+
+Notification item shape:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "title": "HR record needs review",
+  "body": "Open the record and review the submitted details.",
+  "sourceType": "Record",
+  "sourceId": "00000000-0000-0000-0000-000000000000",
+  "triggerId": "00000000-0000-0000-0000-000000000000",
+  "triggerLogId": "00000000-0000-0000-0000-000000000000",
+  "actionId": "notify-1",
+  "metadata": { "recordId": "00000000-0000-0000-0000-000000000000" },
+  "readAt": null,
+  "createdAt": "2026-06-02T17:00:00Z"
+}
+```
+
+### Get unread count
+
+`GET /api/notifications/unread-count`
+
+Response: `200 OK`.
+
+```json
+{
+  "unreadCount": 3
+}
+```
+
+### Mark one notification read
+
+`POST /api/notifications/{notificationId}/read`
+
+Marks the current user's notification as read and returns the updated notification. Missing notifications, including notifications owned by another user, return `404 Not Found`.
+
+### Mark all notifications read
+
+`POST /api/notifications/read-all`
+
+Marks all unread notifications for the current user as read and returns the remaining unread count.
 
 ## Triggers V4
 

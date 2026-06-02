@@ -138,9 +138,14 @@ function NavbarActions({
 }) {
   return (
     <>
-      <Button variant="outline" size="icon" className="shrink-0" aria-label="Notifications" title="Notifications">
+      <Link
+        className="control-transition inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card/90 text-foreground outline-none ring-primary/20 hover:bg-muted focus-visible:ring-4"
+        to="/notifications"
+        aria-label="Notifications"
+        title="Notifications"
+      >
         <Bell className="size-4 shrink-0" />
-      </Button>
+      </Link>
 
       {showSettingsButton ? <SettingsButton /> : null}
 

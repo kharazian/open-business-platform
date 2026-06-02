@@ -570,6 +570,14 @@ AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionS
 AssertNotNull(typeof(TriggerEventDispatcher).GetMethod(nameof(TriggerEventDispatcher.DispatchAsync)), "Trigger dispatcher should dispatch event contexts.");
 AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");
 AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record mutation should receive the trigger dispatcher.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.ListForUserAsync)), "Notification service should list current-user notifications.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.GetUnreadCountAsync)), "Notification service should count unread notifications.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.MarkReadAsync)), "Notification service should mark one notification read.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.MarkAllReadAsync)), "Notification service should mark all current-user notifications read.");
+AssertTypeAssignable<IPlatformApiModule, NotificationsModule>();
+AssertTrue(new NotificationsModule().Id == "app.notifications", "Notifications module should expose a stable module id.");
+AssertNotNull(typeof(NotificationDto).GetProperty(nameof(NotificationDto.ReadAt)), "Notification DTO should expose read state.");
+AssertNotNull(typeof(NotificationUnreadCountDto).GetProperty(nameof(NotificationUnreadCountDto.UnreadCount)), "Notification unread count DTO should expose unread count.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

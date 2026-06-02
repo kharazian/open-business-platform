@@ -9,7 +9,8 @@ V4 starts the trigger engine and shared action foundation.
 3. `003-update-field-trigger-action.md` - safe current-record field update action. Completed for the current action slice.
 4. `004-trigger-retry-recovery.md` - manual failed-log retry recovery. Completed for the current recovery slice.
 5. `005-in-app-notification-trigger-action.md` - database-backed in-app notification action. Completed for the current action slice.
-6. Additional actions and automatic retry behavior - later V4 task.
+6. `006-notification-inbox-read-state.md` - current-user notification inbox APIs and real notifications page. Completed for the current inbox slice.
+7. Additional actions, notification preferences/badges, and automatic retry behavior - later V4 tasks.
 
 ## Scope Rules
 
