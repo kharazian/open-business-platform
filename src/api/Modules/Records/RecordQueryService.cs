@@ -96,6 +96,7 @@ public sealed class RecordQueryService
         }
 
         var fieldAccess = await permissionService.GetFieldAccessAsync(principal, record.FormId, cancellationToken);
+        var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
 
         return new FormRecordDetailDto(
             record.Id,
@@ -107,7 +108,7 @@ public sealed class RecordQueryService
             record.AssignedToUserId,
             record.AssignedGroupId,
             MaskValues(DeserializeValues(record.ValuesJson), fieldAccess.HiddenFieldIds),
-            schema,
+            visibleSchema,
             fieldAccess.ReadOnlyFieldIds.ToArray(),
             record.ConcurrencyStamp,
             record.CreatedAt,
@@ -160,6 +161,48 @@ public sealed class RecordQueryService
         return values
             .Where(pair => !hiddenFieldIds.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
+        FormSchemaDefinition schema,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return schema;
+        }
+
+        return schema with
+        {
+            Fields = schema.Fields
+                .Where(field => !hiddenFieldIds.Contains(field.Id))
+                .ToArray(),
+            Layout = RemoveHiddenFieldsFromLayout(schema.Layout, hiddenFieldIds)
+        };
+    }
+
+    private static FormLayoutDefinition RemoveHiddenFieldsFromLayout(
+        FormLayoutDefinition layout,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        return layout with
+        {
+            Pages = layout.Pages.Select(page => page with
+            {
+                Sections = page.Sections.Select(section => section with
+                {
+                    Rows = section.Rows.Select(row => row with
+                    {
+                        Columns = row.Columns.Select(column => column with
+                        {
+                            Fields = column.Fields
+                                .Where(fieldId => !hiddenFieldIds.Contains(fieldId))
+                                .ToArray()
+                        }).ToArray()
+                    }).ToArray()
+                }).ToArray()
+            }).ToArray()
+        };
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)

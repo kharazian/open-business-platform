@@ -154,6 +154,7 @@ public static class FormsEndpoints
         CancellationToken cancellationToken)
     {
         return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Menu.Forms, cancellationToken)
+            || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Menu.Reports, cancellationToken)
             || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.Create, cancellationToken)
             || await permissionService.CanAsync(httpContext.User, PlatformPermissions.Forms.ManageAll, cancellationToken);
     }

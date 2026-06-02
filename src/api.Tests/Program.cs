@@ -291,6 +291,27 @@ AssertNotNull(typeof(AssignRecordRequest), "Records should expose an assignment 
 AssertNotNull(typeof(ChangeRecordStatusRequest), "Records should expose a status change request contract.");
 AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ExecuteListReportAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Report execution should receive the current principal.");
 AssertNotNull(typeof(ChartAggregationService).GetMethod(nameof(ChartAggregationService.PreviewAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Chart previews should receive the current principal.");
+var reportRecordAccessAction = typeof(ReportManagementService).GetMethod(
+    "GetRecordAccessActionForReportOperation",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(reportRecordAccessAction, "Report management should resolve distinct record scopes for report run and CSV export.");
+AssertEqual(
+    PlatformPermissions.Form.View,
+    (string)reportRecordAccessAction!.Invoke(null, new object[] { false })!,
+    "Report runs should filter records through view scope.");
+AssertEqual(
+    PlatformPermissions.Form.Export,
+    (string)reportRecordAccessAction.Invoke(null, new object[] { true })!,
+    "CSV exports should filter records through export scope.");
+var chartSourceReportConfig = typeof(ChartAggregationService).GetMethod(
+    "GetSourceReportConfigAsync",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+AssertNotNull(chartSourceReportConfig, "Chart preview should resolve source report configs through a dedicated helper.");
+var chartSourceReportConfigParameters = chartSourceReportConfig!.GetParameters().Select(parameter => parameter.ParameterType).ToArray();
+AssertTrue(
+    chartSourceReportConfigParameters.Contains(typeof(ClaimsPrincipal))
+        && chartSourceReportConfigParameters.Contains(typeof(PermissionService)),
+    "Chart source report configs should receive the current principal and permission service for report-level checks.");
 
 var pagedResult = new PagedResultDto<string>(2, new[] { "first", "second" });
 AssertEqual(2, pagedResult.TotalCount, "Paged results should expose total count.");
@@ -656,6 +677,55 @@ var mergedProtectedValues = (IReadOnlyDictionary<string, object?>)mergeProtected
 AssertEqual("Jordan Lee", mergedProtectedValues["employee_name"], "Record updates should keep editable submitted values.");
 AssertEqual("jane@company.test", mergedProtectedValues["email"], "Record updates should preserve omitted read-only values.");
 AssertEqual(100000, Convert.ToInt32(mergedProtectedValues["salary"]), "Record updates should preserve omitted hidden values.");
+var removeHiddenFieldsFromSchema = typeof(RecordQueryService).GetMethod(
+    "RemoveHiddenFieldsFromSchema",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(removeHiddenFieldsFromSchema, "Record detail should remove hidden field metadata from returned schemas.");
+var sensitiveSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("employee_name", FormFieldTypes.Text, "Employee name", Required: true),
+        new FormFieldDefinition("salary", FormFieldTypes.Number, "Salary")
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            "Employee",
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition(
+                    "section_1",
+                    null,
+                    null,
+                    new[]
+                    {
+                        new FormLayoutRowDefinition(
+                            "row_1",
+                            new[]
+                            {
+                                new FormLayoutColumnDefinition(
+                                    "column_1",
+                                    new ResponsiveSpanDefinition(12, 12, 12),
+                                    new[] { "employee_name", "salary" })
+                            })
+                    })
+            })
+    }));
+var sanitizedSchema = (FormSchemaDefinition)removeHiddenFieldsFromSchema!.Invoke(
+    null,
+    new object[]
+    {
+        sensitiveSchema,
+        new HashSet<string>(new[] { "salary" }, StringComparer.Ordinal)
+    })!;
+AssertFalse(sanitizedSchema.Fields.Any(field => field.Id == "salary"), "Hidden fields should be removed from record detail schemas.");
+AssertSequenceEqual(
+    new[] { "employee_name" },
+    sanitizedSchema.Layout.Pages.Single().Sections.Single().Rows.Single().Columns.Single().Fields,
+    "Hidden fields should be removed from record detail layout references.");
 
 var reportingSchema = publishableSchema with
 {

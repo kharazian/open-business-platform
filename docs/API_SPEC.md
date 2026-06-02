@@ -65,7 +65,7 @@ Metrics are counted from PostgreSQL. Users count active users, forms/reports cou
 
 `POST /api/forms/{formId}/chart-widgets/preview`
 
-Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and any V3 record scope attached to the user's form grant.
+Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and any V3 record scope attached to the user's form grant. If `reportId` is supplied, the user must also have report `view` access to that source report.
 
 Runs a non-persisted chart widget config against permitted form records. `reportId` is optional; when supplied, the saved list report's filters are used as the chart source. V3 record scopes limit the record set, and hidden field rules remove fields from table columns, source report filters, and source report sorts. A chart request that directly references a hidden metric, group, or date field returns `403 Forbidden`.
 
@@ -108,7 +108,7 @@ Table widgets return `columns` and `rows` with display-ready cells instead of `s
 
 `GET /api/forms/{formId}/reports/{reportId}/export.csv`
 
-Requires authentication plus `menu.reports`, form `view` access, and report `export` access. Exports all permitted report rows matching the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order after hidden field rules are applied. Export requests write a `report_exported` audit log entry after the report is resolved.
+Requires authentication plus `menu.reports`, form `export` access, and report `export` access. Exports all rows allowed by the user's scoped `export` record access that match the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order after hidden field rules are applied. Export requests write a `report_exported` audit log entry after the report is resolved.
 
 Query parameters:
 

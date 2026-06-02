@@ -89,7 +89,7 @@ public static class ReportsEndpoints
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken)
+            if (!await CanExportReportsAsync(permissionService, httpContext, formId, cancellationToken)
                 || !await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.Export, cancellationToken))
             {
                 return Results.Forbid();
@@ -134,6 +134,16 @@ public static class ReportsEndpoints
     {
         return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Reports.Manage, cancellationToken)
             && await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Manage, cancellationToken);
+    }
+
+    private static async Task<bool> CanExportReportsAsync(
+        PermissionService permissionService,
+        HttpContext httpContext,
+        Guid formId,
+        CancellationToken cancellationToken)
+    {
+        return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Menu.Reports, cancellationToken)
+            && await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Export, cancellationToken);
     }
 
     private static async Task<IResult> HandleReportRequestAsync(Func<Task<IResult>> action)

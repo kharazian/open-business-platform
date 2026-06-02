@@ -86,7 +86,7 @@ Per-form actions:
 
 The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
 
-V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation. V3 report run/export endpoints also use report-level view/export/manage grants when explicit report permissions exist.
+V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation. V3 report run/export endpoints also use report-level view/export/manage grants when explicit report permissions exist. Report runs filter rows through scoped form `view` access; CSV exports require and filter rows through scoped form `export` access.
 
 ## Implemented V3 Record Scopes
 

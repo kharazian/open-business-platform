@@ -10,13 +10,14 @@ import { Input } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Table, type TableColumn } from "../../../components/ui/Table";
-import { getForm, listForms, type FormDetail } from "../../forms/api";
+import { listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
+import { loadReportWorkspace } from "../workspace";
 import {
   type ListReportExecution,
   type ListReportExecutionRow,
@@ -112,12 +113,12 @@ export function ReportsPage() {
     setExecutedReportSearch("");
     setReportPage(1);
 
-    Promise.all([getForm(selectedFormId), listReports(selectedFormId)])
-      .then(([form, reportItems]) => {
+    loadReportWorkspace(selectedFormId)
+      .then((workspace) => {
         if (!active) return;
-        setFormDetail(form);
-        setReports(reportItems);
-        setReportName((current) => current || `${form.name} list`);
+        setFormDetail(workspace.formDetail);
+        setReports(workspace.reports);
+        setReportName((current) => current || `${workspace.formDetail?.name ?? forms.find((form) => form.id === selectedFormId)?.name ?? "Form"} list`);
       })
       .catch((caught: unknown) => {
         if (!active) return;
@@ -134,7 +135,7 @@ export function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [selectedFormId]);
+  }, [forms, selectedFormId]);
 
   const fieldOptions = useMemo(() => (formDetail ? getReportFieldOptions(formDetail.draftSchema) : []), [formDetail]);
 

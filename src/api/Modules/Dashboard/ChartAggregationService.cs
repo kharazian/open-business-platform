@@ -52,7 +52,14 @@ public sealed class ChartAggregationService
 
         var fieldAccess = await permissionService.GetFieldAccessAsync(principal, formId, cancellationToken);
         var sanitizedRequest = EnsureVisibleConfig(request, fieldAccess.HiddenFieldIds);
-        var sourceReportConfig = await GetSourceReportConfigAsync(formId, request.ReportId, schema, fieldAccess.HiddenFieldIds, cancellationToken);
+        var sourceReportConfig = await GetSourceReportConfigAsync(
+            principal,
+            permissionService,
+            formId,
+            request.ReportId,
+            schema,
+            fieldAccess.HiddenFieldIds,
+            cancellationToken);
         var scopedRecordsQuery = await permissionService.ApplyRecordAccessAsync(
             principal,
             dbContext.Records.AsNoTracking().Where(record => record.FormId == formId && !record.IsDeleted && record.Status != RecordStatuses.Deleted),
@@ -66,6 +73,8 @@ public sealed class ChartAggregationService
     }
 
     private async Task<ListReportConfigDefinition?> GetSourceReportConfigAsync(
+        ClaimsPrincipal principal,
+        PermissionService permissionService,
         Guid formId,
         Guid? reportId,
         FormSchemaDefinition schema,
@@ -75,6 +84,11 @@ public sealed class ChartAggregationService
         if (reportId is null)
         {
             return null;
+        }
+
+        if (!await permissionService.CanAccessReportAsync(principal, reportId.Value, PlatformPermissions.Report.View, cancellationToken))
+        {
+            throw new ChartAggregationException(StatusCodes.Status403Forbidden, "Source report access was denied.");
         }
 
         var report = await dbContext.Reports

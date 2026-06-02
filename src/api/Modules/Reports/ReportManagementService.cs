@@ -104,7 +104,13 @@ public sealed class ReportManagementService
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
-        var executionContext = await LoadReportExecutionContextAsync(principal, formId, reportId, permissionService, cancellationToken);
+        var executionContext = await LoadReportExecutionContextAsync(
+            principal,
+            formId,
+            reportId,
+            GetRecordAccessActionForReportOperation(isCsvExport: false),
+            permissionService,
+            cancellationToken);
 
         return ListReportExecutionEngine.Execute(
             executionContext.Report.Id,
@@ -126,7 +132,13 @@ public sealed class ReportManagementService
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
-        var executionContext = await LoadReportExecutionContextAsync(principal, formId, reportId, permissionService, cancellationToken);
+        var executionContext = await LoadReportExecutionContextAsync(
+            principal,
+            formId,
+            reportId,
+            GetRecordAccessActionForReportOperation(isCsvExport: true),
+            permissionService,
+            cancellationToken);
         var report = ListReportExecutionEngine.ExecuteAll(
             executionContext.Report.Id,
             executionContext.Report.FormId,
@@ -147,6 +159,7 @@ public sealed class ReportManagementService
         ClaimsPrincipal principal,
         Guid formId,
         Guid reportId,
+        string recordAction,
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
@@ -188,12 +201,17 @@ public sealed class ReportManagementService
             principal,
             dbContext.Records.AsNoTracking().Where(record => record.FormId == formId && !record.IsDeleted),
             formId,
-            PlatformPermissions.Form.View,
+            recordAction,
             cancellationToken);
         var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
 
         return new ListReportExecutionContext(report, schema, RemoveHiddenColumns(config, fieldAccess.HiddenFieldIds), records);
+    }
+
+    private static string GetRecordAccessActionForReportOperation(bool isCsvExport)
+    {
+        return isCsvExport ? PlatformPermissions.Form.Export : PlatformPermissions.Form.View;
     }
 
     private static ListReportSummaryDto ToSummaryDto(ReportDefinition report)

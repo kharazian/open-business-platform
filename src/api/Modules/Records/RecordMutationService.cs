@@ -85,7 +85,11 @@ public sealed class RecordMutationService
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return ToDetailDto(record, MaskValues(effectiveValues, fieldAccess.HiddenFieldIds), schema, fieldAccess.ReadOnlyFieldIds);
+        return ToDetailDto(
+            record,
+            MaskValues(effectiveValues, fieldAccess.HiddenFieldIds),
+            RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds),
+            fieldAccess.ReadOnlyFieldIds);
     }
 
     public async Task<bool> DeleteRecordAsync(
@@ -269,7 +273,7 @@ public sealed class RecordMutationService
         return ToDetailDto(
             record,
             MaskValues(DeserializeValues(record.ValuesJson), fieldAccess.HiddenFieldIds),
-            schema,
+            RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds),
             fieldAccess.ReadOnlyFieldIds);
     }
 
@@ -347,6 +351,48 @@ public sealed class RecordMutationService
         return values
             .Where(pair => !hiddenFieldIds.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
+    private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
+        FormSchemaDefinition schema,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return schema;
+        }
+
+        return schema with
+        {
+            Fields = schema.Fields
+                .Where(field => !hiddenFieldIds.Contains(field.Id))
+                .ToArray(),
+            Layout = RemoveHiddenFieldsFromLayout(schema.Layout, hiddenFieldIds)
+        };
+    }
+
+    private static FormLayoutDefinition RemoveHiddenFieldsFromLayout(
+        FormLayoutDefinition layout,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        return layout with
+        {
+            Pages = layout.Pages.Select(page => page with
+            {
+                Sections = page.Sections.Select(section => section with
+                {
+                    Rows = section.Rows.Select(row => row with
+                    {
+                        Columns = row.Columns.Select(column => column with
+                        {
+                            Fields = column.Fields
+                                .Where(fieldId => !hiddenFieldIds.Contains(fieldId))
+                                .ToArray()
+                        }).ToArray()
+                    }).ToArray()
+                }).ToArray()
+            }).ToArray()
+        };
     }
 
     private static Guid? NormalizeNullableId(Guid? value)
