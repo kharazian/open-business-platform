@@ -123,24 +123,30 @@ Features:
 
 Goal: automate safe, auditable actions after data changes.
 
-Features:
+Implemented foundation:
 
-- Trigger list
-- Trigger builder
 - Event-based triggers
 - On record created
 - On record updated
 - On field changed
 - On status changed
+- On record assigned
 - Conditions
 - Action engine foundation
-- Email/in-app notifications
-- Update fields
+- Audit entry action
+- Send email action
 - Change status
 - Assign users
+- Trigger logs
+
+Future V4 work:
+
+- Trigger list UI
+- Trigger builder UI
+- In-app notifications
+- Update fields
 - Create related records
 - Webhook call
-- Trigger logs
 - Retry failed triggers later
 - Scheduled triggers later in the automation/integration path
 

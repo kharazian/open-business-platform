@@ -47,6 +47,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<DashboardDefinition> Dashboards => Set<DashboardDefinition>();
 
+    public DbSet<TriggerDefinition> Triggers => Set<TriggerDefinition>();
+
+    public DbSet<TriggerExecutionLog> TriggerLogs => Set<TriggerExecutionLog>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -83,6 +87,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureRecords(modelBuilder);
         ConfigureReports(modelBuilder);
         ConfigureDashboards(modelBuilder);
+        ConfigureTriggers(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -491,6 +496,63 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(dashboard => dashboard.Description).HasColumnName("description").HasMaxLength(1000);
             entity.Property(dashboard => dashboard.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
             entity.Property(dashboard => dashboard.LayoutJson).HasColumnName("layout_json").HasColumnType("jsonb").IsRequired();
+        });
+    }
+
+    private static void ConfigureTriggers(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<TriggerDefinition>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "triggers");
+            entity.HasIndex(trigger => trigger.FormId);
+            entity.HasIndex(trigger => trigger.EventName);
+            entity.HasIndex(trigger => trigger.IsEnabled);
+            entity.Property(trigger => trigger.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(trigger => trigger.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(trigger => trigger.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(trigger => trigger.EventName).HasColumnName("event_name").HasMaxLength(80).IsRequired();
+            entity.Property(trigger => trigger.ConditionsJson).HasColumnName("conditions_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(trigger => trigger.ActionsJson).HasColumnName("actions_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(trigger => trigger.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(true);
+            entity
+                .HasOne(trigger => trigger.Form)
+                .WithMany()
+                .HasForeignKey(trigger => trigger.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TriggerExecutionLog>(entity =>
+        {
+            entity.ToTable("trigger_logs");
+            entity.HasKey(log => log.Id);
+            entity.HasIndex(log => log.TriggerId);
+            entity.HasIndex(log => log.FormId);
+            entity.HasIndex(log => log.EventName);
+            entity.HasIndex(log => new { log.EntityType, log.EntityId });
+            entity.HasIndex(log => log.CreatedAt);
+            entity.Property(log => log.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(log => log.TriggerId).HasColumnName("trigger_id").HasColumnType("uuid").IsRequired();
+            entity.Property(log => log.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(log => log.EventName).HasColumnName("event_name").HasMaxLength(80).IsRequired();
+            entity.Property(log => log.EntityType).HasColumnName("entity_type").HasMaxLength(80).IsRequired();
+            entity.Property(log => log.EntityId).HasColumnName("entity_id").HasColumnType("uuid").IsRequired();
+            entity.Property(log => log.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(log => log.InputJson).HasColumnName("input_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(log => log.ResultJson).HasColumnName("result_json").HasColumnType("jsonb");
+            entity.Property(log => log.ErrorMessage).HasColumnName("error_message").HasMaxLength(2000);
+            entity.Property(log => log.StartedAt).HasColumnName("started_at").IsRequired();
+            entity.Property(log => log.CompletedAt).HasColumnName("completed_at");
+            entity.Property(log => log.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity
+                .HasOne(log => log.Trigger)
+                .WithMany()
+                .HasForeignKey(log => log.TriggerId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(log => log.Form)
+                .WithMany()
+                .HasForeignKey(log => log.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

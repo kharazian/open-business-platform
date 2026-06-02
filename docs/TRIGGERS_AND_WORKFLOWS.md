@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: planned. Do not implement triggers or workflows before the report/data spine and validation-rule foundations are stable unless a task explicitly says so.
+Status: V4 task 001 backend trigger foundation is implemented. Trigger builder UI, scheduled triggers, webhooks, retries, workflows, approvals, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -38,6 +38,8 @@ Draft -> Submitted -> Manager Review -> Finance Review -> Approved
 
 ## Trigger Engine V4
 
+The V4 task 001 backend foundation stores trigger definitions per form, stores trigger execution logs, exposes management APIs, and dispatches record events after the primary record transaction succeeds.
+
 Trigger structure:
 
 ```txt
@@ -50,11 +52,11 @@ then execute actions.
 
 - record.created
 - record.updated
-- record.deleted
 - field.changed
 - status.changed
-- form.submitted
 - record.assigned
+- record.deleted later
+- form.submitted later
 - comment.added
 - schedule.daily later
 - schedule.weekly later
@@ -66,19 +68,22 @@ then execute actions.
 - Field equals value
 - Field changed
 - Status changed to value
-- Amount greater than value
 - Department equals value
-- User belongs to group
-- Date before/after
+- Assigned user
+- Assigned group
+- Amount greater than value later
+- User belongs to group later
+- Date before/after later
 
 ## Trigger Actions
 
 - Send email
-- Send notification
-- Update field
 - Change status
 - Assign user
 - Assign group
+- Add audit entry
+- Send notification later
+- Update field later
 - Create record
 - Update related record
 - Add comment

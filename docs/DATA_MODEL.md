@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V3 database foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, and trigger log tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -17,9 +17,10 @@ The current migrations include:
 - `forms`, `form_versions`
 - `records`
 - `reports`
+- `triggers`, `trigger_logs`
 - `audit_logs`
 
-Triggers, trigger logs, and print templates remain target tables for later tasks.
+Print templates remain target tables for later tasks.
 
 Recommended approach:
 
@@ -354,13 +355,28 @@ Fields:
 - id
 - form_id
 - name
+- description
 - event_name
 - conditions_json JSONB
 - actions_json JSONB
 - is_enabled
+- concurrency_stamp
+- extra_properties_json JSONB
 - created_by_id
 - created_at
+- updated_by_id
 - updated_at
+- is_deleted
+- deleted_at
+- deleted_by_id
+
+Indexes:
+
+- form_id
+- event_name
+- is_enabled
+
+`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
 
 ### trigger_logs
 
@@ -368,6 +384,7 @@ Fields:
 
 - id
 - trigger_id
+- form_id
 - event_name
 - entity_type
 - entity_id
@@ -377,6 +394,17 @@ Fields:
 - error_message
 - started_at
 - completed_at
+- created_at
+
+Indexes:
+
+- trigger_id
+- form_id
+- event_name
+- entity_type + entity_id
+- created_at
+
+Trigger logs persist matching trigger executions. The first V4 slice does not write skipped logs by default for non-matching triggers. Action failures write failed logs and do not roll back the original record change that dispatched the trigger event.
 
 ## Audit Logs
 

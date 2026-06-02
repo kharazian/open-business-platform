@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Triggers;
 
 namespace OpenBusinessPlatform.Api.Modules.Records;
 
@@ -10,10 +11,12 @@ public sealed class RecordSubmissionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
+    private readonly TriggerEventDispatcher triggerDispatcher;
 
-    public RecordSubmissionService(OpenBusinessPlatformDbContext dbContext)
+    public RecordSubmissionService(OpenBusinessPlatformDbContext dbContext, TriggerEventDispatcher triggerDispatcher)
     {
         this.dbContext = dbContext;
+        this.triggerDispatcher = triggerDispatcher;
     }
 
     public async Task<FormRecordDto> SubmitRecordAsync(
@@ -77,6 +80,23 @@ public sealed class RecordSubmissionService
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
+        var snapshot = ToTriggerSnapshot(record, request.Values);
+        await triggerDispatcher.DispatchAsync(new TriggerEventContext(
+            TriggerEvents.RecordCreated,
+            record.FormId,
+            record.Id,
+            submittedById,
+            null,
+            snapshot,
+            Array.Empty<string>(),
+            null,
+            record.Status,
+            null,
+            record.AssignedToUserId,
+            null,
+            record.AssignedGroupId,
+            DateTimeOffset.UtcNow), cancellationToken);
+
         return ToDto(record, request.Values);
     }
 
@@ -107,6 +127,19 @@ public sealed class RecordSubmissionService
             record.ConcurrencyStamp,
             record.CreatedAt,
             record.CreatedById);
+    }
+
+    private static TriggerRecordSnapshot ToTriggerSnapshot(FormRecord record, IReadOnlyDictionary<string, object?> values)
+    {
+        return new TriggerRecordSnapshot(
+            record.Id,
+            record.FormId,
+            record.Status,
+            record.OwnerId,
+            record.DepartmentId,
+            record.AssignedToUserId,
+            record.AssignedGroupId,
+            values);
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)

@@ -11,6 +11,7 @@ using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
+using OpenBusinessPlatform.Api.Modules.Triggers;
 using OpenBusinessPlatform.Api.Platform;
 using Scalar.AspNetCore;
 
@@ -43,6 +44,10 @@ builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<ReportManagementService>();
+builder.Services.AddScoped<TriggerDefinitionService>();
+builder.Services.AddScoped<TriggerActionRegistry>();
+builder.Services.AddScoped<TriggerExecutionService>();
+builder.Services.AddScoped<TriggerEventDispatcher>();
 builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();
 builder.Services.AddScoped<DashboardDefinitionService>();

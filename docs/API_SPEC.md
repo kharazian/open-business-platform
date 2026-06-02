@@ -1132,21 +1132,82 @@ Exports all permitted report rows matching the saved report config and optional 
 
 ## Triggers V4
 
+Trigger APIs require authentication. All trigger management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`.
+
+Supported V4 task 001 events are `record.created`, `record.updated`, `field.changed`, `status.changed`, and `record.assigned`.
+
+Supported condition types are:
+
+- `field_equals`: `{ "type": "field_equals", "fieldId": "department", "value": "HR" }`
+- `field_changed`: `{ "type": "field_changed", "fieldId": "email" }`
+- `status_changed_to`: `{ "type": "status_changed_to", "status": "submitted" }`
+- `department_equals`: `{ "type": "department_equals", "departmentId": "..." }`
+- `assigned_to_user`: `{ "type": "assigned_to_user", "userId": "..." }`
+- `assigned_to_group`: `{ "type": "assigned_to_group", "groupId": "..." }`
+
+Supported action types are:
+
+- `write_audit_entry`: writes an audit entry connected to the current record.
+- `send_email`: sends one email per recipient through the configured email sender.
+- `change_status`: changes the current record status without recursive trigger dispatch.
+- `assign_record`: assigns the current record to one user or one group without recursive trigger dispatch.
+
 ### List triggers
 
 `GET /api/forms/{formId}/triggers`
+
+Requires form `manage` or `forms.manage_all` access. Response: `200 OK` with `{ "items": [...] }`.
 
 ### Create trigger
 
 `POST /api/forms/{formId}/triggers`
 
+Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced form fields, active assignment targets, and email action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
+
+Request:
+
+```json
+{
+  "name": "Route HR submissions",
+  "description": "Notify HR and move the record to review.",
+  "eventName": "record.created",
+  "conditions": {
+    "mode": "all",
+    "conditions": [
+      { "type": "field_equals", "fieldId": "department", "value": "HR" }
+    ]
+  },
+  "actions": [
+    {
+      "id": "audit-1",
+      "type": "write_audit_entry",
+      "message": "HR trigger matched."
+    },
+    {
+      "id": "status-1",
+      "type": "change_status",
+      "status": "in_review"
+    }
+  ],
+  "isEnabled": true
+}
+```
+
+Response: `201 Created` with the saved trigger detail.
+
 ### Update trigger
 
 `PUT /api/triggers/{triggerId}`
 
+Requires form `manage` or `forms.manage_all` access for the trigger's form. The request shape matches create and also requires `concurrencyStamp`. Updating writes `trigger_updated`; changing from enabled to disabled also writes `trigger_disabled`.
+
 ### Trigger logs
 
 `GET /api/triggers/{triggerId}/logs`
+
+Requires form `manage` or `forms.manage_all` access for the trigger's form. Response: `200 OK` with `{ "items": [...] }`, ordered newest first. Matching trigger executions write `success` or `failed` logs with input/result JSON and error message. Non-matching triggers do not write noisy skipped logs in this first slice.
+
+Record submission dispatches `record.created`. Record edits dispatch `record.updated` and dispatch `field.changed` when values changed. Record status changes dispatch `status.changed`. Record assignment changes dispatch `record.assigned`. Trigger execution failures are logged and do not roll back the original record mutation.
 
 ## API Rules
 
@@ -1154,4 +1215,4 @@ Exports all permitted report rows matching the saved report config and optional 
 - All record APIs must check permissions.
 - Hidden fields must not be returned to unauthorized users.
 - Mutating APIs should write audit logs.
-- Record create/update APIs should eventually dispatch trigger events.
+- Record create/update/status/assignment APIs dispatch V4 trigger events after the primary record transaction succeeds.

@@ -14,6 +14,7 @@ using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
+using OpenBusinessPlatform.Api.Modules.Triggers;
 using OpenBusinessPlatform.Api.Platform;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
@@ -112,6 +113,8 @@ AssertTable<FormVersion>(model, "form_versions");
 AssertTable<FormRecord>(model, "records");
 AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
+AssertTable<TriggerDefinition>(model, "triggers");
+AssertTable<TriggerExecutionLog>(model, "trigger_logs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -129,6 +132,8 @@ AssertTypeAssignable<CreationAuditedEntity<Guid>, FormVersion>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormRecord>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, DashboardDefinition>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, TriggerDefinition>();
+AssertTypeAssignable<Entity<Guid>, TriggerExecutionLog>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -145,6 +150,8 @@ AssertGuidId<FormVersion>(model);
 AssertGuidId<FormRecord>(model);
 AssertGuidId<ReportDefinition>(model);
 AssertGuidId<DashboardDefinition>(model);
+AssertGuidId<TriggerDefinition>(model);
+AssertGuidId<TriggerExecutionLog>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -164,6 +171,10 @@ AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ValuesJson));
 AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ConfigJson));
 AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ConfigJson));
 AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.LayoutJson));
+AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ConditionsJson));
+AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ActionsJson));
+AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.InputJson));
+AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.ResultJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -174,6 +185,7 @@ AssertJsonColumn<FormDefinition>(model, nameof(FormDefinition.ExtraPropertiesJso
 AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ExtraPropertiesJson));
 AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertiesJson));
 AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ExtraPropertiesJson));
+AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -200,6 +212,14 @@ AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.Type) }, "R
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.CreatedById) }, "Reports should be indexed by creator.");
 AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.CreatedById) }, "Dashboards should be indexed by creator.");
 AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.Name) }, "Dashboards should be indexed by name.");
+AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.FormId) }, "Triggers should be indexed by form.");
+AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.EventName) }, "Triggers should be indexed by event.");
+AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.IsEnabled) }, "Triggers should be indexed by enabled state.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.TriggerId) }, "Trigger logs should be indexed by trigger.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.FormId) }, "Trigger logs should be indexed by form.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EventName) }, "Trigger logs should be indexed by event.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EntityType), nameof(TriggerExecutionLog.EntityId) }, "Trigger logs should be indexed by entity.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.CreatedAt) }, "Trigger logs should be indexed by creation time.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId) }, "Role form permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.FormId) }, "Role form permissions should be indexed by form.");
@@ -240,6 +260,64 @@ AssertEqual(4, DemoDataSeeder.DemoUsers.Count, "Demo seed data should include ad
 AssertEqual(3, DemoDataSeeder.DemoDepartments.Count, "Demo seed data should include HR, Finance, and Operations departments.");
 AssertEqual(10, DemoDataSeeder.DemoEmployeeRecords.Count, "Demo seed data should include ten employee records.");
 
+var validTriggerConditions = new TriggerConditionGroupDefinition(
+    TriggerConditionModes.All,
+    new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "department", "HR") });
+var validTriggerActions = new[]
+{
+    new TriggerActionDefinition("action-1", TriggerActionTypes.WriteAuditEntry, "Trigger matched")
+};
+AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
+AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("New hire audit", null, TriggerEvents.RecordCreated, validTriggerConditions, validTriggerActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A valid trigger definition should pass validation.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("", null, "record.deleted", validTriggerConditions, validTriggerActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject missing names and unsupported events.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Bad field",
+            null,
+            TriggerEvents.RecordCreated,
+            new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "missing", "HR") }),
+            validTriggerActions,
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject conditions that reference missing fields.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing equality value",
+            null,
+            TriggerEvents.RecordCreated,
+            new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "department") }),
+            validTriggerActions,
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject field equality conditions without a comparison value.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Duplicate action", null, TriggerEvents.RecordCreated, validTriggerConditions, new[] { validTriggerActions[0], validTriggerActions[0] }, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject duplicate action ids.");
+
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Reports.Manage), "Built-in permissions should include report management.");
@@ -267,6 +345,68 @@ var filteredRecords = RecordAccessEvaluator
     .ToArray();
 AssertSequenceEqual(new[] { directRecord.Id, departmentRecord.Id, groupRecord.Id }, filteredRecords, "Record access scopes should combine with OR semantics.");
 
+var triggerBeforeSnapshot = new TriggerRecordSnapshot(
+    Guid.NewGuid(),
+    Guid.NewGuid(),
+    "draft",
+    accessUserId,
+    null,
+    null,
+    null,
+    new Dictionary<string, object?> { ["department"] = "Finance", ["email"] = "old@example.com" });
+var triggerAfterSnapshot = triggerBeforeSnapshot with
+{
+    Status = "submitted",
+    DepartmentId = accessDepartmentId,
+    AssignedGroupId = accessGroupId,
+    Values = new Dictionary<string, object?> { ["department"] = "HR", ["email"] = "new@example.com" }
+};
+var triggerEventContext = new TriggerEventContext(
+    TriggerEvents.FieldChanged,
+    triggerAfterSnapshot.FormId,
+    triggerAfterSnapshot.RecordId,
+    accessUserId,
+    triggerBeforeSnapshot,
+    triggerAfterSnapshot,
+    new[] { "department", "email" },
+    "draft",
+    "submitted",
+    null,
+    null,
+    null,
+    accessGroupId,
+    DateTimeOffset.UtcNow);
+AssertTrue(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "department", "HR") }),
+        triggerEventContext),
+    "field_equals should match after values.");
+AssertTrue(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldChanged, "email") }),
+        triggerEventContext),
+    "field_changed should match changed field ids.");
+AssertTrue(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.StatusChangedTo, Status: "submitted") }),
+        triggerEventContext),
+    "status_changed_to should match current status.");
+AssertTrue(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.DepartmentEquals, DepartmentId: accessDepartmentId) }),
+        triggerEventContext),
+    "department_equals should match after department.");
+AssertTrue(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.AssignedToGroup, GroupId: accessGroupId) }),
+        triggerEventContext),
+    "assigned_to_group should match current group assignment.");
+AssertFalse(
+    TriggerConditionEvaluator.Matches(
+        new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "department", "Operations") }),
+        triggerEventContext),
+    "all-mode groups should fail when a condition fails.");
+
 var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
 {
     new Claim(ClaimTypes.NameIdentifier, BootstrapAdminUserDirectory.BootstrapAdminId),
@@ -289,6 +429,19 @@ AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagem
 AssertNotNull(typeof(FormRecordDetailDto).GetProperty(nameof(FormRecordDetailDto.ReadOnlyFieldIds)), "Record detail should include read-only field IDs.");
 AssertNotNull(typeof(AssignRecordRequest), "Records should expose an assignment request contract.");
 AssertNotNull(typeof(ChangeRecordStatusRequest), "Records should expose a status change request contract.");
+AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitionService.ListTriggersAsync)), "Trigger service should list triggers.");
+AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitionService.CreateTriggerAsync)), "Trigger service should create triggers.");
+AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitionService.UpdateTriggerAsync)), "Trigger service should update triggers.");
+AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitionService.ListTriggerLogsAsync)), "Trigger service should list trigger logs.");
+AssertTypeAssignable<IPlatformApiModule, TriggersModule>();
+AssertTrue(new TriggersModule().Id == "app.triggers", "Trigger module should expose a stable module id.");
+AssertNotNull(typeof(TriggerActionRegistry).GetMethod(nameof(TriggerActionRegistry.ExecuteAsync)), "Trigger action registry should execute approved actions.");
+AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionService.ExecuteAsync)), "Trigger execution service should execute matching triggers.");
+AssertNotNull(typeof(TriggerEventDispatcher).GetMethod(nameof(TriggerEventDispatcher.DispatchAsync)), "Trigger dispatcher should dispatch event contexts.");
+AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");
+AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record mutation should receive the trigger dispatcher.");
+AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
+AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ExecuteListReportAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Report execution should receive the current principal.");
 AssertNotNull(typeof(ChartAggregationService).GetMethod(nameof(ChartAggregationService.PreviewAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Chart previews should receive the current principal.");
 var reportRecordAccessAction = typeof(ReportManagementService).GetMethod(
