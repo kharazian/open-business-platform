@@ -71,7 +71,10 @@ public static class TriggerDefinitionValidator
                 Body = NormalizeOptional(action.Body),
                 Status = NormalizeOptional(action.Status),
                 FieldId = NormalizeOptional(action.FieldId),
-                Value = NormalizeActionValue(action.Value)
+                Value = NormalizeActionValue(action.Value),
+                Title = NormalizeOptional(action.Title),
+                RecipientUserIds = NormalizeIds(action.RecipientUserIds),
+                RecipientGroupIds = NormalizeIds(action.RecipientGroupIds)
             })
             .ToArray();
     }
@@ -257,6 +260,9 @@ public static class TriggerDefinitionValidator
                     }
 
                     break;
+                case TriggerActionTypes.SendNotification:
+                    ValidateNotificationAction(action, activeUserIds, activeGroupIds, path, errors);
+                    break;
             }
         }
     }
@@ -286,6 +292,56 @@ public static class TriggerDefinitionValidator
         {
             errors.Add(Error($"{path}.assignedGroupId", "trigger.action.group_missing", "Assigned group is not active or was not found."));
         }
+    }
+
+    private static void ValidateNotificationAction(
+        TriggerActionDefinition action,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        var userIds = action.RecipientUserIds ?? Array.Empty<Guid>();
+        var groupIds = action.RecipientGroupIds ?? Array.Empty<Guid>();
+
+        if (string.IsNullOrWhiteSpace(action.Title))
+        {
+            errors.Add(Error($"{path}.title", "trigger.action.notification_title_required", "Notification title is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(action.Body))
+        {
+            errors.Add(Error($"{path}.body", "trigger.action.notification_body_required", "Notification body is required."));
+        }
+
+        if (userIds.Count == 0 && groupIds.Count == 0)
+        {
+            errors.Add(Error($"{path}.recipients", "trigger.action.notification_recipients_required", "Notification action requires at least one user or group recipient."));
+        }
+
+        foreach (var userId in userIds)
+        {
+            if (!activeUserIds.Contains(userId))
+            {
+                errors.Add(Error($"{path}.recipientUserIds", "trigger.action.notification_user_missing", "Notification recipient user is not active or was not found."));
+            }
+        }
+
+        foreach (var groupId in groupIds)
+        {
+            if (!activeGroupIds.Contains(groupId))
+            {
+                errors.Add(Error($"{path}.recipientGroupIds", "trigger.action.notification_group_missing", "Notification recipient group is not active or was not found."));
+            }
+        }
+    }
+
+    private static IReadOnlyList<Guid>? NormalizeIds(IReadOnlyList<Guid>? ids)
+    {
+        return ids?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
     }
 
     private static void ValidateKnownField(

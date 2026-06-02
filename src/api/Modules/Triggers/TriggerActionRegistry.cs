@@ -33,6 +33,7 @@ public sealed class TriggerActionRegistry
             TriggerActionTypes.ChangeStatus => await ExecuteChangeStatusAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.AssignRecord => await ExecuteAssignRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.UpdateField => await ExecuteUpdateFieldAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.SendNotification => await ExecuteSendNotificationAsync(action, context, triggerId, triggerLogId, cancellationToken),
             _ => throw new InvalidOperationException($"Trigger action type '{action.Type}' is not supported.")
         };
     }
@@ -146,6 +147,82 @@ public sealed class TriggerActionRegistry
         return Result(action, ("fieldId", action.FieldId), ("previousValue", previousValue), ("value", action.Value));
     }
 
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteSendNotificationAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        var recipientUserIds = await ResolveNotificationRecipientUserIdsAsync(action, cancellationToken);
+
+        if (recipientUserIds.Count == 0)
+        {
+            throw new InvalidOperationException("Notification action did not resolve any active recipients.");
+        }
+
+        foreach (var userId in recipientUserIds)
+        {
+            dbContext.Notifications.Add(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = action.Title ?? string.Empty,
+                Body = action.Body ?? string.Empty,
+                SourceType = "Record",
+                SourceId = context.RecordId,
+                TriggerId = triggerId,
+                TriggerLogId = triggerLogId,
+                ActionId = action.Id,
+                MetadataJson = BuildNotificationMetadata(triggerId, triggerLogId, action.Id, context)
+            });
+        }
+
+        return Result(
+            action,
+            ("notificationCount", recipientUserIds.Count),
+            ("recipientUserIds", recipientUserIds));
+    }
+
+    private async Task<IReadOnlyList<Guid>> ResolveNotificationRecipientUserIdsAsync(
+        TriggerActionDefinition action,
+        CancellationToken cancellationToken)
+    {
+        var requestedUserIds = (action.RecipientUserIds ?? Array.Empty<Guid>())
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+        var requestedGroupIds = (action.RecipientGroupIds ?? Array.Empty<Guid>())
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+
+        var directUserIds = requestedUserIds.Length == 0
+            ? Array.Empty<Guid>()
+            : await dbContext.Users
+                .AsNoTracking()
+                .Where(user => requestedUserIds.Contains(user.Id) && user.IsActive)
+                .Select(user => user.Id)
+                .ToArrayAsync(cancellationToken);
+        var groupUserIds = requestedGroupIds.Length == 0
+            ? Array.Empty<Guid>()
+            : await dbContext.UserGroups
+                .AsNoTracking()
+                .Where(userGroup =>
+                    requestedGroupIds.Contains(userGroup.GroupId)
+                    && userGroup.User != null
+                    && userGroup.User.IsActive
+                    && userGroup.Group != null
+                    && userGroup.Group.IsActive)
+                .Select(userGroup => userGroup.UserId)
+                .ToArrayAsync(cancellationToken);
+
+        return directUserIds
+            .Concat(groupUserIds)
+            .Distinct()
+            .ToArray();
+    }
+
     private async Task<FormRecord> LoadRecordAsync(Guid recordId, CancellationToken cancellationToken)
     {
         return await dbContext.Records
@@ -216,6 +293,23 @@ public sealed class TriggerActionRegistry
             triggerLogId,
             actionId,
             message
+        }, JsonOptions);
+    }
+
+    private static JsonDocument BuildNotificationMetadata(
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId,
+        TriggerEventContext context)
+    {
+        return JsonSerializer.SerializeToDocument(new
+        {
+            triggerId,
+            triggerLogId,
+            actionId,
+            formId = context.FormId,
+            recordId = context.RecordId,
+            eventName = context.EventName
         }, JsonOptions);
     }
 

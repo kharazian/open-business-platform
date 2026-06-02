@@ -143,10 +143,11 @@ Implemented foundation:
 - Trigger builder UI
 - Trigger logs UI
 - Manual retry for failed trigger logs
+- In-app notification action
 
 Future V4 work:
 
-- In-app notifications
+- Notification inbox, unread badges, and read/unread APIs
 - Create related records
 - Webhook call
 - Automatic retry queues and retry policies later

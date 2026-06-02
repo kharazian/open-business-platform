@@ -11,7 +11,7 @@ export const triggerConditionTypes = [
   "assigned_to_user",
   "assigned_to_group"
 ] as const;
-export const triggerActionTypes = ["write_audit_entry", "send_email", "change_status", "assign_record", "update_field"] as const;
+export const triggerActionTypes = ["write_audit_entry", "send_email", "change_status", "assign_record", "update_field", "send_notification"] as const;
 export const triggerExecutionStatuses = ["success", "failed", "skipped"] as const;
 
 export type TriggerEventName = (typeof triggerEvents)[number];
@@ -47,6 +47,9 @@ export type TriggerActionDefinition = {
   assignedGroupId?: EntityId | null;
   fieldId?: string | null;
   value?: FormRecordValue;
+  title?: string | null;
+  recipientUserIds?: EntityId[] | null;
+  recipientGroupIds?: EntityId[] | null;
 };
 
 export type CreateTriggerRequest = {

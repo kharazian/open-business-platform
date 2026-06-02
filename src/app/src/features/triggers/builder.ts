@@ -48,6 +48,9 @@ export type TriggerActionDraft = {
   assignedGroupId?: EntityId;
   fieldId?: string;
   value?: FormRecordValue;
+  title?: string;
+  recipientUserId?: EntityId;
+  recipientGroupId?: EntityId;
 };
 
 export type TriggerDraft = {
@@ -89,7 +92,8 @@ export const triggerActionOptions: Array<{ label: string; value: TriggerActionTy
   { label: "Send email", value: "send_email" },
   { label: "Change status", value: "change_status" },
   { label: "Assign record", value: "assign_record" },
-  { label: "Update field", value: "update_field" }
+  { label: "Update field", value: "update_field" },
+  { label: "Send notification", value: "send_notification" }
 ];
 
 export function createEmptyTriggerDraft(formName = "Form"): TriggerDraft {
@@ -129,7 +133,10 @@ export function createTriggerActionDraft(type: TriggerActionType = "write_audit_
     assignedToUserId: "",
     assignedGroupId: "",
     fieldId: "",
-    value: ""
+    value: "",
+    title: type === "send_notification" ? "Record needs review" : "",
+    recipientUserId: "",
+    recipientGroupId: ""
   };
 }
 
@@ -268,6 +275,20 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
         errors.push(error(`${path}.value`, "trigger.action.value_required", "Enter the new field value."));
       }
     }
+
+    if (action.type === "send_notification") {
+      if (!action.title?.trim()) {
+        errors.push(error(`${path}.title`, "trigger.action.notification_title_required", "Enter the notification title."));
+      }
+
+      if (!action.body?.trim()) {
+        errors.push(error(`${path}.body`, "trigger.action.notification_body_required", "Enter the notification body."));
+      }
+
+      if (!action.recipientUserId && !action.recipientGroupId) {
+        errors.push(error(`${path}.recipients`, "trigger.action.notification_recipients_required", "Choose at least one user or group."));
+      }
+    }
   });
 
   return { valid: errors.length === 0, errors };
@@ -342,7 +363,10 @@ function createActionDraftFromDefinition(action: TriggerActionDefinition, index:
     assignedToUserId: action.assignedToUserId ?? "",
     assignedGroupId: action.assignedGroupId ?? "",
     fieldId: action.fieldId ?? "",
-    value: action.value ?? ""
+    value: action.value ?? "",
+    title: action.title ?? "",
+    recipientUserId: action.recipientUserIds?.[0] ?? "",
+    recipientGroupId: action.recipientGroupIds?.[0] ?? ""
   };
 }
 
@@ -395,6 +419,16 @@ function buildAction(action: TriggerActionDraft): TriggerActionDefinition {
 
   if (action.type === "update_field") {
     return { ...base, fieldId: action.fieldId?.trim() || null, value: normalizeRecordValue(action.value) };
+  }
+
+  if (action.type === "send_notification") {
+    return {
+      ...base,
+      title: normalizeOptionalText(action.title),
+      body: normalizeOptionalText(action.body),
+      ...(action.recipientUserId ? { recipientUserIds: [action.recipientUserId] } : {}),
+      ...(action.recipientGroupId ? { recipientGroupIds: [action.recipientGroupId] } : {})
+    };
   }
 
   return {

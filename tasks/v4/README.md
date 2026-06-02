@@ -8,7 +8,8 @@ V4 starts the trigger engine and shared action foundation.
 2. `002-trigger-management-ui.md` - frontend trigger list, builder, enable/disable editing, and logs viewer. Completed for the current UI slice.
 3. `003-update-field-trigger-action.md` - safe current-record field update action. Completed for the current action slice.
 4. `004-trigger-retry-recovery.md` - manual failed-log retry recovery. Completed for the current recovery slice.
-5. Additional actions and automatic retry behavior - later V4 task.
+5. `005-in-app-notification-trigger-action.md` - database-backed in-app notification action. Completed for the current action slice.
+6. Additional actions and automatic retry behavior - later V4 task.
 
 ## Scope Rules
 

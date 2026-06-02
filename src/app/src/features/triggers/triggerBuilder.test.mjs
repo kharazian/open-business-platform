@@ -43,7 +43,16 @@ test("trigger builder creates and validates normalized trigger requests", () => 
       { clientId: "action-1", id: "audit-1", type: "write_audit_entry", message: " Matched " },
       { clientId: "action-2", id: "email-1", type: "send_email", toText: "hr@example.test, finance@example.test", subject: " New record ", body: " Please review. " },
       { clientId: "action-3", id: "assign-1", type: "assign_record", assignedToUserId: "user-1", assignedGroupId: "" },
-      { clientId: "action-4", id: "field-1", type: "update_field", fieldId: "email", value: " jane@example.test " }
+      { clientId: "action-4", id: "field-1", type: "update_field", fieldId: "email", value: " jane@example.test " },
+      {
+        clientId: "action-5",
+        id: "notify-1",
+        type: "send_notification",
+        title: " New HR record ",
+        body: " Please review this record. ",
+        recipientUserId: "user-1",
+        recipientGroupId: "group-1"
+      }
     ]
   });
 
@@ -58,6 +67,10 @@ test("trigger builder creates and validates normalized trigger requests", () => 
   assert.equal("assignedGroupId" in request.actions[2], false);
   assert.equal(request.actions[3].fieldId, "email");
   assert.equal(request.actions[3].value, "jane@example.test");
+  assert.equal(request.actions[4].title, "New HR record");
+  assert.equal(request.actions[4].body, "Please review this record.");
+  assert.deepEqual(request.actions[4].recipientUserIds, ["user-1"]);
+  assert.deepEqual(request.actions[4].recipientGroupIds, ["group-1"]);
 });
 
 test("trigger builder maps saved trigger details and form fields", () => {
@@ -114,6 +127,30 @@ test("trigger builder validates update field action requirements", () => {
   assert.equal(invalid.valid, false);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].fieldId"), true);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].value"), true);
+});
+
+test("trigger builder validates notification action requirements", () => {
+  const draft = createEmptyTriggerDraft("Employee form");
+
+  const invalid = validateTriggerDraft({
+    ...draft,
+    actions: [
+      {
+        clientId: "notify-1",
+        id: "notify-1",
+        type: "send_notification",
+        title: "",
+        body: "",
+        recipientUserId: "",
+        recipientGroupId: ""
+      }
+    ]
+  });
+
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.errors.some((error) => error.path === "actions[0].title"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "actions[0].body"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "actions[0].recipients"), true);
 });
 
 test("trigger builder formats labels, statuses, and JSON details", () => {

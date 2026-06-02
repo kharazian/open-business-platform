@@ -50,6 +50,7 @@ public static class TriggerActionTypes
     public const string ChangeStatus = "change_status";
     public const string AssignRecord = "assign_record";
     public const string UpdateField = "update_field";
+    public const string SendNotification = "send_notification";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -57,7 +58,8 @@ public static class TriggerActionTypes
         SendEmail,
         ChangeStatus,
         AssignRecord,
-        UpdateField
+        UpdateField,
+        SendNotification
     };
 }
 
@@ -94,7 +96,10 @@ public sealed record TriggerActionDefinition(
     Guid? AssignedToUserId = null,
     Guid? AssignedGroupId = null,
     string? FieldId = null,
-    object? Value = null);
+    object? Value = null,
+    string? Title = null,
+    IReadOnlyList<Guid>? RecipientUserIds = null,
+    IReadOnlyList<Guid>? RecipientGroupIds = null);
 
 public sealed record CreateTriggerRequest(
     string Name,

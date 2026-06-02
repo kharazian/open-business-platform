@@ -740,6 +740,33 @@ function ActionValueEditor({
     );
   }
 
+  if (action.type === "send_notification") {
+    return (
+      <div className="grid gap-3">
+        <Input error={errors.get(`${path}.title`)} label="Notification title" onChange={(event) => onUpdate({ title: event.target.value })} value={action.title ?? ""} />
+        <Textarea error={errors.get(`${path}.body`)} label="Notification body" onChange={(event) => onUpdate({ body: event.target.value })} value={action.body ?? ""} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <Select error={errors.get(`${path}.recipients`)} label="Notify user" onChange={(event) => onUpdate({ recipientUserId: event.target.value })} value={action.recipientUserId ?? ""}>
+            <option value="">No user</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </Select>
+          <Select error={errors.get(`${path}.recipients`)} label="Notify group" onChange={(event) => onUpdate({ recipientGroupId: event.target.value })} value={action.recipientGroupId ?? ""}>
+            <option value="">No group</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <Select error={errors.get(`${path}.assignment`)} label="Assign user" onChange={(event) => onUpdate({ assignedToUserId: event.target.value, assignedGroupId: "" })} value={action.assignedToUserId ?? ""}>

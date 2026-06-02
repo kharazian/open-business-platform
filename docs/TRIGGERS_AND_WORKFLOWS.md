@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, and V4 task 004 manual retry recovery are implemented. Scheduled triggers, webhooks, automatic retry queues, workflows, approvals, and XYFlow remain future tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, and V4 task 005 in-app notification action are implemented. Scheduled triggers, webhooks, automatic retry queues, workflows, approvals, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -43,6 +43,8 @@ The V4 task 001 backend foundation stores trigger definitions per form, stores t
 The V4 task 002 frontend workspace lets users manage form-scoped trigger definitions and review execution logs without adding new trigger semantics.
 
 The V4 task 004 recovery slice lets form managers manually retry failed trigger execution logs. A retry replays the saved event input through the trigger's current action list and creates a new log linked to the failed source log. Automatic background retry queues and retry policy authoring remain future work.
+
+The V4 task 005 action slice adds `send_notification`, which persists in-app notifications for selected active users and active group members. Notification inbox UI, read/unread APIs, badges, push delivery, and websockets remain future notification-module work.
 
 Trigger structure:
 
@@ -87,7 +89,7 @@ then execute actions.
 - Assign user
 - Assign group
 - Add audit entry
-- Send notification later
+- Send notification
 - Create record
 - Update related record
 - Add comment

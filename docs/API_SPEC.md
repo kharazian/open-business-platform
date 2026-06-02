@@ -1152,6 +1152,7 @@ Supported action types are:
 - `change_status`: changes the current record status without recursive trigger dispatch.
 - `assign_record`: assigns the current record to one user or one group without recursive trigger dispatch.
 - `update_field`: updates one field on the current record, validates the merged record values against the record's form version schema, writes a record audit entry, and does not recursively dispatch triggers.
+- `send_notification`: creates in-app notifications for selected active users and active group members.
 
 ### List triggers
 
@@ -1163,7 +1164,7 @@ Requires form `manage` or `forms.manage_all` access. Response: `200 OK` with `{ 
 
 `POST /api/forms/{formId}/triggers`
 
-Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced form fields, active assignment targets, and email action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
+Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced form fields, active assignment targets, active notification recipients, and email/notification action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
 
 Request:
 
@@ -1194,6 +1195,14 @@ Request:
       "type": "update_field",
       "fieldId": "email",
       "value": "jane@example.test"
+    },
+    {
+      "id": "notify-1",
+      "type": "send_notification",
+      "title": "HR record needs review",
+      "body": "Open the record and review the submitted details.",
+      "recipientUserIds": ["..."],
+      "recipientGroupIds": ["..."]
     }
   ],
   "isEnabled": true

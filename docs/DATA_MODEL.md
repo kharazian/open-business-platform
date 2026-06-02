@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, and trigger log tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, and in-app notification tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -18,6 +18,7 @@ The current migrations include:
 - `records`
 - `reports`
 - `triggers`, `trigger_logs`
+- `notifications`
 - `audit_logs`
 
 Print templates remain target tables for later tasks.
@@ -405,6 +406,34 @@ Indexes:
 - created_at
 
 Trigger logs persist matching trigger executions. The first V4 slice does not write skipped logs by default for non-matching triggers. Action failures write failed logs and do not roll back the original record change that dispatched the trigger event. V4 task 004 stores manual retry links in existing JSONB payloads through `input_json.retry.sourceLogId` and `result_json.retry.sourceLogId`, so no schema migration is required for manual failed-log retry recovery.
+
+### notifications
+
+Migration: `20260602172402_InAppNotifications`.
+
+Fields:
+
+- id
+- user_id
+- title
+- body
+- source_type
+- source_id nullable
+- trigger_id nullable
+- trigger_log_id nullable
+- action_id nullable
+- metadata_json JSONB nullable
+- read_at nullable
+- created_at
+
+Indexes:
+
+- user_id
+- read_at
+- created_at
+- source_type + source_id
+
+V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. Notification inbox UI, unread counters, and read/unread APIs remain future work.
 
 ## Audit Logs
 

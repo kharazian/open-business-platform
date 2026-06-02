@@ -115,6 +115,7 @@ AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
 AssertTable<TriggerDefinition>(model, "triggers");
 AssertTable<TriggerExecutionLog>(model, "trigger_logs");
+AssertTable<Notification>(model, "notifications");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -134,6 +135,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, DashboardDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, TriggerDefinition>();
 AssertTypeAssignable<Entity<Guid>, TriggerExecutionLog>();
+AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -152,6 +154,7 @@ AssertGuidId<ReportDefinition>(model);
 AssertGuidId<DashboardDefinition>(model);
 AssertGuidId<TriggerDefinition>(model);
 AssertGuidId<TriggerExecutionLog>(model);
+AssertGuidId<Notification>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -175,6 +178,7 @@ AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ConditionsJs
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ActionsJson));
 AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.InputJson));
 AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.ResultJson));
+AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -220,6 +224,9 @@ AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.FormI
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EventName) }, "Trigger logs should be indexed by event.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EntityType), nameof(TriggerExecutionLog.EntityId) }, "Trigger logs should be indexed by entity.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.CreatedAt) }, "Trigger logs should be indexed by creation time.");
+AssertIndex<Notification>(model, new[] { nameof(Notification.UserId) }, "Notifications should be indexed by recipient user.");
+AssertIndex<Notification>(model, new[] { nameof(Notification.ReadAt) }, "Notifications should be indexed by read state.");
+AssertIndex<Notification>(model, new[] { nameof(Notification.CreatedAt) }, "Notifications should be indexed by creation time.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId) }, "Role form permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.FormId) }, "Role form permissions should be indexed by form.");
@@ -271,10 +278,23 @@ var validUpdateFieldActions = new[]
 {
     new TriggerActionDefinition("field-1", TriggerActionTypes.UpdateField, FieldId: "email", Value: "jane@example.test")
 };
+var notificationUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+var notificationGroupId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+var validNotificationActions = new[]
+{
+    new TriggerActionDefinition(
+        "notify-1",
+        TriggerActionTypes.SendNotification,
+        Title: "Record needs review",
+        Body: "Open the record and review it.",
+        RecipientUserIds: new[] { notificationUserId },
+        RecipientGroupIds: new[] { notificationGroupId })
+};
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.SendNotification), "Trigger actions should include send_notification.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -289,6 +309,13 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A valid update_field action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Notify reviewers", null, TriggerEvents.RecordCreated, validTriggerConditions, validNotificationActions, true),
+        new[] { notificationUserId },
+        new[] { notificationGroupId }).Valid,
+    "A valid send_notification action should pass validation.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -368,6 +395,58 @@ AssertFalse(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "Validation should reject update_field actions without a value.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing notification title",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("notify-1", TriggerActionTypes.SendNotification, Body: "Review it.", RecipientUserIds: new[] { notificationUserId }) },
+            true),
+        new[] { notificationUserId },
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject notification actions without a title.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing notification recipient",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("notify-1", TriggerActionTypes.SendNotification, Title: "Review", Body: "Review it.") },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject notification actions without recipients.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing notification user",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("notify-1", TriggerActionTypes.SendNotification, Title: "Review", Body: "Review it.", RecipientUserIds: new[] { notificationUserId }) },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject notification actions that reference inactive or missing users.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing notification group",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("notify-1", TriggerActionTypes.SendNotification, Title: "Review", Body: "Review it.", RecipientGroupIds: new[] { notificationGroupId }) },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject notification actions that reference inactive or missing groups.");
 
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");

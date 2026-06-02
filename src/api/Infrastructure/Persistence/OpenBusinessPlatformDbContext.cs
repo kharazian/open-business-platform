@@ -51,6 +51,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<TriggerExecutionLog> TriggerLogs => Set<TriggerExecutionLog>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -88,6 +90,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureReports(modelBuilder);
         ConfigureDashboards(modelBuilder);
         ConfigureTriggers(modelBuilder);
+        ConfigureNotifications(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -553,6 +556,36 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(log => log.FormId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureNotifications(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+            entity.HasKey(notification => notification.Id);
+            entity.HasIndex(notification => notification.UserId);
+            entity.HasIndex(notification => notification.ReadAt);
+            entity.HasIndex(notification => notification.CreatedAt);
+            entity.HasIndex(notification => new { notification.SourceType, notification.SourceId });
+            entity.Property(notification => notification.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(notification => notification.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(notification => notification.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
+            entity.Property(notification => notification.Body).HasColumnName("body").HasMaxLength(2000).IsRequired();
+            entity.Property(notification => notification.SourceType).HasColumnName("source_type").HasMaxLength(80).IsRequired();
+            entity.Property(notification => notification.SourceId).HasColumnName("source_id").HasColumnType("uuid");
+            entity.Property(notification => notification.TriggerId).HasColumnName("trigger_id").HasColumnType("uuid");
+            entity.Property(notification => notification.TriggerLogId).HasColumnName("trigger_log_id").HasColumnType("uuid");
+            entity.Property(notification => notification.ActionId).HasColumnName("action_id").HasMaxLength(120);
+            entity.Property(notification => notification.MetadataJson).HasColumnName("metadata_json").HasColumnType("jsonb");
+            entity.Property(notification => notification.ReadAt).HasColumnName("read_at");
+            entity.Property(notification => notification.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity
+                .HasOne(notification => notification.User)
+                .WithMany()
+                .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 
