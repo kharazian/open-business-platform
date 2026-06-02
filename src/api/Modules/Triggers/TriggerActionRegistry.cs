@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
+using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 
 namespace OpenBusinessPlatform.Api.Modules.Triggers;
@@ -31,6 +32,7 @@ public sealed class TriggerActionRegistry
             TriggerActionTypes.SendEmail => await ExecuteSendEmailAsync(action, cancellationToken),
             TriggerActionTypes.ChangeStatus => await ExecuteChangeStatusAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.AssignRecord => await ExecuteAssignRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.UpdateField => await ExecuteUpdateFieldAsync(action, context, triggerId, triggerLogId, cancellationToken),
             _ => throw new InvalidOperationException($"Trigger action type '{action.Type}' is not supported.")
         };
     }
@@ -110,11 +112,59 @@ public sealed class TriggerActionRegistry
             ("assignedGroupId", record.AssignedGroupId));
     }
 
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteUpdateFieldAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(action.FieldId))
+        {
+            throw new InvalidOperationException("Trigger update field action field id is required.");
+        }
+
+        var record = await LoadRecordWithVersionAsync(context.RecordId, cancellationToken);
+        var schema = record.FormVersion?.SchemaJson.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions)
+            ?? throw new InvalidOperationException("Trigger action record form schema was not found.");
+        var currentValues = DeserializeValues(record.ValuesJson);
+        currentValues.TryGetValue(action.FieldId, out var previousValue);
+
+        var updatedValues = currentValues.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        updatedValues[action.FieldId] = action.Value;
+        var validation = FormSchemaValidator.ValidateRecordValues(schema, updatedValues);
+
+        if (!validation.Valid)
+        {
+            throw new InvalidOperationException(string.Join(" ", validation.Errors.Select(error => error.Message)));
+        }
+
+        record.ValuesJson = JsonSerializer.SerializeToDocument(updatedValues, JsonOptions);
+        record.UpdatedById = context.ActorUserId;
+        AddRecordAudit(record.Id, "record_field_updated", context.ActorUserId, triggerId, triggerLogId, action.Id, previousValue, action.Value);
+
+        return Result(action, ("fieldId", action.FieldId), ("previousValue", previousValue), ("value", action.Value));
+    }
+
     private async Task<FormRecord> LoadRecordAsync(Guid recordId, CancellationToken cancellationToken)
     {
         return await dbContext.Records
             .FirstOrDefaultAsync(record => record.Id == recordId && !record.IsDeleted, cancellationToken)
             ?? throw new InvalidOperationException("Trigger action record was not found.");
+    }
+
+    private async Task<FormRecord> LoadRecordWithVersionAsync(Guid recordId, CancellationToken cancellationToken)
+    {
+        return await dbContext.Records
+            .Include(record => record.FormVersion)
+            .FirstOrDefaultAsync(record => record.Id == recordId && !record.IsDeleted, cancellationToken)
+            ?? throw new InvalidOperationException("Trigger action record was not found.");
+    }
+
+    private static Dictionary<string, object?> DeserializeValues(JsonDocument valuesJson)
+    {
+        return JsonSerializer.Deserialize<Dictionary<string, object?>>(valuesJson.RootElement.GetRawText(), JsonOptions)
+            ?? new Dictionary<string, object?>();
     }
 
     private void AddRecordAudit(

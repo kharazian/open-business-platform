@@ -267,9 +267,14 @@ var validTriggerActions = new[]
 {
     new TriggerActionDefinition("action-1", TriggerActionTypes.WriteAuditEntry, "Trigger matched")
 };
+var validUpdateFieldActions = new[]
+{
+    new TriggerActionDefinition("field-1", TriggerActionTypes.UpdateField, FieldId: "email", Value: "jane@example.test")
+};
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -277,6 +282,13 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A valid trigger definition should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Normalize email", null, TriggerEvents.RecordCreated, validTriggerConditions, validUpdateFieldActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A valid update_field action should pass validation.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -317,6 +329,45 @@ AssertFalse(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "Validation should reject duplicate action ids.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing update field",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("field-1", TriggerActionTypes.UpdateField, Value: "jane@example.test") },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject update_field actions without a field id.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Unknown update field",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("field-1", TriggerActionTypes.UpdateField, FieldId: "missing", Value: "jane@example.test") },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject update_field actions that reference missing fields.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Missing update value",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[] { new TriggerActionDefinition("field-1", TriggerActionTypes.UpdateField, FieldId: "email") },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject update_field actions without a value.");
 
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");

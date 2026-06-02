@@ -27,7 +27,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: V3 advanced permissions is complete. Continue with V4 Trigger Engine or start the next approved product slice.
+Next: V4 trigger backend foundation and trigger management UI are complete for the current task list. Continue with richer trigger actions/retry behavior or start the next approved product slice.
 
 ## Product Engine Path
 
@@ -137,14 +137,15 @@ Implemented foundation:
 - Send email action
 - Change status
 - Assign users
+- Update fields
 - Trigger logs
+- Trigger list UI
+- Trigger builder UI
+- Trigger logs UI
 
 Future V4 work:
 
-- Trigger list UI
-- Trigger builder UI
 - In-app notifications
-- Update fields
 - Create related records
 - Webhook call
 - Retry failed triggers later

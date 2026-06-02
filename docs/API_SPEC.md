@@ -1151,6 +1151,7 @@ Supported action types are:
 - `send_email`: sends one email per recipient through the configured email sender.
 - `change_status`: changes the current record status without recursive trigger dispatch.
 - `assign_record`: assigns the current record to one user or one group without recursive trigger dispatch.
+- `update_field`: updates one field on the current record, validates the merged record values against the record's form version schema, writes a record audit entry, and does not recursively dispatch triggers.
 
 ### List triggers
 
@@ -1187,6 +1188,12 @@ Request:
       "id": "status-1",
       "type": "change_status",
       "status": "in_review"
+    },
+    {
+      "id": "field-1",
+      "type": "update_field",
+      "fieldId": "email",
+      "value": "jane@example.test"
     }
   ],
   "isEnabled": true
@@ -1200,6 +1207,12 @@ Response: `201 Created` with the saved trigger detail.
 `PUT /api/triggers/{triggerId}`
 
 Requires form `manage` or `forms.manage_all` access for the trigger's form. The request shape matches create and also requires `concurrencyStamp`. Updating writes `trigger_updated`; changing from enabled to disabled also writes `trigger_disabled`.
+
+### Get trigger
+
+`GET /api/triggers/{triggerId}`
+
+Requires form `manage` or `forms.manage_all` access for the trigger's form. Response: `200 OK` with the saved trigger detail, including conditions, actions, enabled state, and concurrency stamp. This is used by the trigger management UI before editing existing trigger definitions.
 
 ### Trigger logs
 

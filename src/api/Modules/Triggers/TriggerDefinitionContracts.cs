@@ -49,13 +49,15 @@ public static class TriggerActionTypes
     public const string SendEmail = "send_email";
     public const string ChangeStatus = "change_status";
     public const string AssignRecord = "assign_record";
+    public const string UpdateField = "update_field";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         WriteAuditEntry,
         SendEmail,
         ChangeStatus,
-        AssignRecord
+        AssignRecord,
+        UpdateField
     };
 }
 
@@ -88,7 +90,9 @@ public sealed record TriggerActionDefinition(
     string? Body = null,
     string? Status = null,
     Guid? AssignedToUserId = null,
-    Guid? AssignedGroupId = null);
+    Guid? AssignedGroupId = null,
+    string? FieldId = null,
+    object? Value = null);
 
 public sealed record CreateTriggerRequest(
     string Name,

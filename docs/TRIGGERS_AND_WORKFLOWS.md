@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation is implemented. Trigger builder UI, scheduled triggers, webhooks, retries, workflows, approvals, and XYFlow remain future tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, and V4 task 003 update-field trigger action are implemented. Scheduled triggers, webhooks, retries, workflows, approvals, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -39,6 +39,8 @@ Draft -> Submitted -> Manager Review -> Finance Review -> Approved
 ## Trigger Engine V4
 
 The V4 task 001 backend foundation stores trigger definitions per form, stores trigger execution logs, exposes management APIs, and dispatches record events after the primary record transaction succeeds.
+
+The V4 task 002 frontend workspace lets users manage form-scoped trigger definitions and review execution logs without adding new trigger semantics.
 
 Trigger structure:
 
@@ -79,11 +81,11 @@ then execute actions.
 
 - Send email
 - Change status
+- Update field
 - Assign user
 - Assign group
 - Add audit entry
 - Send notification later
-- Update field later
 - Create record
 - Update related record
 - Add comment

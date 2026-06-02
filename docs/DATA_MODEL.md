@@ -376,7 +376,7 @@ Indexes:
 - event_name
 - is_enabled
 
-`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
+`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. V4 task 003 adds current-record field updates through `update_field`. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
 
 ### trigger_logs
 

@@ -69,7 +69,9 @@ public static class TriggerDefinitionValidator
                     .ToArray(),
                 Subject = NormalizeOptional(action.Subject),
                 Body = NormalizeOptional(action.Body),
-                Status = NormalizeOptional(action.Status)
+                Status = NormalizeOptional(action.Status),
+                FieldId = NormalizeOptional(action.FieldId),
+                Value = NormalizeActionValue(action.Value)
             })
             .ToArray();
     }
@@ -108,7 +110,7 @@ public static class TriggerDefinitionValidator
         }
 
         ValidateConditions(normalizedConditions, fieldIds, errors);
-        ValidateActions(normalizedActions, activeUserIds, activeGroupIds, errors);
+        ValidateActions(normalizedActions, fieldIds, activeUserIds, activeGroupIds, errors);
 
         return new TriggerValidationResult(errors);
     }
@@ -182,6 +184,7 @@ public static class TriggerDefinitionValidator
 
     private static void ValidateActions(
         IReadOnlyList<TriggerActionDefinition> actions,
+        IReadOnlySet<string> fieldIds,
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds,
         List<TriggerValidationError> errors)
@@ -244,6 +247,15 @@ public static class TriggerDefinitionValidator
                     break;
                 case TriggerActionTypes.AssignRecord:
                     ValidateAssignAction(action, activeUserIds, activeGroupIds, path, errors);
+                    break;
+                case TriggerActionTypes.UpdateField:
+                    ValidateKnownField(action.FieldId, fieldIds, $"{path}.fieldId", errors);
+
+                    if (IsMissingActionValue(action.Value))
+                    {
+                        errors.Add(Error($"{path}.value", "trigger.action.value_required", "Update field action value is required."));
+                    }
+
                     break;
             }
         }
@@ -308,5 +320,18 @@ public static class TriggerDefinitionValidator
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static object? NormalizeActionValue(object? value)
+    {
+        return value is string stringValue ? stringValue.Trim() : value;
+    }
+
+    private static bool IsMissingActionValue(object? value)
+    {
+        return value is null
+            || value is string { Length: 0 }
+            || value is System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.Null or System.Text.Json.JsonValueKind.Undefined }
+            || value is System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.String } element && string.IsNullOrEmpty(element.GetString());
     }
 }

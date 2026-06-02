@@ -146,6 +146,20 @@ public sealed class TriggerDefinitionService
         return ToDetailDto(trigger);
     }
 
+    public async Task<TriggerDetailDto> GetTriggerAsync(Guid triggerId, CancellationToken cancellationToken)
+    {
+        var trigger = await dbContext.Triggers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == triggerId && !candidate.IsDeleted, cancellationToken);
+
+        if (trigger is null)
+        {
+            throw new TriggerManagementException(StatusCodes.Status404NotFound, "Trigger was not found.");
+        }
+
+        return ToDetailDto(trigger);
+    }
+
     public async Task<IReadOnlyCollection<TriggerExecutionLogDto>> ListTriggerLogsAsync(
         Guid triggerId,
         CancellationToken cancellationToken)

@@ -50,6 +50,32 @@ public static class TriggersEndpoints
 
         var triggerGroup = endpoints.MapGroup("/api/triggers").WithTags("Triggers").RequireAuthorization();
 
+        triggerGroup.MapGet("/{triggerId:guid}", async (
+            Guid triggerId,
+            TriggerDefinitionService triggerDefinitions,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await triggerDefinitions.GetTriggerFormIdAsync(triggerId, cancellationToken);
+
+            if (formId is null)
+            {
+                return Results.NotFound(new TriggerErrorResponse("Trigger was not found."));
+            }
+
+            if (!await CanManageFormAsync(permissionService, httpContext, formId.Value, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleTriggerRequestAsync(async () =>
+            {
+                var trigger = await triggerDefinitions.GetTriggerAsync(triggerId, cancellationToken);
+                return Results.Ok(trigger);
+            });
+        });
+
         triggerGroup.MapPut("/{triggerId:guid}", async (
             Guid triggerId,
             UpdateTriggerRequest request,

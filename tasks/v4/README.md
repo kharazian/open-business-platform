@@ -5,8 +5,9 @@ V4 starts the trigger engine and shared action foundation.
 ## Recommended Execution Order
 
 1. `001-trigger-engine-foundation.md` - backend trigger definitions, event dispatch, starter actions, and logs. Completed for the backend foundation.
-2. Trigger management UI - later V4 task after backend contracts settle.
-3. Additional actions and retry behavior - later V4 task.
+2. `002-trigger-management-ui.md` - frontend trigger list, builder, enable/disable editing, and logs viewer. Completed for the current UI slice.
+3. `003-update-field-trigger-action.md` - safe current-record field update action. Completed for the current action slice.
+4. Additional actions and retry behavior - later V4 task.
 
 ## Scope Rules
 
