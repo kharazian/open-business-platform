@@ -16,9 +16,12 @@ public static class ChartAggregationEngine
         ChartWidgetConfigDefinition config,
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
-        ListReportConfigDefinition? sourceReportConfig = null)
+        ListReportConfigDefinition? sourceReportConfig = null,
+        IReadOnlySet<string>? hiddenFieldIds = null)
     {
-        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
+        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema)
+            .Where(pair => hiddenFieldIds is null || !hiddenFieldIds.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var preparedRecords = records
             .Select(record => new PreparedChartRecord(record, DeserializeValues(record.ValuesJson)))
             .Where(record => MatchesSourceReportFilters(record, sourceReportConfig))

@@ -38,7 +38,7 @@ public static class DashboardEndpoints
 
             return await HandleChartRequestAsync(async () =>
             {
-                var preview = await chartAggregation.PreviewAsync(formId, request, cancellationToken);
+                var preview = await chartAggregation.PreviewAsync(httpContext.User, formId, request, permissionService, cancellationToken);
                 return Results.Ok(preview);
             });
         }).WithTags("Dashboard").RequireAuthorization();

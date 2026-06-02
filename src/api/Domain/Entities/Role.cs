@@ -20,4 +20,8 @@ public sealed class Role : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHa
     public ICollection<RolePermission> Permissions { get; } = new List<RolePermission>();
 
     public ICollection<RoleFormPermission> FormPermissions { get; } = new List<RoleFormPermission>();
+
+    public ICollection<RoleReportPermission> ReportPermissions { get; } = new List<RoleReportPermission>();
+
+    public ICollection<RoleFieldPermission> FieldPermissions { get; } = new List<RoleFieldPermission>();
 }

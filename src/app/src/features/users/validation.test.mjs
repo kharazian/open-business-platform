@@ -8,7 +8,7 @@ import {
 
 test("users validation reports visible field errors for create and reset password forms", () => {
   const emptyCreate = validateUserDraft(
-    { name: "", email: "", password: "", isActive: true, roleIds: [] },
+    { name: "", email: "", password: "", isActive: true, roleIds: [], departmentIds: [], groupIds: [] },
     "create"
   );
 
@@ -18,7 +18,7 @@ test("users validation reports visible field errors for create and reset passwor
   assert.equal(emptyCreate.errors.password, "Password must be at least 8 characters.");
 
   const shortPassword = validateUserDraft(
-    { name: "Jane Cooper", email: "jane@company.test", password: "simple", isActive: true, roleIds: [] },
+    { name: "Jane Cooper", email: "jane@company.test", password: "simple", isActive: true, roleIds: [], departmentIds: [], groupIds: [] },
     "create"
   );
 
@@ -32,7 +32,7 @@ test("users validation reports visible field errors for create and reset passwor
 
 test("users validation trims valid drafts and skips password validation when editing users", () => {
   const createResult = validateUserDraft(
-    { name: " Jane Cooper ", email: " JANE@Company.Test ", password: "temporary-password-1", isActive: true, roleIds: ["role-1"] },
+    { name: " Jane Cooper ", email: " JANE@Company.Test ", password: "temporary-password-1", isActive: true, roleIds: ["role-1"], departmentIds: ["department-1"], groupIds: ["group-1"] },
     "create"
   );
 
@@ -40,9 +40,11 @@ test("users validation trims valid drafts and skips password validation when edi
   assert.equal(createResult.value.name, "Jane Cooper");
   assert.equal(createResult.value.email, "jane@company.test");
   assert.equal(createResult.value.password, "temporary-password-1");
+  assert.deepEqual(createResult.value.departmentIds, ["department-1"]);
+  assert.deepEqual(createResult.value.groupIds, ["group-1"]);
 
   const editResult = validateUserDraft(
-    { name: " Jane Cooper ", email: " jane@company.test ", password: "", isActive: false, roleIds: [] },
+    { name: " Jane Cooper ", email: " jane@company.test ", password: "", isActive: false, roleIds: [], departmentIds: [], groupIds: [] },
     "edit"
   );
 
@@ -58,7 +60,7 @@ test("users validation trims valid drafts and skips password validation when edi
 
 test("users validation does not block edits on the disabled email field", () => {
   const editResult = validateUserDraft(
-    { name: "Jane Cooper", email: "", password: "", isActive: false, roleIds: ["role-1"] },
+    { name: "Jane Cooper", email: "", password: "", isActive: false, roleIds: ["role-1"], departmentIds: [], groupIds: [] },
     "edit"
   );
 

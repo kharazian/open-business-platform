@@ -3,10 +3,15 @@ import type { ActiveStateDto, AuditedEntityDto, ConcurrencyStampedDto, EntityId 
 export const userStatuses = ["active", "inactive"] as const;
 export const roleStatuses = ["active", "inactive"] as const;
 export const departmentStatuses = ["active", "inactive"] as const;
-export const formAccessActions = ["submit", "view", "edit", "delete", "manage"] as const;
+export const formAccessActions = ["submit", "view", "edit", "delete", "print", "export", "assign", "change_status", "manage"] as const;
+export const recordAccessScopes = ["all", "own", "department", "managed_department", "group", "assigned"] as const;
+export const reportAccessActions = ["view", "export", "manage"] as const;
+export const fieldAccessLevels = ["hidden", "read_only"] as const;
 export const accessManagementTabs = [
   { label: "Users", value: "users" },
-  { label: "Roles & permissions", value: "roles" }
+  { label: "Roles & permissions", value: "roles" },
+  { label: "Departments", value: "departments" },
+  { label: "Groups", value: "groups" }
 ] as const;
 
 export const menuPermissionOptions = [
@@ -30,6 +35,9 @@ export type UserStatus = (typeof userStatuses)[number];
 export type RoleStatus = (typeof roleStatuses)[number];
 export type DepartmentStatus = (typeof departmentStatuses)[number];
 export type FormAccessAction = (typeof formAccessActions)[number];
+export type RecordAccessScope = (typeof recordAccessScopes)[number];
+export type ReportAccessAction = (typeof reportAccessActions)[number];
+export type FieldAccessLevel = (typeof fieldAccessLevels)[number];
 
 export interface UserRoleDto {
   id: EntityId;
@@ -42,6 +50,11 @@ export interface UserDepartmentDto {
   isPrimary: boolean;
 }
 
+export interface UserGroupDto {
+  id: EntityId;
+  name: string;
+}
+
 export interface UserDto extends AuditedEntityDto, ActiveStateDto, ConcurrencyStampedDto {
   name: string;
   email: string;
@@ -49,6 +62,7 @@ export interface UserDto extends AuditedEntityDto, ActiveStateDto, ConcurrencySt
   externalUserId?: string | null;
   roles: UserRoleDto[];
   departments: UserDepartmentDto[];
+  groups: UserGroupDto[];
 }
 
 export interface CreateUserRequest {
@@ -57,6 +71,7 @@ export interface CreateUserRequest {
   password: string;
   roleIds: EntityId[];
   departmentIds: EntityId[];
+  groupIds: EntityId[];
   isActive?: boolean;
 }
 
@@ -69,6 +84,7 @@ export interface UpdateUserRequest {
   isActive: boolean;
   roleIds: EntityId[];
   departmentIds: EntityId[];
+  groupIds: EntityId[];
   concurrencyStamp: string;
 }
 
@@ -94,17 +110,33 @@ export interface UpdateRoleRequest {
 export interface RoleFormPermissionDto {
   formId: EntityId;
   action: FormAccessAction;
+  scope: RecordAccessScope;
+}
+
+export interface RoleReportPermissionDto {
+  reportId: EntityId;
+  action: ReportAccessAction;
+}
+
+export interface RoleFieldPermissionDto {
+  formId: EntityId;
+  fieldId: string;
+  access: FieldAccessLevel;
 }
 
 export interface RolePermissionsDto {
   roleId: EntityId;
   permissions: string[];
   formPermissions: RoleFormPermissionDto[];
+  reportPermissions: RoleReportPermissionDto[];
+  fieldPermissions: RoleFieldPermissionDto[];
 }
 
 export interface UpdateRolePermissionsRequest {
   permissions: string[];
   formPermissions: RoleFormPermissionDto[];
+  reportPermissions: RoleReportPermissionDto[];
+  fieldPermissions: RoleFieldPermissionDto[];
 }
 
 export interface FormAccessOptionDto {
@@ -118,6 +150,25 @@ export interface DepartmentDto extends AuditedEntityDto, ActiveStateDto, Concurr
   parentDepartmentId?: EntityId | null;
   managerUserId?: EntityId | null;
   userCount: number;
+}
+
+export interface GroupDto extends AuditedEntityDto, ActiveStateDto, ConcurrencyStampedDto {
+  name: string;
+  description?: string | null;
+  userCount: number;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface UpdateGroupRequest {
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  concurrencyStamp: string;
 }
 
 export interface CreateDepartmentRequest {

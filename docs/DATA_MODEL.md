@@ -4,20 +4,22 @@
 
 Database: PostgreSQL
 
-Status: V1 database foundation finalized for core identity, form, record, role permission, form permission, and audit tables. Current V2 work also adds the first reports table. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V3 database foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, and audit tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
 - `password_reset_tokens`
 - `role_permissions`, `role_form_permissions`
+- `groups`, `user_groups`
 - `departments`, `user_departments`
+- `role_report_permissions`, `role_field_permissions`
 - `forms`, `form_versions`
 - `records`
 - `reports`
 - `audit_logs`
 
-Advanced permission rules, groups, triggers, trigger logs, and print templates remain target tables for later tasks.
+Triggers, trigger logs, and print templates remain target tables for later tasks.
 
 Recommended approach:
 
@@ -158,7 +160,8 @@ Fields:
 - id uuid
 - role_id uuid
 - form_id uuid
-- action: submit, view, edit, delete, manage
+- action: submit, view, edit, delete, print, export, assign, change_status, manage
+- scope: all, own, department, managed_department, group, assigned
 
 Indexes:
 
@@ -168,10 +171,46 @@ Indexes:
 
 ### user_groups later
 
+### groups
+
+Fields:
+
+- id uuid
+- name
+- description nullable
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+### user_groups
+
 Fields:
 
 - user_id
 - group_id
+
+### role_report_permissions
+
+Fields:
+
+- id uuid
+- role_id uuid
+- report_id uuid
+- action: view, export, manage
+
+### role_field_permissions
+
+Fields:
+
+- id uuid
+- role_id uuid
+- form_id uuid
+- field_id
+- access: hidden, read_only
 
 ### user_departments
 
@@ -235,6 +274,8 @@ Fields:
 - status
 - owner_id nullable
 - department_id nullable
+- assigned_to_user_id nullable
+- assigned_group_id nullable
 - values_json JSONB
 - concurrency_stamp
 - extra_properties_json JSONB nullable

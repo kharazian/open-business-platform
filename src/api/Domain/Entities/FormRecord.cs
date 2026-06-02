@@ -23,6 +23,14 @@ public sealed class FormRecord : FullAuditedAggregateRoot<Guid>, IHasConcurrency
 
     public Department? Department { get; set; }
 
+    public Guid? AssignedToUserId { get; set; }
+
+    public User? AssignedToUser { get; set; }
+
+    public Guid? AssignedGroupId { get; set; }
+
+    public Group? AssignedGroup { get; set; }
+
     public JsonDocument ValuesJson { get; set; } = null!;
 
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");

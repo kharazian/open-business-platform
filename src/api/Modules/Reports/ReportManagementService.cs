@@ -1,8 +1,10 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Identity;
 
 namespace OpenBusinessPlatform.Api.Modules.Reports;
 
@@ -95,12 +97,14 @@ public sealed class ReportManagementService
     }
 
     public async Task<ListReportExecutionDto> ExecuteListReportAsync(
+        ClaimsPrincipal principal,
         Guid formId,
         Guid reportId,
         RunListReportRequest request,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
-        var executionContext = await LoadReportExecutionContextAsync(formId, reportId, cancellationToken);
+        var executionContext = await LoadReportExecutionContextAsync(principal, formId, reportId, permissionService, cancellationToken);
 
         return ListReportExecutionEngine.Execute(
             executionContext.Report.Id,
@@ -114,13 +118,15 @@ public sealed class ReportManagementService
     }
 
     public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
+        ClaimsPrincipal principal,
         Guid formId,
         Guid reportId,
         string? search,
         Guid? exportedById,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
-        var executionContext = await LoadReportExecutionContextAsync(formId, reportId, cancellationToken);
+        var executionContext = await LoadReportExecutionContextAsync(principal, formId, reportId, permissionService, cancellationToken);
         var report = ListReportExecutionEngine.ExecuteAll(
             executionContext.Report.Id,
             executionContext.Report.FormId,
@@ -138,8 +144,10 @@ public sealed class ReportManagementService
     }
 
     private async Task<ListReportExecutionContext> LoadReportExecutionContextAsync(
+        ClaimsPrincipal principal,
         Guid formId,
         Guid reportId,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var report = await dbContext.Reports
@@ -175,12 +183,17 @@ public sealed class ReportManagementService
             throw new ReportManagementException(StatusCodes.Status409Conflict, "Report config no longer matches the form schema.", validation.Errors);
         }
 
-        var records = await dbContext.Records
-            .AsNoTracking()
-            .Where(record => record.FormId == formId && !record.IsDeleted)
+        var fieldAccess = await permissionService.GetFieldAccessAsync(principal, formId, cancellationToken);
+        var scopedRecordsQuery = await permissionService.ApplyRecordAccessAsync(
+            principal,
+            dbContext.Records.AsNoTracking().Where(record => record.FormId == formId && !record.IsDeleted),
+            formId,
+            PlatformPermissions.Form.View,
+            cancellationToken);
+        var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
 
-        return new ListReportExecutionContext(report, schema, config, records);
+        return new ListReportExecutionContext(report, schema, RemoveHiddenColumns(config, fieldAccess.HiddenFieldIds), records);
     }
 
     private static ListReportSummaryDto ToSummaryDto(ReportDefinition report)
@@ -251,6 +264,23 @@ public sealed class ReportManagementService
             (config.Sort ?? Array.Empty<ListReportSortDefinition>())
                 .Select(sort => new ListReportSortDefinition(sort.FieldId.Trim(), sort.Direction.Trim()))
                 .ToArray());
+    }
+
+    private static ListReportConfigDefinition RemoveHiddenColumns(
+        ListReportConfigDefinition config,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return config;
+        }
+
+        return config with
+        {
+            Columns = config.Columns.Where(column => !hiddenFieldIds.Contains(column.FieldId)).ToArray(),
+            Filters = config.Filters.Where(filter => !hiddenFieldIds.Contains(filter.FieldId)).ToArray(),
+            Sort = config.Sort.Where(sort => !hiddenFieldIds.Contains(sort.FieldId)).ToArray()
+        };
     }
 
     private static string? NormalizeOptionalText(string? value)

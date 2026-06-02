@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. Current V2 work adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -65,9 +65,9 @@ Metrics are counted from PostgreSQL. Users count active users, forms/reports cou
 
 `POST /api/forms/{formId}/chart-widgets/preview`
 
-Requires authentication plus `menu.reports` and form `view`, form `manage`, or `forms.manage_all` access.
+Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and any V3 record scope attached to the user's form grant.
 
-Runs a non-persisted chart widget config against permitted form records. `reportId` is optional; when supplied, the saved list report's filters are used as the chart source.
+Runs a non-persisted chart widget config against permitted form records. `reportId` is optional; when supplied, the saved list report's filters are used as the chart source. V3 record scopes limit the record set, and hidden field rules remove fields from table columns, source report filters, and source report sorts. A chart request that directly references a hidden metric, group, or date field returns `403 Forbidden`.
 
 Request:
 
@@ -108,7 +108,7 @@ Table widgets return `columns` and `rows` with display-ready cells instead of `s
 
 `GET /api/forms/{formId}/reports/{reportId}/export.csv`
 
-Requires authentication plus `menu.reports` and form `view` access. Exports all report rows matching the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order. Export requests write a `report_exported` audit log entry after the report is resolved.
+Requires authentication plus `menu.reports`, form `view` access, and report `export` access. Exports all permitted report rows matching the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order after hidden field rules are applied. Export requests write a `report_exported` audit log entry after the report is resolved.
 
 Query parameters:
 
@@ -343,6 +343,7 @@ Response:
       "isActive": true,
       "roles": [{ "id": "00000000-0000-0000-0000-000000000000", "name": "Admin" }],
       "departments": [],
+      "groups": [],
       "concurrencyStamp": "stamp",
       "createdAt": "2026-05-19T00:00:00Z"
     }
@@ -365,6 +366,7 @@ Request:
   "password": "temporary-password-1",
   "roleIds": ["00000000-0000-0000-0000-000000000000"],
   "departmentIds": [],
+  "groupIds": [],
   "isActive": true
 }
 ```
@@ -422,7 +424,21 @@ Response:
   "formPermissions": [
     {
       "formId": "00000000-0000-0000-0000-000000000000",
-      "action": "view"
+      "action": "view",
+      "scope": "department"
+    }
+  ],
+  "reportPermissions": [
+    {
+      "reportId": "00000000-0000-0000-0000-000000000000",
+      "action": "export"
+    }
+  ],
+  "fieldPermissions": [
+    {
+      "formId": "00000000-0000-0000-0000-000000000000",
+      "fieldId": "salary",
+      "access": "hidden"
     }
   ]
 }
@@ -433,6 +449,55 @@ Response:
 `PUT /api/roles/{roleId}/permissions`
 
 Requires `roles.manage`.
+
+Request shape matches the response from `GET /api/roles/{roleId}/permissions`. Supported form scopes are `all`, `own`, `department`, `managed_department`, `group`, and `assigned`. Supported report actions are `view`, `export`, and `manage`. Supported field access values are `hidden` and `read_only`.
+
+### Groups
+
+`GET /api/groups`
+
+`POST /api/groups`
+
+`GET /api/groups/{groupId}`
+
+`PUT /api/groups/{groupId}`
+
+All group endpoints require `users.manage`.
+
+Create/update request:
+
+```json
+{
+  "name": "Finance reviewers",
+  "description": "Users who review finance records",
+  "isActive": true,
+  "concurrencyStamp": "stamp-for-update-only"
+}
+```
+
+### Departments
+
+`GET /api/departments`
+
+`POST /api/departments`
+
+`GET /api/departments/{departmentId}`
+
+`PUT /api/departments/{departmentId}`
+
+All department endpoints require `users.manage`.
+
+Create/update request:
+
+```json
+{
+  "name": "Finance",
+  "parentDepartmentId": null,
+  "managerUserId": "00000000-0000-0000-0000-000000000000",
+  "isActive": true,
+  "concurrencyStamp": "stamp-for-update-only"
+}
+```
 
 ### Form access options
 
@@ -746,6 +811,10 @@ Response:
   "formId": "11111111-1111-1111-1111-111111111111",
   "formVersionId": "44444444-4444-4444-4444-444444444444",
   "status": "active",
+  "ownerId": "22222222-2222-2222-2222-222222222222",
+  "departmentId": null,
+  "assignedToUserId": null,
+  "assignedGroupId": null,
   "values": {
     "first_name": "John",
     "email": "john@example.com"
@@ -756,13 +825,13 @@ Response:
 }
 ```
 
-Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, stores `records.form_version_id`, and writes a `record_created` audit entry. Draft and archived forms reject record submission.
+Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, stores `records.form_version_id`, sets owner/department metadata from the current user, and writes a `record_created` audit entry. Draft and archived forms reject record submission.
 
 ### List records
 
 `GET /api/forms/{formId}/records?page=1&pageSize=25&search=john`
 
-Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access. `page` is 1-based and `pageSize` is clamped by the backend.
+Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access. V3 scopes (`all`, `own`, `department`, `managed_department`, `group`, `assigned`) limit the returned rows. `page` is 1-based and `pageSize` is clamped by the backend.
 
 Response:
 
@@ -775,6 +844,10 @@ Response:
       "formId": "11111111-1111-1111-1111-111111111111",
       "formVersionId": "44444444-4444-4444-4444-444444444444",
       "status": "active",
+      "ownerId": "22222222-2222-2222-2222-222222222222",
+      "departmentId": null,
+      "assignedToUserId": null,
+      "assignedGroupId": null,
       "values": {
         "first_name": "John",
         "email": "john@example.com"
@@ -786,13 +859,13 @@ Response:
 }
 ```
 
-V1 search matches the record id, form version id, status, value keys, and value text for records on the requested form.
+Search matches the record id, form version id, status, value keys, and value text for records on the requested form. Hidden field values are removed before records are returned.
 
 ### Get record detail
 
 `GET /api/records/{recordId}`
 
-Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access for the record's form.
+Requires authentication plus form `view`, form `manage`, or `forms.manage_all` access for the record's form and a matching V3 record scope.
 
 Response:
 
@@ -802,6 +875,10 @@ Response:
   "formId": "11111111-1111-1111-1111-111111111111",
   "formVersionId": "44444444-4444-4444-4444-444444444444",
   "status": "active",
+  "ownerId": "22222222-2222-2222-2222-222222222222",
+  "departmentId": null,
+  "assignedToUserId": null,
+  "assignedGroupId": null,
   "values": {
     "first_name": "John",
     "email": "john@example.com"
@@ -811,6 +888,7 @@ Response:
     "fields": [],
     "layout": { "pages": [] }
   },
+  "readOnlyFieldIds": ["email"],
   "concurrencyStamp": "record-stamp",
   "createdAt": "2026-05-21T00:00:00Z",
   "createdById": "22222222-2222-2222-2222-222222222222",
@@ -819,13 +897,13 @@ Response:
 }
 ```
 
-Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time.
+Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time. Hidden field values are omitted, and read-only field ids tell the client which returned values cannot be edited by the current user.
 
 ### Update record
 
 `PUT /api/records/{recordId}`
 
-Requires authentication plus form `edit`, form `manage`, or `forms.manage_all` access for the record's form. Updates validate values against the immutable schema for the stored `formVersionId`; they do not move the record to a newer form version.
+Requires authentication plus form `edit`, form `manage`, or `forms.manage_all` access for the record's form and a matching V3 record scope. Updates validate values against the immutable schema for the stored `formVersionId`; they do not move the record to a newer form version.
 
 Request:
 
@@ -847,6 +925,10 @@ Response:
   "formId": "11111111-1111-1111-1111-111111111111",
   "formVersionId": "44444444-4444-4444-4444-444444444444",
   "status": "active",
+  "ownerId": "22222222-2222-2222-2222-222222222222",
+  "departmentId": null,
+  "assignedToUserId": null,
+  "assignedGroupId": null,
   "values": {
     "first_name": "Jane",
     "email": "jane@example.com"
@@ -856,6 +938,7 @@ Response:
     "fields": [],
     "layout": { "pages": [] }
   },
+  "readOnlyFieldIds": [],
   "concurrencyStamp": "new-record-stamp",
   "createdAt": "2026-05-21T00:00:00Z",
   "createdById": "22222222-2222-2222-2222-222222222222",
@@ -864,19 +947,54 @@ Response:
 }
 ```
 
-The backend returns `409` when the supplied `concurrencyStamp` is stale and writes a `record_updated` audit entry on success.
+The backend returns `403` when the user attempts to modify hidden or read-only fields, returns `409` when the supplied `concurrencyStamp` is stale, and writes a `record_updated` audit entry on success.
 
 ### Delete record
 
 `DELETE /api/records/{recordId}`
 
-Requires authentication plus form `delete`, form `manage`, or `forms.manage_all` access for the record's form.
+Requires authentication plus form `delete`, form `manage`, or `forms.manage_all` access for the record's form and a matching V3 record scope.
 
 Response: `204 No Content`
 
 Delete uses soft delete, marks the record status `deleted`, and writes a `record_deleted` audit entry.
 
-## Reports V2
+### Assign record
+
+`POST /api/records/{recordId}/assign`
+
+Requires authentication plus form `assign`, form `manage`, or `forms.manage_all` access for the record's form and a matching V3 record scope.
+
+Request:
+
+```json
+{
+  "assignedToUserId": "33333333-3333-3333-3333-333333333333",
+  "assignedGroupId": null,
+  "concurrencyStamp": "record-stamp"
+}
+```
+
+Response: `200 OK` with the refreshed record detail. The backend validates active assignees, returns `409` for stale concurrency stamps, and writes a `record_assigned` audit entry.
+
+### Change record status
+
+`POST /api/records/{recordId}/status`
+
+Requires authentication plus form `change_status`, form `manage`, or `forms.manage_all` access for the record's form and a matching V3 record scope.
+
+Request:
+
+```json
+{
+  "status": "approved",
+  "concurrencyStamp": "record-stamp"
+}
+```
+
+Response: `200 OK` with the refreshed record detail. The backend validates the new status, returns `409` for stale concurrency stamps, and writes a `record_status_changed` audit entry.
+
+## Reports V2/V3
 
 ### List reports
 
@@ -952,9 +1070,9 @@ Response: `201 Created` with the saved report detail. V2 validates report config
 
 `GET /api/forms/{formId}/reports/{reportId}/run?page=1&pageSize=25&search=Jane`
 
-Requires authentication plus `menu.reports` and form `view`, form `manage`, or `forms.manage_all` access.
+Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
 
-Runs a saved list report against non-deleted records for the form. The backend applies the saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells.
+Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells.
 
 Response:
 
@@ -992,13 +1110,15 @@ Response:
 }
 ```
 
-Returns `404` when the report does not exist for the form and `409` when the saved report config no longer matches the runnable form schema.
+Returns `404` when the report does not exist for the form and `409` when the saved report config no longer matches the runnable form schema. Hidden fields are removed from report columns, filters, sorts, and row cells before execution results are returned.
 
 ### Export report CSV
 
-`POST /api/reports/{reportId}/export/csv`
+`GET /api/forms/{formId}/reports/{reportId}/export.csv?search=Jane`
 
-Not implemented yet.
+Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `export` access.
+
+Exports all permitted report rows matching the saved report config and optional runtime search. CSV columns match the visible saved report columns after hidden field rules are applied. Export requests write a `report_exported` audit entry after the report is resolved.
 
 ## Permissions V3
 

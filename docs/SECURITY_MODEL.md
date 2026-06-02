@@ -1,6 +1,6 @@
 # Security Model
 
-Status: V1 security baseline complete for the current repository. The platform implements bootstrap-admin cookie authentication, local PostgreSQL user login, self-service password recovery for persistent users, persistent user/role management, role permissions, per-form role access, and backend authorization checks for auth, Users & Access, dashboard, forms, V1 record submit/list/detail/edit/delete endpoints, and V2 report definition management. Field-level authorization remains future advanced-permissions work.
+Status: V3 security baseline complete for the current repository. The platform implements bootstrap-admin cookie authentication, local PostgreSQL user login, self-service password recovery for persistent users, persistent users/roles/groups/departments management, scoped record permissions, report permissions, and backend authorization checks for auth, Users & Access, dashboard, forms, records, reports, chart previews, and field-level hidden/read-only rules.
 
 ## Core Rules
 
@@ -51,6 +51,10 @@ Log these actions:
 - Password reset completed
 - Trigger executed
 - Workflow transition later
+
+## V3 Field Security
+
+Hidden field values are removed from API responses instead of being returned as `null`. Read-only fields are enforced on the backend during record edits, so changing the browser payload cannot bypass the UI.
 
 ## File Upload Security Later
 

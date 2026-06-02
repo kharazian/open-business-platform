@@ -1,6 +1,6 @@
 # Permission Model
 
-Status: V1 role-based access foundation is implemented for local users, roles, menu visibility, and per-form access. More advanced rule subjects such as departments, owners, groups, and field-level access remain future work.
+Status: V3 advanced permission foundation is implemented for local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, and basic field-level hidden/read-only rules.
 
 ## Goals
 
@@ -86,7 +86,41 @@ Per-form actions:
 
 The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
 
-V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation.
+V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation. V3 report run/export endpoints also use report-level view/export/manage grants when explicit report permissions exist.
+
+## Implemented V3 Record Scopes
+
+Per-form role grants now store an action and scope.
+
+Actions:
+
+- `submit`
+- `view`
+- `edit`
+- `delete`
+- `print`
+- `export`
+- `assign`
+- `change_status`
+- `manage`
+
+Scopes:
+
+- `all`
+- `own`
+- `department`
+- `managed_department`
+- `group`
+- `assigned`
+
+Multiple role grants combine with OR semantics. `manage`, `forms.manage_all`, Admin, and the bootstrap admin retain all-access behavior.
+
+## Implemented V3 Field Rules
+
+Role field permissions support:
+
+- `hidden`: values are omitted from record, report, CSV, chart, and dashboard table responses.
+- `read_only`: values are returned but backend record edits cannot change them.
 
 ## Permission Actions
 

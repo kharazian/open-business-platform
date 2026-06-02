@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -12,6 +12,7 @@
 - EF Core/Npgsql database foundation exists for users, roles, role permissions, form permissions, departments, forms, form versions, records, and audit logs.
 - Cookie auth exists with bootstrap admin fallback and local PostgreSQL user login.
 - Users & Access workspace exists for local users, roles, menu permissions, and per-form role access.
+- Users & Access workspace includes users, roles, departments, groups, scoped form access, report access, and field rules.
 - Persistent Forms list/create API and frontend page exist.
 - Backend-owned form draft metadata editing, field editing, responsive layout, preview, immutable publishing, and submit-safe published form rendering exist.
 - Record submission, list/detail, edit, soft-delete, and browser print flows exist with backend permission checks and audit logs.
@@ -26,7 +27,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: V2 task list is complete. Continue with V3 advanced permissions or start the next approved product slice.
+Next: V3 advanced permissions is complete. Continue with V4 Trigger Engine or start the next approved product slice.
 
 ## Product Engine Path
 
@@ -101,6 +102,8 @@ Features:
 ## V3: Advanced Permissions
 
 Goal: add organization-aware access control.
+
+Status: complete for the current repository.
 
 Features:
 

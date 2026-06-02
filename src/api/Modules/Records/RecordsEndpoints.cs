@@ -27,8 +27,10 @@ public static class RecordsEndpoints
             return await HandleRecordRequestAsync(async () =>
             {
                 var records = await recordQuery.ListRecordsAsync(
+                    httpContext.User,
                     formId,
                     new ListRecordsRequest(page ?? 1, pageSize ?? 25, search),
+                    permissionService,
                     cancellationToken);
 
                 return Results.Ok(records);
@@ -77,7 +79,7 @@ public static class RecordsEndpoints
 
             return await HandleRecordRequestAsync(async () =>
             {
-                var record = await recordQuery.GetRecordAsync(recordId, cancellationToken);
+                var record = await recordQuery.GetRecordAsync(httpContext.User, recordId, permissionService, cancellationToken);
                 return Results.Ok(record);
             });
         });
@@ -104,7 +106,7 @@ public static class RecordsEndpoints
 
             return await HandleRecordRequestAsync(async () =>
             {
-                var record = await recordMutation.UpdateRecordAsync(recordId, request, GetCurrentUserId(httpContext), cancellationToken);
+                var record = await recordMutation.UpdateRecordAsync(recordId, request, httpContext.User, GetCurrentUserId(httpContext), permissionService, cancellationToken);
                 return Results.Ok(record);
             });
         });
@@ -129,9 +131,63 @@ public static class RecordsEndpoints
             }
 
             return await HandleRecordRequestAsync(async () =>
-                await recordMutation.DeleteRecordAsync(recordId, GetCurrentUserId(httpContext), cancellationToken)
+                await recordMutation.DeleteRecordAsync(recordId, httpContext.User, GetCurrentUserId(httpContext), permissionService, cancellationToken)
                     ? Results.NoContent()
                     : Results.NotFound(new RecordErrorResponse("Record was not found.")));
+        });
+
+        detailGroup.MapPost("/{recordId:guid}/assign", async (
+            Guid recordId,
+            AssignRecordRequest request,
+            RecordQueryService recordQuery,
+            RecordMutationService recordMutation,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.Assign, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var record = await recordMutation.AssignRecordAsync(recordId, request, httpContext.User, GetCurrentUserId(httpContext), permissionService, cancellationToken);
+                return Results.Ok(record);
+            });
+        });
+
+        detailGroup.MapPost("/{recordId:guid}/status", async (
+            Guid recordId,
+            ChangeRecordStatusRequest request,
+            RecordQueryService recordQuery,
+            RecordMutationService recordMutation,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.ChangeStatus, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var record = await recordMutation.ChangeStatusAsync(recordId, request, httpContext.User, GetCurrentUserId(httpContext), permissionService, cancellationToken);
+                return Results.Ok(record);
+            });
         });
 
         return endpoints;

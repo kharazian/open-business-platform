@@ -26,4 +26,6 @@ public sealed class User : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHa
     public ICollection<UserRole> Roles { get; } = new List<UserRole>();
 
     public ICollection<UserDepartment> Departments { get; } = new List<UserDepartment>();
+
+    public ICollection<UserGroup> Groups { get; } = new List<UserGroup>();
 }

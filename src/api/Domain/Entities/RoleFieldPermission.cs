@@ -2,7 +2,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class RoleFormPermission : Entity<Guid>
+public sealed class RoleFieldPermission : Entity<Guid>
 {
     public Guid RoleId { get; set; }
 
@@ -12,7 +12,7 @@ public sealed class RoleFormPermission : Entity<Guid>
 
     public FormDefinition? Form { get; set; }
 
-    public string Action { get; set; } = string.Empty;
+    public string FieldId { get; set; } = string.Empty;
 
-    public string Scope { get; set; } = "all";
+    public string Access { get; set; } = string.Empty;
 }

@@ -8,6 +8,8 @@ export type UserDraftForValidation = {
   password: string;
   isActive: boolean;
   roleIds: string[];
+  departmentIds: string[];
+  groupIds: string[];
 };
 
 export type RoleDraftForValidation = {

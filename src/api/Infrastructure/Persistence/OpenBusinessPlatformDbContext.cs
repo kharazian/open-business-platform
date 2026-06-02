@@ -25,6 +25,14 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<RoleFormPermission> RoleFormPermissions => Set<RoleFormPermission>();
 
+    public DbSet<Group> Groups => Set<Group>();
+
+    public DbSet<UserGroup> UserGroups => Set<UserGroup>();
+
+    public DbSet<RoleReportPermission> RoleReportPermissions => Set<RoleReportPermission>();
+
+    public DbSet<RoleFieldPermission> RoleFieldPermissions => Set<RoleFieldPermission>();
+
     public DbSet<Department> Departments => Set<Department>();
 
     public DbSet<UserDepartment> UserDepartments => Set<UserDepartment>();
@@ -70,6 +78,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         ConfigureUsers(modelBuilder);
+        ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
         ConfigureReports(modelBuilder);
@@ -223,6 +232,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(roleFormPermission => roleFormPermission.RoleId).HasColumnName("role_id").HasColumnType("uuid").IsRequired();
             entity.Property(roleFormPermission => roleFormPermission.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
             entity.Property(roleFormPermission => roleFormPermission.Action).HasColumnName("action").HasMaxLength(40).IsRequired();
+            entity.Property(roleFormPermission => roleFormPermission.Scope).HasColumnName("scope").HasMaxLength(40).HasDefaultValue("all").IsRequired();
             entity
                 .HasOne(roleFormPermission => roleFormPermission.Role)
                 .WithMany(role => role.FormPermissions)
@@ -276,6 +286,87 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         });
     }
 
+    private static void ConfigureGroups(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Group>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "groups");
+            entity.HasIndex(group => group.Name).IsUnique();
+            entity.Property(group => group.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(group => group.Description).HasColumnName("description").HasMaxLength(500);
+            entity.Property(group => group.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<UserGroup>(entity =>
+        {
+            entity.ToTable("user_groups");
+            entity.HasKey(userGroup => userGroup.Id);
+            entity.HasIndex(userGroup => userGroup.UserId);
+            entity.HasIndex(userGroup => userGroup.GroupId);
+            entity.HasIndex(userGroup => new { userGroup.UserId, userGroup.GroupId }).IsUnique();
+            entity.Property(userGroup => userGroup.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(userGroup => userGroup.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(userGroup => userGroup.GroupId).HasColumnName("group_id").HasColumnType("uuid").IsRequired();
+            entity
+                .HasOne(userGroup => userGroup.User)
+                .WithMany(user => user.Groups)
+                .HasForeignKey(userGroup => userGroup.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(userGroup => userGroup.Group)
+                .WithMany(group => group.Users)
+                .HasForeignKey(userGroup => userGroup.GroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RoleReportPermission>(entity =>
+        {
+            entity.ToTable("role_report_permissions");
+            entity.HasKey(permission => permission.Id);
+            entity.HasIndex(permission => permission.RoleId);
+            entity.HasIndex(permission => permission.ReportId);
+            entity.HasIndex(permission => new { permission.RoleId, permission.ReportId, permission.Action }).IsUnique();
+            entity.Property(permission => permission.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(permission => permission.RoleId).HasColumnName("role_id").HasColumnType("uuid").IsRequired();
+            entity.Property(permission => permission.ReportId).HasColumnName("report_id").HasColumnType("uuid").IsRequired();
+            entity.Property(permission => permission.Action).HasColumnName("action").HasMaxLength(40).IsRequired();
+            entity
+                .HasOne(permission => permission.Role)
+                .WithMany(role => role.ReportPermissions)
+                .HasForeignKey(permission => permission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(permission => permission.Report)
+                .WithMany()
+                .HasForeignKey(permission => permission.ReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RoleFieldPermission>(entity =>
+        {
+            entity.ToTable("role_field_permissions");
+            entity.HasKey(permission => permission.Id);
+            entity.HasIndex(permission => permission.RoleId);
+            entity.HasIndex(permission => permission.FormId);
+            entity.HasIndex(permission => new { permission.RoleId, permission.FormId, permission.FieldId }).IsUnique();
+            entity.Property(permission => permission.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(permission => permission.RoleId).HasColumnName("role_id").HasColumnType("uuid").IsRequired();
+            entity.Property(permission => permission.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(permission => permission.FieldId).HasColumnName("field_id").HasMaxLength(120).IsRequired();
+            entity.Property(permission => permission.Access).HasColumnName("access").HasMaxLength(40).IsRequired();
+            entity
+                .HasOne(permission => permission.Role)
+                .WithMany(role => role.FieldPermissions)
+                .HasForeignKey(permission => permission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(permission => permission.Form)
+                .WithMany()
+                .HasForeignKey(permission => permission.FormId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
     private static void ConfigureForms(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<FormDefinition>(entity =>
@@ -324,6 +415,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(record => record.Status);
             entity.HasIndex(record => record.OwnerId);
             entity.HasIndex(record => record.DepartmentId);
+            entity.HasIndex(record => record.AssignedToUserId);
+            entity.HasIndex(record => record.AssignedGroupId);
             entity.HasIndex(record => record.CreatedById);
             entity.HasIndex(record => record.CreatedAt);
             entity.Property(record => record.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
@@ -331,6 +424,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(record => record.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
             entity.Property(record => record.OwnerId).HasColumnName("owner_id").HasColumnType("uuid");
             entity.Property(record => record.DepartmentId).HasColumnName("department_id").HasColumnType("uuid");
+            entity.Property(record => record.AssignedToUserId).HasColumnName("assigned_to_user_id").HasColumnType("uuid");
+            entity.Property(record => record.AssignedGroupId).HasColumnName("assigned_group_id").HasColumnType("uuid");
             entity.Property(record => record.ValuesJson).HasColumnName("values_json").HasColumnType("jsonb").IsRequired();
             entity
                 .HasOne(record => record.Form)
@@ -351,6 +446,16 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(record => record.Department)
                 .WithMany()
                 .HasForeignKey(record => record.DepartmentId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(record => record.AssignedToUser)
+                .WithMany()
+                .HasForeignKey(record => record.AssignedToUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(record => record.AssignedGroup)
+                .WithMany()
+                .HasForeignKey(record => record.AssignedGroupId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

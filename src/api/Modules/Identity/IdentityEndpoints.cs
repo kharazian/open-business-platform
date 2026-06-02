@@ -225,6 +225,136 @@ public static class IdentityEndpoints
             });
         });
 
+        var groups = endpoints.MapGroup("/api/groups").WithTags("Groups").RequireAuthorization();
+        groups.MapGet("/", async (
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await identityManagement.ListGroupsAsync(cancellationToken) });
+        });
+        groups.MapPost("/", async (
+            CreateGroupRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () => Results.Created(
+                "/api/groups",
+                await identityManagement.CreateGroupAsync(request, cancellationToken)));
+        });
+        groups.MapGet("/{groupId:guid}", async (
+            Guid groupId,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var group = await identityManagement.GetGroupAsync(groupId, cancellationToken);
+            return group is null ? Results.NotFound() : Results.Ok(group);
+        });
+        groups.MapPut("/{groupId:guid}", async (
+            Guid groupId,
+            UpdateGroupRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                var group = await identityManagement.UpdateGroupAsync(groupId, request, cancellationToken);
+                return group is null ? Results.NotFound() : Results.Ok(group);
+            });
+        });
+
+        var departments = endpoints.MapGroup("/api/departments").WithTags("Departments").RequireAuthorization();
+        departments.MapGet("/", async (
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await identityManagement.ListDepartmentsAsync(cancellationToken) });
+        });
+        departments.MapPost("/", async (
+            CreateDepartmentRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () => Results.Created(
+                "/api/departments",
+                await identityManagement.CreateDepartmentAsync(request, cancellationToken)));
+        });
+        departments.MapGet("/{departmentId:guid}", async (
+            Guid departmentId,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var department = await identityManagement.GetDepartmentAsync(departmentId, cancellationToken);
+            return department is null ? Results.NotFound() : Results.Ok(department);
+        });
+        departments.MapPut("/{departmentId:guid}", async (
+            Guid departmentId,
+            UpdateDepartmentRequest request,
+            IdentityManagementService identityManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIdentityRequestAsync(async () =>
+            {
+                var department = await identityManagement.UpdateDepartmentAsync(departmentId, request, cancellationToken);
+                return department is null ? Results.NotFound() : Results.Ok(department);
+            });
+        });
+
         return endpoints;
     }
 

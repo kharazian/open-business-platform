@@ -68,10 +68,12 @@ public sealed class IdentityManagementService
             throw new IdentityManagementException(StatusCodes.Status400BadRequest, "A user with this email already exists.");
         }
 
-        var roleIds = DistinctIds(request.RoleIds);
-        var departmentIds = DistinctIds(request.DepartmentIds);
+        var roleIds = DistinctIds(request.RoleIds ?? Array.Empty<Guid>());
+        var departmentIds = DistinctIds(request.DepartmentIds ?? Array.Empty<Guid>());
+        var groupIds = DistinctIds(request.GroupIds ?? Array.Empty<Guid>());
         await EnsureRolesExistAsync(roleIds, cancellationToken);
         await EnsureDepartmentsExistAsync(departmentIds, cancellationToken);
+        await EnsureGroupsExistAsync(groupIds, cancellationToken);
 
         var now = DateTimeOffset.UtcNow;
         var user = new User
@@ -94,6 +96,11 @@ public sealed class IdentityManagementService
             user.Departments.Add(new UserDepartment { DepartmentId = departmentId, IsPrimary = false });
         }
 
+        foreach (var groupId in groupIds)
+        {
+            user.Groups.Add(new UserGroup { GroupId = groupId });
+        }
+
         dbContext.Users.Add(user);
         AddAudit("User", user.Id, "user_created");
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -104,14 +111,17 @@ public sealed class IdentityManagementService
     public async Task<UserDto?> UpdateUserAsync(Guid userId, UpdateUserRequest request, CancellationToken cancellationToken)
     {
         ValidateUserName(request.Name);
-        var roleIds = DistinctIds(request.RoleIds);
-        var departmentIds = DistinctIds(request.DepartmentIds);
+        var roleIds = DistinctIds(request.RoleIds ?? Array.Empty<Guid>());
+        var departmentIds = DistinctIds(request.DepartmentIds ?? Array.Empty<Guid>());
+        var groupIds = DistinctIds(request.GroupIds ?? Array.Empty<Guid>());
         await EnsureRolesExistAsync(roleIds, cancellationToken);
         await EnsureDepartmentsExistAsync(departmentIds, cancellationToken);
+        await EnsureGroupsExistAsync(groupIds, cancellationToken);
 
         var user = await dbContext.Users
             .Include(item => item.Roles)
             .Include(item => item.Departments)
+            .Include(item => item.Groups)
             .SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
 
         if (user is null)
@@ -125,6 +135,7 @@ public sealed class IdentityManagementService
 
         ReplaceUserRoles(user, roleIds);
         ReplaceUserDepartments(user, departmentIds);
+        ReplaceUserGroups(user, groupIds);
         AddAudit("User", user.Id, request.IsActive ? "user_updated" : "user_disabled");
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -150,6 +161,137 @@ public sealed class IdentityManagementService
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
+    }
+
+    public async Task<IReadOnlyCollection<GroupDto>> ListGroupsAsync(CancellationToken cancellationToken)
+    {
+        var groups = await GroupQuery()
+            .OrderBy(group => group.Name)
+            .ToArrayAsync(cancellationToken);
+
+        return groups.Select(ToGroupDto).ToArray();
+    }
+
+    public async Task<GroupDto?> GetGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        var group = await GroupQuery().SingleOrDefaultAsync(item => item.Id == groupId, cancellationToken);
+
+        return group is null ? null : ToGroupDto(group);
+    }
+
+    public async Task<GroupDto> CreateGroupAsync(CreateGroupRequest request, CancellationToken cancellationToken)
+    {
+        var name = ValidateGroupName(request.Name);
+
+        if (await dbContext.Groups.AnyAsync(group => group.Name == name, cancellationToken))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "A group with this name already exists.");
+        }
+
+        var group = new Group
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Description = NormalizeOptionalText(request.Description),
+            IsActive = request.IsActive
+        };
+
+        dbContext.Groups.Add(group);
+        AddAudit("Group", group.Id, "group_created");
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await GetGroupAsync(group.Id, cancellationToken))!;
+    }
+
+    public async Task<GroupDto?> UpdateGroupAsync(Guid groupId, UpdateGroupRequest request, CancellationToken cancellationToken)
+    {
+        var name = ValidateGroupName(request.Name);
+
+        var group = await dbContext.Groups.SingleOrDefaultAsync(item => item.Id == groupId, cancellationToken);
+
+        if (group is null)
+        {
+            return null;
+        }
+
+        if (await dbContext.Groups.AnyAsync(item => item.Id != groupId && item.Name == name, cancellationToken))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "A group with this name already exists.");
+        }
+
+        EnsureConcurrencyStamp(group.ConcurrencyStamp, request.ConcurrencyStamp);
+        group.Name = name;
+        group.Description = NormalizeOptionalText(request.Description);
+        group.IsActive = request.IsActive;
+        AddAudit("Group", group.Id, request.IsActive ? "group_updated" : "group_disabled");
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetGroupAsync(group.Id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<DepartmentDto>> ListDepartmentsAsync(CancellationToken cancellationToken)
+    {
+        var departments = await DepartmentQuery()
+            .OrderBy(department => department.Name)
+            .ToArrayAsync(cancellationToken);
+
+        return departments.Select(ToDepartmentDto).ToArray();
+    }
+
+    public async Task<DepartmentDto?> GetDepartmentAsync(Guid departmentId, CancellationToken cancellationToken)
+    {
+        var department = await DepartmentQuery().SingleOrDefaultAsync(item => item.Id == departmentId, cancellationToken);
+
+        return department is null ? null : ToDepartmentDto(department);
+    }
+
+    public async Task<DepartmentDto> CreateDepartmentAsync(CreateDepartmentRequest request, CancellationToken cancellationToken)
+    {
+        var name = ValidateDepartmentName(request.Name);
+        await EnsureDepartmentReferencesAsync(null, request.ParentDepartmentId, request.ManagerUserId, cancellationToken);
+
+        var department = new Department
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            ParentDepartmentId = NormalizeNullableId(request.ParentDepartmentId),
+            ManagerUserId = NormalizeNullableId(request.ManagerUserId),
+            IsActive = request.IsActive
+        };
+
+        dbContext.Departments.Add(department);
+        AddAudit("Department", department.Id, "department_created");
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return (await GetDepartmentAsync(department.Id, cancellationToken))!;
+    }
+
+    public async Task<DepartmentDto?> UpdateDepartmentAsync(
+        Guid departmentId,
+        UpdateDepartmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var name = ValidateDepartmentName(request.Name);
+        await EnsureDepartmentReferencesAsync(departmentId, request.ParentDepartmentId, request.ManagerUserId, cancellationToken);
+
+        var department = await dbContext.Departments.SingleOrDefaultAsync(item => item.Id == departmentId, cancellationToken);
+
+        if (department is null)
+        {
+            return null;
+        }
+
+        EnsureConcurrencyStamp(department.ConcurrencyStamp, request.ConcurrencyStamp);
+        department.Name = name;
+        department.ParentDepartmentId = NormalizeNullableId(request.ParentDepartmentId);
+        department.ManagerUserId = NormalizeNullableId(request.ManagerUserId);
+        department.IsActive = request.IsActive;
+        AddAudit("Department", department.Id, request.IsActive ? "department_updated" : "department_disabled");
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetDepartmentAsync(department.Id, cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<RoleDto>> ListRolesAsync(CancellationToken cancellationToken)
@@ -220,6 +362,8 @@ public sealed class IdentityManagementService
             .AsNoTracking()
             .Include(item => item.Permissions)
             .Include(item => item.FormPermissions)
+            .Include(item => item.ReportPermissions)
+            .Include(item => item.FieldPermissions)
             .SingleOrDefaultAsync(item => item.Id == roleId, cancellationToken);
 
         return role is null
@@ -234,11 +378,17 @@ public sealed class IdentityManagementService
     {
         var permissions = NormalizePermissions(request.Permissions);
         var formPermissions = NormalizeFormPermissions(request.FormPermissions);
+        var reportPermissions = NormalizeReportPermissions(request.ReportPermissions);
+        var fieldPermissions = NormalizeFieldPermissions(request.FieldPermissions);
         await EnsureFormsExistAsync(formPermissions.Select(permission => permission.FormId).Distinct().ToArray(), cancellationToken);
+        await EnsureFormsExistAsync(fieldPermissions.Select(permission => permission.FormId).Distinct().ToArray(), cancellationToken);
+        await EnsureReportsExistAsync(reportPermissions.Select(permission => permission.ReportId).Distinct().ToArray(), cancellationToken);
 
         var role = await dbContext.Roles
             .Include(item => item.Permissions)
             .Include(item => item.FormPermissions)
+            .Include(item => item.ReportPermissions)
+            .Include(item => item.FieldPermissions)
             .SingleOrDefaultAsync(item => item.Id == roleId, cancellationToken);
 
         if (role is null)
@@ -248,6 +398,8 @@ public sealed class IdentityManagementService
 
         role.Permissions.Clear();
         role.FormPermissions.Clear();
+        role.ReportPermissions.Clear();
+        role.FieldPermissions.Clear();
 
         foreach (var permission in permissions)
         {
@@ -259,7 +411,27 @@ public sealed class IdentityManagementService
             role.FormPermissions.Add(new RoleFormPermission
             {
                 FormId = formPermission.FormId,
-                Action = formPermission.Action
+                Action = formPermission.Action,
+                Scope = formPermission.Scope
+            });
+        }
+
+        foreach (var reportPermission in reportPermissions)
+        {
+            role.ReportPermissions.Add(new RoleReportPermission
+            {
+                ReportId = reportPermission.ReportId,
+                Action = reportPermission.Action
+            });
+        }
+
+        foreach (var fieldPermission in fieldPermissions)
+        {
+            role.FieldPermissions.Add(new RoleFieldPermission
+            {
+                FormId = fieldPermission.FormId,
+                FieldId = fieldPermission.FieldId,
+                Access = fieldPermission.Access
             });
         }
 
@@ -276,7 +448,9 @@ public sealed class IdentityManagementService
             .Include(user => user.Roles)
             .ThenInclude(userRole => userRole.Role)
             .Include(user => user.Departments)
-            .ThenInclude(userDepartment => userDepartment.Department);
+            .ThenInclude(userDepartment => userDepartment.Department)
+            .Include(user => user.Groups)
+            .ThenInclude(userGroup => userGroup.Group);
     }
 
     private IQueryable<Role> RoleQuery()
@@ -284,6 +458,20 @@ public sealed class IdentityManagementService
         return dbContext.Roles
             .AsNoTracking()
             .Include(role => role.Users);
+    }
+
+    private IQueryable<Group> GroupQuery()
+    {
+        return dbContext.Groups
+            .AsNoTracking()
+            .Include(group => group.Users);
+    }
+
+    private IQueryable<Department> DepartmentQuery()
+    {
+        return dbContext.Departments
+            .AsNoTracking()
+            .Include(department => department.Users);
     }
 
     private async Task EnsureRolesExistAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken)
@@ -316,6 +504,21 @@ public sealed class IdentityManagementService
         }
     }
 
+    private async Task EnsureGroupsExistAsync(IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken)
+    {
+        if (groupIds.Count == 0)
+        {
+            return;
+        }
+
+        var existingCount = await dbContext.Groups.CountAsync(group => groupIds.Contains(group.Id), cancellationToken);
+
+        if (existingCount != groupIds.Count)
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more groups were not found.");
+        }
+    }
+
     private async Task EnsureFormsExistAsync(IReadOnlyCollection<Guid> formIds, CancellationToken cancellationToken)
     {
         if (formIds.Count == 0)
@@ -328,6 +531,48 @@ public sealed class IdentityManagementService
         if (existingCount != formIds.Count)
         {
             throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more forms were not found.");
+        }
+    }
+
+    private async Task EnsureReportsExistAsync(IReadOnlyCollection<Guid> reportIds, CancellationToken cancellationToken)
+    {
+        if (reportIds.Count == 0)
+        {
+            return;
+        }
+
+        var existingCount = await dbContext.Reports.CountAsync(report => reportIds.Contains(report.Id), cancellationToken);
+
+        if (existingCount != reportIds.Count)
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more reports were not found.");
+        }
+    }
+
+    private async Task EnsureDepartmentReferencesAsync(
+        Guid? departmentId,
+        Guid? parentDepartmentId,
+        Guid? managerUserId,
+        CancellationToken cancellationToken)
+    {
+        var normalizedParentDepartmentId = NormalizeNullableId(parentDepartmentId);
+        var normalizedManagerUserId = NormalizeNullableId(managerUserId);
+
+        if (departmentId is not null && normalizedParentDepartmentId == departmentId)
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "A department cannot be its own parent.");
+        }
+
+        if (normalizedParentDepartmentId is not null
+            && !await dbContext.Departments.AnyAsync(department => department.Id == normalizedParentDepartmentId.Value, cancellationToken))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Parent department was not found.");
+        }
+
+        if (normalizedManagerUserId is not null
+            && !await dbContext.Users.AnyAsync(user => user.Id == normalizedManagerUserId.Value, cancellationToken))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Manager user was not found.");
         }
     }
 
@@ -348,6 +593,16 @@ public sealed class IdentityManagementService
         foreach (var departmentId in departmentIds)
         {
             user.Departments.Add(new UserDepartment { UserId = user.Id, DepartmentId = departmentId, IsPrimary = false });
+        }
+    }
+
+    private static void ReplaceUserGroups(User user, IReadOnlyCollection<Guid> groupIds)
+    {
+        user.Groups.Clear();
+
+        foreach (var groupId in groupIds)
+        {
+            user.Groups.Add(new UserGroup { UserId = user.Id, GroupId = groupId });
         }
     }
 
@@ -373,6 +628,11 @@ public sealed class IdentityManagementService
                     userDepartment.IsPrimary))
                 .OrderBy(department => department.Name)
                 .ToArray(),
+            user.Groups
+                .Where(userGroup => userGroup.Group is not null)
+                .Select(userGroup => new UserGroupDto(userGroup.Group!.Id, userGroup.Group.Name))
+                .OrderBy(group => group.Name)
+                .ToArray(),
             user.ConcurrencyStamp,
             user.CreatedAt,
             user.CreatedById,
@@ -395,22 +655,64 @@ public sealed class IdentityManagementService
             role.UpdatedById);
     }
 
+    private static GroupDto ToGroupDto(Group group)
+    {
+        return new GroupDto(
+            group.Id,
+            group.Name,
+            group.Description,
+            group.IsActive,
+            group.Users.Count,
+            group.ConcurrencyStamp,
+            group.CreatedAt,
+            group.CreatedById,
+            group.UpdatedAt,
+            group.UpdatedById);
+    }
+
+    private static DepartmentDto ToDepartmentDto(Department department)
+    {
+        return new DepartmentDto(
+            department.Id,
+            department.Name,
+            department.ParentDepartmentId,
+            department.ManagerUserId,
+            department.IsActive,
+            department.Users.Count,
+            department.ConcurrencyStamp,
+            department.CreatedAt,
+            department.CreatedById,
+            department.UpdatedAt,
+            department.UpdatedById);
+    }
+
     private static RolePermissionsDto ToRolePermissionsDto(Role role)
     {
         return new RolePermissionsDto(
             role.Id,
             role.Permissions.Select(permission => permission.Permission).OrderBy(permission => permission).ToArray(),
             role.FormPermissions
-                .Select(permission => new RoleFormPermissionDto(permission.FormId, permission.Action))
+                .Select(permission => new RoleFormPermissionDto(permission.FormId, permission.Action, permission.Scope))
                 .OrderBy(permission => permission.FormId)
                 .ThenBy(permission => permission.Action)
+                .ThenBy(permission => permission.Scope)
+                .ToArray(),
+            role.ReportPermissions
+                .Select(permission => new RoleReportPermissionDto(permission.ReportId, permission.Action))
+                .OrderBy(permission => permission.ReportId)
+                .ThenBy(permission => permission.Action)
+                .ToArray(),
+            role.FieldPermissions
+                .Select(permission => new RoleFieldPermissionDto(permission.FormId, permission.FieldId, permission.Access))
+                .OrderBy(permission => permission.FormId)
+                .ThenBy(permission => permission.FieldId)
                 .ToArray());
     }
 
-    private static IReadOnlyCollection<string> NormalizePermissions(IReadOnlyCollection<string> permissions)
+    private static IReadOnlyCollection<string> NormalizePermissions(IReadOnlyCollection<string>? permissions)
     {
-        var normalized = permissions
-            .Select(permission => permission.Trim())
+        var normalized = (permissions ?? Array.Empty<string>())
+            .Select(permission => (permission ?? string.Empty).Trim())
             .Where(permission => permission.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(permission => permission)
@@ -424,21 +726,83 @@ public sealed class IdentityManagementService
         return normalized;
     }
 
-    private static IReadOnlyCollection<RoleFormPermissionDto> NormalizeFormPermissions(IReadOnlyCollection<RoleFormPermissionDto> formPermissions)
+    private static IReadOnlyCollection<RoleFormPermissionDto> NormalizeFormPermissions(IReadOnlyCollection<RoleFormPermissionDto>? formPermissions)
     {
-        var normalized = formPermissions
+        var candidates = (formPermissions ?? Array.Empty<RoleFormPermissionDto>())
             .Where(permission => permission.FormId != Guid.Empty)
-            .Select(permission => new RoleFormPermissionDto(permission.FormId, permission.Action.Trim()))
+            .Select(permission => new RoleFormPermissionDto(
+                permission.FormId,
+                (permission.Action ?? string.Empty).Trim(),
+                string.IsNullOrWhiteSpace(permission.Scope) ? PlatformPermissions.RecordScopes.All : permission.Scope.Trim()))
             .Where(permission => permission.Action.Length > 0)
-            .Distinct()
+            .ToArray();
+
+        if (candidates.Any(permission =>
+            !PlatformPermissions.FormActions.Contains(permission.Action)
+            || !PlatformPermissions.RecordScopes.Supported.Contains(permission.Scope)))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more form actions are not valid.");
+        }
+
+        var normalized = candidates
+            .GroupBy(permission => new { permission.FormId, permission.Action })
+            .Select(group => new RoleFormPermissionDto(
+                group.Key.FormId,
+                group.Key.Action,
+                ChooseBroadestScope(group.Select(permission => permission.Scope))))
             .OrderBy(permission => permission.FormId)
             .ThenBy(permission => permission.Action)
             .ToArray();
 
-        if (normalized.Any(permission => !PlatformPermissions.FormActions.Contains(permission.Action)))
+        return normalized;
+    }
+
+    private static IReadOnlyCollection<RoleReportPermissionDto> NormalizeReportPermissions(IReadOnlyCollection<RoleReportPermissionDto>? reportPermissions)
+    {
+        var normalized = (reportPermissions ?? Array.Empty<RoleReportPermissionDto>())
+            .Where(permission => permission.ReportId != Guid.Empty)
+            .Select(permission => new RoleReportPermissionDto(permission.ReportId, (permission.Action ?? string.Empty).Trim()))
+            .Where(permission => permission.Action.Length > 0)
+            .Distinct()
+            .OrderBy(permission => permission.ReportId)
+            .ThenBy(permission => permission.Action)
+            .ToArray();
+
+        if (normalized.Any(permission => !PlatformPermissions.ReportActions.Contains(permission.Action)))
         {
-            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more form actions are not valid.");
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more report actions are not valid.");
         }
+
+        return normalized;
+    }
+
+    private static IReadOnlyCollection<RoleFieldPermissionDto> NormalizeFieldPermissions(IReadOnlyCollection<RoleFieldPermissionDto>? fieldPermissions)
+    {
+        var candidates = (fieldPermissions ?? Array.Empty<RoleFieldPermissionDto>())
+            .Where(permission => permission.FormId != Guid.Empty)
+            .Select(permission => new RoleFieldPermissionDto(
+                permission.FormId,
+                (permission.FieldId ?? string.Empty).Trim(),
+                (permission.Access ?? string.Empty).Trim()))
+            .Where(permission => permission.FieldId.Length > 0 && permission.Access.Length > 0)
+            .ToArray();
+
+        if (candidates.Any(permission => !PlatformPermissions.FieldAccess.Supported.Contains(permission.Access)))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "One or more field access rules are not valid.");
+        }
+
+        var normalized = candidates
+            .GroupBy(permission => new { permission.FormId, permission.FieldId })
+            .Select(group => new RoleFieldPermissionDto(
+                group.Key.FormId,
+                group.Key.FieldId,
+                group.Any(permission => permission.Access == PlatformPermissions.FieldAccess.Hidden)
+                    ? PlatformPermissions.FieldAccess.Hidden
+                    : PlatformPermissions.FieldAccess.ReadOnly))
+            .OrderBy(permission => permission.FormId)
+            .ThenBy(permission => permission.FieldId)
+            .ToArray();
 
         return normalized;
     }
@@ -446,6 +810,22 @@ public sealed class IdentityManagementService
     private static IReadOnlyCollection<Guid> DistinctIds(IReadOnlyCollection<Guid> ids)
     {
         return ids.Where(id => id != Guid.Empty).Distinct().ToArray();
+    }
+
+    private static string ChooseBroadestScope(IEnumerable<string> scopes)
+    {
+        return scopes
+            .OrderBy(scope => scope switch
+            {
+                PlatformPermissions.RecordScopes.All => 0,
+                PlatformPermissions.RecordScopes.ManagedDepartment => 1,
+                PlatformPermissions.RecordScopes.Department => 2,
+                PlatformPermissions.RecordScopes.Group => 3,
+                PlatformPermissions.RecordScopes.Assigned => 4,
+                PlatformPermissions.RecordScopes.Own => 5,
+                _ => 6
+            })
+            .First();
     }
 
     private static void ValidateUserName(string name)
@@ -462,6 +842,26 @@ public sealed class IdentityManagementService
         {
             throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Role name is required.");
         }
+    }
+
+    private static string ValidateGroupName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Group name is required.");
+        }
+
+        return name.Trim();
+    }
+
+    private static string ValidateDepartmentName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Department name is required.");
+        }
+
+        return name.Trim();
     }
 
     private static void ValidatePassword(string password)
@@ -493,6 +893,11 @@ public sealed class IdentityManagementService
     private static string? NormalizeOptionalText(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static Guid? NormalizeNullableId(Guid? value)
+    {
+        return value is null || value == Guid.Empty ? null : value;
     }
 
     private void AddAudit(string entityType, Guid entityId, string action)

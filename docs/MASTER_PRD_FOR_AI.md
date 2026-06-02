@@ -31,7 +31,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/modules` and `src/app/src/platform`: current frontend module registry for permission-aware routes and navigation
 - `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, backend-owned form builder, preview renderer, and submit form page
 - `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
-- `src/app/src/features/users`: users/access API client, types, and management workspace
+- `src/app/src/features/users`: users/access API client, types, and management workspace for users, roles, groups, departments, scoped form access, report access, and field rules
 - `src/app/src/features/reports`: current V2 list report definition, report execution, CSV export, and report print API/types/page
 - `src/app/src/features/dashboards`: current V2 dashboard summary API client/types, chart builder preview page, and saved dashboard builder/viewer page
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
@@ -39,18 +39,18 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
 - `src/api/Modules/Reports`: current V2 list report definition, execution, and CSV export endpoints, config validation, permission checks, and report audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
-- `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles management endpoints, password hashing, and permission service
+- `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles/groups/departments management endpoints, password hashing, scoped permission service, and field access service
 - `src/api/Modules/Notifications`: current minimal email sender abstraction for password recovery, with SMTP delivery when configured and development logging when SMTP is not configured
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API and chart widget preview module
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
-- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, role permissions, form permissions, forms, form versions, records, departments, audit logs, current V2 report definitions, and saved dashboard definitions
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, and saved dashboard definitions
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
 - `npm test` in `src/app`: lightweight TypeScript logic tests for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users API/types, record edit/print helpers, and shared UI helpers
 
-Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. V2 is complete for the current task list: saved list report definitions, column ordering, custom column labels, runnable report viewing, CSV export, chart previews, saved dashboard layouts, cleaner print layouts, and real database-backed dashboard summaries are implemented. Workspace ownership for dashboards remains a later workspace module. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Treat settings/profile pages as starter UI. Forms, Users & Access, records, record-level permissions, browser print, startup demo data, password recovery email for persistent users, and core audit logs are the finalized V1 baseline. V2 is complete for the current task list: saved list report definitions, column ordering, custom column labels, runnable report viewing, CSV export, chart previews, saved dashboard layouts, cleaner print layouts, and real database-backed dashboard summaries are implemented. V3 is complete for the current task list: groups, departments, department managers, scoped record access, report permissions, action permissions, assignment/status record actions, and basic field hidden/read-only rules are implemented. Workspace ownership for dashboards remains a later workspace module. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 ## 2. Core Product Philosophy
 

@@ -1,8 +1,10 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Reports;
 
 namespace OpenBusinessPlatform.Api.Modules.Dashboard;
@@ -18,8 +20,10 @@ public sealed class ChartAggregationService
     }
 
     public async Task<ChartWidgetPreviewDto> PreviewAsync(
+        ClaimsPrincipal principal,
         Guid formId,
         ChartWidgetConfigDefinition request,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var form = await dbContext.Forms
@@ -46,19 +50,26 @@ public sealed class ChartAggregationService
             throw new ChartAggregationException(StatusCodes.Status400BadRequest, "Chart config is invalid.", validation.Errors);
         }
 
-        var sourceReportConfig = await GetSourceReportConfigAsync(formId, request.ReportId, schema, cancellationToken);
-        var records = await dbContext.Records
-            .AsNoTracking()
-            .Where(record => record.FormId == formId && !record.IsDeleted && record.Status != RecordStatuses.Deleted)
+        var fieldAccess = await permissionService.GetFieldAccessAsync(principal, formId, cancellationToken);
+        var sanitizedRequest = EnsureVisibleConfig(request, fieldAccess.HiddenFieldIds);
+        var sourceReportConfig = await GetSourceReportConfigAsync(formId, request.ReportId, schema, fieldAccess.HiddenFieldIds, cancellationToken);
+        var scopedRecordsQuery = await permissionService.ApplyRecordAccessAsync(
+            principal,
+            dbContext.Records.AsNoTracking().Where(record => record.FormId == formId && !record.IsDeleted && record.Status != RecordStatuses.Deleted),
+            formId,
+            PlatformPermissions.Form.View,
+            cancellationToken);
+        var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
 
-        return ChartAggregationEngine.Execute(form.Id, form.Name, request, schema, records, sourceReportConfig);
+        return ChartAggregationEngine.Execute(form.Id, form.Name, sanitizedRequest, schema, records, sourceReportConfig, fieldAccess.HiddenFieldIds);
     }
 
     private async Task<ListReportConfigDefinition?> GetSourceReportConfigAsync(
         Guid formId,
         Guid? reportId,
         FormSchemaDefinition schema,
+        IReadOnlySet<string> hiddenFieldIds,
         CancellationToken cancellationToken)
     {
         if (reportId is null)
@@ -88,7 +99,50 @@ public sealed class ChartAggregationService
             throw new ChartAggregationException(StatusCodes.Status409Conflict, "Source report config no longer matches the form schema.");
         }
 
-        return config;
+        return RemoveHiddenFields(config, hiddenFieldIds);
+    }
+
+    private static ChartWidgetConfigDefinition EnsureVisibleConfig(
+        ChartWidgetConfigDefinition config,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return config;
+        }
+
+        var hiddenMetric = config.Metric.FieldId is not null && hiddenFieldIds.Contains(config.Metric.FieldId);
+        var hiddenGroup = config.GroupByFieldId is not null && hiddenFieldIds.Contains(config.GroupByFieldId);
+        var hiddenDate = config.DateFieldId is not null && hiddenFieldIds.Contains(config.DateFieldId);
+
+        if (hiddenMetric || hiddenGroup || hiddenDate)
+        {
+            throw new ChartAggregationException(StatusCodes.Status403Forbidden, "Chart config references a hidden field.");
+        }
+
+        return config with
+        {
+            Columns = (config.Columns ?? Array.Empty<string>())
+                .Where(column => !hiddenFieldIds.Contains(column))
+                .ToArray()
+        };
+    }
+
+    private static ListReportConfigDefinition RemoveHiddenFields(
+        ListReportConfigDefinition config,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return config;
+        }
+
+        return config with
+        {
+            Columns = config.Columns.Where(column => !hiddenFieldIds.Contains(column.FieldId)).ToArray(),
+            Filters = config.Filters.Where(filter => !hiddenFieldIds.Contains(filter.FieldId)).ToArray(),
+            Sort = config.Sort.Where(sort => !hiddenFieldIds.Contains(sort.FieldId)).ToArray()
+        };
     }
 
     private static ListReportConfigDefinition DeserializeReportConfig(JsonDocument configJson)

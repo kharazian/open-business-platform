@@ -1,9 +1,11 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Identity;
 
 namespace OpenBusinessPlatform.Api.Modules.Records;
 
@@ -18,24 +20,31 @@ public sealed class RecordQueryService
     }
 
     public async Task<PagedResultDto<FormRecordListItemDto>> ListRecordsAsync(
+        ClaimsPrincipal principal,
         Guid formId,
         ListRecordsRequest request,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
         var search = Normalize(request.Search);
+        var fieldAccess = await permissionService.GetFieldAccessAsync(principal, formId, cancellationToken);
+        var query = await permissionService.ApplyRecordAccessAsync(
+            principal,
+            dbContext.Records.AsNoTracking().Where(record => record.FormId == formId && !record.IsDeleted),
+            formId,
+            PlatformPermissions.Form.View,
+            cancellationToken);
 
-        var records = await dbContext.Records
-            .AsNoTracking()
-            .Where(record => record.FormId == formId && !record.IsDeleted)
+        var records = await query
             .OrderByDescending(record => record.CreatedAt)
             .ThenByDescending(record => record.Id)
             .ToArrayAsync(cancellationToken);
 
         var filteredRecords = string.IsNullOrWhiteSpace(search)
-            ? records.Select(ToListItem)
-            : records.Select(ToListItem).Where(record => MatchesSearch(record, search));
+            ? records.Select(record => ToListItem(record, fieldAccess.HiddenFieldIds))
+            : records.Select(record => ToListItem(record, fieldAccess.HiddenFieldIds)).Where(record => MatchesSearch(record, search));
 
         var filtered = filteredRecords.ToArray();
         var items = filtered
@@ -54,7 +63,11 @@ public sealed class RecordQueryService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<FormRecordDetailDto> GetRecordAsync(Guid recordId, CancellationToken cancellationToken)
+    public async Task<FormRecordDetailDto> GetRecordAsync(
+        ClaimsPrincipal principal,
+        Guid recordId,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
     {
         var record = await dbContext.Records
             .AsNoTracking()
@@ -64,6 +77,11 @@ public sealed class RecordQueryService
         if (record is null)
         {
             throw new RecordQueryException(StatusCodes.Status404NotFound, "Record was not found.");
+        }
+
+        if (!await permissionService.CanAccessRecordAsync(principal, record, PlatformPermissions.Form.View, cancellationToken))
+        {
+            throw new RecordQueryException(StatusCodes.Status403Forbidden, "Record access was denied.");
         }
 
         if (record.FormVersion is null)
@@ -77,13 +95,20 @@ public sealed class RecordQueryService
             throw new RecordQueryException(StatusCodes.Status409Conflict, "Record form version schema is invalid.");
         }
 
+        var fieldAccess = await permissionService.GetFieldAccessAsync(principal, record.FormId, cancellationToken);
+
         return new FormRecordDetailDto(
             record.Id,
             record.FormId,
             record.FormVersionId,
             record.Status,
-            DeserializeValues(record.ValuesJson),
+            record.OwnerId,
+            record.DepartmentId,
+            record.AssignedToUserId,
+            record.AssignedGroupId,
+            MaskValues(DeserializeValues(record.ValuesJson), fieldAccess.HiddenFieldIds),
             schema,
+            fieldAccess.ReadOnlyFieldIds.ToArray(),
             record.ConcurrencyStamp,
             record.CreatedAt,
             record.CreatedById,
@@ -91,14 +116,18 @@ public sealed class RecordQueryService
             record.UpdatedById);
     }
 
-    private static FormRecordListItemDto ToListItem(FormRecord record)
+    private static FormRecordListItemDto ToListItem(FormRecord record, IReadOnlySet<string> hiddenFieldIds)
     {
         return new FormRecordListItemDto(
             record.Id,
             record.FormId,
             record.FormVersionId,
             record.Status,
-            DeserializeValues(record.ValuesJson),
+            record.OwnerId,
+            record.DepartmentId,
+            record.AssignedToUserId,
+            record.AssignedGroupId,
+            MaskValues(DeserializeValues(record.ValuesJson), hiddenFieldIds),
             record.CreatedAt,
             record.CreatedById);
     }
@@ -117,6 +146,20 @@ public sealed class RecordQueryService
     {
         return JsonSerializer.Deserialize<Dictionary<string, object?>>(valuesJson.RootElement.GetRawText(), JsonOptions)
             ?? new Dictionary<string, object?>();
+    }
+
+    private static IReadOnlyDictionary<string, object?> MaskValues(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return values;
+        }
+
+        return values
+            .Where(pair => !hiddenFieldIds.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)

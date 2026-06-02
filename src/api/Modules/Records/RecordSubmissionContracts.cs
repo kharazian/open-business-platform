@@ -8,11 +8,19 @@ public sealed record SubmitRecordRequest(IReadOnlyDictionary<string, object?> Va
 
 public sealed record UpdateRecordRequest(IReadOnlyDictionary<string, object?> Values, string ConcurrencyStamp);
 
+public sealed record AssignRecordRequest(Guid? AssignedToUserId, Guid? AssignedGroupId, string ConcurrencyStamp);
+
+public sealed record ChangeRecordStatusRequest(string Status, string ConcurrencyStamp);
+
 public sealed record FormRecordListItemDto(
     Guid Id,
     Guid FormId,
     Guid FormVersionId,
     string Status,
+    Guid? OwnerId,
+    Guid? DepartmentId,
+    Guid? AssignedToUserId,
+    Guid? AssignedGroupId,
     IReadOnlyDictionary<string, object?> Values,
     DateTimeOffset CreatedAt,
     Guid? CreatedById);
@@ -22,6 +30,10 @@ public sealed record FormRecordDto(
     Guid FormId,
     Guid FormVersionId,
     string Status,
+    Guid? OwnerId,
+    Guid? DepartmentId,
+    Guid? AssignedToUserId,
+    Guid? AssignedGroupId,
     IReadOnlyDictionary<string, object?> Values,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
@@ -32,8 +44,13 @@ public sealed record FormRecordDetailDto(
     Guid FormId,
     Guid FormVersionId,
     string Status,
+    Guid? OwnerId,
+    Guid? DepartmentId,
+    Guid? AssignedToUserId,
+    Guid? AssignedGroupId,
     IReadOnlyDictionary<string, object?> Values,
     FormSchemaDefinition Schema,
+    IReadOnlyCollection<string> ReadOnlyFieldIds,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,

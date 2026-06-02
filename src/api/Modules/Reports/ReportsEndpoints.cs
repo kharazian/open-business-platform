@@ -60,7 +60,8 @@ public static class ReportsEndpoints
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken))
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken)
+                || !await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.View, cancellationToken))
             {
                 return Results.Forbid();
             }
@@ -68,9 +69,11 @@ public static class ReportsEndpoints
             return await HandleReportRequestAsync(async () =>
             {
                 var report = await reportManagement.ExecuteListReportAsync(
+                    httpContext.User,
                     formId,
                     reportId,
                     new RunListReportRequest(page ?? 1, pageSize ?? 25, search),
+                    permissionService,
                     cancellationToken);
 
                 return Results.Ok(report);
@@ -86,7 +89,8 @@ public static class ReportsEndpoints
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken))
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken)
+                || !await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.Export, cancellationToken))
             {
                 return Results.Forbid();
             }
@@ -94,10 +98,12 @@ public static class ReportsEndpoints
             return await HandleReportRequestAsync(async () =>
             {
                 var export = await reportManagement.ExportListReportCsvAsync(
+                    httpContext.User,
                     formId,
                     reportId,
                     search,
                     GetCurrentUserId(httpContext),
+                    permissionService,
                     cancellationToken);
 
                 return Results.File(

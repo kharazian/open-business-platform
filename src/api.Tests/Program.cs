@@ -101,6 +101,10 @@ AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
 AssertTable<RolePermission>(model, "role_permissions");
 AssertTable<RoleFormPermission>(model, "role_form_permissions");
+AssertTable<Group>(model, "groups");
+AssertTable<UserGroup>(model, "user_groups");
+AssertTable<RoleReportPermission>(model, "role_report_permissions");
+AssertTable<RoleFieldPermission>(model, "role_field_permissions");
 AssertTable<Department>(model, "departments");
 AssertTable<UserDepartment>(model, "user_departments");
 AssertTable<FormDefinition>(model, "forms");
@@ -115,6 +119,10 @@ AssertTypeAssignable<Entity<Guid>, PasswordResetToken>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, Role>();
 AssertTypeAssignable<Entity<Guid>, RolePermission>();
 AssertTypeAssignable<Entity<Guid>, RoleFormPermission>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, Group>();
+AssertTypeAssignable<Entity<Guid>, UserGroup>();
+AssertTypeAssignable<Entity<Guid>, RoleReportPermission>();
+AssertTypeAssignable<Entity<Guid>, RoleFieldPermission>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, Department>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, FormDefinition>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, FormVersion>();
@@ -128,6 +136,9 @@ AssertGuidId<PasswordResetToken>(model);
 AssertGuidId<Role>(model);
 AssertGuidId<RolePermission>(model);
 AssertGuidId<RoleFormPermission>(model);
+AssertGuidId<Group>(model);
+AssertGuidId<RoleReportPermission>(model);
+AssertGuidId<RoleFieldPermission>(model);
 AssertGuidId<Department>(model);
 AssertGuidId<FormDefinition>(model);
 AssertGuidId<FormVersion>(model);
@@ -140,6 +151,10 @@ AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have 
 AssertUniqueIndex<Role>(model, new[] { nameof(Role.Name) }, "Roles should have a unique role name index.");
 AssertUniqueIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId), nameof(RolePermission.Permission) }, "Role permissions should be unique per role/permission.");
 AssertUniqueIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId), nameof(RoleFormPermission.FormId), nameof(RoleFormPermission.Action) }, "Role form permissions should be unique per role/form/action.");
+AssertUniqueIndex<Group>(model, new[] { nameof(Group.Name) }, "Groups should have a unique group name index.");
+AssertUniqueIndex<UserGroup>(model, new[] { nameof(UserGroup.UserId), nameof(UserGroup.GroupId) }, "User groups should be unique per user/group.");
+AssertUniqueIndex<RoleReportPermission>(model, new[] { nameof(RoleReportPermission.RoleId), nameof(RoleReportPermission.ReportId), nameof(RoleReportPermission.Action) }, "Report permissions should be unique per role/report/action.");
+AssertUniqueIndex<RoleFieldPermission>(model, new[] { nameof(RoleFieldPermission.RoleId), nameof(RoleFieldPermission.FormId), nameof(RoleFieldPermission.FieldId) }, "Field permissions should be unique per role/form/field.");
 AssertUniqueIndex<FormVersion>(model, new[] { nameof(FormVersion.FormId), nameof(FormVersion.VersionNumber) }, "Form versions should be unique per form/version number.");
 
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.SchemaJson));
@@ -166,6 +181,7 @@ AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UserId), "user
 AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.TokenHash), "token_hash", "Password reset tokens should store only token hashes.");
 AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.ExpiresAt), "expires_at", "Password reset tokens should expire.");
 AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UsedAt), "used_at", "Password reset tokens should track use.");
+AssertColumn<RoleFormPermission>(model, nameof(RoleFormPermission.Scope), "scope", "Role form permissions should store a record access scope.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
@@ -175,6 +191,8 @@ AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormVersionId) }, "Reco
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.Status) }, "Records should be indexed by status.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.OwnerId) }, "Records should be indexed by owner.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.DepartmentId) }, "Records should be indexed by department.");
+AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.AssignedToUserId) }, "Records should be indexed by assigned user.");
+AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.AssignedGroupId) }, "Records should be indexed by assigned group.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedById) }, "Records should be indexed by creator.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedAt) }, "Records should be indexed by created date.");
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.FormId) }, "Reports should be indexed by form.");
@@ -226,6 +244,28 @@ AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermission
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Reports.Manage), "Built-in permissions should include report management.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.View), "Form actions should include view.");
+AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Export), "Form actions should include export.");
+AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Assign), "Form actions should include assign.");
+AssertTrue(PlatformPermissions.RecordScopes.Supported.Contains(PlatformPermissions.RecordScopes.ManagedDepartment), "Record scopes should include managed department.");
+AssertTrue(PlatformPermissions.ReportActions.Contains(PlatformPermissions.Report.Export), "Report actions should include export.");
+AssertTrue(PlatformPermissions.FieldAccess.Supported.Contains(PlatformPermissions.FieldAccess.Hidden), "Field access should include hidden.");
+
+var accessUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+var accessDepartmentId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+var accessGroupId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+var directRecord = new FormRecord { Id = Guid.NewGuid(), OwnerId = accessUserId, CreatedById = Guid.NewGuid(), ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>()) };
+var departmentRecord = new FormRecord { Id = Guid.NewGuid(), DepartmentId = accessDepartmentId, ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>()) };
+var groupRecord = new FormRecord { Id = Guid.NewGuid(), AssignedGroupId = accessGroupId, ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>()) };
+var deniedRecord = new FormRecord { Id = Guid.NewGuid(), ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>()) };
+var accessContext = new RecordAccessContext(accessUserId, new[] { accessDepartmentId }, Array.Empty<Guid>(), new[] { accessGroupId });
+var filteredRecords = RecordAccessEvaluator
+    .Apply(
+        new[] { directRecord, departmentRecord, groupRecord, deniedRecord }.AsQueryable(),
+        accessContext,
+        new[] { PlatformPermissions.RecordScopes.Own, PlatformPermissions.RecordScopes.Department, PlatformPermissions.RecordScopes.Group })
+    .Select(record => record.Id)
+    .ToArray();
+AssertSequenceEqual(new[] { directRecord.Id, departmentRecord.Id, groupRecord.Id }, filteredRecords, "Record access scopes should combine with OR semantics.");
 
 var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
 {
@@ -235,6 +275,22 @@ var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
 var permissionService = new PermissionService(dbContext);
 AssertTrue(await permissionService.CanAsync(bootstrapPrincipal, PlatformPermissions.Users.Manage, CancellationToken.None), "Bootstrap admin should have user management permission.");
 AssertTrue(await permissionService.CanAccessFormAsync(bootstrapPrincipal, Guid.NewGuid(), PlatformPermissions.Form.Manage, CancellationToken.None), "Bootstrap admin should have form management permission.");
+AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.GetAllowedRecordScopesAsync)), "PermissionService should expose record scope resolution.");
+AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.ApplyRecordAccessAsync)), "PermissionService should expose record query filtering.");
+AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.CanAccessRecordAsync)), "PermissionService should expose record access checks.");
+AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.GetFieldAccessAsync)), "PermissionService should expose field access checks.");
+AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.CanAccessReportAsync)), "PermissionService should expose report access checks.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListGroupsAsync)), "Identity management should list groups.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.CreateGroupAsync)), "Identity management should create groups.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.UpdateGroupAsync)), "Identity management should update groups.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListDepartmentsAsync)), "Identity management should list departments.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.CreateDepartmentAsync)), "Identity management should create departments.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.UpdateDepartmentAsync)), "Identity management should update departments.");
+AssertNotNull(typeof(FormRecordDetailDto).GetProperty(nameof(FormRecordDetailDto.ReadOnlyFieldIds)), "Record detail should include read-only field IDs.");
+AssertNotNull(typeof(AssignRecordRequest), "Records should expose an assignment request contract.");
+AssertNotNull(typeof(ChangeRecordStatusRequest), "Records should expose a status change request contract.");
+AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ExecuteListReportAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Report execution should receive the current principal.");
+AssertNotNull(typeof(ChartAggregationService).GetMethod(nameof(ChartAggregationService.PreviewAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Chart previews should receive the current principal.");
 
 var pagedResult = new PagedResultDto<string>(2, new[] { "first", "second" });
 AssertEqual(2, pagedResult.TotalCount, "Paged results should expose total count.");
@@ -275,6 +331,7 @@ var userDto = new UserDto(
     "bootstrap-admin",
     new[] { new UserRoleDto(sampleRoleId, "Admin") },
     new[] { new UserDepartmentDto(sampleDepartmentId, "Operations", true) },
+    Array.Empty<UserGroupDto>(),
     "user-stamp",
     sampleCreatedAt,
     null,
@@ -312,11 +369,11 @@ var authResponse = new AuthenticatedUserResponse(
     new[] { PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create });
 AssertTrue(authResponse.Permissions.Contains(PlatformPermissions.Forms.Create), "Auth response should expose effective permissions.");
 
-var createUser = new CreateUserRequest("Jane Cooper", "jane@company.test", "temporary-password-1", new[] { sampleRoleId }, new[] { sampleDepartmentId }, true);
+var createUser = new CreateUserRequest("Jane Cooper", "jane@company.test", "temporary-password-1", new[] { sampleRoleId }, new[] { sampleDepartmentId }, Array.Empty<Guid>(), true);
 AssertEqual(true, createUser.IsActive, "Create user request should carry active state.");
 AssertEqual("temporary-password-1", createUser.Password, "Create user request should carry the initial password.");
 
-var updateUser = new UpdateUserRequest("Jane Cooper", true, new[] { sampleRoleId }, new[] { sampleDepartmentId }, "user-stamp");
+var updateUser = new UpdateUserRequest("Jane Cooper", true, new[] { sampleRoleId }, new[] { sampleDepartmentId }, Array.Empty<Guid>(), "user-stamp");
 AssertEqual("user-stamp", updateUser.ConcurrencyStamp, "Update user request should carry concurrency stamp.");
 
 var resetPassword = new ResetUserPasswordRequest("new-temporary-password-2");
@@ -330,14 +387,52 @@ AssertEqual("new-temporary-password-2", completePasswordReset.NewPassword, "Comp
 var rolePermissions = new RolePermissionsDto(
     sampleRoleId,
     new[] { PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create },
-    new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View) });
+    new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View) },
+    Array.Empty<RoleReportPermissionDto>(),
+    Array.Empty<RoleFieldPermissionDto>());
 AssertEqual(sampleRoleId, rolePermissions.RoleId, "Role permissions DTO should expose the role id.");
 AssertEqual(PlatformPermissions.Form.View, rolePermissions.FormPermissions.Single().Action, "Role permissions DTO should expose form actions.");
 
 var updateRolePermissions = new UpdateRolePermissionsRequest(
     new[] { PlatformPermissions.Menu.UsersAccess, PlatformPermissions.Users.Manage },
-    new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.Manage) });
+    new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.Manage) },
+    Array.Empty<RoleReportPermissionDto>(),
+    Array.Empty<RoleFieldPermissionDto>());
 AssertTrue(updateRolePermissions.Permissions.Contains(PlatformPermissions.Users.Manage), "Update role permissions request should carry global permissions.");
+
+var normalizeFormPermissions = typeof(IdentityManagementService).GetMethod(
+    "NormalizeFormPermissions",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(normalizeFormPermissions, "Identity management should normalize duplicate form access scopes before saving.");
+var normalizedFormPermissions = (IReadOnlyCollection<RoleFormPermissionDto>)normalizeFormPermissions!.Invoke(
+    null,
+    new object[]
+    {
+        new[]
+        {
+            new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View, PlatformPermissions.RecordScopes.Own),
+            new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View, PlatformPermissions.RecordScopes.Department)
+        }
+    })!;
+AssertEqual(1, normalizedFormPermissions.Count, "Form permissions should be unique by form and action.");
+AssertEqual(PlatformPermissions.RecordScopes.Department, normalizedFormPermissions.Single().Scope, "Broader record scopes should win duplicate form action grants.");
+
+var normalizeFieldPermissions = typeof(IdentityManagementService).GetMethod(
+    "NormalizeFieldPermissions",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(normalizeFieldPermissions, "Identity management should normalize duplicate field rules before saving.");
+var normalizedFieldPermissions = (IReadOnlyCollection<RoleFieldPermissionDto>)normalizeFieldPermissions!.Invoke(
+    null,
+    new object[]
+    {
+        new[]
+        {
+            new RoleFieldPermissionDto(sampleDepartmentId, "salary", PlatformPermissions.FieldAccess.ReadOnly),
+            new RoleFieldPermissionDto(sampleDepartmentId, "salary", PlatformPermissions.FieldAccess.Hidden)
+        }
+    })!;
+AssertEqual(1, normalizedFieldPermissions.Count, "Field permissions should be unique by form and field.");
+AssertEqual(PlatformPermissions.FieldAccess.Hidden, normalizedFieldPermissions.Single().Access, "Hidden field access should win over read-only access.");
 
 var formAccessOption = new FormAccessOptionDto(sampleDepartmentId, "Expense request", "draft");
 AssertEqual(sampleDepartmentId, formAccessOption.Id, "Form access option should expose the form id.");
@@ -474,6 +569,10 @@ var recordDto = new FormRecordDto(
     sampleDepartmentId,
     publishedVersion.Id,
     RecordStatuses.Active,
+    sampleUserId,
+    sampleDepartmentId,
+    null,
+    null,
     submitRecordRequest.Values,
     "record-stamp",
     sampleUpdatedAt,
@@ -492,6 +591,10 @@ var recordListItem = new FormRecordListItemDto(
     recordDto.FormId,
     recordDto.FormVersionId,
     RecordStatuses.Active,
+    recordDto.OwnerId,
+    recordDto.DepartmentId,
+    recordDto.AssignedToUserId,
+    recordDto.AssignedGroupId,
     recordDto.Values,
     recordDto.CreatedAt,
     recordDto.CreatedById);
@@ -503,8 +606,13 @@ var recordDetail = new FormRecordDetailDto(
     recordDto.FormId,
     recordDto.FormVersionId,
     RecordStatuses.Active,
+    recordDto.OwnerId,
+    recordDto.DepartmentId,
+    recordDto.AssignedToUserId,
+    recordDto.AssignedGroupId,
     recordDto.Values,
     publishableSchema,
+    Array.Empty<string>(),
     recordDto.ConcurrencyStamp,
     recordDto.CreatedAt,
     recordDto.CreatedById,
@@ -522,6 +630,32 @@ var updateRecordRequest = new UpdateRecordRequest(
 AssertEqual("Jordan Lee", updateRecordRequest.Values["employee_name"], "Update record requests should carry replacement field values.");
 AssertEqual(recordDto.ConcurrencyStamp, updateRecordRequest.ConcurrencyStamp, "Update record requests should carry concurrency stamps.");
 AssertTypeAssignable<object, RecordMutationService>();
+
+var mergeProtectedValues = typeof(RecordMutationService).GetMethod(
+    "MergeProtectedValues",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(mergeProtectedValues, "Record mutation should preserve protected field values before validating updates.");
+var mergedProtectedValues = (IReadOnlyDictionary<string, object?>)mergeProtectedValues!.Invoke(
+    null,
+    new object[]
+    {
+        new Dictionary<string, object?>
+        {
+            ["employee_name"] = "Jane Cooper",
+            ["email"] = "jane@company.test",
+            ["salary"] = 100000
+        },
+        new Dictionary<string, object?>
+        {
+            ["employee_name"] = "Jordan Lee"
+        },
+        new FieldAccessResult(
+            new HashSet<string>(new[] { "salary" }, StringComparer.Ordinal),
+            new HashSet<string>(new[] { "email" }, StringComparer.Ordinal))
+    })!;
+AssertEqual("Jordan Lee", mergedProtectedValues["employee_name"], "Record updates should keep editable submitted values.");
+AssertEqual("jane@company.test", mergedProtectedValues["email"], "Record updates should preserve omitted read-only values.");
+AssertEqual(100000, Convert.ToInt32(mergedProtectedValues["salary"]), "Record updates should preserve omitted hidden values.");
 
 var reportingSchema = publishableSchema with
 {

@@ -1,12 +1,18 @@
 import type {
   CreateRoleRequest,
+  CreateDepartmentRequest,
+  CreateGroupRequest,
   CreateUserRequest,
   FormAccessOptionDto,
+  DepartmentDto,
+  GroupDto,
   ResetUserPasswordRequest,
   RoleDto,
   RolePermissionsDto,
   UpdateRolePermissionsRequest,
   UpdateRoleRequest,
+  UpdateDepartmentRequest,
+  UpdateGroupRequest,
   UpdateUserRequest,
   UserDto
 } from "./types";
@@ -128,6 +134,70 @@ export async function updateRolePermissions(
 
 export async function listFormAccessOptions(fetcher: UsersAccessFetcher = defaultFetcher): Promise<FormAccessOptionDto[]> {
   return requestItems<FormAccessOptionDto>("/api/forms/access-options", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function listDepartments(fetcher: UsersAccessFetcher = defaultFetcher): Promise<DepartmentDto[]> {
+  return requestItems<DepartmentDto>("/api/departments", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createDepartment(request: CreateDepartmentRequest, fetcher: UsersAccessFetcher = defaultFetcher): Promise<DepartmentDto> {
+  return requestJson<DepartmentDto>(
+    "/api/departments",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function updateDepartment(
+  departmentId: string,
+  request: UpdateDepartmentRequest,
+  fetcher: UsersAccessFetcher = defaultFetcher
+): Promise<DepartmentDto> {
+  return requestJson<DepartmentDto>(
+    `/api/departments/${departmentId}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function listGroups(fetcher: UsersAccessFetcher = defaultFetcher): Promise<GroupDto[]> {
+  return requestItems<GroupDto>("/api/groups", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createGroup(request: CreateGroupRequest, fetcher: UsersAccessFetcher = defaultFetcher): Promise<GroupDto> {
+  return requestJson<GroupDto>(
+    "/api/groups",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function updateGroup(groupId: string, request: UpdateGroupRequest, fetcher: UsersAccessFetcher = defaultFetcher): Promise<GroupDto> {
+  return requestJson<GroupDto>(
+    `/api/groups/${groupId}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
 }
 
 async function requestItems<T>(input: string, init: RequestInit, fetcher: UsersAccessFetcher): Promise<T[]> {
