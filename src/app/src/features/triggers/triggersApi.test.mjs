@@ -123,6 +123,34 @@ test("trigger API client maps management requests, logs, and validation errors",
       };
     }
 
+    if (input === "/api/triggers/trigger-2/logs/log-1/retry" && init.method === "POST") {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "log-2",
+          triggerId: "trigger-2",
+          formId: "form-1",
+          eventName: "record.created",
+          entityType: "Record",
+          entityId: "record-1",
+          status: "success",
+          retryOfLogId: "log-1",
+          input: {
+            recordId: "record-1",
+            retry: { sourceLogId: "log-1" }
+          },
+          result: {
+            retry: { sourceLogId: "log-1" },
+            actions: [{ actionId: "audit-1", type: "write_audit_entry" }]
+          },
+          errorMessage: null,
+          startedAt: "2026-06-02T12:21:00.000Z",
+          completedAt: "2026-06-02T12:21:01.000Z",
+          createdAt: "2026-06-02T12:21:00.000Z"
+        })
+      };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -131,6 +159,7 @@ test("trigger API client maps management requests, logs, and validation errors",
   const detail = await api.getTrigger("trigger-2", fetcher);
   const updated = await api.updateTrigger("trigger-2", { ...createRequest, isEnabled: false, concurrencyStamp: "trigger-stamp-2" }, fetcher);
   const logs = await api.listTriggerLogs("trigger-2", fetcher);
+  const retriedLog = await api.retryTriggerLog("trigger-2", "log-1", fetcher);
 
   assert.equal(summaries[0].name, "Route HR submissions");
   assert.equal(summaries[0].conditionCount, 1);
@@ -139,6 +168,8 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(updated.isEnabled, false);
   assert.equal(updated.concurrencyStamp, "trigger-stamp-3");
   assert.equal(logs[0].result.actions[0].type, "write_audit_entry");
+  assert.equal(retriedLog.retryOfLogId, "log-1");
+  assert.equal(retriedLog.result.retry.sourceLogId, "log-1");
   assert.equal(calls[0].input, "/api/forms/form-1/triggers");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -158,6 +189,9 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(calls[4].input, "/api/triggers/trigger-2/logs");
   assert.equal(calls[4].init.method, "GET");
   assert.equal(calls[4].init.credentials, "include");
+  assert.equal(calls[5].input, "/api/triggers/trigger-2/logs/log-1/retry");
+  assert.equal(calls[5].init.method, "POST");
+  assert.equal(calls[5].init.credentials, "include");
 
   await assert.rejects(
     () => api.listTriggers("form-1", async () => ({ ok: true, json: async () => ({}) })),

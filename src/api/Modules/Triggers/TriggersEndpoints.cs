@@ -129,6 +129,34 @@ public static class TriggersEndpoints
             });
         });
 
+        triggerGroup.MapPost("/{triggerId:guid}/logs/{logId:guid}/retry", async (
+            Guid triggerId,
+            Guid logId,
+            TriggerDefinitionService triggerDefinitions,
+            TriggerExecutionService triggerExecution,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await triggerDefinitions.GetTriggerFormIdAsync(triggerId, cancellationToken);
+
+            if (formId is null)
+            {
+                return Results.NotFound(new TriggerErrorResponse("Trigger was not found."));
+            }
+
+            if (!await CanManageFormAsync(permissionService, httpContext, formId.Value, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleTriggerRequestAsync(async () =>
+            {
+                var retriedLog = await triggerExecution.RetryFailedLogAsync(triggerId, logId, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Created($"/api/triggers/{triggerId}/logs/{retriedLog.Id}", retriedLog);
+            });
+        });
+
         return endpoints;
     }
 

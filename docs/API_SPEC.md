@@ -1220,6 +1220,33 @@ Requires form `manage` or `forms.manage_all` access for the trigger's form. Resp
 
 Requires form `manage` or `forms.manage_all` access for the trigger's form. Response: `200 OK` with `{ "items": [...] }`, ordered newest first. Matching trigger executions write `success` or `failed` logs with input/result JSON and error message. Non-matching triggers do not write noisy skipped logs in this first slice.
 
+### Retry failed trigger log
+
+`POST /api/triggers/{triggerId}/logs/{logId}/retry`
+
+Requires form `manage` or `forms.manage_all` access for the trigger's form. The source log must belong to the trigger and have `failed` status. The backend replays the saved trigger event input through the trigger's current action list and creates a new trigger execution log. The retry response is `201 Created` with the new log.
+
+Retry logs expose `retryOfLogId` and include retry metadata in the JSON payloads:
+
+```json
+{
+  "id": "...",
+  "triggerId": "...",
+  "status": "success",
+  "retryOfLogId": "...",
+  "input": {
+    "eventName": "record.created",
+    "retry": { "sourceLogId": "..." }
+  },
+  "result": {
+    "retry": { "sourceLogId": "..." },
+    "actions": []
+  }
+}
+```
+
+Retry requests for missing logs, logs from another trigger, disabled triggers, or non-failed logs return an error. If actions fail during the retry, the API still returns the new failed retry log and records the error in that log.
+
 Record submission dispatches `record.created`. Record edits dispatch `record.updated` and dispatch `field.changed` when values changed. Record status changes dispatch `status.changed`. Record assignment changes dispatch `record.assigned`. Trigger execution failures are logged and do not roll back the original record mutation.
 
 ## API Rules

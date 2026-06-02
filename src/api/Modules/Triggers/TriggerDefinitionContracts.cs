@@ -68,6 +68,8 @@ public static class TriggerExecutionStatuses
     public const string Skipped = "skipped";
 }
 
+public sealed record TriggerRetryMetadata(Guid SourceLogId);
+
 public sealed record TriggerConditionDefinition(
     string Type,
     string? FieldId = null,
@@ -154,7 +156,8 @@ public sealed record TriggerExecutionLogDto(
     string? ErrorMessage,
     DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? RetryOfLogId = null);
 
 public sealed record TriggerValidationError(string Path, string Code, string Message);
 

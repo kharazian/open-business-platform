@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ListChecks, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Activity, ListChecks, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -15,7 +15,7 @@ import type { FormSummary } from "../../forms/drafts";
 import type { FormSchema } from "../../forms/types";
 import { listDepartments, listGroups, listUsers } from "../../users/api";
 import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
-import { createTrigger, getTrigger, listTriggerLogs, listTriggers, updateTrigger } from "../api";
+import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, updateTrigger } from "../api";
 import {
   buildTriggerRequest,
   createEmptyTriggerDraft,
@@ -64,6 +64,7 @@ export function TriggersPage() {
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [loadingTrigger, setLoadingTrigger] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lookupWarning, setLookupWarning] = useState<string | null>(null);
@@ -238,6 +239,24 @@ export function TriggersPage() {
     setTriggers(await listTriggers(saved.formId));
     setLogs(await listTriggerLogs(saved.id));
     setNotice("Trigger saved.");
+  }
+
+  async function handleRetryLog(logId: string) {
+    if (!selectedTriggerId) return;
+
+    setRetryingLogId(logId);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const retriedLog = await retryTriggerLog(selectedTriggerId, logId);
+      setLogs(await listTriggerLogs(selectedTriggerId));
+      setNotice(retriedLog.status === "success" ? "Trigger retry succeeded." : "Trigger retry created a failed retry log.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setRetryingLogId(null);
+    }
   }
 
   function updateDraft(patch: Partial<TriggerDraft>) {
@@ -470,7 +489,12 @@ export function TriggersPage() {
               ) : selectedTriggerId && logs.length > 0 ? (
                 <div className="grid gap-3">
                   {logs.map((log) => (
-                    <TriggerLogPanel key={log.id} log={log} />
+                    <TriggerLogPanel
+                      key={log.id}
+                      log={log}
+                      onRetry={(logId) => void handleRetryLog(logId)}
+                      retrying={retryingLogId === log.id}
+                    />
                   ))}
                 </div>
               ) : selectedTriggerId ? (
@@ -751,7 +775,7 @@ function FieldSelect({ error, fields, onChange, value }: { error?: string; field
   );
 }
 
-function TriggerLogPanel({ log }: { log: TriggerExecutionLog }) {
+function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog; onRetry: (logId: string) => void; retrying: boolean }) {
   const status = formatTriggerLogStatus(log.status);
 
   return (
@@ -771,9 +795,18 @@ function TriggerLogPanel({ log }: { log: TriggerExecutionLog }) {
             </p>
           </div>
         </div>
-        <div className="text-right text-xs text-muted-foreground">
-          <p>Started {formatTriggerDate(log.startedAt)}</p>
-          <p>Completed {formatTriggerDate(log.completedAt)}</p>
+        <div className="grid justify-items-end gap-2 text-right text-xs text-muted-foreground">
+          <div>
+            <p>Started {formatTriggerDate(log.startedAt)}</p>
+            <p>Completed {formatTriggerDate(log.completedAt)}</p>
+            {log.retryOfLogId ? <p>Retry of {log.retryOfLogId}</p> : null}
+          </div>
+          {log.status === "failed" ? (
+            <Button disabled={retrying} onClick={() => onRetry(log.id)} size="sm" variant="outline">
+              <RotateCcw className="size-4" />
+              {retrying ? "Retrying..." : "Retry"}
+            </Button>
+          ) : null}
         </div>
       </div>
       {log.errorMessage ? <p className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm font-semibold text-danger">{log.errorMessage}</p> : null}

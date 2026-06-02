@@ -260,7 +260,7 @@ public sealed class TriggerDefinitionService
             trigger.UpdatedById);
     }
 
-    private static TriggerExecutionLogDto ToLogDto(TriggerExecutionLog log)
+    internal static TriggerExecutionLogDto ToLogDto(TriggerExecutionLog log)
     {
         return new TriggerExecutionLogDto(
             log.Id,
@@ -275,7 +275,8 @@ public sealed class TriggerDefinitionService
             log.ErrorMessage,
             log.StartedAt,
             log.CompletedAt,
-            log.CreatedAt);
+            log.CreatedAt,
+            ResolveRetrySourceLogId(log.InputJson, log.ResultJson));
     }
 
     private static void EnsureConcurrencyStamp(string currentStamp, string requestedStamp)
@@ -313,6 +314,27 @@ public sealed class TriggerDefinitionService
         return json is null
             ? null
             : JsonSerializer.Deserialize<object>(json.RootElement.GetRawText(), JsonOptions);
+    }
+
+    private static Guid? ResolveRetrySourceLogId(JsonDocument? inputJson, JsonDocument? resultJson)
+    {
+        return TryReadRetrySourceLogId(inputJson) ?? TryReadRetrySourceLogId(resultJson);
+    }
+
+    private static Guid? TryReadRetrySourceLogId(JsonDocument? json)
+    {
+        if (json is null
+            || json.RootElement.ValueKind != JsonValueKind.Object
+            || !json.RootElement.TryGetProperty("retry", out var retry)
+            || retry.ValueKind != JsonValueKind.Object
+            || !retry.TryGetProperty("sourceLogId", out var sourceLogId))
+        {
+            return null;
+        }
+
+        return sourceLogId.ValueKind == JsonValueKind.String && sourceLogId.TryGetGuid(out var id)
+            ? id
+            : null;
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)

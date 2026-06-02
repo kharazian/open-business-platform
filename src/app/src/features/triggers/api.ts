@@ -85,6 +85,18 @@ export async function listTriggerLogs(triggerId: string, fetcher: TriggersFetche
   );
 }
 
+export async function retryTriggerLog(
+  triggerId: string,
+  logId: string,
+  fetcher: TriggersFetcher = defaultFetcher
+): Promise<TriggerExecutionLog> {
+  return requestJson<TriggerExecutionLog>(
+    `/api/triggers/${encodeURIComponent(triggerId)}/logs/${encodeURIComponent(logId)}/retry`,
+    { method: "POST", credentials: "include" },
+    fetcher
+  );
+}
+
 async function requestItems<T>(input: string, init: RequestInit, fetcher: TriggersFetcher): Promise<T[]> {
   const body = await requestJson<unknown>(input, init, fetcher);
 

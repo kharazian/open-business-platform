@@ -493,6 +493,26 @@ AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetPara
 AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record mutation should receive the trigger dispatcher.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
+var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+var retryMetadata = new TriggerRetryMetadata(retrySourceLogId);
+AssertEqual(retrySourceLogId, retryMetadata.SourceLogId, "Trigger retry metadata should link a retry attempt to the failed source log.");
+var retryLogDto = new TriggerExecutionLogDto(
+    Guid.NewGuid(),
+    Guid.NewGuid(),
+    Guid.NewGuid(),
+    TriggerEvents.RecordCreated,
+    "Record",
+    Guid.NewGuid(),
+    TriggerExecutionStatuses.Success,
+    null,
+    null,
+    null,
+    DateTimeOffset.UtcNow,
+    DateTimeOffset.UtcNow,
+    DateTimeOffset.UtcNow,
+    retrySourceLogId);
+AssertEqual(retrySourceLogId, retryLogDto.RetryOfLogId, "Trigger log DTOs should expose retry source metadata.");
+AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionService.RetryFailedLogAsync)), "Trigger execution service should expose manual failed-log retry.");
 AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ExecuteListReportAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Report execution should receive the current principal.");
 AssertNotNull(typeof(ChartAggregationService).GetMethod(nameof(ChartAggregationService.PreviewAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Chart previews should receive the current principal.");
 var reportRecordAccessAction = typeof(ReportManagementService).GetMethod(

@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, and V4 task 003 update-field trigger action are implemented. Scheduled triggers, webhooks, retries, workflows, approvals, and XYFlow remain future tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, and V4 task 004 manual retry recovery are implemented. Scheduled triggers, webhooks, automatic retry queues, workflows, approvals, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -41,6 +41,8 @@ Draft -> Submitted -> Manager Review -> Finance Review -> Approved
 The V4 task 001 backend foundation stores trigger definitions per form, stores trigger execution logs, exposes management APIs, and dispatches record events after the primary record transaction succeeds.
 
 The V4 task 002 frontend workspace lets users manage form-scoped trigger definitions and review execution logs without adding new trigger semantics.
+
+The V4 task 004 recovery slice lets form managers manually retry failed trigger execution logs. A retry replays the saved event input through the trigger's current action list and creates a new log linked to the failed source log. Automatic background retry queues and retry policy authoring remain future work.
 
 Trigger structure:
 

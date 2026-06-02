@@ -90,6 +90,7 @@ export type TriggerExecutionLog = {
   entityType: string;
   entityId: EntityId;
   status: TriggerExecutionStatus;
+  retryOfLogId?: EntityId | null;
   input?: unknown;
   result?: unknown;
   errorMessage?: string | null;
