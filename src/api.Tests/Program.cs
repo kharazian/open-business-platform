@@ -116,6 +116,7 @@ AssertTable<DashboardDefinition>(model, "dashboards");
 AssertTable<TriggerDefinition>(model, "triggers");
 AssertTable<TriggerExecutionLog>(model, "trigger_logs");
 AssertTable<Notification>(model, "notifications");
+AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -136,6 +137,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, DashboardDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, TriggerDefinition>();
 AssertTypeAssignable<Entity<Guid>, TriggerExecutionLog>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
+AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -155,6 +157,7 @@ AssertGuidId<DashboardDefinition>(model);
 AssertGuidId<TriggerDefinition>(model);
 AssertGuidId<TriggerExecutionLog>(model);
 AssertGuidId<Notification>(model);
+AssertGuidId<NotificationPreference>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -198,6 +201,8 @@ AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.TokenHash), "t
 AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.ExpiresAt), "expires_at", "Password reset tokens should expire.");
 AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UsedAt), "used_at", "Password reset tokens should track use.");
 AssertColumn<RoleFormPermission>(model, nameof(RoleFormPermission.Scope), "scope", "Role form permissions should store a record access scope.");
+AssertColumn<NotificationPreference>(model, nameof(NotificationPreference.InAppEnabled), "in_app_enabled", "Notification preferences should store in-app delivery choice.");
+AssertColumn<NotificationPreference>(model, nameof(NotificationPreference.ShowUnreadBadge), "show_unread_badge", "Notification preferences should store unread badge choice.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
@@ -227,6 +232,8 @@ AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.Creat
 AssertIndex<Notification>(model, new[] { nameof(Notification.UserId) }, "Notifications should be indexed by recipient user.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.ReadAt) }, "Notifications should be indexed by read state.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.CreatedAt) }, "Notifications should be indexed by creation time.");
+AssertUniqueIndex<NotificationPreference>(model, new[] { nameof(NotificationPreference.UserId) }, "Notification preferences should be unique per user.");
+AssertIndex<NotificationPreference>(model, new[] { nameof(NotificationPreference.UpdatedAt) }, "Notification preferences should be indexed by update date.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId) }, "Role form permissions should be indexed by role.");
 AssertIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.FormId) }, "Role form permissions should be indexed by form.");
@@ -566,6 +573,28 @@ AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitio
 AssertTypeAssignable<IPlatformApiModule, TriggersModule>();
 AssertTrue(new TriggersModule().Id == "app.triggers", "Trigger module should expose a stable module id.");
 AssertNotNull(typeof(TriggerActionRegistry).GetMethod(nameof(TriggerActionRegistry.ExecuteAsync)), "Trigger action registry should execute approved actions.");
+var notificationPreferenceFilter = typeof(TriggerActionRegistry).GetMethod(
+    "ExcludeDisabledNotificationRecipients",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(notificationPreferenceFilter, "Trigger action registry should filter notification recipients by in-app preferences.");
+var enabledNotificationRecipientIds = (IReadOnlyList<Guid>)notificationPreferenceFilter!.Invoke(
+    null,
+    new object[]
+    {
+        new[] { accessUserId, accessDepartmentId, accessGroupId },
+        new[] { accessDepartmentId }
+    })!;
+AssertSequenceEqual(new[] { accessUserId, accessGroupId }, enabledNotificationRecipientIds, "Notification recipient filtering should remove users who disabled in-app notifications.");
+var notificationPreferenceSkip = typeof(TriggerActionRegistry).GetMethod(
+    "ShouldSkipNotificationInsertion",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(notificationPreferenceSkip, "Trigger action registry should treat all-disabled notification recipients as a successful no-op.");
+AssertTrue(
+    (bool)notificationPreferenceSkip!.Invoke(null, new object[] { 2, 0 })!,
+    "Notification action should no-op when active recipients exist but all disabled in-app notifications.");
+AssertFalse(
+    (bool)notificationPreferenceSkip.Invoke(null, new object[] { 0, 0 })!,
+    "Notification action should not hide missing active recipients as a preference skip.");
 AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionService.ExecuteAsync)), "Trigger execution service should execute matching triggers.");
 AssertNotNull(typeof(TriggerEventDispatcher).GetMethod(nameof(TriggerEventDispatcher.DispatchAsync)), "Trigger dispatcher should dispatch event contexts.");
 AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");
@@ -574,10 +603,16 @@ AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQuer
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.GetUnreadCountAsync)), "Notification service should count unread notifications.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.MarkReadAsync)), "Notification service should mark one notification read.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.MarkAllReadAsync)), "Notification service should mark all current-user notifications read.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.GetPreferencesAsync)), "Notification service should read current-user preferences.");
+AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.UpdatePreferencesAsync)), "Notification service should update current-user preferences.");
 AssertTypeAssignable<IPlatformApiModule, NotificationsModule>();
 AssertTrue(new NotificationsModule().Id == "app.notifications", "Notifications module should expose a stable module id.");
 AssertNotNull(typeof(NotificationDto).GetProperty(nameof(NotificationDto.ReadAt)), "Notification DTO should expose read state.");
 AssertNotNull(typeof(NotificationUnreadCountDto).GetProperty(nameof(NotificationUnreadCountDto.UnreadCount)), "Notification unread count DTO should expose unread count.");
+AssertNotNull(typeof(NotificationPreferencesDto).GetProperty(nameof(NotificationPreferencesDto.InAppEnabled)), "Notification preferences DTO should expose in-app choice.");
+AssertNotNull(typeof(NotificationPreferencesDto).GetProperty(nameof(NotificationPreferencesDto.ShowUnreadBadge)), "Notification preferences DTO should expose unread badge choice.");
+AssertNotNull(typeof(UpdateNotificationPreferencesRequest).GetProperty(nameof(UpdateNotificationPreferencesRequest.InAppEnabled)), "Notification preference updates should accept in-app choice.");
+AssertNotNull(typeof(UpdateNotificationPreferencesRequest).GetProperty(nameof(UpdateNotificationPreferencesRequest.ShowUnreadBadge)), "Notification preference updates should accept unread badge choice.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

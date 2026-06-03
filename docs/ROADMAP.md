@@ -27,7 +27,7 @@
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 
-Next: V4 trigger backend foundation, trigger management UI, update-field actions, manual retry recovery, in-app notification actions, and current-user notification inbox/read APIs are complete for the current task list. Continue with richer trigger actions, notification preferences/badges, automatic retry queues, or start the next approved product slice.
+Next: V4 trigger backend foundation, trigger management UI, update-field actions, manual retry recovery, in-app notification actions, current-user notification inbox/read APIs, unread badges, and notification preferences are complete for the current task list. Continue with richer trigger actions, automatic retry queues, or start the next approved product slice.
 
 ## Product Engine Path
 
@@ -146,10 +146,10 @@ Implemented foundation:
 - In-app notification action
 - Current-user notification inbox
 - Notification unread count and read state APIs
+- Notification unread badges and preferences
 
 Future V4 work:
 
-- Notification unread badges and preferences
 - Create related records
 - Webhook call
 - Automatic retry queues and retry policies later

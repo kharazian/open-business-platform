@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, and V4 task 006 notification inbox/read state are implemented. Scheduled triggers, webhooks, automatic retry queues, workflows, approvals, and XYFlow remain future tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, V4 task 006 notification inbox/read state, and V4 task 007 notification badges/preferences are implemented. Scheduled triggers, webhooks, automatic retry queues, workflows, approvals, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -44,7 +44,7 @@ The V4 task 002 frontend workspace lets users manage form-scoped trigger definit
 
 The V4 task 004 recovery slice lets form managers manually retry failed trigger execution logs. A retry replays the saved event input through the trigger's current action list and creates a new log linked to the failed source log. Automatic background retry queues and retry policy authoring remain future work.
 
-The V4 task 005 action slice adds `send_notification`, which persists in-app notifications for selected active users and active group members. V4 task 006 adds the current-user notification inbox UI, unread count API, mark-one-read API, and mark-all-read API. Badges, push delivery, websockets, preferences, and admin notification management remain future notification-module work.
+The V4 task 005 action slice adds `send_notification`, which persists in-app notifications for selected active users and active group members. V4 task 006 adds the current-user notification inbox UI, unread count API, mark-one-read API, and mark-all-read API. V4 task 007 adds unread badges and current-user preferences; disabled in-app preferences cause trigger-created notifications to skip that user. Push delivery, websockets, email fallback, and admin notification management remain future notification-module work.
 
 Trigger structure:
 

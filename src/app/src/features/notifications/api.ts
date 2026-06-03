@@ -1,4 +1,9 @@
-import type { AppNotification, NotificationUnreadCount } from "./types";
+import type {
+  AppNotification,
+  NotificationPreferences,
+  NotificationUnreadCount,
+  UpdateNotificationPreferencesRequest
+} from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -23,6 +28,26 @@ export async function listNotifications(fetcher: NotificationsFetcher = defaultF
 
 export async function getUnreadNotificationCount(fetcher: NotificationsFetcher = defaultFetcher): Promise<NotificationUnreadCount> {
   return requestJson<NotificationUnreadCount>("/api/notifications/unread-count", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function getNotificationPreferences(fetcher: NotificationsFetcher = defaultFetcher): Promise<NotificationPreferences> {
+  return requestJson<NotificationPreferences>("/api/notifications/preferences", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function updateNotificationPreferences(
+  request: UpdateNotificationPreferencesRequest,
+  fetcher: NotificationsFetcher = defaultFetcher
+): Promise<NotificationPreferences> {
+  return requestJson<NotificationPreferences>(
+    "/api/notifications/preferences",
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
 }
 
 export async function markNotificationRead(

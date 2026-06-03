@@ -17,3 +17,14 @@ export type AppNotification = {
 export type NotificationUnreadCount = {
   unreadCount: number;
 };
+
+export type NotificationPreferences = {
+  inAppEnabled: boolean;
+  showUnreadBadge: boolean;
+  updatedAt?: string | null;
+};
+
+export type UpdateNotificationPreferencesRequest = {
+  inAppEnabled: boolean;
+  showUnreadBadge: boolean;
+};

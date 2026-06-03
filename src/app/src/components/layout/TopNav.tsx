@@ -18,16 +18,23 @@ function NavigationLink({ item, variant = "menu" }: { item: NavigationItem; vari
     <NavLink
       className={({ isActive }) =>
         cn(
-          variant === "pill" ? "rounded-full px-3 py-2 text-sm font-bold transition" : "rounded-lg px-3 py-2 text-sm font-bold",
+          variant === "pill"
+            ? "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-bold transition"
+            : "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold",
           isActive ? `${palette.activeNavBg} ${palette.activeNavText}` : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )
       }
       end={item.path === "/" || item.path === "/theme"}
       to={item.path}
     >
-      {item.label}
+      <span>{item.label}</span>
+      {hasNavigationBadge(item) ? <span className="rounded-full bg-danger px-2 py-0.5 text-xs font-bold text-white">{item.badge}</span> : null}
     </NavLink>
   );
+}
+
+function hasNavigationBadge(item: NavigationItem) {
+  return item.badge !== undefined && item.badge !== null && String(item.badge).length > 0;
 }
 
 function DesktopNavigationItem({ item }: { item: NavigationItem }) {

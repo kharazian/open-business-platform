@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, and current-user notification inbox/read-state APIs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, and current-user notification preferences. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1132,7 +1132,7 @@ Exports all permitted report rows matching the saved report config and optional 
 
 ## Notifications V4
 
-Notification inbox APIs require authentication and always use the authenticated current user id. They do not expose cross-user notification browsing or mutation. Bootstrap/setup identities that do not map to a persisted user `Guid` receive an empty inbox and unread count.
+Notification inbox APIs require authentication and always use the authenticated current user id. They do not expose cross-user notification browsing or mutation. Bootstrap/setup identities that do not map to a persisted user `Guid` receive an empty inbox, unread count, and default preferences.
 
 ### List current-user notifications
 
@@ -1181,6 +1181,35 @@ Marks the current user's notification as read and returns the updated notificati
 `POST /api/notifications/read-all`
 
 Marks all unread notifications for the current user as read and returns the remaining unread count.
+
+### Get notification preferences
+
+`GET /api/notifications/preferences`
+
+Returns the current user's notification preferences. Users without a saved preference row receive safe defaults.
+
+```json
+{
+  "inAppEnabled": true,
+  "showUnreadBadge": true,
+  "updatedAt": null
+}
+```
+
+### Update notification preferences
+
+`PUT /api/notifications/preferences`
+
+Request:
+
+```json
+{
+  "inAppEnabled": false,
+  "showUnreadBadge": true
+}
+```
+
+Response: `200 OK` with the saved preference DTO. Missing current-user rows are created on update. Trigger-created in-app notifications skip users with `inAppEnabled` set to `false`; `showUnreadBadge` controls frontend navigation badges.
 
 ## Triggers V4
 

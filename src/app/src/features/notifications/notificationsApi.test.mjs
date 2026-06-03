@@ -57,6 +57,14 @@ test("notification API client maps inbox and read-state endpoints", async () => 
       return { ok: true, json: async () => ({ unreadCount: 0 }) };
     }
 
+    if (input === "/api/notifications/preferences" && init.method === "GET") {
+      return { ok: true, json: async () => ({ inAppEnabled: true, showUnreadBadge: true, updatedAt: null }) };
+    }
+
+    if (input === "/api/notifications/preferences" && init.method === "PUT") {
+      return { ok: true, json: async () => ({ inAppEnabled: false, showUnreadBadge: true, updatedAt: "2026-06-03T15:00:00.000Z" }) };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -64,6 +72,8 @@ test("notification API client maps inbox and read-state endpoints", async () => 
   const unreadCount = await api.getUnreadNotificationCount(fetcher);
   const readNotification = await api.markNotificationRead("notification-1", fetcher);
   const readAllCount = await api.markAllNotificationsRead(fetcher);
+  const preferences = await api.getNotificationPreferences(fetcher);
+  const updatedPreferences = await api.updateNotificationPreferences({ inAppEnabled: false, showUnreadBadge: true }, fetcher);
 
   assert.equal(notifications[0].id, "notification-1");
   assert.equal(notifications[0].readAt, null);
@@ -71,6 +81,10 @@ test("notification API client maps inbox and read-state endpoints", async () => 
   assert.equal(unreadCount.unreadCount, 1);
   assert.equal(readNotification.readAt, "2026-06-02T17:05:00.000Z");
   assert.equal(readAllCount.unreadCount, 0);
+  assert.equal(preferences.inAppEnabled, true);
+  assert.equal(preferences.showUnreadBadge, true);
+  assert.equal(updatedPreferences.inAppEnabled, false);
+  assert.equal(updatedPreferences.updatedAt, "2026-06-03T15:00:00.000Z");
   assert.equal(calls[0].input, "/api/notifications");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -83,6 +97,14 @@ test("notification API client maps inbox and read-state endpoints", async () => 
   assert.equal(calls[3].input, "/api/notifications/read-all");
   assert.equal(calls[3].init.method, "POST");
   assert.equal(calls[3].init.credentials, "include");
+  assert.equal(calls[4].input, "/api/notifications/preferences");
+  assert.equal(calls[4].init.method, "GET");
+  assert.equal(calls[4].init.credentials, "include");
+  assert.equal(calls[5].input, "/api/notifications/preferences");
+  assert.equal(calls[5].init.method, "PUT");
+  assert.equal(calls[5].init.credentials, "include");
+  assert.equal(calls[5].init.headers["Content-Type"], "application/json");
+  assert.equal(calls[5].init.body, JSON.stringify({ inAppEnabled: false, showUnreadBadge: true }));
 
   await assert.rejects(
     () => api.listNotifications(async () => ({ ok: true, json: async () => ({}) })),

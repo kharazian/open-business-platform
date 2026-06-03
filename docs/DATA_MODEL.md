@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, and in-app notification tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -19,6 +19,7 @@ The current migrations include:
 - `reports`
 - `triggers`, `trigger_logs`
 - `notifications`
+- `notification_preferences`
 - `audit_logs`
 
 Print templates remain target tables for later tasks.
@@ -433,7 +434,26 @@ Indexes:
 - created_at
 - source_type + source_id
 
-V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. V4 task 006 uses `read_at` for current-user inbox read state, unread counts, single-notification read marking, and mark-all-read APIs. Push delivery, websockets, notification preferences, and admin notification management remain future work.
+V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. V4 task 006 uses `read_at` for current-user inbox read state, unread counts, single-notification read marking, and mark-all-read APIs. V4 task 007 filters trigger-created notifications through current-user in-app preferences. Push delivery, websockets, email fallback, and admin notification management remain future work.
+
+### notification_preferences
+
+Migration: `20260603150110_NotificationPreferences`.
+
+Fields:
+
+- id
+- user_id
+- in_app_enabled
+- show_unread_badge
+- updated_at
+
+Indexes:
+
+- user_id unique
+- updated_at
+
+V4 task 007 adds this table for current-user notification preferences. Missing rows default to enabled in-app notifications and enabled unread badges. The trigger notification action skips users with `in_app_enabled = false`; `show_unread_badge` controls frontend navigation badges only.
 
 ## Audit Logs
 

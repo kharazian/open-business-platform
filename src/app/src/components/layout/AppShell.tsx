@@ -42,6 +42,7 @@ type AppShellProps = {
   onSidebarToggle?: () => void;
   theme?: "light" | "dark";
   onThemeToggle?: () => void;
+  notificationBadgeCount?: number;
   userName?: string;
   userEmail?: string;
   userMenu?: UserMenuLink[];
@@ -108,6 +109,7 @@ export function AppShell({
   onSidebarToggle,
   theme,
   onThemeToggle,
+  notificationBadgeCount,
   userName,
   userEmail,
   userMenu
@@ -187,6 +189,7 @@ export function AppShell({
           subtitle={resolvedNavbarSubtitle}
           theme={theme}
           title={resolvedNavbarTitle}
+          notificationBadgeCount={notificationBadgeCount}
           userEmail={userEmail}
           userMenu={userMenu}
           userName={userName}

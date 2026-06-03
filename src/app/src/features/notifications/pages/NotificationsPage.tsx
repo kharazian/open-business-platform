@@ -6,16 +6,34 @@ import { Button } from "../../../components/ui/Button";
 import { Card, CardContent } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { PageHeader } from "../../../components/ui/PageHeader";
-import { getUnreadNotificationCount, listNotifications, markAllNotificationsRead, markNotificationRead } from "../api";
-import type { AppNotification } from "../types";
+import { Switch } from "../../../components/ui/Switch";
+import {
+  getNotificationPreferences,
+  getUnreadNotificationCount,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  updateNotificationPreferences
+} from "../api";
+import { dispatchNotificationsChanged } from "../events";
+import type { AppNotification, NotificationPreferences } from "../types";
+
+const defaultNotificationPreferences: NotificationPreferences = {
+  inAppEnabled: true,
+  showUnreadBadge: true,
+  updatedAt: null
+};
 
 export function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,9 +47,14 @@ export function NotificationsPage() {
     setError(null);
 
     try {
-      const [items, count] = await Promise.all([listNotifications(), getUnreadNotificationCount()]);
+      const [items, count, loadedPreferences] = await Promise.all([
+        listNotifications(),
+        getUnreadNotificationCount(),
+        getNotificationPreferences()
+      ]);
       setNotifications(items);
       setUnreadCount(count.unreadCount);
+      setPreferences(loadedPreferences);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -42,6 +65,7 @@ export function NotificationsPage() {
   async function handleRefresh() {
     setNotice(null);
     await loadInbox();
+    dispatchNotificationsChanged();
   }
 
   async function handleMarkRead(notificationId: string) {
@@ -54,6 +78,7 @@ export function NotificationsPage() {
       setNotifications((current) => current.map((notification) => (notification.id === updated.id ? updated : notification)));
       const count = await getUnreadNotificationCount();
       setUnreadCount(count.unreadCount);
+      dispatchNotificationsChanged();
       setNotice("Notification marked as read.");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -76,11 +101,36 @@ export function NotificationsPage() {
         }))
       );
       setUnreadCount(count.unreadCount);
+      dispatchNotificationsChanged();
       setNotice("All notifications marked as read.");
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setMarkingAll(false);
+    }
+  }
+
+  async function handlePreferenceChange(nextPreferences: NotificationPreferences) {
+    if (!preferences) {
+      return;
+    }
+
+    setSavingPreferences(true);
+    setPreferenceError(null);
+    setNotice(null);
+
+    try {
+      const updated = await updateNotificationPreferences({
+        inAppEnabled: nextPreferences.inAppEnabled,
+        showUnreadBadge: nextPreferences.showUnreadBadge
+      });
+      setPreferences(updated);
+      dispatchNotificationsChanged();
+      setNotice("Notification preferences saved.");
+    } catch (caught) {
+      setPreferenceError(getErrorMessage(caught));
+    } finally {
+      setSavingPreferences(false);
     }
   }
 
@@ -105,6 +155,40 @@ export function NotificationsPage() {
 
       {error ? <Alert title="Notification error">{error}</Alert> : null}
       {notice ? <Alert title="Notification updated">{notice}</Alert> : null}
+
+      <Card title="Preferences">
+        <CardContent className="grid gap-3 p-0 md:grid-cols-2">
+          <Switch
+            checked={preferences?.inAppEnabled ?? defaultNotificationPreferences.inAppEnabled}
+            disabled={savingPreferences || !preferences}
+            label="In-app notifications"
+            description="Receive trigger-created inbox items."
+            onChange={(event) =>
+              void handlePreferenceChange({
+                ...(preferences ?? defaultNotificationPreferences),
+                inAppEnabled: event.currentTarget.checked
+              })
+            }
+          />
+          <Switch
+            checked={preferences?.showUnreadBadge ?? defaultNotificationPreferences.showUnreadBadge}
+            disabled={savingPreferences || !preferences}
+            label="Unread badge"
+            description="Show unread count in navigation."
+            onChange={(event) =>
+              void handlePreferenceChange({
+                ...(preferences ?? defaultNotificationPreferences),
+                showUnreadBadge: event.currentTarget.checked
+              })
+            }
+          />
+          {preferenceError ? (
+            <div className="md:col-span-2">
+              <Alert title="Preference error">{preferenceError}</Alert>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {loading && notifications.length === 0 ? (
         <div className="grid gap-3">

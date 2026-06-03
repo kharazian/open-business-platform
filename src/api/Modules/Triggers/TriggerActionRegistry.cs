@@ -154,14 +154,23 @@ public sealed class TriggerActionRegistry
         Guid? triggerLogId,
         CancellationToken cancellationToken)
     {
-        var recipientUserIds = await ResolveNotificationRecipientUserIdsAsync(action, cancellationToken);
+        var recipients = await ResolveNotificationRecipientsAsync(action, cancellationToken);
 
-        if (recipientUserIds.Count == 0)
+        if (recipients.ActiveUserIds.Count == 0)
         {
             throw new InvalidOperationException("Notification action did not resolve any active recipients.");
         }
 
-        foreach (var userId in recipientUserIds)
+        if (ShouldSkipNotificationInsertion(recipients.ActiveUserIds.Count, recipients.EnabledUserIds.Count))
+        {
+            return Result(
+                action,
+                ("notificationCount", 0),
+                ("recipientUserIds", Array.Empty<Guid>()),
+                ("skippedPreferenceCount", recipients.DisabledInAppUserIds.Count));
+        }
+
+        foreach (var userId in recipients.EnabledUserIds)
         {
             dbContext.Notifications.Add(new Notification
             {
@@ -180,11 +189,12 @@ public sealed class TriggerActionRegistry
 
         return Result(
             action,
-            ("notificationCount", recipientUserIds.Count),
-            ("recipientUserIds", recipientUserIds));
+            ("notificationCount", recipients.EnabledUserIds.Count),
+            ("recipientUserIds", recipients.EnabledUserIds),
+            ("skippedPreferenceCount", recipients.DisabledInAppUserIds.Count));
     }
 
-    private async Task<IReadOnlyList<Guid>> ResolveNotificationRecipientUserIdsAsync(
+    private async Task<NotificationRecipientResolution> ResolveNotificationRecipientsAsync(
         TriggerActionDefinition action,
         CancellationToken cancellationToken)
     {
@@ -217,10 +227,40 @@ public sealed class TriggerActionRegistry
                 .Select(userGroup => userGroup.UserId)
                 .ToArrayAsync(cancellationToken);
 
-        return directUserIds
+        var activeRecipientIds = directUserIds
             .Concat(groupUserIds)
             .Distinct()
             .ToArray();
+
+        if (activeRecipientIds.Length == 0)
+        {
+            return new NotificationRecipientResolution(activeRecipientIds, activeRecipientIds, Array.Empty<Guid>());
+        }
+
+        var disabledInAppUserIds = await dbContext.NotificationPreferences
+            .AsNoTracking()
+            .Where(preference => activeRecipientIds.Contains(preference.UserId) && !preference.InAppEnabled)
+            .Select(preference => preference.UserId)
+            .ToArrayAsync(cancellationToken);
+
+        return new NotificationRecipientResolution(
+            activeRecipientIds,
+            ExcludeDisabledNotificationRecipients(activeRecipientIds, disabledInAppUserIds),
+            disabledInAppUserIds);
+    }
+
+    private static IReadOnlyList<Guid> ExcludeDisabledNotificationRecipients(
+        IReadOnlyCollection<Guid> activeRecipientIds,
+        IReadOnlyCollection<Guid> disabledInAppUserIds)
+    {
+        return activeRecipientIds
+            .Except(disabledInAppUserIds)
+            .ToArray();
+    }
+
+    private static bool ShouldSkipNotificationInsertion(int activeRecipientCount, int enabledRecipientCount)
+    {
+        return activeRecipientCount > 0 && enabledRecipientCount == 0;
     }
 
     private async Task<FormRecord> LoadRecordAsync(Guid recordId, CancellationToken cancellationToken)
@@ -322,4 +362,9 @@ public sealed class TriggerActionRegistry
     {
         return value is null || value == Guid.Empty ? null : value;
     }
+
+    private sealed record NotificationRecipientResolution(
+        IReadOnlyList<Guid> ActiveUserIds,
+        IReadOnlyList<Guid> EnabledUserIds,
+        IReadOnlyList<Guid> DisabledInAppUserIds);
 }

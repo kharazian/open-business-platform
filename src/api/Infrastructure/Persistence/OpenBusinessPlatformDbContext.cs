@@ -53,6 +53,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -91,6 +93,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureDashboards(modelBuilder);
         ConfigureTriggers(modelBuilder);
         ConfigureNotifications(modelBuilder);
+        ConfigureNotificationPreferences(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -585,6 +588,27 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(notification => notification.User)
                 .WithMany()
                 .HasForeignKey(notification => notification.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureNotificationPreferences(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<NotificationPreference>(entity =>
+        {
+            entity.ToTable("notification_preferences");
+            entity.HasKey(preference => preference.Id);
+            entity.HasIndex(preference => preference.UserId).IsUnique();
+            entity.HasIndex(preference => preference.UpdatedAt);
+            entity.Property(preference => preference.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(preference => preference.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(preference => preference.InAppEnabled).HasColumnName("in_app_enabled").IsRequired();
+            entity.Property(preference => preference.ShowUnreadBadge).HasColumnName("show_unread_badge").IsRequired();
+            entity.Property(preference => preference.UpdatedAt).HasColumnName("updated_at").IsRequired();
+            entity
+                .HasOne(preference => preference.User)
+                .WithMany()
+                .HasForeignKey(preference => preference.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

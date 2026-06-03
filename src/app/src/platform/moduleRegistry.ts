@@ -10,6 +10,7 @@ export type NavigationItem = {
   section?: string;
   children?: NavigationItem[];
   external?: boolean;
+  badge?: string | number | null;
 };
 
 export type PlatformRoute = {

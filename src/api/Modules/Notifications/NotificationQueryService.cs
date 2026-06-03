@@ -36,6 +36,51 @@ public sealed class NotificationQueryService
         return new NotificationUnreadCountDto(unreadCount);
     }
 
+    public async Task<NotificationPreferencesDto> GetPreferencesAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var preference = await dbContext.NotificationPreferences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId, cancellationToken);
+
+        return preference is null ? DefaultPreferences() : ToDto(preference);
+    }
+
+    public async Task<NotificationPreferencesDto?> UpdatePreferencesAsync(
+        Guid userId,
+        UpdateNotificationPreferencesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userExists = await dbContext.Users
+            .AsNoTracking()
+            .AnyAsync(user => user.Id == userId && user.IsActive, cancellationToken);
+
+        if (!userExists)
+        {
+            return null;
+        }
+
+        var preference = await dbContext.NotificationPreferences
+            .FirstOrDefaultAsync(candidate => candidate.UserId == userId, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        if (preference is null)
+        {
+            preference = new NotificationPreference
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId
+            };
+            dbContext.NotificationPreferences.Add(preference);
+        }
+
+        preference.InAppEnabled = request.InAppEnabled;
+        preference.ShowUnreadBadge = request.ShowUnreadBadge;
+        preference.UpdatedAt = now;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ToDto(preference);
+    }
+
     public async Task<NotificationDto?> MarkReadAsync(Guid userId, Guid notificationId, CancellationToken cancellationToken)
     {
         var notification = await dbContext.Notifications
@@ -87,6 +132,16 @@ public sealed class NotificationQueryService
             DeserializeMetadata(notification.MetadataJson),
             notification.ReadAt,
             notification.CreatedAt);
+    }
+
+    private static NotificationPreferencesDto DefaultPreferences()
+    {
+        return new NotificationPreferencesDto(true, true, null);
+    }
+
+    private static NotificationPreferencesDto ToDto(NotificationPreference preference)
+    {
+        return new NotificationPreferencesDto(preference.InAppEnabled, preference.ShowUnreadBadge, preference.UpdatedAt);
     }
 
     private static object? DeserializeMetadata(JsonDocument? metadata)

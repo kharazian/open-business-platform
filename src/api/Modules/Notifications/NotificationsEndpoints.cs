@@ -39,6 +39,44 @@ public static class NotificationsEndpoints
             return Results.Ok(await notifications.GetUnreadCountAsync(userId.Value, cancellationToken));
         });
 
+        group.MapGet("/preferences", async (
+            NotificationQueryService notifications,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetCurrentUserId(httpContext);
+
+            if (userId is null)
+            {
+                return Results.Ok(new NotificationPreferencesDto(true, true, null));
+            }
+
+            return Results.Ok(await notifications.GetPreferencesAsync(userId.Value, cancellationToken));
+        });
+
+        group.MapPut("/preferences", async (
+            UpdateNotificationPreferencesRequest request,
+            NotificationQueryService notifications,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetCurrentUserId(httpContext);
+
+            if (userId is null)
+            {
+                return Results.NotFound(new NotificationErrorResponse("Current user was not found."));
+            }
+
+            var preferences = await notifications.UpdatePreferencesAsync(userId.Value, request, cancellationToken);
+
+            if (preferences is null)
+            {
+                return Results.NotFound(new NotificationErrorResponse("Current user was not found."));
+            }
+
+            return Results.Ok(preferences);
+        });
+
         group.MapPost("/{notificationId:guid}/read", async (
             Guid notificationId,
             NotificationQueryService notifications,

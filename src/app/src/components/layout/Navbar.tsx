@@ -124,6 +124,7 @@ function NavbarActions({
   settingsHref,
   showSettingsButton,
   theme,
+  notificationBadgeCount,
   userEmail,
   userMenu,
   userName
@@ -132,6 +133,7 @@ function NavbarActions({
   settingsHref?: string;
   showSettingsButton: boolean;
   theme?: "light" | "dark";
+  notificationBadgeCount?: number;
   userEmail: string;
   userMenu: UserMenuLink[];
   userName: string;
@@ -139,12 +141,17 @@ function NavbarActions({
   return (
     <>
       <Link
-        className="control-transition inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card/90 text-foreground outline-none ring-primary/20 hover:bg-muted focus-visible:ring-4"
+        className="control-transition relative inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card/90 text-foreground outline-none ring-primary/20 hover:bg-muted focus-visible:ring-4"
         to="/notifications"
-        aria-label="Notifications"
+        aria-label={notificationBadgeCount && notificationBadgeCount > 0 ? `${notificationBadgeCount} unread notifications` : "Notifications"}
         title="Notifications"
       >
         <Bell className="size-4 shrink-0" />
+        {notificationBadgeCount && notificationBadgeCount > 0 ? (
+          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-danger px-1.5 text-center text-xs font-bold leading-5 text-white">
+            {notificationBadgeCount > 99 ? "99+" : notificationBadgeCount}
+          </span>
+        ) : null}
       </Link>
 
       {showSettingsButton ? <SettingsButton /> : null}
@@ -179,6 +186,7 @@ export function Navbar({
   containerClassName,
   theme,
   onThemeToggle,
+  notificationBadgeCount,
   userName = "Admin User",
   userEmail = "admin@company.test",
   userMenu = defaultUserMenu
@@ -199,6 +207,7 @@ export function Navbar({
   containerClassName?: string;
   theme?: "light" | "dark";
   onThemeToggle?: () => void;
+  notificationBadgeCount?: number;
   userName?: string;
   userEmail?: string;
   userMenu?: UserMenuLink[];
@@ -236,6 +245,7 @@ export function Navbar({
           settingsHref={settingsHref}
           showSettingsButton={showSettingsButton}
           theme={theme}
+          notificationBadgeCount={notificationBadgeCount}
           userEmail={userEmail}
           userMenu={userMenu}
           userName={userName}

@@ -11,16 +11,21 @@ function NavigationMenuLink({ item }: { item: NavigationItem }) {
     <NavLink
       className={({ isActive }) =>
         cn(
-          "rounded-lg px-3 py-2 text-sm font-bold",
+          "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-bold",
           isActive ? `${palette.activeNavBg} ${palette.activeNavText}` : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )
       }
       end={item.path === "/" || item.path === "/theme"}
       to={item.path}
     >
-      {item.label}
+      <span className="min-w-0 truncate">{item.label}</span>
+      {hasNavigationBadge(item) ? <span className="shrink-0 rounded-full bg-danger px-2 py-0.5 text-xs font-bold text-white">{item.badge}</span> : null}
     </NavLink>
   );
+}
+
+function hasNavigationBadge(item: NavigationItem) {
+  return item.badge !== undefined && item.badge !== null && String(item.badge).length > 0;
 }
 
 export function NavigationMenuItems({ items }: { items: NavigationItem[] }) {

@@ -59,10 +59,28 @@ function SidebarLink({
       to={item.path}
       onClick={onNavigate}
     >
-      {Icon ? <Icon className="size-4 shrink-0" /> : null}
-      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+      {Icon ? (
+        <span className="relative shrink-0">
+          <Icon className="size-4" />
+          {collapsed && hasNavigationBadge(item) ? (
+            <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-danger px-1 text-center text-[10px] font-bold leading-4 text-white">
+              {item.badge}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+      {!collapsed ? (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {hasNavigationBadge(item) ? <span className="shrink-0 rounded-full bg-danger px-2 py-0.5 text-xs font-bold text-white">{item.badge}</span> : null}
+        </>
+      ) : null}
     </NavLink>
   );
+}
+
+function hasNavigationBadge(item: NavigationItem) {
+  return item.badge !== undefined && item.badge !== null && String(item.badge).length > 0;
 }
 
 function SidebarParentItem({
