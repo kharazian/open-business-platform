@@ -1,5 +1,8 @@
 import type {
   CreateWorkflowRequest,
+  ExecuteRecordWorkflowTransitionRequest,
+  RecordWorkflowState,
+  StartRecordWorkflowRequest,
   UpdateWorkflowRequest,
   WorkflowDetail,
   WorkflowSummary,
@@ -88,6 +91,49 @@ export async function disableWorkflow(workflowId: string, concurrencyStamp: stri
   return postWorkflowStateChange(workflowId, "disable", concurrencyStamp, fetcher);
 }
 
+export async function getRecordWorkflow(recordId: string, fetcher: WorkflowsFetcher = defaultFetcher): Promise<RecordWorkflowState> {
+  return requestJson<RecordWorkflowState>(
+    `/api/records/${encodeURIComponent(recordId)}/workflow`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function startRecordWorkflow(
+  recordId: string,
+  request: StartRecordWorkflowRequest,
+  fetcher: WorkflowsFetcher = defaultFetcher
+): Promise<RecordWorkflowState> {
+  return requestJson<RecordWorkflowState>(
+    `/api/records/${encodeURIComponent(recordId)}/workflow/start`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function executeRecordWorkflowTransition(
+  recordId: string,
+  transitionKey: string,
+  request: ExecuteRecordWorkflowTransitionRequest,
+  fetcher: WorkflowsFetcher = defaultFetcher
+): Promise<RecordWorkflowState> {
+  return requestJson<RecordWorkflowState>(
+    `/api/records/${encodeURIComponent(recordId)}/workflow/transitions/${encodeURIComponent(transitionKey)}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
 async function postWorkflowStateChange(
   workflowId: string,
   action: "publish" | "enable" | "disable",
@@ -163,4 +209,3 @@ function isWorkflowValidationError(value: unknown): value is WorkflowValidationE
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
-

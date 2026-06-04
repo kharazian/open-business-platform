@@ -184,6 +184,68 @@ public static class WorkflowsEndpoints
             });
         });
 
+        var recordWorkflowGroup = endpoints.MapGroup("/api/records/{recordId:guid}/workflow").WithTags("Workflows").RequireAuthorization();
+
+        recordWorkflowGroup.MapGet("", async (
+            Guid recordId,
+            RecordWorkflowService recordWorkflows,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleRecordWorkflowRequestAsync(async () =>
+            {
+                var state = await recordWorkflows.GetRecordWorkflowAsync(recordId, httpContext.User, permissionService, cancellationToken);
+                return Results.Ok(state);
+            });
+        });
+
+        recordWorkflowGroup.MapPost("/start", async (
+            Guid recordId,
+            StartRecordWorkflowRequest request,
+            RecordWorkflowService recordWorkflows,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleRecordWorkflowRequestAsync(async () =>
+            {
+                var state = await recordWorkflows.StartRecordWorkflowAsync(
+                    recordId,
+                    request,
+                    httpContext.User,
+                    GetCurrentUserId(httpContext),
+                    permissionService,
+                    cancellationToken);
+
+                return Results.Ok(state);
+            });
+        });
+
+        recordWorkflowGroup.MapPost("/transitions/{transitionKey}", async (
+            Guid recordId,
+            string transitionKey,
+            ExecuteRecordWorkflowTransitionRequest request,
+            RecordWorkflowService recordWorkflows,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleRecordWorkflowRequestAsync(async () =>
+            {
+                var state = await recordWorkflows.ExecuteTransitionAsync(
+                    recordId,
+                    transitionKey,
+                    request,
+                    httpContext.User,
+                    GetCurrentUserId(httpContext),
+                    permissionService,
+                    cancellationToken);
+
+                return Results.Ok(state);
+            });
+        });
+
         return endpoints;
     }
 
@@ -206,6 +268,18 @@ public static class WorkflowsEndpoints
         {
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new WorkflowErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
+        }
+    }
+
+    private static async Task<IResult> HandleRecordWorkflowRequestAsync(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (RecordWorkflowException exception)
+        {
+            return Results.Json(new WorkflowErrorResponse(exception.Message), statusCode: exception.StatusCode);
         }
     }
 

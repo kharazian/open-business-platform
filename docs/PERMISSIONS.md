@@ -1,6 +1,6 @@
 # Permission Model
 
-Status: V5 workflow foundation extends the implemented V3/V4 permission model with workflow management and workflow action contract constants. Local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, trigger management through form manage access, workflow management through form manage access, and basic field-level hidden/read-only rules are implemented.
+Status: V5 workflow transition execution extends the implemented V3/V4 permission model with workflow management, workflow action contract constants, and record workflow execution through scoped record status access. Local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, trigger management through form manage access, workflow management through form manage access, record workflow start/direct transition execution, and basic field-level hidden/read-only rules are implemented.
 
 ## Goals
 
@@ -178,7 +178,7 @@ Workflow action constants currently include:
 - `manage`
 - `approve`
 
-The backend workflow definition APIs validate management through form `manage` access in this slice. Transition execution and approval inbox authorization remain future workflow tasks.
+The backend workflow definition APIs validate management through form `manage` access. Record workflow state reads require record `view` access. Starting a workflow and executing a direct transition require record `change_status`, form `manage`, or `forms.manage_all` access with the same scoped record rules used by status changes. Approval inbox authorization remains a future workflow task.
 
 ## Record-Level Rules Later
 

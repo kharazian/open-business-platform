@@ -435,15 +435,21 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(record => record.DepartmentId);
             entity.HasIndex(record => record.AssignedToUserId);
             entity.HasIndex(record => record.AssignedGroupId);
+            entity.HasIndex(record => record.WorkflowDefinitionId);
+            entity.HasIndex(record => record.WorkflowDefinitionVersionId);
+            entity.HasIndex(record => record.WorkflowStateKey);
             entity.HasIndex(record => record.CreatedById);
             entity.HasIndex(record => record.CreatedAt);
             entity.Property(record => record.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
             entity.Property(record => record.FormVersionId).HasColumnName("form_version_id").HasColumnType("uuid").IsRequired();
-            entity.Property(record => record.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(record => record.Status).HasColumnName("status").HasMaxLength(80).IsRequired();
             entity.Property(record => record.OwnerId).HasColumnName("owner_id").HasColumnType("uuid");
             entity.Property(record => record.DepartmentId).HasColumnName("department_id").HasColumnType("uuid");
             entity.Property(record => record.AssignedToUserId).HasColumnName("assigned_to_user_id").HasColumnType("uuid");
             entity.Property(record => record.AssignedGroupId).HasColumnName("assigned_group_id").HasColumnType("uuid");
+            entity.Property(record => record.WorkflowDefinitionId).HasColumnName("workflow_definition_id").HasColumnType("uuid");
+            entity.Property(record => record.WorkflowDefinitionVersionId).HasColumnName("workflow_definition_version_id").HasColumnType("uuid");
+            entity.Property(record => record.WorkflowStateKey).HasColumnName("workflow_state_key").HasMaxLength(80);
             entity.Property(record => record.ValuesJson).HasColumnName("values_json").HasColumnType("jsonb").IsRequired();
             entity
                 .HasOne(record => record.Form)
@@ -475,6 +481,16 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(record => record.AssignedGroupId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(record => record.WorkflowDefinition)
+                .WithMany()
+                .HasForeignKey(record => record.WorkflowDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(record => record.WorkflowDefinitionVersion)
+                .WithMany()
+                .HasForeignKey(record => record.WorkflowDefinitionVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

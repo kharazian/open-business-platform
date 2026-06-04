@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V5 workflow foundation added for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, V4 trigger retry policy/schedule metadata, workflow definition/version/history, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V5 workflow transition execution added for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, V4 trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -270,6 +270,9 @@ Fields:
 - department_id nullable
 - assigned_to_user_id nullable
 - assigned_group_id nullable
+- workflow_definition_id nullable
+- workflow_definition_version_id nullable
+- workflow_state_key nullable
 - values_json JSONB
 - concurrency_stamp
 - extra_properties_json JSONB nullable
@@ -288,10 +291,17 @@ Important indexes:
 - status
 - owner_id
 - department_id
+- assigned_to_user_id
+- assigned_group_id
+- workflow_definition_id
+- workflow_definition_version_id
+- workflow_state_key
 - created_by_id
 - created_at
 
 V1 record submission stores values against the form's current published `form_versions.id`. The backend validates submitted values before insert and writes a `record_created` audit entry for the new record. V1 record list/detail queries return values with the stored `form_version_id`; detail responses also return the immutable published schema for that version. V1 record edits validate replacement values against the stored form version schema, check the record concurrency stamp, update `updated_at`/`updated_by_id`, and write `record_updated`. V1 record deletes use soft delete, set status `deleted`, populate deletion audit columns, and write `record_deleted`.
+
+Migration `20260604130000_RecordWorkflowTransitions` adds nullable record workflow state columns. V5 task 003 sets these when an enabled published workflow starts on a record, keeps `workflow_definition_version_id` pointed at the immutable version used for execution, updates `status` to the current workflow state key, and writes workflow history/audit rows for starts and direct transitions.
 
 ## Reports
 
@@ -498,7 +508,7 @@ Indexes:
 - form_id
 - created_at
 
-V5 task 001 creates the history table foundation only. Record workflow transition execution, approval inbox rows, notifications, and trigger-to-workflow starts remain future workflow tasks.
+V5 task 003 writes this table for record workflow starts and direct transitions. Approval inbox rows, notifications, transition action execution, and trigger-to-workflow starts remain future workflow tasks.
 
 ### notifications
 

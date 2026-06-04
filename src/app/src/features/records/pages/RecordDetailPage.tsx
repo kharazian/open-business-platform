@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Edit3, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit3, GitBranch, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -14,6 +14,8 @@ import type { FormField, FormRecordValue, FormRecordValues, ValidationError } fr
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
+import { executeRecordWorkflowTransition, getRecordWorkflow, startRecordWorkflow } from "../../workflows/api";
+import type { RecordWorkflowState, RecordWorkflowTransition } from "../../workflows/types";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
 import { getRecordDetailPrintDescription, requestBrowserPrint } from "../recordPrint";
 
@@ -29,6 +31,11 @@ export function RecordDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [workflowState, setWorkflowState] = useState<RecordWorkflowState | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
+  const [workflowAction, setWorkflowAction] = useState<string | null>(null);
+  const [workflowError, setWorkflowError] = useState<string | null>(null);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
 
   useEffect(() => {
     void refreshRecord();
@@ -47,11 +54,13 @@ export function RecordDetailPage() {
 
     setLoading(true);
     setError(null);
+    setWorkflowError(null);
 
     try {
-      const loadedRecord = await getRecord(resolvedRecordId);
+      const [loadedRecord, loadedWorkflowState] = await Promise.all([getRecord(resolvedRecordId), getRecordWorkflow(resolvedRecordId)]);
       setRecord(loadedRecord);
       setDraftValues(createRecordEditDraft(loadedRecord));
+      applyWorkflowState(loadedWorkflowState);
       setValidationErrors([]);
       setEditing(false);
     } catch (caught) {
@@ -98,10 +107,77 @@ export function RecordDetailPage() {
       setDraftValues(createRecordEditDraft(updatedRecord));
       setValidationErrors([]);
       setEditing(false);
+      await refreshWorkflowState(updatedRecord.id);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshWorkflowState(targetRecordId = resolvedRecordId) {
+    if (!targetRecordId) return;
+
+    setWorkflowLoading(true);
+    setWorkflowError(null);
+
+    try {
+      applyWorkflowState(await getRecordWorkflow(targetRecordId));
+    } catch (caught) {
+      setWorkflowError(getErrorMessage(caught));
+    } finally {
+      setWorkflowLoading(false);
+    }
+  }
+
+  function applyWorkflowState(nextState: RecordWorkflowState) {
+    setWorkflowState(nextState);
+    setSelectedWorkflowId((current) => {
+      const currentStillAvailable = nextState.availableWorkflows.some((workflow) => workflow.workflowDefinitionId === current);
+      return currentStillAvailable ? current : nextState.availableWorkflows[0]?.workflowDefinitionId ?? "";
+    });
+  }
+
+  async function beginWorkflow() {
+    if (!record || !workflowState || !selectedWorkflowId) return;
+
+    setWorkflowAction(`start:${selectedWorkflowId}`);
+    setWorkflowError(null);
+
+    try {
+      const nextState = await startRecordWorkflow(record.id, {
+        workflowDefinitionId: selectedWorkflowId,
+        concurrencyStamp: workflowState.recordConcurrencyStamp
+      });
+      applyWorkflowState(nextState);
+      const updatedRecord = await getRecord(record.id);
+      setRecord(updatedRecord);
+      setDraftValues(createRecordEditDraft(updatedRecord));
+    } catch (caught) {
+      setWorkflowError(getErrorMessage(caught));
+    } finally {
+      setWorkflowAction(null);
+    }
+  }
+
+  async function executeWorkflowTransition(transition: RecordWorkflowTransition) {
+    if (!record || !workflowState) return;
+
+    setWorkflowAction(`transition:${transition.key}`);
+    setWorkflowError(null);
+
+    try {
+      const nextState = await executeRecordWorkflowTransition(record.id, transition.key, {
+        concurrencyStamp: workflowState.recordConcurrencyStamp
+      });
+      applyWorkflowState(nextState);
+      const updatedRecord = await getRecord(record.id);
+      setRecord(updatedRecord);
+      setDraftValues(createRecordEditDraft(updatedRecord));
+    } catch (caught) {
+      setWorkflowError(getErrorMessage(caught));
+    } finally {
+      setWorkflowAction(null);
     }
   }
 
@@ -206,6 +282,18 @@ export function RecordDetailPage() {
             <SummaryTile label="Created" value={formatDateTime(record.createdAt)} />
           </section>
 
+          <WorkflowPanel
+            action={workflowAction}
+            error={workflowError}
+            loading={workflowLoading}
+            onRefresh={() => void refreshWorkflowState(record.id)}
+            onSelectWorkflow={setSelectedWorkflowId}
+            onStart={() => void beginWorkflow()}
+            onTransition={(transition) => void executeWorkflowTransition(transition)}
+            selectedWorkflowId={selectedWorkflowId}
+            state={workflowState}
+          />
+
           <Card className="print-card">
             <CardHeader>
               <CardTitle>{editing ? "Edit values" : "Values"}</CardTitle>
@@ -267,6 +355,133 @@ function SummaryTile({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function WorkflowPanel({
+  action,
+  error,
+  loading,
+  onRefresh,
+  onSelectWorkflow,
+  onStart,
+  onTransition,
+  selectedWorkflowId,
+  state
+}: {
+  action: string | null;
+  error: string | null;
+  loading: boolean;
+  onRefresh: () => void;
+  onSelectWorkflow: (workflowId: string) => void;
+  onStart: () => void;
+  onTransition: (transition: RecordWorkflowTransition) => void;
+  selectedWorkflowId: string;
+  state: RecordWorkflowState | null;
+}) {
+  const hasActiveWorkflow = Boolean(state?.workflowDefinitionId && state.stateKey);
+  const selectedWorkflow = state?.availableWorkflows.find((workflow) => workflow.workflowDefinitionId === selectedWorkflowId);
+
+  return (
+    <Card data-print-hide="true">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <GitBranch className="size-5" />
+            Workflow
+          </CardTitle>
+          <CardDescription>
+            {hasActiveWorkflow ? `${state?.workflowName ?? "Workflow"} version ${state?.workflowVersionNumber ?? "-"}` : "No active workflow"}
+          </CardDescription>
+        </div>
+        <Button disabled={loading || action !== null} onClick={onRefresh} size="sm" variant="outline">
+          <RefreshCw className="size-4" />
+          Refresh
+        </Button>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {error ? <Alert title="Workflow">{error}</Alert> : null}
+        {loading && !state ? (
+          <Skeleton className="h-28" />
+        ) : hasActiveWorkflow && state ? (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="default">{state.stateKey}</Badge>
+              <span className="text-sm font-semibold text-muted-foreground">Current state</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {state.availableTransitions.length > 0 ? (
+                state.availableTransitions.map((transition) => (
+                  <Button
+                    disabled={action !== null || loading}
+                    key={transition.key}
+                    onClick={() => onTransition(transition)}
+                    variant="outline"
+                  >
+                    <MoveRight className="size-4" />
+                    {transition.name}
+                  </Button>
+                ))
+              ) : (
+                <p className="text-sm font-semibold text-muted-foreground">No direct transitions available.</p>
+              )}
+            </div>
+            <WorkflowHistoryList state={state} />
+          </>
+        ) : state && state.availableWorkflows.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <label className="grid gap-2 text-sm font-bold text-foreground">
+              Workflow
+              <select
+                className="min-h-10 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground outline-none ring-primary/20 focus-visible:ring-4"
+                onChange={(event) => onSelectWorkflow(event.target.value)}
+                value={selectedWorkflowId}
+              >
+                {state.availableWorkflows.map((workflow) => (
+                  <option key={workflow.workflowDefinitionId} value={workflow.workflowDefinitionId}>
+                    {workflow.name} v{workflow.currentVersionNumber} to {workflow.initialStateKey}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button disabled={!selectedWorkflow || action !== null || loading} onClick={onStart}>
+              <Play className="size-4" />
+              Start
+            </Button>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-border bg-card-muted px-4 py-3 text-sm font-semibold text-muted-foreground">
+            This record has no active workflow or start option.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function WorkflowHistoryList({ state }: { state: RecordWorkflowState }) {
+  if (state.history.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-bold text-muted-foreground">Recent workflow history</p>
+      <div className="grid gap-2">
+        {state.history.slice(0, 5).map((entry) => (
+          <div className="grid gap-1 rounded-xl border border-border bg-card-muted px-3 py-2" key={entry.id}>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-foreground">
+              <span>{formatWorkflowAction(entry.action)}</span>
+              {entry.transitionKey ? <Badge variant="default">{entry.transitionKey}</Badge> : null}
+            </div>
+            <p className="text-xs font-semibold text-muted-foreground">
+              {entry.fromStateKey ? `${entry.fromStateKey} -> ` : ""}
+              {entry.toStateKey} on {formatDateTime(entry.createdAt)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LinkButton({ children, to }: { children: ReactNode; to: string }) {
   return (
     <Link
@@ -309,6 +524,12 @@ function formatRecordValue(value: FormRecordValue | undefined): string {
   if (value === null || value === undefined || value === "") return "Empty";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
+}
+
+function formatWorkflowAction(action: string): string {
+  if (action === "workflow_started") return "Started";
+  if (action === "workflow_transitioned") return "Transitioned";
+  return action.replaceAll("_", " ");
 }
 
 function getErrorMessage(error: unknown): string {

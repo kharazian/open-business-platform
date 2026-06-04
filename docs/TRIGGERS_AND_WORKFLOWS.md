@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, V4 task 006 notification inbox/read state, V4 task 007 notification badges/preferences, V4 task 008 create-record trigger actions, V4 task 009 automatic retry queues, V4 task 010 webhook action/retry policy/scheduled trigger closure, V5 task 001 backend workflow definition foundation, and V5 task 002 workflow management UI are implemented. Incoming webhook listeners, record workflow execution, approval inboxes, workflow notifications, and XYFlow remain future tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, V4 task 006 notification inbox/read state, V4 task 007 notification badges/preferences, V4 task 008 create-record trigger actions, V4 task 009 automatic retry queues, V4 task 010 webhook action/retry policy/scheduled trigger closure, V5 task 001 backend workflow definition foundation, V5 task 002 workflow management UI, and V5 task 003 record workflow transition execution are implemented. Incoming webhook listeners, approval inboxes, workflow notifications, workflow action execution, trigger-to-workflow starts, and XYFlow remain future tasks.
 
 ## Automation North Star
 
@@ -178,7 +178,7 @@ Workflows should use the same validation, permission, audit, notification, and a
 
 The V5 task 001 backend foundation stores form-scoped workflow definitions, editable draft configs, immutable published workflow versions, and a workflow history table for future record transition execution. Management APIs support list, create, read, update, publish, enable, and disable operations with form `manage` permission checks and workflow mutation audit logs.
 
-The first workflow slices are intentionally table/form based. The backend validates typed states, transitions, approval steps, assignee rules, and optional transition action placeholders. The frontend `/workflows` workspace manages form-scoped workflow definitions with JSON-backed config editing plus list, create, edit, publish, enable, and disable operations. These slices do not execute transitions, create approval inbox items, send workflow notifications, start workflows from triggers, or introduce XYFlow.
+The first workflow slices are intentionally table/form based. The backend validates typed states, transitions, approval steps, assignee rules, and optional transition action placeholders. The frontend `/workflows` workspace manages form-scoped workflow definitions with JSON-backed config editing plus list, create, edit, publish, enable, and disable operations. V5 task 003 lets record detail users with scoped `change_status` access start an enabled published workflow and execute direct transitions. Direct transitions update the record workflow state, update `records.status` to the workflow state key, write workflow history/audit, and dispatch status-changed trigger events. Approval-gated transitions wait for the future approval inbox slice; transition action placeholders, workflow notifications, trigger-to-workflow starts, and XYFlow remain future work.
 
 ## Workflow States
 

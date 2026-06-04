@@ -276,8 +276,8 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
                         .HasColumnName("status");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
@@ -381,6 +381,19 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("values_json");
 
+                    b.Property<Guid?>("WorkflowDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_id");
+
+                    b.Property<Guid?>("WorkflowDefinitionVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_version_id");
+
+                    b.Property<string>("WorkflowStateKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("workflow_state_key");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedGroupId");
@@ -400,6 +413,12 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("OwnerId");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.HasIndex("WorkflowDefinitionVersionId");
+
+                    b.HasIndex("WorkflowStateKey");
 
                     b.ToTable("records", (string)null);
                 });
@@ -1624,6 +1643,16 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", "WorkflowDefinitionVersion")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("AssignedGroup");
 
                     b.Navigation("AssignedToUser");
@@ -1635,6 +1664,10 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("FormVersion");
 
                     b.Navigation("Owner");
+
+                    b.Navigation("WorkflowDefinition");
+
+                    b.Navigation("WorkflowDefinitionVersion");
                 });
 
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.FormVersion", b =>

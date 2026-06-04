@@ -241,6 +241,9 @@ AssertColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionId), "workflow_definition_id", "Workflow history should link to a workflow definition.");
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Workflow history should link to the workflow version used.");
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.RecordId), "record_id", "Workflow history should link to a record.");
+AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionId), "workflow_definition_id", "Records should store the active workflow definition.");
+AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Records should store the active workflow definition version.");
+AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowStateKey), "workflow_state_key", "Records should store the current workflow state key.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
@@ -252,6 +255,9 @@ AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.OwnerId) }, "Records sh
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.DepartmentId) }, "Records should be indexed by department.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.AssignedToUserId) }, "Records should be indexed by assigned user.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.AssignedGroupId) }, "Records should be indexed by assigned group.");
+AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.WorkflowDefinitionId) }, "Records should be indexed by active workflow definition.");
+AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.WorkflowDefinitionVersionId) }, "Records should be indexed by active workflow version.");
+AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.WorkflowStateKey) }, "Records should be indexed by active workflow state.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedById) }, "Records should be indexed by creator.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.CreatedAt) }, "Records should be indexed by created date.");
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.FormId) }, "Reports should be indexed by form.");
@@ -778,6 +784,45 @@ AssertFalse(
         new[] { workflowGroupId },
         new[] { workflowDepartmentId }).Valid,
     "Workflow validation should reject approval assignee rules that reference inactive or missing users.");
+AssertEqual(RecordWorkflowHistoryActions.Started, "workflow_started", "Record workflow history should expose a stable start action.");
+AssertEqual(RecordWorkflowHistoryActions.Transitioned, "workflow_transitioned", "Record workflow history should expose a stable transition action.");
+var startWorkflowRequest = new StartRecordWorkflowRequest(Guid.Parse("99999999-9999-9999-9999-999999999999"), "record-stamp");
+AssertEqual("record-stamp", startWorkflowRequest.ConcurrencyStamp, "Record workflow starts should require record concurrency stamps.");
+var executeWorkflowTransitionRequest = new ExecuteRecordWorkflowTransitionRequest("record-stamp-2");
+AssertEqual("record-stamp-2", executeWorkflowTransitionRequest.ConcurrencyStamp, "Record workflow transitions should require record concurrency stamps.");
+var directTransitionOptions = RecordWorkflowService.GetAvailableDirectTransitions(validWorkflowConfig, "manager_review");
+AssertEqual(1, directTransitionOptions.Count, "Only direct transitions from the current state should be available.");
+AssertEqual("approve", directTransitionOptions.Single().Key, "Available direct transitions should expose transition keys.");
+var approvalTransitionOptions = RecordWorkflowService.GetAvailableDirectTransitions(validWorkflowConfig, "draft");
+AssertEqual(0, approvalTransitionOptions.Count, "Approval-gated transitions should wait for the approval inbox slice.");
+var recordWorkflowState = new RecordWorkflowStateDto(
+    Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
+    Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"),
+    Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"),
+    Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"),
+    "Employee approval",
+    1,
+    "manager_review",
+    Array.Empty<RecordWorkflowStartOptionDto>(),
+    directTransitionOptions,
+    new[]
+    {
+        new RecordWorkflowHistoryDto(
+            Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"),
+            Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"),
+            Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"),
+            Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
+            "draft",
+            "manager_review",
+            "submit",
+            RecordWorkflowHistoryActions.Transitioned,
+            workflowUserId,
+            DateTimeOffset.Parse("2026-06-04T12:00:00Z"))
+    },
+    "record-stamp-3");
+AssertEqual("manager_review", recordWorkflowState.StateKey, "Record workflow state responses should expose the current state key.");
+AssertEqual("approve", recordWorkflowState.AvailableTransitions.Single().Key, "Record workflow state responses should include available direct transitions.");
+AssertEqual(RecordWorkflowHistoryActions.Transitioned, recordWorkflowState.History.Single().Action, "Record workflow state responses should include recent history.");
 
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
@@ -932,6 +977,9 @@ AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinit
 AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.PublishWorkflowAsync)), "Workflow service should publish immutable workflow versions.");
 AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.EnableWorkflowAsync)), "Workflow service should enable workflows without deleting history.");
 AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.DisableWorkflowAsync)), "Workflow service should disable workflows without deleting history.");
+AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.GetRecordWorkflowAsync)), "Record workflow service should read record workflow state.");
+AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.StartRecordWorkflowAsync)), "Record workflow service should start enabled published workflows on records.");
+AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.ExecuteTransitionAsync)), "Record workflow service should execute direct workflow transitions.");
 AssertTypeAssignable<IPlatformApiModule, WorkflowsModule>();
 AssertTrue(new WorkflowsModule().Id == "app.workflows", "Workflow module should expose a stable module id.");
 AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");

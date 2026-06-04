@@ -83,6 +83,15 @@ export type UpdateWorkflowRequest = CreateWorkflowRequest & {
   concurrencyStamp: string;
 };
 
+export type StartRecordWorkflowRequest = {
+  workflowDefinitionId: EntityId;
+  concurrencyStamp: string;
+};
+
+export type ExecuteRecordWorkflowTransitionRequest = {
+  concurrencyStamp: string;
+};
+
 export interface WorkflowSummary extends AuditedEntityDto, ConcurrencyStampedDto {
   formId: EntityId;
   name: string;
@@ -109,6 +118,48 @@ export interface WorkflowDetail extends AuditedEntityDto, ConcurrencyStampedDto 
   config: WorkflowDefinitionConfig;
 }
 
+export type RecordWorkflowTransition = {
+  key: string;
+  name: string;
+  fromStateKey: string;
+  toStateKey: string;
+  requiresApproval: boolean;
+};
+
+export type RecordWorkflowStartOption = {
+  workflowDefinitionId: EntityId;
+  name: string;
+  currentVersionNumber: number;
+  initialStateKey: string;
+};
+
+export type RecordWorkflowHistory = {
+  id: EntityId;
+  workflowDefinitionId: EntityId;
+  workflowDefinitionVersionId: EntityId;
+  recordId: EntityId;
+  fromStateKey?: string | null;
+  toStateKey: string;
+  transitionKey?: string | null;
+  action: string;
+  actorUserId?: EntityId | null;
+  createdAt: string;
+};
+
+export type RecordWorkflowState = {
+  recordId: EntityId;
+  formId: EntityId;
+  workflowDefinitionId?: EntityId | null;
+  workflowDefinitionVersionId?: EntityId | null;
+  workflowName?: string | null;
+  workflowVersionNumber?: number | null;
+  stateKey?: string | null;
+  availableWorkflows: RecordWorkflowStartOption[];
+  availableTransitions: RecordWorkflowTransition[];
+  history: RecordWorkflowHistory[];
+  recordConcurrencyStamp: string;
+};
+
 export type WorkflowValidationError = {
   path: string;
   code: string;
@@ -118,4 +169,3 @@ export type WorkflowValidationError = {
 export function isWorkflowStatus(value: string): value is WorkflowStatus {
   return (workflowStatuses as readonly string[]).includes(value);
 }
-

@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 starts backend workflow definition management, publish/version contracts, and workflow history foundation tables. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, and record workflow start/direct transition APIs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1379,7 +1379,7 @@ Record submission dispatches `record.created`. Record edits dispatch `record.upd
 
 ## Workflows V5
 
-Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. The current workflow slices do not execute record transitions, create approval inbox items, send workflow notifications, start workflows from triggers, or expose a visual builder.
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. The current workflow slices do not create approval inbox items, send workflow notifications, start workflows from triggers, execute transition action placeholders, or expose a visual builder.
 
 Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
 
@@ -1465,6 +1465,45 @@ Requires form `manage` or `forms.manage_all` access and `{ "concurrencyStamp": "
 `POST /api/workflows/{workflowId}/disable`
 
 Both require form `manage` or `forms.manage_all` access and `{ "concurrencyStamp": "..." }`. These endpoints toggle workflow availability without deleting definitions, versions, or history and write `workflow_enabled` or `workflow_disabled`.
+
+### Get record workflow state
+
+`GET /api/records/{recordId}/workflow`
+
+Requires record `view` access for the record's form and scoped record rules. Response includes the active workflow/version/state when present, available start options when the user can change the record status and no workflow is active, available direct transitions when the user can change status and the active workflow state has non-approval transitions, and recent workflow history.
+
+### Start record workflow
+
+`POST /api/records/{recordId}/workflow/start`
+
+Requires record `change_status`, form `manage`, or `forms.manage_all` access for the record's form and scoped record rules.
+
+Request:
+
+```json
+{
+  "workflowDefinitionId": "11111111-1111-1111-1111-111111111111",
+  "concurrencyStamp": "record-stamp"
+}
+```
+
+The backend rejects disabled, unpublished, wrong-form, or already-active workflows. On success it stores `workflowDefinitionId`, `workflowDefinitionVersionId`, and `workflowStateKey` on the record, updates `records.status` to the initial state key, writes `workflow_started` history plus a `record_workflow_started` audit entry, and dispatches a status-changed trigger event when the record status changed.
+
+### Execute record workflow transition
+
+`POST /api/records/{recordId}/workflow/transitions/{transitionKey}`
+
+Requires record `change_status`, form `manage`, or `forms.manage_all` access for the record's form and scoped record rules.
+
+Request:
+
+```json
+{
+  "concurrencyStamp": "record-stamp"
+}
+```
+
+The backend uses the workflow definition version already stored on the record. It rejects unavailable transitions, transitions from another state, and transitions that require an approval step. On success it updates `workflowStateKey`, updates `records.status` to the target state key, writes `workflow_transitioned` history plus a `record_workflow_transitioned` audit entry, and dispatches a status-changed trigger event when the record status changed.
 
 ## API Rules
 

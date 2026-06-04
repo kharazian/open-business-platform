@@ -104,6 +104,12 @@ public sealed record WorkflowDefinitionConfig(
     IReadOnlyList<WorkflowTransitionDefinition> Transitions,
     IReadOnlyList<WorkflowApprovalStepDefinition> ApprovalSteps);
 
+public static class RecordWorkflowHistoryActions
+{
+    public const string Started = "workflow_started";
+    public const string Transitioned = "workflow_transitioned";
+}
+
 public sealed record CreateWorkflowDefinitionRequest(
     string Name,
     string? Description,
@@ -118,6 +124,10 @@ public sealed record UpdateWorkflowDefinitionRequest(
     string ConcurrencyStamp);
 
 public sealed record WorkflowStateChangeRequest(string ConcurrencyStamp);
+
+public sealed record StartRecordWorkflowRequest(Guid WorkflowDefinitionId, string ConcurrencyStamp);
+
+public sealed record ExecuteRecordWorkflowTransitionRequest(string ConcurrencyStamp);
 
 public sealed record WorkflowSummaryDto(
     Guid Id,
@@ -155,6 +165,44 @@ public sealed record WorkflowDetailDto(
     DateTimeOffset? UpdatedAt,
     Guid? UpdatedById);
 
+public sealed record RecordWorkflowTransitionDto(
+    string Key,
+    string Name,
+    string FromStateKey,
+    string ToStateKey,
+    bool RequiresApproval);
+
+public sealed record RecordWorkflowStartOptionDto(
+    Guid WorkflowDefinitionId,
+    string Name,
+    int CurrentVersionNumber,
+    string InitialStateKey);
+
+public sealed record RecordWorkflowHistoryDto(
+    Guid Id,
+    Guid WorkflowDefinitionId,
+    Guid WorkflowDefinitionVersionId,
+    Guid RecordId,
+    string? FromStateKey,
+    string ToStateKey,
+    string? TransitionKey,
+    string Action,
+    Guid? ActorUserId,
+    DateTimeOffset CreatedAt);
+
+public sealed record RecordWorkflowStateDto(
+    Guid RecordId,
+    Guid FormId,
+    Guid? WorkflowDefinitionId,
+    Guid? WorkflowDefinitionVersionId,
+    string? WorkflowName,
+    int? WorkflowVersionNumber,
+    string? StateKey,
+    IReadOnlyList<RecordWorkflowStartOptionDto> AvailableWorkflows,
+    IReadOnlyList<RecordWorkflowTransitionDto> AvailableTransitions,
+    IReadOnlyList<RecordWorkflowHistoryDto> History,
+    string RecordConcurrencyStamp);
+
 public sealed record WorkflowValidationError(string Path, string Code, string Message);
 
 public sealed record WorkflowValidationResult(IReadOnlyList<WorkflowValidationError> Errors)
@@ -183,4 +231,15 @@ public sealed class WorkflowManagementException : Exception
     public int StatusCode { get; }
 
     public IReadOnlyList<WorkflowValidationError> Errors { get; }
+}
+
+public sealed class RecordWorkflowException : Exception
+{
+    public RecordWorkflowException(int statusCode, string message)
+        : base(message)
+    {
+        StatusCode = statusCode;
+    }
+
+    public int StatusCode { get; }
 }

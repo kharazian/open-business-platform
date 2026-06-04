@@ -31,6 +31,16 @@ public sealed class FormRecord : FullAuditedAggregateRoot<Guid>, IHasConcurrency
 
     public Group? AssignedGroup { get; set; }
 
+    public Guid? WorkflowDefinitionId { get; set; }
+
+    public WorkflowDefinition? WorkflowDefinition { get; set; }
+
+    public Guid? WorkflowDefinitionVersionId { get; set; }
+
+    public WorkflowDefinitionVersion? WorkflowDefinitionVersion { get; set; }
+
+    public string? WorkflowStateKey { get; set; }
+
     public JsonDocument ValuesJson { get; set; } = null!;
 
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
