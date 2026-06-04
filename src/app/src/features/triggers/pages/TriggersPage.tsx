@@ -18,17 +18,21 @@ import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
 import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, updateTrigger } from "../api";
 import {
   buildTriggerRequest,
+  createDefaultTriggerSchedule,
   createEmptyTriggerDraft,
   createTriggerActionDraft,
   createTriggerConditionDraft,
   createTriggerDraftFromDetail,
+  defaultTriggerRetryPolicy,
   formatTriggerActionLabel,
   formatTriggerConditionLabel,
   formatTriggerDate,
   formatTriggerEventLabel,
   formatTriggerJson,
   formatTriggerLogStatus,
+  formatTriggerRetryState,
   getTriggerFieldOptions,
+  isScheduledTriggerEvent,
   triggerActionOptions,
   triggerConditionOptions,
   triggerEventOptions,
@@ -95,6 +99,7 @@ export function TriggersPage() {
   const activeDepartments = departments.filter((department) => department.isActive);
   const activeGroups = groups.filter((group) => group.isActive);
   const errorMap = useMemo(() => createValidationErrorMap(validationErrors), [validationErrors]);
+  const scheduledEvent = isScheduledTriggerEvent(draft.eventName);
 
   async function loadInitialData() {
     setLoadingInitial(true);
@@ -264,6 +269,37 @@ export function TriggersPage() {
     setNotice(null);
   }
 
+  function handleEventChange(eventName: TriggerEventName) {
+    const schedule = isScheduledTriggerEvent(eventName)
+      ? createDefaultTriggerSchedule(eventName)
+      : null;
+
+    updateDraft({
+      eventName,
+      schedule,
+      conditions: isScheduledTriggerEvent(eventName) ? [] : draft.conditions
+    });
+  }
+
+  function updateRetryPolicy(patch: Partial<TriggerDraft["retryPolicy"]>) {
+    updateDraft({
+      retryPolicy: {
+        ...defaultTriggerRetryPolicy,
+        ...draft.retryPolicy,
+        ...patch
+      }
+    });
+  }
+
+  function updateSchedule(patch: Partial<NonNullable<TriggerDraft["schedule"]>>) {
+    updateDraft({
+      schedule: {
+        ...(draft.schedule ?? createDefaultTriggerSchedule(draft.eventName) ?? { kind: "daily", timeZone: "Etc/UTC", startAt: new Date().toISOString() }),
+        ...patch
+      }
+    });
+  }
+
   function updateCondition(clientId: string, patch: Partial<TriggerConditionDraft>) {
     setDraft((current) => ({
       ...current,
@@ -399,7 +435,7 @@ export function TriggersPage() {
             <CardContent className="grid gap-5">
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_11rem]">
                 <Input error={errorMap.get("name")} label="Name" onChange={(event) => updateDraft({ name: event.target.value })} value={draft.name} />
-                <Select label="Event" onChange={(event) => updateDraft({ eventName: event.target.value as TriggerEventName })} options={triggerEventOptions} value={draft.eventName} />
+                <Select label="Event" onChange={(event) => handleEventChange(event.target.value as TriggerEventName)} options={triggerEventOptions} value={draft.eventName} />
                 <Checkbox
                   checked={draft.isEnabled}
                   label="Enabled"
@@ -408,19 +444,64 @@ export function TriggersPage() {
               </div>
               <Textarea label="Description" onChange={(event) => updateDraft({ description: event.target.value })} value={draft.description} />
 
+              <div className="grid gap-4 lg:grid-cols-[11rem_minmax(0,1fr)_minmax(0,1fr)]">
+                <Checkbox
+                  checked={draft.retryPolicy.isEnabled}
+                  label="Auto retry"
+                  onChange={(event) => updateRetryPolicy({ isEnabled: event.target.checked })}
+                />
+                <Input
+                  error={errorMap.get("retryPolicy.maxAttempts")}
+                  label="Retry attempts"
+                  min={0}
+                  onChange={(event) => updateRetryPolicy({ maxAttempts: Number(event.target.value) })}
+                  type="number"
+                  value={draft.retryPolicy.maxAttempts}
+                />
+                <Input
+                  error={errorMap.get("retryPolicy.delaySeconds")}
+                  label="Retry delay seconds"
+                  min={0}
+                  onChange={(event) => updateRetryPolicy({ delaySeconds: Number(event.target.value) })}
+                  type="number"
+                  value={draft.retryPolicy.delaySeconds}
+                />
+              </div>
+
+              {scheduledEvent ? (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <Input
+                    error={errorMap.get("schedule.timeZone")}
+                    label="Time zone"
+                    onChange={(event) => updateSchedule({ timeZone: event.target.value })}
+                    value={draft.schedule?.timeZone ?? "Etc/UTC"}
+                  />
+                  <Input
+                    error={errorMap.get("schedule")}
+                    label="Start at"
+                    onChange={(event) => updateSchedule({ startAt: event.target.value })}
+                    value={draft.schedule?.startAt ?? ""}
+                  />
+                </div>
+              ) : null}
+
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground">Conditions</h3>
                     <p className="text-sm text-muted-foreground">All conditions must match. Leave empty to run for every matching event.</p>
                   </div>
-                  <Button onClick={() => updateDraft({ conditions: [...draft.conditions, createTriggerConditionDraft("field_equals", Date.now())] })} size="sm" variant="outline">
+                  <Button disabled={scheduledEvent} onClick={() => updateDraft({ conditions: [...draft.conditions, createTriggerConditionDraft("field_equals", Date.now())] })} size="sm" variant="outline">
                     <Plus className="size-4" />
                     Add condition
                   </Button>
                 </div>
 
-                {draft.conditions.length === 0 ? (
+                {scheduledEvent ? (
+                  <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                    Scheduled trigger.
+                  </div>
+                ) : draft.conditions.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
                     No conditions. This trigger will run for every {formatTriggerEventLabel(draft.eventName).toLowerCase()} event.
                   </div>
@@ -464,6 +545,7 @@ export function TriggersPage() {
                       action={action}
                       errors={errorMap}
                       fields={fieldOptions}
+                      forms={forms}
                       groups={activeGroups}
                       index={index}
                       key={action.clientId}
@@ -648,6 +730,7 @@ function ActionEditor({
   action,
   errors,
   fields,
+  forms,
   groups,
   index,
   onRemove,
@@ -658,6 +741,7 @@ function ActionEditor({
   action: TriggerActionDraft;
   errors: Map<string, string>;
   fields: TriggerFieldOption[];
+  forms: FormSummary[];
   groups: GroupDto[];
   index: number;
   onRemove: () => void;
@@ -674,7 +758,7 @@ function ActionEditor({
           <Select label={`Action ${index + 1}`} onChange={(event) => onTypeChange(event.target.value as TriggerActionType)} options={triggerActionOptions} value={action.type} />
           <Input error={errors.get(`${path}.id`)} label="Action id" onChange={(event) => onUpdate({ id: event.target.value })} value={action.id} />
         </div>
-        <ActionValueEditor action={action} errors={errors} fields={fields} groups={groups} onUpdate={onUpdate} path={path} users={users} />
+        <ActionValueEditor action={action} errors={errors} fields={fields} forms={forms} groups={groups} onUpdate={onUpdate} path={path} users={users} />
         <Button aria-label="Remove action" className="self-end" onClick={onRemove} size="icon" variant="ghost">
           <Trash2 className="size-4" />
         </Button>
@@ -687,6 +771,7 @@ function ActionValueEditor({
   action,
   errors,
   fields,
+  forms,
   groups,
   onUpdate,
   path,
@@ -695,6 +780,7 @@ function ActionValueEditor({
   action: TriggerActionDraft;
   errors: Map<string, string>;
   fields: TriggerFieldOption[];
+  forms: FormSummary[];
   groups: GroupDto[];
   onUpdate: (patch: Partial<TriggerActionDraft>) => void;
   path: string;
@@ -767,6 +853,48 @@ function ActionValueEditor({
     );
   }
 
+  if (action.type === "create_record") {
+    return (
+      <div className="grid gap-3">
+        <Select error={errors.get(`${path}.targetFormId`)} label="Target form" onChange={(event) => onUpdate({ targetFormId: event.target.value })} value={action.targetFormId ?? ""}>
+          <option value="">Choose form</option>
+          {forms.map((form) => (
+            <option key={form.id} value={form.id}>
+              {form.name}
+            </option>
+          ))}
+        </Select>
+        <Textarea
+          error={errors.get(`${path}.values`)}
+          label="Target field values"
+          onChange={(event) => onUpdate({ valueMappingsText: event.target.value })}
+          value={action.valueMappingsText ?? ""}
+        />
+      </div>
+    );
+  }
+
+  if (action.type === "call_webhook") {
+    return (
+      <div className="grid gap-3">
+        <Input error={errors.get(`${path}.webhookUrl`)} label="Webhook URL" onChange={(event) => onUpdate({ webhookUrl: event.target.value })} value={action.webhookUrl ?? ""} />
+        <Select error={errors.get(`${path}.webhookMethod`)} label="Method" onChange={(event) => onUpdate({ webhookMethod: event.target.value })} value={action.webhookMethod ?? "POST"}>
+          {["POST", "GET", "PUT", "PATCH", "DELETE"].map((method) => (
+            <option key={method} value={method}>
+              {method}
+            </option>
+          ))}
+        </Select>
+        <Textarea
+          error={errors.get(`${path}.webhookHeaders`)}
+          label="Headers JSON"
+          onChange={(event) => onUpdate({ webhookHeadersText: event.target.value })}
+          value={action.webhookHeadersText ?? ""}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <Select error={errors.get(`${path}.assignment`)} label="Assign user" onChange={(event) => onUpdate({ assignedToUserId: event.target.value, assignedGroupId: "" })} value={action.assignedToUserId ?? ""}>
@@ -804,6 +932,7 @@ function FieldSelect({ error, fields, onChange, value }: { error?: string; field
 
 function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog; onRetry: (logId: string) => void; retrying: boolean }) {
   const status = formatTriggerLogStatus(log.status);
+  const retryState = formatTriggerRetryState(log.retryState, log.autoRetryAttemptCount, log.autoRetryMaxAttempts);
 
   return (
     <div className="rounded-xl border border-border bg-card/70 p-4">
@@ -816,6 +945,7 @@ function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog;
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-bold text-foreground">{formatTriggerEventLabel(log.eventName)}</p>
               <Badge variant={status.variant}>{status.label}</Badge>
+              {retryState ? <Badge>{retryState}</Badge> : null}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {log.entityType} {log.entityId}
@@ -826,6 +956,7 @@ function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog;
           <div>
             <p>Started {formatTriggerDate(log.startedAt)}</p>
             <p>Completed {formatTriggerDate(log.completedAt)}</p>
+            {log.autoRetryNextAttemptAt ? <p>Next retry {formatTriggerDate(log.autoRetryNextAttemptAt)}</p> : null}
             {log.retryOfLogId ? <p>Retry of {log.retryOfLogId}</p> : null}
           </div>
           {log.status === "failed" ? (

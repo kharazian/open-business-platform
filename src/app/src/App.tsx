@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout } from "./layouts/AppLayout";
 import { ThemeLayout } from "./layouts/ThemeLayout";
@@ -50,7 +50,8 @@ function App() {
           }
         >
           {appRoutes.map((route) => {
-            const element = route.permission ? <RequirePermission permission={route.permission}>{route.element}</RequirePermission> : route.element;
+            const routedElement = <RouteSuspense>{route.element}</RouteSuspense>;
+            const element = route.permission ? <RequirePermission permission={route.permission}>{routedElement}</RequirePermission> : routedElement;
 
             return route.index ? (
               <Route index element={element} key="index" />
@@ -91,6 +92,18 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }
 
   return children;
+}
+
+function RouteSuspense({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
+}
+
+function RouteLoading() {
+  return (
+    <section className="px-6 py-8 text-sm font-semibold text-muted-foreground">
+      Loading module...
+    </section>
+  );
 }
 
 function RequirePermission({ children, permission }: { children: ReactNode; permission: string }) {

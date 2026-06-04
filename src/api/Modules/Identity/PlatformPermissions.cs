@@ -14,7 +14,8 @@ public static class PlatformPermissions
         Roles.Manage,
         Forms.Create,
         Forms.ManageAll,
-        Reports.Manage
+        Reports.Manage,
+        Workflows.Manage
     };
 
     public static readonly IReadOnlyCollection<string> FormActions = new[]
@@ -35,6 +36,13 @@ public static class PlatformPermissions
         Report.View,
         Report.Export,
         Report.Manage
+    };
+
+    public static readonly IReadOnlyCollection<string> WorkflowActions = new[]
+    {
+        Workflow.View,
+        Workflow.Manage,
+        Workflow.Approve
     };
 
     public static class Menu
@@ -68,6 +76,11 @@ public static class PlatformPermissions
         public const string Manage = "reports.manage";
     }
 
+    public static class Workflows
+    {
+        public const string Manage = "workflows.manage";
+    }
+
     public static class Form
     {
         public const string Submit = "submit";
@@ -86,6 +99,13 @@ public static class PlatformPermissions
         public const string View = "view";
         public const string Export = "export";
         public const string Manage = "manage";
+    }
+
+    public static class Workflow
+    {
+        public const string View = "view";
+        public const string Manage = "manage";
+        public const string Approve = "approve";
     }
 
     public static class RecordScopes

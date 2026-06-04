@@ -44,6 +44,7 @@ src/app/src/
   context/
   features/
     forms/
+    workflows/
     users/
   layouts/
   pages/
@@ -61,7 +62,7 @@ Current frontend module registry:
 - `src/app/src/modules/index.ts` exports the app modules.
 - Each file under `src/app/src/modules/*/module.tsx` implements `PlatformModule`.
 - `src/app/src/platform/moduleRegistry.ts` sorts modules by `order`, exposes routes, derives navigation, and filters navigation by effective permissions.
-- Current app modules are dashboard, forms, users/access, reports, settings, and profile.
+- Current app modules are dashboard, forms, users/access, reports, triggers, workflows, notifications, settings, and profile.
 - Real app routes are generated from modules in `App.tsx`; `/theme` routes are generated separately from the theme page config.
 
 Current frontend shell/theme behavior:
@@ -75,6 +76,7 @@ Current frontend shell/theme behavior:
 - The Forms feature currently includes persisted list/create, backend-owned draft metadata/schema editing, responsive layout settings, preview, publishing, and published-form submission.
 - The Records feature currently includes form-scoped record lists, record detail, edit, soft-delete, and browser print views backed by the records API.
 - The Users feature currently includes a Users & Access workspace for users, roles, role permissions, and per-form role access.
+- The Workflows feature currently includes typed frontend workflow contracts, API helpers, draft/config helpers, and the `/workflows` management workspace for form-scoped definition list/create/edit/publish/enable/disable operations.
 
 Future feature structure:
 
@@ -107,7 +109,7 @@ Important frontend separation:
 - `ReportBuilder` configures report definitions.
 - `ReportViewer` displays configured reports.
 - `/theme` demonstrates shared UI/layout components with sample data only.
-- Real app product pages should use API/data services as they mature; Forms, Users & Access, Records, V2 Reports, Dashboard summary, Charts, and saved Dashboards now use real API-backed product surfaces. Settings/profile and `/theme` remain starter/sample surfaces.
+- Real app product pages should use API/data services as they mature; Forms, Users & Access, Records, V2 Reports, Dashboard summary, Charts, saved Dashboards, V4 Triggers, Notifications, and V5 Workflows now use real API-backed product surfaces. Settings/profile and `/theme` remain starter/sample surfaces.
 
 ## Backend Architecture
 
@@ -145,6 +147,8 @@ Current backend module behavior:
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
 - `Modules/Reports` contains the current V2 list report definition, execution, and CSV export endpoints, config validation, report management/view permission checks, and report audit logging.
+- `Modules/Triggers` contains the current V4 trigger definition, execution, retry, webhook action, and safe scheduled trigger foundation.
+- `Modules/Workflows` contains the current V5 backend workflow definition foundation, typed config validation, management endpoints, immutable version publishing, and workflow history table foundation.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
 - `Configuration/EnvironmentConfiguration.cs` derives connection strings, branding options, bootstrap admin options, `ASPNETCORE_URLS`, and local CORS defaults from environment variables.
 - `Directory.Build.props` redirects API build output to `.artifacts/api`.

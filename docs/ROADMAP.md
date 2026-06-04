@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Workflow Foundation Started
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -26,8 +26,10 @@
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
+- Backend workflow definition persistence, publishing/versioning, validation, management APIs, permission checks, audit logs, and history foundation exist.
+- `/workflows` frontend management UI exists for form-scoped workflow definition list/create/edit/publish/enable/disable operations over JSON-backed configs.
 
-Next: V4 trigger backend foundation, trigger management UI, update-field actions, manual retry recovery, in-app notification actions, current-user notification inbox/read APIs, unread badges, and notification preferences are complete for the current task list. Continue with richer trigger actions, automatic retry queues, or start the next approved product slice.
+Next: continue V5 with record workflow transition execution or approval inbox/notification groundwork.
 
 ## Product Engine Path
 
@@ -147,19 +149,19 @@ Implemented foundation:
 - Current-user notification inbox
 - Notification unread count and read state APIs
 - Notification unread badges and preferences
-
-Future V4 work:
-
 - Create related records
-- Webhook call
-- Automatic retry queues and retry policies later
-- Scheduled triggers later in the automation/integration path
+- Automatic retry queue for failed trigger logs
+- Webhook call action
+- User-authored retry policy controls
+- Scheduled trigger runner for safe email/webhook actions
+
+Future V4 work: complete for the current roadmap scope.
 
 ## V5: Workflow and Approval
 
 Goal: support multi-step processes.
 
-Features:
+Implemented foundation:
 
 - Status states
 - Transitions
@@ -167,6 +169,15 @@ Features:
 - Single and multiple approvers
 - Department manager approval
 - Workflow history
+- Backend workflow definition management APIs
+- Draft/edit/publish workflow definition versioning
+- Workflow validation and mutation audit logs
+- Workflow management UI
+
+Future V5 work:
+
+- Record workflow transition execution
+- Approval inbox and notifications
 - Optional XYFlow visual workflow builder
 - Workflow actions such as sending email, updating records, calling APIs, or creating related records through the shared action engine
 

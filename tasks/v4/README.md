@@ -11,7 +11,9 @@ V4 starts the trigger engine and shared action foundation.
 5. `005-in-app-notification-trigger-action.md` - database-backed in-app notification action. Completed for the current action slice.
 6. `006-notification-inbox-read-state.md` - current-user notification inbox APIs and real notifications page. Completed for the current inbox slice.
 7. `007-notification-badges-and-preferences.md` - unread badges and current-user notification preferences. Completed for the current notification closure slice.
-8. Additional actions and automatic retry behavior - later automation tasks.
+8. `008-create-related-record-trigger-action.md` - safe related-record creation action for approved trigger definitions. Completed for the current action-engine slice.
+9. `009-automatic-trigger-retry-queue.md` - automatic retry queue and retry policy foundation for failed trigger executions. Completed for the current reliability slice.
+10. `010-webhooks-retry-policies-scheduled-triggers.md` - webhook call action, editable retry policies, and scheduled trigger runner. Completed for the V4 automation closure slice.
 
 ## Scope Rules
 
@@ -20,4 +22,5 @@ V4 starts the trigger engine and shared action foundation.
 - Keep trigger definitions and execution logs on the backend.
 - Enforce trigger management permissions on the backend.
 - Dispatch from record events only after the primary record change succeeds.
-- Do not implement scheduled triggers, webhook listeners, workflow approvals, or XYFlow in V4 task 001.
+- Keep scheduled triggers limited to safe non-record actions until workflow/record scheduled execution is introduced.
+- Do not implement webhook listeners, workflow approvals, custom code execution, or XYFlow in V4 tasks.

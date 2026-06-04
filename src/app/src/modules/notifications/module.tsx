@@ -1,6 +1,8 @@
+import { lazy } from "react";
 import { Bell } from "lucide-react";
-import { NotificationsPage } from "../../features/notifications/pages/NotificationsPage";
 import type { PlatformModule } from "../../platform/moduleRegistry";
+
+const NotificationsPage = lazy(() => import("../../features/notifications/pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 
 export const notificationsModule: PlatformModule = {
   id: "app.notifications",

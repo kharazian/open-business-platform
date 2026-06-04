@@ -953,6 +953,24 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("actions_json");
 
+                    b.Property<int>("AutoRetryDelaySeconds")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60)
+                        .HasColumnName("auto_retry_delay_seconds");
+
+                    b.Property<bool>("AutoRetryEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("auto_retry_enabled");
+
+                    b.Property<int>("AutoRetryMaxAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("auto_retry_max_attempts");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -1017,6 +1035,18 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<JsonDocument>("ScheduleJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("schedule_json");
+
+                    b.Property<DateTimeOffset?>("ScheduleLastRunAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("schedule_last_run_at");
+
+                    b.Property<DateTimeOffset?>("ScheduleNextRunAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("schedule_next_run_at");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1033,6 +1063,8 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IsEnabled");
 
+                    b.HasIndex("ScheduleNextRunAt");
+
                     b.ToTable("triggers", (string)null);
                 });
 
@@ -1042,6 +1074,38 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<int>("AutoRetryAttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("auto_retry_attempt_count");
+
+                    b.Property<DateTimeOffset?>("AutoRetryCompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("auto_retry_completed_at");
+
+                    b.Property<DateTimeOffset?>("AutoRetryDisabledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("auto_retry_disabled_at");
+
+                    b.Property<DateTimeOffset?>("AutoRetryExhaustedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("auto_retry_exhausted_at");
+
+                    b.Property<DateTimeOffset?>("AutoRetryLockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("auto_retry_locked_at");
+
+                    b.Property<int>("AutoRetryMaxAttempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("auto_retry_max_attempts");
+
+                    b.Property<DateTimeOffset?>("AutoRetryNextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("auto_retry_next_attempt_at");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1101,6 +1165,8 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AutoRetryNextAttemptAt");
+
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("EventName");
@@ -1112,6 +1178,234 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("EntityType", "EntityId");
 
                     b.ToTable("trigger_logs", (string)null);
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid?>("CurrentVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_version_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<JsonDocument>("DraftConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("draft_config_json");
+
+                    b.Property<JsonDocument>("ExtraPropertiesJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("extra_properties_json");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<bool>("HasUnpublishedChanges")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("has_unpublished_changes");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_enabled");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentVersionId");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("IsEnabled");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("workflow_definitions", (string)null);
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<JsonDocument>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("config_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<Guid?>("PublishedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("published_by_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.HasIndex("WorkflowDefinitionId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("workflow_definition_versions", (string)null);
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowHistoryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<string>("FromStateKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("from_state_key");
+
+                    b.Property<JsonDocument>("MetadataJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("metadata_json");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_id");
+
+                    b.Property<string>("ToStateKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("to_state_key");
+
+                    b.Property<string>("TransitionKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("transition_key");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_id");
+
+                    b.Property<Guid>("WorkflowDefinitionVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_version_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("RecordId");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.HasIndex("WorkflowDefinitionVersionId");
+
+                    b.ToTable("workflow_history", (string)null);
                 });
 
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.User", b =>
@@ -1496,6 +1790,78 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("Trigger");
                 });
 
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", "CurrentVersion")
+                        .WithMany()
+                        .HasForeignKey("CurrentVersionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CurrentVersion");
+
+                    b.Navigation("Form");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany("Versions")
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+
+                    b.Navigation("WorkflowDefinition");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowHistoryEntry", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormRecord", "Record")
+                        .WithMany()
+                        .HasForeignKey("RecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", "WorkflowDefinitionVersion")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Form");
+
+                    b.Navigation("Record");
+
+                    b.Navigation("WorkflowDefinition");
+
+                    b.Navigation("WorkflowDefinitionVersion");
+                });
+
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.UserDepartment", b =>
                 {
                     b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.Department", "Department")
@@ -1590,6 +1956,11 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("Groups");
 
                     b.Navigation("Roles");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", b =>
+                {
+                    b.Navigation("Versions");
                 });
 #pragma warning restore 612, 618
         }

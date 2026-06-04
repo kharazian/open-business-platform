@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V4 trigger foundation finalized for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V5 workflow foundation added for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, V4 trigger retry policy/schedule metadata, workflow definition/version/history, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -18,6 +18,7 @@ The current migrations include:
 - `records`
 - `reports`
 - `triggers`, `trigger_logs`
+- `workflow_definitions`, `workflow_definition_versions`, `workflow_history`
 - `notifications`
 - `notification_preferences`
 - `audit_logs`
@@ -108,14 +109,6 @@ Fields:
 - updated_at nullable
 - updated_by_id nullable
 
-### groups later
-
-Fields:
-
-- id
-- name
-- description
-
 ### departments
 
 Fields:
@@ -171,8 +164,6 @@ Indexes:
 - role_id
 - form_id
 - unique role_id + form_id + action
-
-### user_groups later
 
 ### groups
 
@@ -329,7 +320,7 @@ Indexes:
 - type
 - created_by_id
 
-The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, and CSV export uses the same permission-checked report execution path. Report-level permission rows are later V3 work.
+The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`.
 
 ## Permissions
 
@@ -362,6 +353,12 @@ Fields:
 - conditions_json JSONB
 - actions_json JSONB
 - is_enabled
+- auto_retry_enabled
+- auto_retry_max_attempts
+- auto_retry_delay_seconds
+- schedule_json JSONB nullable
+- schedule_next_run_at nullable
+- schedule_last_run_at nullable
 - concurrency_stamp
 - extra_properties_json JSONB
 - created_by_id
@@ -377,8 +374,9 @@ Indexes:
 - form_id
 - event_name
 - is_enabled
+- schedule_next_run_at
 
-`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. V4 task 003 adds current-record field updates through `update_field`. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
+`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. V4 task 003 adds current-record field updates through `update_field`. V4 task 005 adds `send_notification`. V4 task 008 adds `create_record`, which stores target form IDs and target field value mappings in `actions_json` and stores source trigger metadata on created records through `records.extra_properties_json`. V4 task 010 adds `call_webhook`, per-trigger retry policy columns, schedule metadata JSON, and due-schedule timestamps. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
 
 ### trigger_logs
 
@@ -396,6 +394,13 @@ Fields:
 - error_message
 - started_at
 - completed_at
+- auto_retry_attempt_count
+- auto_retry_max_attempts
+- auto_retry_next_attempt_at nullable
+- auto_retry_locked_at nullable
+- auto_retry_completed_at nullable
+- auto_retry_exhausted_at nullable
+- auto_retry_disabled_at nullable
 - created_at
 
 Indexes:
@@ -404,9 +409,96 @@ Indexes:
 - form_id
 - event_name
 - entity_type + entity_id
+- auto_retry_next_attempt_at
 - created_at
 
-Trigger logs persist matching trigger executions. The first V4 slice does not write skipped logs by default for non-matching triggers. Action failures write failed logs and do not roll back the original record change that dispatched the trigger event. V4 task 004 stores manual retry links in existing JSONB payloads through `input_json.retry.sourceLogId` and `result_json.retry.sourceLogId`, so no schema migration is required for manual failed-log retry recovery.
+Trigger logs persist matching trigger executions. The first V4 slice does not write skipped logs by default for non-matching triggers. Action failures write failed logs and do not roll back the original record change that dispatched the trigger event. V4 task 004 stores manual retry links in existing JSONB payloads through `input_json.retry.sourceLogId` and `result_json.retry.sourceLogId`, so no schema migration is required for manual failed-log retry recovery. V4 task 009 adds automatic retry metadata on failed source logs, with a conservative three-attempt default, a due-time index, lock/completed/exhausted/disabled timestamps, and fresh retry logs linked through the same retry JSON metadata as manual retries. V4 task 010 lets the source trigger's retry policy control the initial retry schedule and writes scheduled trigger executions with `entity_type = Schedule`.
+
+## Workflows
+
+Migration: `20260604110000_WorkflowEngineFoundation`.
+
+### workflow_definitions
+
+Fields:
+
+- id
+- form_id
+- name
+- description nullable
+- status: draft, published
+- is_enabled
+- has_unpublished_changes
+- current_version_id nullable
+- draft_config_json JSONB
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_by_id
+- created_at
+- updated_by_id
+- updated_at
+- is_deleted
+- deleted_at
+- deleted_by_id
+
+Indexes:
+
+- form_id
+- status
+- is_enabled
+- current_version_id
+
+V5 task 001 adds this table for form-scoped workflow definition management. `draft_config_json` stores the editable typed workflow config: states, transitions, approval steps, assignee rules, and optional transition actions. Published versions are not mutated; edits after publishing set `has_unpublished_changes` until the draft is published again.
+
+### workflow_definition_versions
+
+Fields:
+
+- id
+- workflow_definition_id
+- form_id
+- version_number
+- config_json JSONB
+- published_by_id nullable
+- published_at nullable
+- created_by_id
+- created_at
+
+Indexes:
+
+- workflow_definition_id
+- workflow_definition_id + version_number unique
+- form_id
+
+Workflow definition versions snapshot the validated draft config at publish time. Future record transition execution and workflow history should reference the version row used at the time so record history remains stable when workflow drafts change.
+
+### workflow_history
+
+Fields:
+
+- id
+- workflow_definition_id
+- workflow_definition_version_id
+- form_id
+- record_id
+- from_state_key nullable
+- to_state_key
+- transition_key nullable
+- action
+- actor_user_id nullable
+- metadata_json JSONB nullable
+- created_by_id
+- created_at
+
+Indexes:
+
+- workflow_definition_id
+- workflow_definition_version_id
+- record_id
+- form_id
+- created_at
+
+V5 task 001 creates the history table foundation only. Record workflow transition execution, approval inbox rows, notifications, and trigger-to-workflow starts remain future workflow tasks.
 
 ### notifications
 

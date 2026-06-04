@@ -29,7 +29,7 @@ public sealed class TriggerExecutionService
             return;
         }
 
-        await ExecuteMatchedActionsAsync(trigger, context, null, cancellationToken);
+        await ExecuteMatchedActionsAsync(trigger, context, null, "Record", context.RecordId, cancellationToken);
     }
 
     public async Task<TriggerExecutionLogDto> RetryFailedLogAsync(
@@ -71,15 +71,69 @@ public sealed class TriggerExecutionService
         {
             ActorUserId = actorUserId ?? sourceContext.ActorUserId
         };
-        var retryLog = await ExecuteMatchedActionsAsync(trigger, context, sourceLog.Id, cancellationToken);
+        var retryLog = await ExecuteMatchedActionsAsync(trigger, context, sourceLog.Id, sourceLog.EntityType, sourceLog.EntityId, cancellationToken);
 
         return TriggerDefinitionService.ToLogDto(retryLog);
+    }
+
+    public async Task<TriggerExecutionLog> ExecuteAutomaticRetryAsync(
+        TriggerDefinition trigger,
+        TriggerExecutionLog sourceLog,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(sourceLog.Status, TriggerExecutionStatuses.Failed, StringComparison.Ordinal))
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Only failed trigger logs can be retried.");
+        }
+
+        var context = DeserializeEventContext(sourceLog.InputJson);
+        return await ExecuteMatchedActionsAsync(trigger, context, sourceLog.Id, sourceLog.EntityType, sourceLog.EntityId, cancellationToken);
+    }
+
+    public async Task<TriggerExecutionLog> ExecuteScheduledAsync(
+        TriggerDefinition trigger,
+        DateTimeOffset scheduledAt,
+        CancellationToken cancellationToken)
+    {
+        if (!TriggerEvents.IsScheduled(trigger.EventName))
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Only scheduled triggers can be executed by the schedule worker.");
+        }
+
+        var snapshot = new TriggerRecordSnapshot(
+            Guid.Empty,
+            trigger.FormId,
+            "scheduled",
+            null,
+            null,
+            null,
+            null,
+            new Dictionary<string, object?>());
+        var context = new TriggerEventContext(
+            trigger.EventName,
+            trigger.FormId,
+            Guid.Empty,
+            null,
+            null,
+            snapshot,
+            Array.Empty<string>(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            scheduledAt);
+
+        return await ExecuteMatchedActionsAsync(trigger, context, null, "Schedule", trigger.Id, cancellationToken);
     }
 
     private async Task<TriggerExecutionLog> ExecuteMatchedActionsAsync(
         TriggerDefinition trigger,
         TriggerEventContext context,
         Guid? retryOfLogId,
+        string entityType,
+        Guid entityId,
         CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
@@ -89,8 +143,8 @@ public sealed class TriggerExecutionService
             TriggerId = trigger.Id,
             FormId = trigger.FormId,
             EventName = context.EventName,
-            EntityType = "Record",
-            EntityId = context.RecordId,
+            EntityType = entityType,
+            EntityId = entityId,
             Status = TriggerExecutionStatuses.Success,
             InputJson = SerializeInput(context, retryOfLogId),
             StartedAt = now,
@@ -124,6 +178,14 @@ public sealed class TriggerExecutionService
             log.ErrorMessage = exception.Message;
             log.ResultJson = SerializeResult(actionResults, retryOfLogId);
             log.CompletedAt = DateTimeOffset.UtcNow;
+
+            var retryPolicy = TriggerRetryPolicy.FromTrigger(trigger);
+
+            if (retryOfLogId is null && retryPolicy is not null)
+            {
+                TriggerRetryScheduler.ScheduleInitialFailure(log, retryPolicy, log.CompletedAt.Value);
+            }
+
             AddAudit(
                 trigger.Id,
                 retryOfLogId is null ? "trigger_failed" : "trigger_retry_failed",

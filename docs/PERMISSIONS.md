@@ -1,6 +1,6 @@
 # Permission Model
 
-Status: V3 advanced permission foundation is implemented for local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, and basic field-level hidden/read-only rules.
+Status: V5 workflow foundation extends the implemented V3/V4 permission model with workflow management and workflow action contract constants. Local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, trigger management through form manage access, workflow management through form manage access, and basic field-level hidden/read-only rules are implemented.
 
 ## Goals
 
@@ -75,6 +75,7 @@ Platform actions:
 - `forms.create`
 - `forms.manage_all`
 - `reports.manage`
+- `workflows.manage`
 
 Per-form actions:
 
@@ -87,6 +88,8 @@ Per-form actions:
 The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
 
 V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation. V3 report run/export endpoints also use report-level view/export/manage grants when explicit report permissions exist. Report runs filter rows through scoped form `view` access; CSV exports require and filter rows through scoped form `export` access.
+
+V4 trigger management endpoints require form `manage` access or `forms.manage_all`. V5 workflow definition management endpoints use the same form `manage` or `forms.manage_all` backend check for form-scoped workflow authoring. `workflows.manage` is available as a built-in platform permission constant for future workflow-wide administration surfaces.
 
 ## Implemented V3 Record Scopes
 
@@ -140,6 +143,7 @@ Use consistent action names:
 - manage_form
 - manage_report
 - manage_permissions
+- manage_workflow
 
 ## Permission Subjects
 
@@ -165,6 +169,16 @@ Resources can be:
 - Field
 - Trigger
 - Workflow
+
+## Implemented V5 Workflow Action Contracts
+
+Workflow action constants currently include:
+
+- `view`
+- `manage`
+- `approve`
+
+The backend workflow definition APIs validate management through form `manage` access in this slice. Transition execution and approval inbox authorization remain future workflow tasks.
 
 ## Record-Level Rules Later
 

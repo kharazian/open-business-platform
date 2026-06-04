@@ -1,6 +1,8 @@
+import { lazy } from "react";
 import { UserCircle } from "lucide-react";
-import { Users } from "../../pages/Users";
 import type { PlatformModule } from "../../platform/moduleRegistry";
+
+const Users = lazy(() => import("../../pages/Users").then((module) => ({ default: module.Users })));
 
 export const usersModule: PlatformModule = {
   id: "core.users",

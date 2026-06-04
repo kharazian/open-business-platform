@@ -204,7 +204,7 @@ export function ChartBuilderPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Charts V2 preview"
+        eyebrow="Charts"
         title="Chart builder lite"
         description="Preview simple widgets over permitted form records and saved list reports."
         actions={

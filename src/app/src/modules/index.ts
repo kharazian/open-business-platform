@@ -6,6 +6,7 @@ import { reportsModule } from "./reports/module";
 import { settingsModule } from "./settings/module";
 import { triggersModule } from "./triggers/module";
 import { usersModule } from "./users/module";
+import { workflowsModule } from "./workflows/module";
 
 export const platformModules = [
   dashboardModule,
@@ -13,6 +14,7 @@ export const platformModules = [
   usersModule,
   reportsModule,
   triggersModule,
+  workflowsModule,
   notificationsModule,
   settingsModule,
   profileModule

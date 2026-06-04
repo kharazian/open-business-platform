@@ -10,14 +10,27 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds)
     {
+        return Validate(schema, request, activeUserIds, activeGroupIds, Array.Empty<TriggerTargetFormSchema>());
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        CreateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms)
+    {
         return Validate(
             schema,
             request.Name,
             request.EventName,
             request.Conditions,
             request.Actions,
+            request.RetryPolicy,
+            request.Schedule,
             activeUserIds,
             activeGroupIds,
+            targetForms,
             requireConcurrencyStamp: false,
             concurrencyStamp: null);
     }
@@ -28,14 +41,27 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds)
     {
+        return Validate(schema, request, activeUserIds, activeGroupIds, Array.Empty<TriggerTargetFormSchema>());
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        UpdateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms)
+    {
         return Validate(
             schema,
             request.Name,
             request.EventName,
             request.Conditions,
             request.Actions,
+            request.RetryPolicy,
+            request.Schedule,
             activeUserIds,
             activeGroupIds,
+            targetForms,
             requireConcurrencyStamp: true,
             concurrencyStamp: request.ConcurrencyStamp);
     }
@@ -74,9 +100,37 @@ public static class TriggerDefinitionValidator
                 Value = NormalizeActionValue(action.Value),
                 Title = NormalizeOptional(action.Title),
                 RecipientUserIds = NormalizeIds(action.RecipientUserIds),
-                RecipientGroupIds = NormalizeIds(action.RecipientGroupIds)
+                RecipientGroupIds = NormalizeIds(action.RecipientGroupIds),
+                Values = NormalizeActionValues(action.Values),
+                WebhookUrl = NormalizeOptional(action.WebhookUrl),
+                WebhookMethod = NormalizeWebhookMethod(action.WebhookMethod),
+                WebhookHeaders = NormalizeWebhookHeaders(action.WebhookHeaders),
+                WebhookBody = NormalizeActionValue(action.WebhookBody)
             })
             .ToArray();
+    }
+
+    public static TriggerRetryPolicyDefinition NormalizeRetryPolicy(TriggerRetryPolicyDefinition? policy)
+    {
+        return policy is null
+            ? new TriggerRetryPolicyDefinition()
+            : new TriggerRetryPolicyDefinition(
+                policy.IsEnabled,
+                Math.Max(0, policy.MaxAttempts),
+                Math.Max(0, policy.DelaySeconds));
+    }
+
+    public static TriggerScheduleDefinition? NormalizeSchedule(TriggerScheduleDefinition? schedule)
+    {
+        if (schedule is null)
+        {
+            return null;
+        }
+
+        return new TriggerScheduleDefinition(
+            Normalize(schedule.Kind),
+            string.IsNullOrWhiteSpace(schedule.TimeZone) ? "Etc/UTC" : schedule.TimeZone.Trim(),
+            schedule.StartAt.ToUniversalTime());
     }
 
     private static TriggerValidationResult Validate(
@@ -85,24 +139,29 @@ public static class TriggerDefinitionValidator
         string? eventName,
         TriggerConditionGroupDefinition? conditions,
         IReadOnlyList<TriggerActionDefinition>? actions,
+        TriggerRetryPolicyDefinition? retryPolicy,
+        TriggerScheduleDefinition? schedule,
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
         bool requireConcurrencyStamp,
         string? concurrencyStamp)
     {
         var errors = new List<TriggerValidationError>();
         var normalizedConditions = NormalizeConditions(conditions);
         var normalizedActions = NormalizeActions(actions);
-        var fieldIds = schema.Fields
-            .Select(field => field.Id)
-            .ToHashSet(StringComparer.Ordinal);
+        var normalizedRetryPolicy = NormalizeRetryPolicy(retryPolicy);
+        var normalizedSchedule = NormalizeSchedule(schedule);
+        var normalizedEventName = Normalize(eventName);
+        var sourceFieldsById = schema.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
+        var fieldIds = sourceFieldsById.Keys.ToHashSet(StringComparer.Ordinal);
 
         if (string.IsNullOrWhiteSpace(name))
         {
             errors.Add(Error("name", "trigger.name.required", "Trigger name is required."));
         }
 
-        if (!TriggerEvents.Supported.Contains(Normalize(eventName)))
+        if (!TriggerEvents.Supported.Contains(normalizedEventName))
         {
             errors.Add(Error("eventName", "trigger.event.unsupported", "Trigger event is not supported."));
         }
@@ -112,10 +171,85 @@ public static class TriggerDefinitionValidator
             errors.Add(Error("concurrencyStamp", "trigger.concurrency.required", "Trigger concurrency stamp is required."));
         }
 
+        ValidateRetryPolicy(normalizedRetryPolicy, errors);
+        ValidateSchedule(normalizedEventName, normalizedSchedule, normalizedConditions, normalizedActions, errors);
         ValidateConditions(normalizedConditions, fieldIds, errors);
-        ValidateActions(normalizedActions, fieldIds, activeUserIds, activeGroupIds, errors);
+        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, errors);
 
         return new TriggerValidationResult(errors);
+    }
+
+    private static void ValidateRetryPolicy(
+        TriggerRetryPolicyDefinition retryPolicy,
+        List<TriggerValidationError> errors)
+    {
+        if (!retryPolicy.IsEnabled)
+        {
+            return;
+        }
+
+        if (retryPolicy.MaxAttempts is < 1 or > 10)
+        {
+            errors.Add(Error("retryPolicy.maxAttempts", "trigger.retry.max_attempts", "Automatic retry attempts must be between 1 and 10."));
+        }
+
+        if (retryPolicy.DelaySeconds is < 30 or > 86400)
+        {
+            errors.Add(Error("retryPolicy.delaySeconds", "trigger.retry.delay", "Automatic retry delay must be between 30 seconds and 24 hours."));
+        }
+    }
+
+    private static void ValidateSchedule(
+        string eventName,
+        TriggerScheduleDefinition? schedule,
+        TriggerConditionGroupDefinition conditions,
+        IReadOnlyList<TriggerActionDefinition> actions,
+        List<TriggerValidationError> errors)
+    {
+        var scheduledEvent = TriggerEvents.IsScheduled(eventName);
+
+        if (!scheduledEvent)
+        {
+            if (schedule is not null)
+            {
+                errors.Add(Error("schedule", "trigger.schedule.unexpected", "Schedule metadata is only supported for scheduled trigger events."));
+            }
+
+            return;
+        }
+
+        if (schedule is null)
+        {
+            errors.Add(Error("schedule", "trigger.schedule.required", "Scheduled trigger events require schedule metadata."));
+            return;
+        }
+
+        if (!TriggerScheduleKinds.Supported.Contains(schedule.Kind))
+        {
+            errors.Add(Error("schedule.kind", "trigger.schedule.kind", "Schedule kind is not supported."));
+        }
+        else if (!string.Equals(schedule.Kind, TriggerScheduleKinds.FromEventName(eventName), StringComparison.Ordinal))
+        {
+            errors.Add(Error("schedule.kind", "trigger.schedule.event_kind", "Schedule kind must match the scheduled trigger event."));
+        }
+
+        if (string.IsNullOrWhiteSpace(schedule.TimeZone))
+        {
+            errors.Add(Error("schedule.timeZone", "trigger.schedule.time_zone", "Schedule time zone is required."));
+        }
+
+        if (conditions.Conditions.Count > 0)
+        {
+            errors.Add(Error("conditions", "trigger.schedule.conditions", "Scheduled triggers do not support record conditions in V4."));
+        }
+
+        for (var index = 0; index < actions.Count; index++)
+        {
+            if (!TriggerActionTypes.ScheduledSupported.Contains(actions[index].Type))
+            {
+                errors.Add(Error($"actions[{index}].type", "trigger.schedule.action_type", "Scheduled triggers only support email and webhook actions in V4."));
+            }
+        }
     }
 
     private static void ValidateConditions(
@@ -187,9 +321,10 @@ public static class TriggerDefinitionValidator
 
     private static void ValidateActions(
         IReadOnlyList<TriggerActionDefinition> actions,
-        IReadOnlySet<string> fieldIds,
+        IReadOnlyDictionary<string, FormFieldDefinition> sourceFieldsById,
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
         List<TriggerValidationError> errors)
     {
         if (actions.Count == 0)
@@ -219,6 +354,8 @@ public static class TriggerDefinitionValidator
                 errors.Add(Error($"{path}.type", "trigger.action.type", "Trigger action type is not supported."));
                 continue;
             }
+
+            var fieldIds = sourceFieldsById.Keys.ToHashSet(StringComparer.Ordinal);
 
             switch (action.Type)
             {
@@ -263,8 +400,111 @@ public static class TriggerDefinitionValidator
                 case TriggerActionTypes.SendNotification:
                     ValidateNotificationAction(action, activeUserIds, activeGroupIds, path, errors);
                     break;
+                case TriggerActionTypes.CreateRecord:
+                    ValidateCreateRecordAction(action, sourceFieldsById, targetForms, path, errors);
+                    break;
+                case TriggerActionTypes.CallWebhook:
+                    ValidateWebhookAction(action, path, errors);
+                    break;
             }
         }
+    }
+
+    private static void ValidateWebhookAction(
+        TriggerActionDefinition action,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        if (!Uri.TryCreate(action.WebhookUrl, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            errors.Add(Error($"{path}.webhookUrl", "trigger.action.webhook_url", "Webhook action requires an absolute http or https URL."));
+        }
+
+        if (!IsSupportedWebhookMethod(action.WebhookMethod))
+        {
+            errors.Add(Error($"{path}.webhookMethod", "trigger.action.webhook_method", "Webhook action method must be GET, POST, PUT, PATCH, or DELETE."));
+        }
+
+        foreach (var header in action.WebhookHeaders ?? new Dictionary<string, string>())
+        {
+            if (string.IsNullOrWhiteSpace(header.Key))
+            {
+                errors.Add(Error($"{path}.webhookHeaders", "trigger.action.webhook_header", "Webhook header names cannot be blank."));
+            }
+        }
+    }
+
+    private static void ValidateCreateRecordAction(
+        TriggerActionDefinition action,
+        IReadOnlyDictionary<string, FormFieldDefinition> sourceFieldsById,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        if (action.TargetFormId is null || action.TargetFormId == Guid.Empty)
+        {
+            errors.Add(Error($"{path}.targetFormId", "trigger.action.target_form_required", "Create record action requires a published target form."));
+            return;
+        }
+
+        var targetForm = targetForms.FirstOrDefault(form => form.FormId == action.TargetFormId.Value);
+
+        if (targetForm is null)
+        {
+            errors.Add(Error($"{path}.targetFormId", "trigger.action.target_form_missing", "Create record target form is not published or was not found."));
+            return;
+        }
+
+        var values = action.Values ?? new Dictionary<string, TriggerActionValueDefinition>();
+
+        if (values.Count == 0)
+        {
+            errors.Add(Error($"{path}.values", "trigger.action.values_required", "Create record action requires target field values."));
+            return;
+        }
+
+        var targetFieldsById = targetForm.Schema.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
+        var validationValues = new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        foreach (var (fieldId, valueDefinition) in values)
+        {
+            var valuePath = $"{path}.values.{fieldId}";
+
+            if (!targetFieldsById.TryGetValue(fieldId, out var targetField))
+            {
+                errors.Add(Error(valuePath, "trigger.action.target_field_unknown", "Create record target field does not exist on the target form."));
+                validationValues[fieldId] = ResolveValidationValue(valueDefinition, targetField: null);
+                continue;
+            }
+
+            var hasSourceField = !string.IsNullOrWhiteSpace(valueDefinition.SourceFieldId);
+            var hasLiteral = !IsMissingActionValue(valueDefinition.Literal);
+
+            if (hasSourceField == hasLiteral)
+            {
+                errors.Add(Error(valuePath, "trigger.action.value_source", "Each create record value must use exactly one literal value or source field."));
+                validationValues[fieldId] = ResolveValidationValue(valueDefinition, targetField);
+                continue;
+            }
+
+            if (hasSourceField)
+            {
+                if (!sourceFieldsById.TryGetValue(valueDefinition.SourceFieldId!, out var sourceField))
+                {
+                    errors.Add(Error($"{valuePath}.sourceFieldId", "trigger.action.source_field_unknown", "Create record source field does not exist on the source form."));
+                }
+                else if (!string.Equals(sourceField.Type, targetField.Type, StringComparison.Ordinal))
+                {
+                    errors.Add(Error($"{valuePath}.sourceFieldId", "trigger.action.source_field_type", "Create record source field type must match the target field type."));
+                }
+            }
+
+            validationValues[fieldId] = ResolveValidationValue(valueDefinition, targetField);
+        }
+
+        var targetValidation = FormSchemaValidator.ValidateRecordValues(targetForm.Schema, validationValues);
+        errors.AddRange(targetValidation.Errors.Select(error => Error($"{path}.{error.Path}", error.Code, error.Message)));
     }
 
     private static void ValidateAssignAction(
@@ -344,6 +584,44 @@ public static class TriggerDefinitionValidator
             .ToArray();
     }
 
+    private static IReadOnlyDictionary<string, TriggerActionValueDefinition>? NormalizeActionValues(
+        IReadOnlyDictionary<string, TriggerActionValueDefinition>? values)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        return values
+            .Select(pair => new
+            {
+                FieldId = Normalize(pair.Key),
+                Value = pair.Value with
+                {
+                    Literal = NormalizeActionValue(pair.Value.Literal),
+                    SourceFieldId = NormalizeOptional(pair.Value.SourceFieldId)
+                }
+            })
+            .Where(pair => pair.FieldId.Length > 0)
+            .GroupBy(pair => pair.FieldId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string>? NormalizeWebhookHeaders(
+        IReadOnlyDictionary<string, string>? headers)
+    {
+        if (headers is null)
+        {
+            return null;
+        }
+
+        return headers
+            .Select(header => new { Key = header.Key.Trim(), Value = header.Value.Trim() })
+            .Where(header => header.Key.Length > 0)
+            .GroupBy(header => header.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase);
+    }
+
     private static void ValidateKnownField(
         string? fieldId,
         IReadOnlySet<string> fieldIds,
@@ -381,6 +659,40 @@ public static class TriggerDefinitionValidator
     private static object? NormalizeActionValue(object? value)
     {
         return value is string stringValue ? stringValue.Trim() : value;
+    }
+
+    private static string NormalizeWebhookMethod(string? value)
+    {
+        var normalized = Normalize(value).ToUpperInvariant();
+        return normalized.Length == 0 ? "POST" : normalized;
+    }
+
+    private static bool IsSupportedWebhookMethod(string? value)
+    {
+        return NormalizeWebhookMethod(value) is "GET" or "POST" or "PUT" or "PATCH" or "DELETE";
+    }
+
+    private static object? ResolveValidationValue(TriggerActionValueDefinition valueDefinition, FormFieldDefinition? targetField)
+    {
+        if (!string.IsNullOrWhiteSpace(valueDefinition.SourceFieldId) && targetField is not null)
+        {
+            return PlaceholderValue(targetField);
+        }
+
+        return valueDefinition.Literal;
+    }
+
+    private static object? PlaceholderValue(FormFieldDefinition field)
+    {
+        return field.Type switch
+        {
+            FormFieldTypes.Number => 1,
+            FormFieldTypes.Checkbox => true,
+            FormFieldTypes.Email => "source@example.test",
+            FormFieldTypes.Date => "2026-01-01",
+            FormFieldTypes.Select or FormFieldTypes.Radio => field.Options?.FirstOrDefault()?.Value ?? string.Empty,
+            _ => "source value"
+        };
     }
 
     private static bool IsMissingActionValue(object? value)

@@ -21,6 +21,18 @@ public sealed class TriggerDefinition : FullAuditedAggregateRoot<Guid>, IHasConc
 
     public bool IsEnabled { get; set; } = true;
 
+    public bool AutoRetryEnabled { get; set; } = true;
+
+    public int AutoRetryMaxAttempts { get; set; } = 3;
+
+    public int AutoRetryDelaySeconds { get; set; } = 60;
+
+    public JsonDocument? ScheduleJson { get; set; }
+
+    public DateTimeOffset? ScheduleNextRunAt { get; set; }
+
+    public DateTimeOffset? ScheduleLastRunAt { get; set; }
+
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }

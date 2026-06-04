@@ -1,6 +1,8 @@
+import { lazy } from "react";
 import { Workflow } from "lucide-react";
-import { TriggersPage } from "../../features/triggers/pages/TriggersPage";
 import type { PlatformModule } from "../../platform/moduleRegistry";
+
+const TriggersPage = lazy(() => import("../../features/triggers/pages/TriggersPage").then((module) => ({ default: module.TriggersPage })));
 
 export const triggersModule: PlatformModule = {
   id: "app.triggers",

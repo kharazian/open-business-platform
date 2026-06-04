@@ -51,6 +51,12 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<TriggerExecutionLog> TriggerLogs => Set<TriggerExecutionLog>();
 
+    public DbSet<WorkflowDefinition> Workflows => Set<WorkflowDefinition>();
+
+    public DbSet<WorkflowDefinitionVersion> WorkflowVersions => Set<WorkflowDefinitionVersion>();
+
+    public DbSet<WorkflowHistoryEntry> WorkflowHistory => Set<WorkflowHistoryEntry>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
@@ -92,6 +98,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureReports(modelBuilder);
         ConfigureDashboards(modelBuilder);
         ConfigureTriggers(modelBuilder);
+        ConfigureWorkflows(modelBuilder);
         ConfigureNotifications(modelBuilder);
         ConfigureNotificationPreferences(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
@@ -513,6 +520,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(trigger => trigger.FormId);
             entity.HasIndex(trigger => trigger.EventName);
             entity.HasIndex(trigger => trigger.IsEnabled);
+            entity.HasIndex(trigger => trigger.ScheduleNextRunAt);
             entity.Property(trigger => trigger.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
             entity.Property(trigger => trigger.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(trigger => trigger.Description).HasColumnName("description").HasMaxLength(1000);
@@ -520,6 +528,12 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(trigger => trigger.ConditionsJson).HasColumnName("conditions_json").HasColumnType("jsonb").IsRequired();
             entity.Property(trigger => trigger.ActionsJson).HasColumnName("actions_json").HasColumnType("jsonb").IsRequired();
             entity.Property(trigger => trigger.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(true);
+            entity.Property(trigger => trigger.AutoRetryEnabled).HasColumnName("auto_retry_enabled").HasDefaultValue(true);
+            entity.Property(trigger => trigger.AutoRetryMaxAttempts).HasColumnName("auto_retry_max_attempts").HasDefaultValue(3);
+            entity.Property(trigger => trigger.AutoRetryDelaySeconds).HasColumnName("auto_retry_delay_seconds").HasDefaultValue(60);
+            entity.Property(trigger => trigger.ScheduleJson).HasColumnName("schedule_json").HasColumnType("jsonb");
+            entity.Property(trigger => trigger.ScheduleNextRunAt).HasColumnName("schedule_next_run_at");
+            entity.Property(trigger => trigger.ScheduleLastRunAt).HasColumnName("schedule_last_run_at");
             entity
                 .HasOne(trigger => trigger.Form)
                 .WithMany()
@@ -536,6 +550,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(log => log.EventName);
             entity.HasIndex(log => new { log.EntityType, log.EntityId });
             entity.HasIndex(log => log.CreatedAt);
+            entity.HasIndex(log => log.AutoRetryNextAttemptAt);
             entity.Property(log => log.Id).HasColumnName("id").HasColumnType("uuid");
             entity.Property(log => log.TriggerId).HasColumnName("trigger_id").HasColumnType("uuid").IsRequired();
             entity.Property(log => log.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
@@ -548,6 +563,13 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(log => log.ErrorMessage).HasColumnName("error_message").HasMaxLength(2000);
             entity.Property(log => log.StartedAt).HasColumnName("started_at").IsRequired();
             entity.Property(log => log.CompletedAt).HasColumnName("completed_at");
+            entity.Property(log => log.AutoRetryAttemptCount).HasColumnName("auto_retry_attempt_count").HasDefaultValue(0);
+            entity.Property(log => log.AutoRetryMaxAttempts).HasColumnName("auto_retry_max_attempts").HasDefaultValue(3);
+            entity.Property(log => log.AutoRetryNextAttemptAt).HasColumnName("auto_retry_next_attempt_at");
+            entity.Property(log => log.AutoRetryLockedAt).HasColumnName("auto_retry_locked_at");
+            entity.Property(log => log.AutoRetryCompletedAt).HasColumnName("auto_retry_completed_at");
+            entity.Property(log => log.AutoRetryExhaustedAt).HasColumnName("auto_retry_exhausted_at");
+            entity.Property(log => log.AutoRetryDisabledAt).HasColumnName("auto_retry_disabled_at");
             entity.Property(log => log.CreatedAt).HasColumnName("created_at").IsRequired();
             entity
                 .HasOne(log => log.Trigger)
@@ -589,6 +611,97 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(notification => notification.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureWorkflows(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkflowDefinition>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "workflow_definitions");
+            entity.HasIndex(workflow => workflow.FormId);
+            entity.HasIndex(workflow => workflow.Status);
+            entity.HasIndex(workflow => workflow.IsEnabled);
+            entity.Property(workflow => workflow.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(workflow => workflow.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(workflow => workflow.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(workflow => workflow.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(workflow => workflow.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(true);
+            entity.Property(workflow => workflow.HasUnpublishedChanges).HasColumnName("has_unpublished_changes").HasDefaultValue(false);
+            entity.Property(workflow => workflow.CurrentVersionId).HasColumnName("current_version_id").HasColumnType("uuid");
+            entity.Property(workflow => workflow.DraftConfigJson).HasColumnName("draft_config_json").HasColumnType("jsonb").IsRequired();
+            entity
+                .HasOne(workflow => workflow.Form)
+                .WithMany()
+                .HasForeignKey(workflow => workflow.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(workflow => workflow.CurrentVersion)
+                .WithMany()
+                .HasForeignKey(workflow => workflow.CurrentVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<WorkflowDefinitionVersion>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "workflow_definition_versions");
+            entity.HasIndex(version => version.WorkflowDefinitionId);
+            entity.HasIndex(version => new { version.WorkflowDefinitionId, version.VersionNumber }).IsUnique();
+            entity.Property(version => version.WorkflowDefinitionId).HasColumnName("workflow_definition_id").HasColumnType("uuid").IsRequired();
+            entity.Property(version => version.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(version => version.VersionNumber).HasColumnName("version_number").IsRequired();
+            entity.Property(version => version.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(version => version.PublishedById).HasColumnName("published_by_id").HasColumnType("uuid");
+            entity.Property(version => version.PublishedAt).HasColumnName("published_at");
+            entity
+                .HasOne(version => version.WorkflowDefinition)
+                .WithMany(workflow => workflow.Versions)
+                .HasForeignKey(version => version.WorkflowDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(version => version.Form)
+                .WithMany()
+                .HasForeignKey(version => version.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkflowHistoryEntry>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "workflow_history");
+            entity.HasIndex(history => history.WorkflowDefinitionId);
+            entity.HasIndex(history => history.WorkflowDefinitionVersionId);
+            entity.HasIndex(history => history.RecordId);
+            entity.HasIndex(history => history.CreatedAt);
+            entity.Property(history => history.WorkflowDefinitionId).HasColumnName("workflow_definition_id").HasColumnType("uuid").IsRequired();
+            entity.Property(history => history.WorkflowDefinitionVersionId).HasColumnName("workflow_definition_version_id").HasColumnType("uuid").IsRequired();
+            entity.Property(history => history.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(history => history.RecordId).HasColumnName("record_id").HasColumnType("uuid").IsRequired();
+            entity.Property(history => history.FromStateKey).HasColumnName("from_state_key").HasMaxLength(80);
+            entity.Property(history => history.ToStateKey).HasColumnName("to_state_key").HasMaxLength(80).IsRequired();
+            entity.Property(history => history.TransitionKey).HasColumnName("transition_key").HasMaxLength(80);
+            entity.Property(history => history.Action).HasColumnName("action").HasMaxLength(80).IsRequired();
+            entity.Property(history => history.ActorUserId).HasColumnName("actor_user_id").HasColumnType("uuid");
+            entity.Property(history => history.MetadataJson).HasColumnName("metadata_json").HasColumnType("jsonb");
+            entity
+                .HasOne(history => history.WorkflowDefinition)
+                .WithMany()
+                .HasForeignKey(history => history.WorkflowDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(history => history.WorkflowDefinitionVersion)
+                .WithMany()
+                .HasForeignKey(history => history.WorkflowDefinitionVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(history => history.Form)
+                .WithMany()
+                .HasForeignKey(history => history.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(history => history.Record)
+                .WithMany()
+                .HasForeignKey(history => history.RecordId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

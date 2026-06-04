@@ -1,7 +1,9 @@
+import { lazy } from "react";
 import { Home, LayoutDashboard, PanelsTopLeft } from "lucide-react";
-import { DashboardsPage } from "../../features/dashboards/pages/DashboardsPage";
-import { Dashboard } from "../../pages/Dashboard";
 import type { PlatformModule } from "../../platform/moduleRegistry";
+
+const Dashboard = lazy(() => import("../../pages/Dashboard").then((module) => ({ default: module.Dashboard })));
+const DashboardsPage = lazy(() => import("../../features/dashboards/pages/DashboardsPage").then((module) => ({ default: module.DashboardsPage })));
 
 export const dashboardModule: PlatformModule = {
   id: "core.dashboard",

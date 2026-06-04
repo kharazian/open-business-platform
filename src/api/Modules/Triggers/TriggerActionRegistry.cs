@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
@@ -12,11 +13,16 @@ public sealed class TriggerActionRegistry
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly IEmailSender emailSender;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public TriggerActionRegistry(OpenBusinessPlatformDbContext dbContext, IEmailSender emailSender)
+    public TriggerActionRegistry(
+        OpenBusinessPlatformDbContext dbContext,
+        IEmailSender emailSender,
+        IHttpClientFactory httpClientFactory)
     {
         this.dbContext = dbContext;
         this.emailSender = emailSender;
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<IReadOnlyDictionary<string, object?>> ExecuteAsync(
@@ -34,6 +40,8 @@ public sealed class TriggerActionRegistry
             TriggerActionTypes.AssignRecord => await ExecuteAssignRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.UpdateField => await ExecuteUpdateFieldAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.SendNotification => await ExecuteSendNotificationAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.CreateRecord => await ExecuteCreateRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.CallWebhook => await ExecuteCallWebhookAsync(action, context, triggerId, triggerLogId, cancellationToken),
             _ => throw new InvalidOperationException($"Trigger action type '{action.Type}' is not supported.")
         };
     }
@@ -194,6 +202,113 @@ public sealed class TriggerActionRegistry
             ("skippedPreferenceCount", recipients.DisabledInAppUserIds.Count));
     }
 
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteCreateRecordAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        if (action.TargetFormId is null || action.TargetFormId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Create record action target form is required.");
+        }
+
+        if (action.Values is null || action.Values.Count == 0)
+        {
+            throw new InvalidOperationException("Create record action values are required.");
+        }
+
+        var targetForm = await dbContext.Forms
+            .Include(form => form.CurrentVersion)
+            .FirstOrDefaultAsync(
+                form =>
+                    form.Id == action.TargetFormId.Value
+                    && !form.IsDeleted
+                    && form.Status == FormStatuses.Published
+                    && form.CurrentVersionId != null
+                    && form.CurrentVersion != null,
+                cancellationToken)
+            ?? throw new InvalidOperationException("Create record target form is not published or was not found.");
+
+        var targetVersion = targetForm.CurrentVersion
+            ?? throw new InvalidOperationException("Create record target form version was not found.");
+        var schema = targetVersion.SchemaJson.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions)
+            ?? throw new InvalidOperationException("Create record target form schema was not found.");
+        var values = ResolveCreateRecordValues(action, context);
+        var validation = FormSchemaValidator.ValidateRecordValues(schema, values);
+
+        if (!validation.Valid)
+        {
+            throw new InvalidOperationException(string.Join(" ", validation.Errors.Select(error => error.Message)));
+        }
+
+        var record = new FormRecord
+        {
+            Id = Guid.NewGuid(),
+            FormId = targetForm.Id,
+            FormVersionId = targetVersion.Id,
+            Status = RecordStatuses.Active,
+            OwnerId = context.ActorUserId,
+            CreatedById = context.ActorUserId,
+            ValuesJson = JsonSerializer.SerializeToDocument(values, JsonOptions),
+            ExtraPropertiesJson = BuildCreatedRecordMetadata(triggerId, triggerLogId, action.Id, context)
+        };
+
+        dbContext.Records.Add(record);
+        AddCreatedRecordAudit(record.Id, context.ActorUserId, triggerId, triggerLogId, action.Id, context.RecordId);
+
+        return Result(
+            action,
+            ("targetFormId", targetForm.Id),
+            ("formVersionId", targetVersion.Id),
+            ("recordId", record.Id));
+    }
+
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteCallWebhookAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(action.WebhookUrl, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new InvalidOperationException("Webhook action URL must be an absolute http or https URL.");
+        }
+
+        var method = new HttpMethod(string.IsNullOrWhiteSpace(action.WebhookMethod) ? "POST" : action.WebhookMethod.Trim().ToUpperInvariant());
+        using var request = new HttpRequestMessage(method, uri);
+
+        foreach (var header in action.WebhookHeaders ?? new Dictionary<string, string>())
+        {
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        if (method.Method is not ("GET" or "DELETE"))
+        {
+            var payload = action.WebhookBody ?? BuildWebhookPayload(triggerId, triggerLogId, action.Id, context);
+            request.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
+        }
+
+        var client = httpClientFactory.CreateClient("trigger-webhooks");
+        using var response = await client.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Webhook action returned HTTP {(int)response.StatusCode}.");
+        }
+
+        return Result(
+            action,
+            ("url", uri.ToString()),
+            ("method", method.Method),
+            ("statusCode", (int)response.StatusCode),
+            ("responseBody", Truncate(responseBody, 2000)));
+    }
+
     private async Task<NotificationRecipientResolution> ResolveNotificationRecipientsAsync(
         TriggerActionDefinition action,
         CancellationToken cancellationToken)
@@ -284,6 +399,31 @@ public sealed class TriggerActionRegistry
             ?? new Dictionary<string, object?>();
     }
 
+    public static IReadOnlyDictionary<string, object?> ResolveCreateRecordValues(
+        TriggerActionDefinition action,
+        TriggerEventContext context)
+    {
+        var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        foreach (var (fieldId, valueDefinition) in action.Values ?? new Dictionary<string, TriggerActionValueDefinition>())
+        {
+            if (!string.IsNullOrWhiteSpace(valueDefinition.SourceFieldId))
+            {
+                if (!context.After.Values.TryGetValue(valueDefinition.SourceFieldId, out var sourceValue))
+                {
+                    throw new InvalidOperationException($"Create record source field '{valueDefinition.SourceFieldId}' was not found on the source record.");
+                }
+
+                values[fieldId] = sourceValue;
+                continue;
+            }
+
+            values[fieldId] = valueDefinition.Literal;
+        }
+
+        return values;
+    }
+
     private void AddRecordAudit(
         Guid recordId,
         string action,
@@ -304,6 +444,31 @@ public sealed class TriggerActionRegistry
             BeforeJson = SerializeNullable(before),
             AfterJson = SerializeNullable(after),
             MetadataJson = BuildMetadata(triggerId, triggerLogId, actionId, null)
+        });
+    }
+
+    private void AddCreatedRecordAudit(
+        Guid recordId,
+        Guid? userId,
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId,
+        Guid sourceRecordId)
+    {
+        dbContext.AuditLogs.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "Record",
+            EntityId = recordId,
+            Action = "record_created_by_trigger",
+            UserId = userId,
+            MetadataJson = JsonSerializer.SerializeToDocument(new
+            {
+                triggerId,
+                triggerLogId,
+                actionId,
+                sourceRecordId
+            }, JsonOptions)
         });
     }
 
@@ -353,6 +518,48 @@ public sealed class TriggerActionRegistry
         }, JsonOptions);
     }
 
+    private static object BuildWebhookPayload(
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId,
+        TriggerEventContext context)
+    {
+        return new
+        {
+            triggerId,
+            triggerLogId,
+            actionId,
+            context.EventName,
+            context.FormId,
+            context.RecordId,
+            context.ActorUserId,
+            context.ChangedFieldIds,
+            context.PreviousStatus,
+            context.CurrentStatus,
+            context.OccurredAt,
+            before = context.Before,
+            after = context.After
+        };
+    }
+
+    private static JsonDocument BuildCreatedRecordMetadata(
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId,
+        TriggerEventContext context)
+    {
+        return JsonSerializer.SerializeToDocument(new
+        {
+            createdByTrigger = true,
+            triggerId,
+            triggerLogId,
+            actionId,
+            sourceFormId = context.FormId,
+            sourceRecordId = context.RecordId,
+            eventName = context.EventName
+        }, JsonOptions);
+    }
+
     private static JsonDocument? SerializeNullable(object? value)
     {
         return value is null ? null : JsonSerializer.SerializeToDocument(value, JsonOptions);
@@ -361,6 +568,11 @@ public sealed class TriggerActionRegistry
     private static Guid? NormalizeNullableId(Guid? value)
     {
         return value is null || value == Guid.Empty ? null : value;
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        return value.Length <= maxLength ? value : value[..maxLength];
     }
 
     private sealed record NotificationRecipientResolution(

@@ -1,3 +1,5 @@
+using OpenBusinessPlatform.Api.Modules.Forms;
+
 namespace OpenBusinessPlatform.Api.Modules.Triggers;
 
 public static class TriggerEvents
@@ -7,6 +9,10 @@ public static class TriggerEvents
     public const string FieldChanged = "field.changed";
     public const string StatusChanged = "status.changed";
     public const string RecordAssigned = "record.assigned";
+    public const string ScheduleOnce = "schedule.once";
+    public const string ScheduleDaily = "schedule.daily";
+    public const string ScheduleWeekly = "schedule.weekly";
+    public const string ScheduleMonthly = "schedule.monthly";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -14,8 +20,22 @@ public static class TriggerEvents
         RecordUpdated,
         FieldChanged,
         StatusChanged,
-        RecordAssigned
+        RecordAssigned,
+        ScheduleOnce,
+        ScheduleDaily,
+        ScheduleWeekly,
+        ScheduleMonthly
     };
+
+    public static IReadOnlySet<string> Scheduled { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ScheduleOnce,
+        ScheduleDaily,
+        ScheduleWeekly,
+        ScheduleMonthly
+    };
+
+    public static bool IsScheduled(string? eventName) => Scheduled.Contains(eventName?.Trim() ?? string.Empty);
 }
 
 public static class TriggerConditionModes
@@ -51,6 +71,8 @@ public static class TriggerActionTypes
     public const string AssignRecord = "assign_record";
     public const string UpdateField = "update_field";
     public const string SendNotification = "send_notification";
+    public const string CreateRecord = "create_record";
+    public const string CallWebhook = "call_webhook";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -59,8 +81,44 @@ public static class TriggerActionTypes
         ChangeStatus,
         AssignRecord,
         UpdateField,
-        SendNotification
+        SendNotification,
+        CreateRecord,
+        CallWebhook
     };
+
+    public static IReadOnlySet<string> ScheduledSupported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        SendEmail,
+        CallWebhook
+    };
+}
+
+public static class TriggerScheduleKinds
+{
+    public const string Once = "once";
+    public const string Daily = "daily";
+    public const string Weekly = "weekly";
+    public const string Monthly = "monthly";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Once,
+        Daily,
+        Weekly,
+        Monthly
+    };
+
+    public static string FromEventName(string eventName)
+    {
+        return eventName switch
+        {
+            TriggerEvents.ScheduleOnce => Once,
+            TriggerEvents.ScheduleDaily => Daily,
+            TriggerEvents.ScheduleWeekly => Weekly,
+            TriggerEvents.ScheduleMonthly => Monthly,
+            _ => string.Empty
+        };
+    }
 }
 
 public static class TriggerExecutionStatuses
@@ -71,6 +129,16 @@ public static class TriggerExecutionStatuses
 }
 
 public sealed record TriggerRetryMetadata(Guid SourceLogId);
+
+public sealed record TriggerRetryPolicyDefinition(
+    bool IsEnabled = true,
+    int MaxAttempts = 3,
+    int DelaySeconds = 60);
+
+public sealed record TriggerScheduleDefinition(
+    string Kind,
+    string TimeZone,
+    DateTimeOffset StartAt);
 
 public sealed record TriggerConditionDefinition(
     string Type,
@@ -99,7 +167,22 @@ public sealed record TriggerActionDefinition(
     object? Value = null,
     string? Title = null,
     IReadOnlyList<Guid>? RecipientUserIds = null,
-    IReadOnlyList<Guid>? RecipientGroupIds = null);
+    IReadOnlyList<Guid>? RecipientGroupIds = null,
+    Guid? TargetFormId = null,
+    IReadOnlyDictionary<string, TriggerActionValueDefinition>? Values = null,
+    string? WebhookUrl = null,
+    string? WebhookMethod = null,
+    IReadOnlyDictionary<string, string>? WebhookHeaders = null,
+    object? WebhookBody = null);
+
+public sealed record TriggerActionValueDefinition(
+    object? Literal = null,
+    string? SourceFieldId = null);
+
+public sealed record TriggerTargetFormSchema(
+    Guid FormId,
+    Guid FormVersionId,
+    FormSchemaDefinition Schema);
 
 public sealed record CreateTriggerRequest(
     string Name,
@@ -107,7 +190,9 @@ public sealed record CreateTriggerRequest(
     string EventName,
     TriggerConditionGroupDefinition? Conditions,
     IReadOnlyList<TriggerActionDefinition> Actions,
-    bool IsEnabled = true);
+    bool IsEnabled = true,
+    TriggerRetryPolicyDefinition? RetryPolicy = null,
+    TriggerScheduleDefinition? Schedule = null);
 
 public sealed record UpdateTriggerRequest(
     string Name,
@@ -116,7 +201,9 @@ public sealed record UpdateTriggerRequest(
     TriggerConditionGroupDefinition? Conditions,
     IReadOnlyList<TriggerActionDefinition> Actions,
     bool IsEnabled,
-    string ConcurrencyStamp);
+    string ConcurrencyStamp,
+    TriggerRetryPolicyDefinition? RetryPolicy = null,
+    TriggerScheduleDefinition? Schedule = null);
 
 public sealed record TriggerSummaryDto(
     Guid Id,
@@ -125,6 +212,10 @@ public sealed record TriggerSummaryDto(
     string? Description,
     string EventName,
     bool IsEnabled,
+    TriggerRetryPolicyDefinition RetryPolicy,
+    TriggerScheduleDefinition? Schedule,
+    DateTimeOffset? ScheduleNextRunAt,
+    DateTimeOffset? ScheduleLastRunAt,
     int ConditionCount,
     int ActionCount,
     string ConcurrencyStamp,
@@ -142,6 +233,10 @@ public sealed record TriggerDetailDto(
     TriggerConditionGroupDefinition Conditions,
     IReadOnlyList<TriggerActionDefinition> Actions,
     bool IsEnabled,
+    TriggerRetryPolicyDefinition RetryPolicy,
+    TriggerScheduleDefinition? Schedule,
+    DateTimeOffset? ScheduleNextRunAt,
+    DateTimeOffset? ScheduleLastRunAt,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
@@ -162,7 +257,11 @@ public sealed record TriggerExecutionLogDto(
     DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt,
     DateTimeOffset CreatedAt,
-    Guid? RetryOfLogId = null);
+    Guid? RetryOfLogId = null,
+    string? RetryState = null,
+    int AutoRetryAttemptCount = 0,
+    int AutoRetryMaxAttempts = 0,
+    DateTimeOffset? AutoRetryNextAttemptAt = null);
 
 public sealed record TriggerValidationError(string Path, string Code, string Message);
 

@@ -3,10 +3,12 @@ import { test } from "vitest";
 import { dashboardModule } from "./dashboard/module.tsx";
 import { notificationsModule } from "./notifications/module.tsx";
 import { reportsModule } from "./reports/module.tsx";
+import { workflowsModule } from "./workflows/module.tsx";
 
-test("reports module is labeled as a V2 preview in the finalized V1 app", () => {
-  assert.equal(reportsModule.name, "Reports (V2 preview)");
-  assert.equal(reportsModule.navigation[0].label, "Reports (V2 preview)");
+test("reports module uses finalized labels after V2 completion", () => {
+  assert.equal(reportsModule.name, "Reports");
+  assert.equal(reportsModule.navigation[0].label, "Reports");
+  assert.equal(reportsModule.navigation[1].label, "Charts");
 });
 
 test("dashboard module exposes saved dashboards navigation", () => {
@@ -18,4 +20,10 @@ test("notifications module exposes the current-user inbox route", () => {
   assert.equal(notificationsModule.id, "app.notifications");
   assert.ok(notificationsModule.routes.some((route) => route.path === "/notifications"));
   assert.ok(notificationsModule.navigation.some((item) => item.path === "/notifications" && item.label === "Notifications"));
+});
+
+test("workflows module exposes the V5 management workspace", () => {
+  assert.equal(workflowsModule.id, "app.workflows");
+  assert.ok(workflowsModule.routes.some((route) => route.path === "/workflows" && route.permission === "menu.forms"));
+  assert.ok(workflowsModule.navigation.some((item) => item.path === "/workflows" && item.label === "Workflows"));
 });

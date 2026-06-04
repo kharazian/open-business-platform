@@ -262,7 +262,7 @@ export function DashboardsPage() {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow="Dashboards V2 preview"
+        eyebrow="Dashboards"
         title="Saved dashboards"
         description="Create reusable dashboards from permitted chart and report widgets."
         actions={

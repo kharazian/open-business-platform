@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Security.Claims;
@@ -15,6 +16,7 @@ using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
+using OpenBusinessPlatform.Api.Modules.Workflows;
 using OpenBusinessPlatform.Api.Platform;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
@@ -115,6 +117,9 @@ AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
 AssertTable<TriggerDefinition>(model, "triggers");
 AssertTable<TriggerExecutionLog>(model, "trigger_logs");
+AssertTable<WorkflowDefinition>(model, "workflow_definitions");
+AssertTable<WorkflowDefinitionVersion>(model, "workflow_definition_versions");
+AssertTable<WorkflowHistoryEntry>(model, "workflow_history");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<AuditLogEntry>(model, "audit_logs");
@@ -136,6 +141,9 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ReportDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, DashboardDefinition>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, TriggerDefinition>();
 AssertTypeAssignable<Entity<Guid>, TriggerExecutionLog>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, WorkflowDefinition>();
+AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowDefinitionVersion>();
+AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowHistoryEntry>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
@@ -156,6 +164,9 @@ AssertGuidId<ReportDefinition>(model);
 AssertGuidId<DashboardDefinition>(model);
 AssertGuidId<TriggerDefinition>(model);
 AssertGuidId<TriggerExecutionLog>(model);
+AssertGuidId<WorkflowDefinition>(model);
+AssertGuidId<WorkflowDefinitionVersion>(model);
+AssertGuidId<WorkflowHistoryEntry>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<AuditLogEntry>(model);
@@ -169,6 +180,7 @@ AssertUniqueIndex<UserGroup>(model, new[] { nameof(UserGroup.UserId), nameof(Use
 AssertUniqueIndex<RoleReportPermission>(model, new[] { nameof(RoleReportPermission.RoleId), nameof(RoleReportPermission.ReportId), nameof(RoleReportPermission.Action) }, "Report permissions should be unique per role/report/action.");
 AssertUniqueIndex<RoleFieldPermission>(model, new[] { nameof(RoleFieldPermission.RoleId), nameof(RoleFieldPermission.FormId), nameof(RoleFieldPermission.FieldId) }, "Field permissions should be unique per role/form/field.");
 AssertUniqueIndex<FormVersion>(model, new[] { nameof(FormVersion.FormId), nameof(FormVersion.VersionNumber) }, "Form versions should be unique per form/version number.");
+AssertUniqueIndex<WorkflowDefinitionVersion>(model, new[] { nameof(WorkflowDefinitionVersion.WorkflowDefinitionId), nameof(WorkflowDefinitionVersion.VersionNumber) }, "Workflow definition versions should be unique per workflow/version number.");
 
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.SchemaJson));
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.LayoutJson));
@@ -181,6 +193,9 @@ AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ConditionsJs
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ActionsJson));
 AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.InputJson));
 AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.ResultJson));
+AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.DraftConfigJson));
+AssertJsonColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.ConfigJson));
+AssertJsonColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.MetadataJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
@@ -193,6 +208,7 @@ AssertJsonColumn<FormRecord>(model, nameof(FormRecord.ExtraPropertiesJson));
 AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertiesJson));
 AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ExtraPropertiesJson));
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ExtraPropertiesJson));
+AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -203,6 +219,28 @@ AssertColumn<PasswordResetToken>(model, nameof(PasswordResetToken.UsedAt), "used
 AssertColumn<RoleFormPermission>(model, nameof(RoleFormPermission.Scope), "scope", "Role form permissions should store a record access scope.");
 AssertColumn<NotificationPreference>(model, nameof(NotificationPreference.InAppEnabled), "in_app_enabled", "Notification preferences should store in-app delivery choice.");
 AssertColumn<NotificationPreference>(model, nameof(NotificationPreference.ShowUnreadBadge), "show_unread_badge", "Notification preferences should store unread badge choice.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryAttemptCount), "auto_retry_attempt_count", "Trigger logs should store automatic retry attempt count.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryMaxAttempts), "auto_retry_max_attempts", "Trigger logs should store automatic retry max attempts.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryNextAttemptAt), "auto_retry_next_attempt_at", "Trigger logs should store the next automatic retry time.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryLockedAt), "auto_retry_locked_at", "Trigger logs should store automatic retry lock metadata.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryCompletedAt), "auto_retry_completed_at", "Trigger logs should store automatic retry completion.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryExhaustedAt), "auto_retry_exhausted_at", "Trigger logs should store automatic retry exhaustion.");
+AssertColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.AutoRetryDisabledAt), "auto_retry_disabled_at", "Trigger logs should store disabled-trigger retry skips.");
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.AutoRetryEnabled), "auto_retry_enabled", "Triggers should store whether automatic retries are enabled.");
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.AutoRetryMaxAttempts), "auto_retry_max_attempts", "Triggers should store user-authored retry attempt limits.");
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.AutoRetryDelaySeconds), "auto_retry_delay_seconds", "Triggers should store user-authored retry delay seconds.");
+AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleJson));
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleNextRunAt), "schedule_next_run_at", "Scheduled triggers should store their next due run.");
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleLastRunAt), "schedule_last_run_at", "Scheduled triggers should store their last run metadata.");
+AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.Status), "status", "Workflow definitions should store draft/published status.");
+AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.CurrentVersionId), "current_version_id", "Workflow definitions should point at the current published version.");
+AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.IsEnabled), "is_enabled", "Workflow definitions should store enabled state.");
+AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.HasUnpublishedChanges), "has_unpublished_changes", "Workflow definitions should track unpublished draft changes.");
+AssertColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.WorkflowDefinitionId), "workflow_definition_id", "Workflow versions should point at their workflow definition.");
+AssertColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.VersionNumber), "version_number", "Workflow versions should store a stable version number.");
+AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionId), "workflow_definition_id", "Workflow history should link to a workflow definition.");
+AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Workflow history should link to the workflow version used.");
+AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.RecordId), "record_id", "Workflow history should link to a record.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
@@ -224,11 +262,19 @@ AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.Name)
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.FormId) }, "Triggers should be indexed by form.");
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.EventName) }, "Triggers should be indexed by event.");
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.IsEnabled) }, "Triggers should be indexed by enabled state.");
+AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.ScheduleNextRunAt) }, "Scheduled triggers should be indexed by next run time.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.TriggerId) }, "Trigger logs should be indexed by trigger.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.FormId) }, "Trigger logs should be indexed by form.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EventName) }, "Trigger logs should be indexed by event.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.EntityType), nameof(TriggerExecutionLog.EntityId) }, "Trigger logs should be indexed by entity.");
 AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.CreatedAt) }, "Trigger logs should be indexed by creation time.");
+AssertIndex<TriggerExecutionLog>(model, new[] { nameof(TriggerExecutionLog.AutoRetryNextAttemptAt) }, "Trigger logs should be indexed by automatic retry due time.");
+AssertIndex<WorkflowDefinition>(model, new[] { nameof(WorkflowDefinition.FormId) }, "Workflow definitions should be indexed by form.");
+AssertIndex<WorkflowDefinition>(model, new[] { nameof(WorkflowDefinition.Status) }, "Workflow definitions should be indexed by status.");
+AssertIndex<WorkflowDefinition>(model, new[] { nameof(WorkflowDefinition.IsEnabled) }, "Workflow definitions should be indexed by enabled state.");
+AssertIndex<WorkflowDefinitionVersion>(model, new[] { nameof(WorkflowDefinitionVersion.WorkflowDefinitionId) }, "Workflow versions should be indexed by definition.");
+AssertIndex<WorkflowHistoryEntry>(model, new[] { nameof(WorkflowHistoryEntry.RecordId) }, "Workflow history should be indexed by record.");
+AssertIndex<WorkflowHistoryEntry>(model, new[] { nameof(WorkflowHistoryEntry.WorkflowDefinitionVersionId) }, "Workflow history should be indexed by workflow version.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.UserId) }, "Notifications should be indexed by recipient user.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.ReadAt) }, "Notifications should be indexed by read state.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.CreatedAt) }, "Notifications should be indexed by creation time.");
@@ -257,6 +303,49 @@ var resetTokenHash = resetTokenHasher.Hash(rawResetToken);
 AssertNotEqual(rawResetToken, resetTokenHash, "Password reset token hashes should not store the raw token.");
 AssertTrue(resetTokenHasher.Verify(rawResetToken, resetTokenHash), "Password reset token hasher should verify the original token.");
 AssertFalse(resetTokenHasher.Verify($"{rawResetToken}x", resetTokenHash), "Password reset token hasher should reject a different token.");
+
+var retryPolicy = TriggerRetryPolicy.Default;
+AssertEqual(3, retryPolicy.MaxAttempts, "Automatic trigger retries should default to three attempts.");
+var customRetryPolicyDefinition = new TriggerRetryPolicyDefinition(true, 5, 300);
+var customRetryPolicy = TriggerRetryPolicy.FromDefinition(customRetryPolicyDefinition);
+AssertNotNull(customRetryPolicy, "Enabled user-authored retry policies should resolve to a runtime policy.");
+AssertEqual(5, customRetryPolicy!.MaxAttempts, "User-authored retry policies should control max attempts.");
+AssertEqual(TimeSpan.FromSeconds(300), customRetryPolicy.Delay, "User-authored retry policies should control retry delay.");
+AssertNull(TriggerRetryPolicy.FromDefinition(new TriggerRetryPolicyDefinition(false, 5, 300)), "Disabled user-authored retry policies should not schedule retries.");
+AssertEqual("pending", TriggerRetryStateResolver.Resolve(new TriggerExecutionLog
+{
+    Status = TriggerExecutionStatuses.Failed,
+    AutoRetryMaxAttempts = retryPolicy.MaxAttempts,
+    AutoRetryNextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(1)
+}, triggerEnabled: true), "Failed logs with a next retry time should expose pending retry state.");
+AssertEqual("exhausted", TriggerRetryStateResolver.Resolve(new TriggerExecutionLog
+{
+    Status = TriggerExecutionStatuses.Failed,
+    AutoRetryAttemptCount = retryPolicy.MaxAttempts,
+    AutoRetryMaxAttempts = retryPolicy.MaxAttempts,
+    AutoRetryExhaustedAt = DateTimeOffset.UtcNow
+}, triggerEnabled: true), "Failed logs at the maximum attempts should expose exhausted retry state.");
+AssertEqual("disabled", TriggerRetryStateResolver.Resolve(new TriggerExecutionLog
+{
+    Status = TriggerExecutionStatuses.Failed,
+    AutoRetryMaxAttempts = retryPolicy.MaxAttempts,
+    AutoRetryDisabledAt = DateTimeOffset.UtcNow
+}, triggerEnabled: false), "Failed logs skipped by disabled triggers should expose disabled retry state.");
+var retryNow = DateTimeOffset.Parse("2026-06-04T12:00:00Z");
+var scheduledRetryLog = new TriggerExecutionLog { Status = TriggerExecutionStatuses.Failed };
+TriggerRetryScheduler.ScheduleInitialFailure(scheduledRetryLog, retryPolicy, retryNow);
+AssertEqual(0, scheduledRetryLog.AutoRetryAttemptCount, "Initial automatic retry scheduling should not consume an attempt.");
+AssertEqual(retryPolicy.MaxAttempts, scheduledRetryLog.AutoRetryMaxAttempts, "Initial automatic retry scheduling should store max attempts.");
+AssertEqual(retryNow.Add(retryPolicy.Delay), scheduledRetryLog.AutoRetryNextAttemptAt, "Initial automatic retry scheduling should store the next attempt time.");
+TriggerRetryScheduler.MarkAttemptFailed(scheduledRetryLog, retryPolicy, retryNow.AddMinutes(1));
+AssertEqual(1, scheduledRetryLog.AutoRetryAttemptCount, "Failed automatic retries should increment attempt count.");
+AssertEqual(retryNow.AddMinutes(1).Add(retryPolicy.Delay), scheduledRetryLog.AutoRetryNextAttemptAt, "Failed automatic retries should schedule the next attempt.");
+scheduledRetryLog.AutoRetryAttemptCount = retryPolicy.MaxAttempts - 1;
+TriggerRetryScheduler.MarkAttemptFailed(scheduledRetryLog, retryPolicy, retryNow.AddMinutes(2));
+AssertNotNull(scheduledRetryLog.AutoRetryExhaustedAt, "Automatic retries should mark exhaustion after the final attempt.");
+AssertNull(scheduledRetryLog.AutoRetryNextAttemptAt, "Exhausted automatic retries should clear next attempt metadata.");
+AssertNotNull(typeof(TriggerAutomaticRetryService).GetMethod(nameof(TriggerAutomaticRetryService.ProcessDueRetriesAsync)), "Automatic retry service should expose due retry processing.");
+AssertTypeAssignable<BackgroundService, TriggerRetryWorker>();
 
 var resetLink = PasswordRecoveryEmailFactory.BuildResetLink("http://localhost:5174/reset-password", rawResetToken);
 AssertTrue(resetLink.StartsWith("http://localhost:5174/reset-password?token=", StringComparison.Ordinal), "Password reset links should point to the configured reset page.");
@@ -297,15 +386,55 @@ var validNotificationActions = new[]
         RecipientUserIds: new[] { notificationUserId },
         RecipientGroupIds: new[] { notificationGroupId })
 };
+var targetFormId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+var targetFormVersionId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+var createRecordTargetSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("email", FormFieldTypes.Email, "Email", Required: true),
+        new FormFieldDefinition("department", FormFieldTypes.Select, "Department", Required: true, Options: new[]
+        {
+            new FormFieldOptionDefinition("hr", "Human Resources", "HR"),
+            new FormFieldOptionDefinition("finance", "Finance", "Finance")
+        })
+    },
+    new FormLayoutDefinition(Array.Empty<FormLayoutPageDefinition>()));
+var validCreateRecordActions = new[]
+{
+    new TriggerActionDefinition(
+        "create-1",
+        TriggerActionTypes.CreateRecord,
+        TargetFormId: targetFormId,
+        Values: new Dictionary<string, TriggerActionValueDefinition>
+        {
+            ["email"] = new(SourceFieldId: "email"),
+            ["department"] = new(Literal: "HR")
+        })
+};
+var validWebhookActions = new[]
+{
+    new TriggerActionDefinition(
+        "webhook-1",
+        TriggerActionTypes.CallWebhook,
+        WebhookUrl: "https://hooks.example.test/records",
+        WebhookMethod: "post",
+        WebhookHeaders: new Dictionary<string, string> { ["X-Source"] = "open-business-platform" })
+};
+var validTriggerRetryPolicy = new TriggerRetryPolicyDefinition(true, 4, 120);
+var validDailySchedule = new TriggerScheduleDefinition(TriggerScheduleKinds.Daily, "Etc/UTC", DateTimeOffset.Parse("2026-06-04T12:00:00Z"));
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
+AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.ScheduleDaily), "Trigger events should include schedule.daily.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.SendNotification), "Trigger actions should include send_notification.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CreateRecord), "Trigger actions should include create_record.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CallWebhook), "Trigger actions should include call_webhook.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
-        new CreateTriggerRequest("New hire audit", null, TriggerEvents.RecordCreated, validTriggerConditions, validTriggerActions, true),
+        new CreateTriggerRequest("New hire audit", null, TriggerEvents.RecordCreated, validTriggerConditions, validTriggerActions, true, validTriggerRetryPolicy, null),
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A valid trigger definition should pass validation.");
@@ -323,6 +452,99 @@ AssertTrue(
         new[] { notificationUserId },
         new[] { notificationGroupId }).Valid,
     "A valid send_notification action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Create related record", null, TriggerEvents.RecordCreated, validTriggerConditions, validCreateRecordActions, true, validTriggerRetryPolicy, null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new[] { new TriggerTargetFormSchema(targetFormId, targetFormVersionId, createRecordTargetSchema) }).Valid,
+    "A valid create_record action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Send webhook", null, TriggerEvents.RecordCreated, validTriggerConditions, validWebhookActions, true, validTriggerRetryPolicy, null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A valid call_webhook action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Daily digest", null, TriggerEvents.ScheduleDaily, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, validDailySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A scheduled trigger with supported schedule actions should pass validation.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Missing schedule", null, TriggerEvents.ScheduleDaily, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Scheduled trigger events should require schedule metadata.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Bad webhook", null, TriggerEvents.RecordCreated, validTriggerConditions, new[] { new TriggerActionDefinition("webhook-1", TriggerActionTypes.CallWebhook, WebhookUrl: "ftp://example.test/hook") }, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject webhook actions without an absolute http or https URL.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Bad retry policy", null, TriggerEvents.RecordCreated, validTriggerConditions, validWebhookActions, true, new TriggerRetryPolicyDefinition(true, 25, 10), null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject retry policies outside supported bounds.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Unknown target form",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[]
+            {
+                new TriggerActionDefinition(
+                    "create-1",
+                    TriggerActionTypes.CreateRecord,
+                    TargetFormId: Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                    Values: new Dictionary<string, TriggerActionValueDefinition>
+                    {
+                        ["email"] = new(SourceFieldId: "email"),
+                        ["department"] = new(Literal: "HR")
+                    })
+            },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new[] { new TriggerTargetFormSchema(targetFormId, targetFormVersionId, createRecordTargetSchema) }).Valid,
+    "Validation should reject create_record actions that reference unpublished or missing target forms.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Invalid target values",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[]
+            {
+                new TriggerActionDefinition(
+                    "create-1",
+                    TriggerActionTypes.CreateRecord,
+                    TargetFormId: targetFormId,
+                    Values: new Dictionary<string, TriggerActionValueDefinition>
+                    {
+                        ["email"] = new(SourceFieldId: "email"),
+                        ["unknown"] = new(Literal: "nope")
+                    })
+            },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new[] { new TriggerTargetFormSchema(targetFormId, targetFormVersionId, createRecordTargetSchema) }).Valid,
+    "Validation should reject create_record actions with invalid target field maps.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -455,12 +677,116 @@ AssertFalse(
         Array.Empty<Guid>()).Valid,
     "Validation should reject notification actions that reference inactive or missing groups.");
 
+var workflowUserId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+var workflowGroupId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+var workflowDepartmentId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+var validWorkflowConfig = new WorkflowDefinitionConfig(
+    1,
+    "draft",
+    new[]
+    {
+        new WorkflowStateDefinition("draft", "Draft"),
+        new WorkflowStateDefinition("manager_review", "Manager Review"),
+        new WorkflowStateDefinition("approved", "Approved", IsFinal: true)
+    },
+    new[]
+    {
+        new WorkflowTransitionDefinition("submit", "Submit", "draft", "manager_review", "manager_approval"),
+        new WorkflowTransitionDefinition("approve", "Approve", "manager_review", "approved")
+    },
+    new[]
+    {
+        new WorkflowApprovalStepDefinition(
+            "manager_approval",
+            "Manager approval",
+            WorkflowApprovalModes.Any,
+            new[]
+            {
+                new WorkflowAssigneeRuleDefinition(WorkflowAssigneeRuleTypes.DepartmentManager, DepartmentId: workflowDepartmentId),
+                new WorkflowAssigneeRuleDefinition(WorkflowAssigneeRuleTypes.Group, GroupId: workflowGroupId)
+            })
+    });
+AssertEqual(WorkflowDefinitionStatuses.Draft, WorkflowDefinitionStatuses.Draft, "Workflow definition status contracts should expose draft.");
+AssertEqual(WorkflowDefinitionStatuses.Published, WorkflowDefinitionStatuses.Published, "Workflow definition status contracts should expose published.");
+AssertTrue(WorkflowApprovalModes.Supported.Contains(WorkflowApprovalModes.Any), "Workflow approval modes should include any.");
+AssertTrue(WorkflowAssigneeRuleTypes.Supported.Contains(WorkflowAssigneeRuleTypes.DepartmentManager), "Workflow assignee rules should include department managers.");
+AssertTrue(WorkflowActionTypes.Supported.Contains(WorkflowActionTypes.SendNotification), "Workflow action contracts should include notification actions for later execution slices.");
+AssertTrue(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest("Employee approval", null, validWorkflowConfig, true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "A valid workflow definition should pass validation.");
+AssertFalse(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest(
+            "Duplicate states",
+            null,
+            validWorkflowConfig with
+            {
+                States = new[]
+                {
+                    new WorkflowStateDefinition("draft", "Draft"),
+                    new WorkflowStateDefinition("draft", "Draft again", IsFinal: true)
+                }
+            },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Workflow validation should reject duplicate state keys.");
+AssertFalse(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest("Missing initial", null, validWorkflowConfig with { InitialStateKey = "missing" }, true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "Workflow validation should reject missing initial states.");
+AssertFalse(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest(
+            "Bad transition",
+            null,
+            validWorkflowConfig with
+            {
+                Transitions = new[] { new WorkflowTransitionDefinition("submit", "Submit", "draft", "missing") }
+            },
+            true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "Workflow validation should reject transition endpoints that do not exist.");
+AssertFalse(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest(
+            "Bad approval",
+            null,
+            validWorkflowConfig with
+            {
+                ApprovalSteps = new[]
+                {
+                    new WorkflowApprovalStepDefinition(
+                        "manager_approval",
+                        "Manager approval",
+                        WorkflowApprovalModes.Any,
+                        new[] { new WorkflowAssigneeRuleDefinition(WorkflowAssigneeRuleTypes.User, UserId: Guid.Parse("99999999-9999-9999-9999-999999999999")) })
+                }
+            },
+            true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "Workflow validation should reject approval assignee rules that reference inactive or missing users.");
+
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Reports.Manage), "Built-in permissions should include report management.");
+AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Workflows.Manage), "Built-in permissions should include workflow management.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.View), "Form actions should include view.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Export), "Form actions should include export.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Assign), "Form actions should include assign.");
+AssertTrue(PlatformPermissions.WorkflowActions.Contains(PlatformPermissions.Workflow.Approve), "Workflow actions should include approve.");
 AssertTrue(PlatformPermissions.RecordScopes.Supported.Contains(PlatformPermissions.RecordScopes.ManagedDepartment), "Record scopes should include managed department.");
 AssertTrue(PlatformPermissions.ReportActions.Contains(PlatformPermissions.Report.Export), "Report actions should include export.");
 AssertTrue(PlatformPermissions.FieldAccess.Supported.Contains(PlatformPermissions.FieldAccess.Hidden), "Field access should include hidden.");
@@ -543,6 +869,9 @@ AssertFalse(
         new TriggerConditionGroupDefinition(TriggerConditionModes.All, new[] { new TriggerConditionDefinition(TriggerConditionTypes.FieldEquals, "department", "Operations") }),
         triggerEventContext),
     "all-mode groups should fail when a condition fails.");
+var resolvedCreateRecordValues = TriggerActionRegistry.ResolveCreateRecordValues(validCreateRecordActions[0], triggerEventContext);
+AssertEqual("new@example.com", resolvedCreateRecordValues["email"], "Create record actions should resolve source field values from the triggering record snapshot.");
+AssertEqual("HR", resolvedCreateRecordValues["department"], "Create record actions should preserve literal target values.");
 
 var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
 {
@@ -597,6 +926,14 @@ AssertFalse(
     "Notification action should not hide missing active recipients as a preference skip.");
 AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionService.ExecuteAsync)), "Trigger execution service should execute matching triggers.");
 AssertNotNull(typeof(TriggerEventDispatcher).GetMethod(nameof(TriggerEventDispatcher.DispatchAsync)), "Trigger dispatcher should dispatch event contexts.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.ListWorkflowsAsync)), "Workflow service should list form-scoped workflows.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.CreateWorkflowAsync)), "Workflow service should create workflows.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.UpdateWorkflowAsync)), "Workflow service should update workflows.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.PublishWorkflowAsync)), "Workflow service should publish immutable workflow versions.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.EnableWorkflowAsync)), "Workflow service should enable workflows without deleting history.");
+AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinitionService.DisableWorkflowAsync)), "Workflow service should disable workflows without deleting history.");
+AssertTypeAssignable<IPlatformApiModule, WorkflowsModule>();
+AssertTrue(new WorkflowsModule().Id == "app.workflows", "Workflow module should expose a stable module id.");
 AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");
 AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record mutation should receive the trigger dispatcher.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.ListForUserAsync)), "Notification service should list current-user notifications.");

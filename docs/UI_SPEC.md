@@ -50,12 +50,12 @@ As product features are added, replace remaining starter pages with real module 
 
 ## Trigger Management UI
 
-Current status: V4 task 002 adds a real `/triggers` workspace. It is a form-scoped management surface for the existing backend trigger engine. V4 task 004 adds manual retry controls for failed execution logs. V4 task 005 adds in-app notification action authoring.
+Current status: V4 task 002 adds a real `/triggers` workspace. It is a form-scoped management surface for the existing backend trigger engine. V4 task 004 adds manual retry controls for failed execution logs. V4 task 005 adds in-app notification action authoring. V4 task 010 adds webhook action authoring, retry policy controls, and schedule metadata controls.
 
 The trigger workspace uses:
 
 - Form selection and trigger list.
-- Trigger editor with name, description, event, enabled state, condition rows, and action rows, including notification title/body and user/group recipient controls.
+- Trigger editor with name, description, event, enabled state, retry policy controls, optional schedule fields, condition rows, and action rows, including notification title/body, user/group recipient controls, and webhook URL/method/header controls.
 - Execution log viewer with status, event/entity metadata, timestamps, errors, input JSON, result JSON, and failed-log retry actions.
 
 The builder exposes only the V4 backend-supported events, conditions, and actions. It is intentionally not a diagram surface and does not use XYFlow. Backend permission checks remain authoritative.

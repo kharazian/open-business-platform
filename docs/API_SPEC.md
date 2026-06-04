@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, and current-user notification preferences. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 starts backend workflow definition management, publish/version contracts, and workflow history foundation tables. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1215,7 +1215,7 @@ Response: `200 OK` with the saved preference DTO. Missing current-user rows are 
 
 Trigger APIs require authentication. All trigger management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`.
 
-Supported V4 task 001 events are `record.created`, `record.updated`, `field.changed`, `status.changed`, and `record.assigned`.
+Supported V4 events are `record.created`, `record.updated`, `field.changed`, `status.changed`, `record.assigned`, `schedule.once`, `schedule.daily`, `schedule.weekly`, and `schedule.monthly`.
 
 Supported condition types are:
 
@@ -1234,6 +1234,10 @@ Supported action types are:
 - `assign_record`: assigns the current record to one user or one group without recursive trigger dispatch.
 - `update_field`: updates one field on the current record, validates the merged record values against the record's form version schema, writes a record audit entry, and does not recursively dispatch triggers.
 - `send_notification`: creates in-app notifications for selected active users and active group members.
+- `create_record`: creates one record in another published target form using typed literal values or source-field references, validates the target record values, writes source trigger metadata on the created record, and does not recursively dispatch triggers.
+- `call_webhook`: sends an HTTP JSON request to an absolute `http` or `https` URL. Non-success responses fail the trigger action and can be retried.
+
+Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions.
 
 ### List triggers
 
@@ -1245,7 +1249,7 @@ Requires form `manage` or `forms.manage_all` access. Response: `200 OK` with `{ 
 
 `POST /api/forms/{formId}/triggers`
 
-Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced form fields, active assignment targets, active notification recipients, and email/notification action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
+Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced source form fields, published target forms for `create_record`, target record values, active assignment targets, active notification recipients, and email/notification action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
 
 Request:
 
@@ -1284,8 +1288,32 @@ Request:
       "body": "Open the record and review the submitted details.",
       "recipientUserIds": ["..."],
       "recipientGroupIds": ["..."]
+    },
+    {
+      "id": "create-1",
+      "type": "create_record",
+      "targetFormId": "...",
+      "values": {
+        "email": { "sourceFieldId": "email" },
+        "department": { "literal": "HR" }
+      }
+    },
+    {
+      "id": "webhook-1",
+      "type": "call_webhook",
+      "webhookUrl": "https://hooks.example.test/records",
+      "webhookMethod": "POST",
+      "webhookHeaders": {
+        "X-Source": "open-business-platform"
+      }
     }
   ],
+  "retryPolicy": {
+    "isEnabled": true,
+    "maxAttempts": 3,
+    "delaySeconds": 60
+  },
+  "schedule": null,
   "isEnabled": true
 }
 ```
@@ -1310,13 +1338,23 @@ Requires form `manage` or `forms.manage_all` access for the trigger's form. Resp
 
 Requires form `manage` or `forms.manage_all` access for the trigger's form. Response: `200 OK` with `{ "items": [...] }`, ordered newest first. Matching trigger executions write `success` or `failed` logs with input/result JSON and error message. Non-matching triggers do not write noisy skipped logs in this first slice.
 
+Failed first-attempt trigger executions are scheduled through the trigger's configured retry policy. Trigger log DTOs include:
+
+- `retryOfLogId`: the failed source log for manual or automatic retry logs, derived from retry metadata.
+- `retryState`: `pending`, `completed`, `exhausted`, or `disabled` when automatic retry state applies.
+- `autoRetryAttemptCount`
+- `autoRetryMaxAttempts`
+- `autoRetryNextAttemptAt`
+
+The hosted retry worker replays due failed logs through the trigger's current action list, matching manual retry semantics. Disabled triggers or triggers with automatic retries disabled are not retried automatically; their pending failed logs surface `disabled`. Retries stop once `autoRetryAttemptCount` reaches `autoRetryMaxAttempts`.
+
 ### Retry failed trigger log
 
 `POST /api/triggers/{triggerId}/logs/{logId}/retry`
 
 Requires form `manage` or `forms.manage_all` access for the trigger's form. The source log must belong to the trigger and have `failed` status. The backend replays the saved trigger event input through the trigger's current action list and creates a new trigger execution log. The retry response is `201 Created` with the new log.
 
-Retry logs expose `retryOfLogId` and include retry metadata in the JSON payloads:
+Manual and automatic retry logs expose `retryOfLogId` and include retry metadata in the JSON payloads:
 
 ```json
 {
@@ -1338,6 +1376,95 @@ Retry logs expose `retryOfLogId` and include retry metadata in the JSON payloads
 Retry requests for missing logs, logs from another trigger, disabled triggers, or non-failed logs return an error. If actions fail during the retry, the API still returns the new failed retry log and records the error in that log.
 
 Record submission dispatches `record.created`. Record edits dispatch `record.updated` and dispatch `field.changed` when values changed. Record status changes dispatch `status.changed`. Record assignment changes dispatch `record.assigned`. Trigger execution failures are logged and do not roll back the original record mutation.
+
+## Workflows V5
+
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. The current workflow slices do not execute record transitions, create approval inbox items, send workflow notifications, start workflows from triggers, or expose a visual builder.
+
+Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
+
+Workflow config supports typed:
+
+- states: `{ "key": "manager_review", "name": "Manager Review", "isFinal": false }`
+- transitions: `{ "key": "submit", "name": "Submit", "fromStateKey": "draft", "toStateKey": "manager_review", "approvalStepKey": "manager_approval" }`
+- approval steps: `{ "key": "manager_approval", "name": "Manager approval", "mode": "any", "assigneeRules": [...] }`
+- assignee rules: `user`, `group`, `department_manager`, and `record_owner`
+- optional transition actions: typed action placeholders such as `send_email`, `send_notification`, `change_status`, `assign_record`, `update_field`, and `create_record`; actions are not executed in this slice.
+
+Validation rejects duplicate state/transition/approval keys, missing or final initial states, missing final states, invalid transition endpoints, transitions from final states, invalid approval references, unsupported approval modes, missing assignee rules, and assignee targets that are not active users, groups, or departments.
+
+### List workflows
+
+`GET /api/forms/{formId}/workflows`
+
+Requires form `manage` or `forms.manage_all` access. Response: `200 OK` with `{ "items": [...] }`.
+
+### Create workflow
+
+`POST /api/forms/{formId}/workflows`
+
+Requires form `manage` or `forms.manage_all` access. Creating a workflow writes a `workflow_created` audit entry.
+
+Request:
+
+```json
+{
+  "name": "Employee approval",
+  "description": "Route employee records through manager review.",
+  "config": {
+    "schemaVersion": 1,
+    "initialStateKey": "draft",
+    "states": [
+      { "key": "draft", "name": "Draft" },
+      { "key": "manager_review", "name": "Manager Review" },
+      { "key": "approved", "name": "Approved", "isFinal": true }
+    ],
+    "transitions": [
+      { "key": "submit", "name": "Submit", "fromStateKey": "draft", "toStateKey": "manager_review", "approvalStepKey": "manager_approval" },
+      { "key": "approve", "name": "Approve", "fromStateKey": "manager_review", "toStateKey": "approved" }
+    ],
+    "approvalSteps": [
+      {
+        "key": "manager_approval",
+        "name": "Manager approval",
+        "mode": "any",
+        "assigneeRules": [
+          { "type": "department_manager", "departmentId": "..." }
+        ]
+      }
+    ]
+  },
+  "isEnabled": true
+}
+```
+
+Response: `201 Created` with the saved workflow detail.
+
+### Get workflow
+
+`GET /api/workflows/{workflowId}`
+
+Requires form `manage` or `forms.manage_all` access for the workflow's form. Response: `200 OK` with the saved workflow detail, draft config, status, enabled state, current published version metadata, unpublished-change flag, and concurrency stamp.
+
+### Update workflow
+
+`PUT /api/workflows/{workflowId}`
+
+Requires form `manage` or `forms.manage_all` access for the workflow's form. The request shape matches create and also requires `concurrencyStamp`. Updating the draft config writes `workflow_updated`; enabled-state changes through update also write `workflow_enabled` or `workflow_disabled`.
+
+### Publish workflow
+
+`POST /api/workflows/{workflowId}/publish`
+
+Requires form `manage` or `forms.manage_all` access and `{ "concurrencyStamp": "..." }`. Publishing validates the current draft config, creates a new immutable `workflow_definition_versions` row, updates `currentVersionId`, clears `hasUnpublishedChanges`, and writes `workflow_published`.
+
+### Enable or disable workflow
+
+`POST /api/workflows/{workflowId}/enable`
+
+`POST /api/workflows/{workflowId}/disable`
+
+Both require form `manage` or `forms.manage_all` access and `{ "concurrencyStamp": "..." }`. These endpoints toggle workflow availability without deleting definitions, versions, or history and write `workflow_enabled` or `workflow_disabled`.
 
 ## API Rules
 

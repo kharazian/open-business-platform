@@ -61,7 +61,8 @@ public sealed class TriggerDefinitionService
 
         var activeUserIds = await GetActiveUserIdsAsync(cancellationToken);
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds);
+        var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms);
 
         if (!validation.Valid)
         {
@@ -70,6 +71,9 @@ public sealed class TriggerDefinitionService
 
         var conditions = TriggerDefinitionValidator.NormalizeConditions(request.Conditions);
         var actions = TriggerDefinitionValidator.NormalizeActions(request.Actions);
+        var retryPolicy = TriggerDefinitionValidator.NormalizeRetryPolicy(request.RetryPolicy);
+        var schedule = TriggerDefinitionValidator.NormalizeSchedule(request.Schedule);
+        var now = DateTimeOffset.UtcNow;
         var trigger = new TriggerDefinition
         {
             Id = Guid.NewGuid(),
@@ -81,6 +85,11 @@ public sealed class TriggerDefinitionService
             ConditionsJson = Serialize(conditions),
             ActionsJson = Serialize(actions),
             IsEnabled = request.IsEnabled,
+            AutoRetryEnabled = retryPolicy.IsEnabled,
+            AutoRetryMaxAttempts = retryPolicy.MaxAttempts,
+            AutoRetryDelaySeconds = retryPolicy.DelaySeconds,
+            ScheduleJson = SerializeNullable(schedule),
+            ScheduleNextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, now),
             CreatedById = createdById
         };
 
@@ -118,7 +127,8 @@ public sealed class TriggerDefinitionService
 
         var activeUserIds = await GetActiveUserIdsAsync(cancellationToken);
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds);
+        var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms);
 
         if (!validation.Valid)
         {
@@ -126,12 +136,20 @@ public sealed class TriggerDefinitionService
         }
 
         var wasEnabled = trigger.IsEnabled;
+        var schedule = TriggerDefinitionValidator.NormalizeSchedule(request.Schedule);
+        var retryPolicy = TriggerDefinitionValidator.NormalizeRetryPolicy(request.RetryPolicy);
+        var now = DateTimeOffset.UtcNow;
         trigger.Name = request.Name.Trim();
         trigger.Description = NormalizeOptionalText(request.Description);
         trigger.EventName = request.EventName.Trim();
         trigger.ConditionsJson = Serialize(TriggerDefinitionValidator.NormalizeConditions(request.Conditions));
         trigger.ActionsJson = Serialize(TriggerDefinitionValidator.NormalizeActions(request.Actions));
         trigger.IsEnabled = request.IsEnabled;
+        trigger.AutoRetryEnabled = retryPolicy.IsEnabled;
+        trigger.AutoRetryMaxAttempts = retryPolicy.MaxAttempts;
+        trigger.AutoRetryDelaySeconds = retryPolicy.DelaySeconds;
+        trigger.ScheduleJson = SerializeNullable(schedule);
+        trigger.ScheduleNextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, now);
         trigger.UpdatedById = updatedById;
 
         AddAudit(trigger.Id, "trigger_updated", updatedById);
@@ -175,6 +193,7 @@ public sealed class TriggerDefinitionService
 
         var logs = await dbContext.TriggerLogs
             .AsNoTracking()
+            .Include(log => log.Trigger)
             .Where(log => log.TriggerId == triggerId)
             .OrderByDescending(log => log.CreatedAt)
             .ToArrayAsync(cancellationToken);
@@ -209,6 +228,46 @@ public sealed class TriggerDefinitionService
             .ToArrayAsync(cancellationToken);
     }
 
+    private async Task<IReadOnlyCollection<TriggerTargetFormSchema>> GetTargetFormSchemasAsync(
+        IReadOnlyList<TriggerActionDefinition>? actions,
+        CancellationToken cancellationToken)
+    {
+        var targetFormIds = TriggerDefinitionValidator.NormalizeActions(actions)
+            .Where(action => string.Equals(action.Type, TriggerActionTypes.CreateRecord, StringComparison.Ordinal))
+            .Select(action => action.TargetFormId)
+            .Where(id => id is not null && id != Guid.Empty)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (targetFormIds.Length == 0)
+        {
+            return Array.Empty<TriggerTargetFormSchema>();
+        }
+
+        var targetForms = await dbContext.Forms
+            .AsNoTracking()
+            .Include(form => form.CurrentVersion)
+            .Where(form =>
+                targetFormIds.Contains(form.Id)
+                && !form.IsDeleted
+                && form.Status == FormStatuses.Published
+                && form.CurrentVersionId != null
+                && form.CurrentVersion != null)
+            .ToArrayAsync(cancellationToken);
+
+        return targetForms
+            .Select(form => new
+            {
+                form.Id,
+                FormVersionId = form.CurrentVersion!.Id,
+                Schema = DeserializeSchema(form.CurrentVersion.SchemaJson)
+            })
+            .Where(item => item.Schema is not null)
+            .Select(item => new TriggerTargetFormSchema(item.Id, item.FormVersionId, item.Schema!))
+            .ToArray();
+    }
+
     private void AddAudit(Guid triggerId, string action, Guid? userId)
     {
         dbContext.AuditLogs.Add(new AuditLogEntry
@@ -233,6 +292,10 @@ public sealed class TriggerDefinitionService
             trigger.Description,
             trigger.EventName,
             trigger.IsEnabled,
+            ToRetryPolicyDto(trigger),
+            DeserializeSchedule(trigger.ScheduleJson),
+            trigger.ScheduleNextRunAt,
+            trigger.ScheduleLastRunAt,
             conditions.Conditions.Count,
             actions.Count,
             trigger.ConcurrencyStamp,
@@ -253,6 +316,10 @@ public sealed class TriggerDefinitionService
             DeserializeConditions(trigger.ConditionsJson),
             DeserializeActions(trigger.ActionsJson),
             trigger.IsEnabled,
+            ToRetryPolicyDto(trigger),
+            DeserializeSchedule(trigger.ScheduleJson),
+            trigger.ScheduleNextRunAt,
+            trigger.ScheduleLastRunAt,
             trigger.ConcurrencyStamp,
             trigger.CreatedAt,
             trigger.CreatedById,
@@ -276,7 +343,11 @@ public sealed class TriggerDefinitionService
             log.StartedAt,
             log.CompletedAt,
             log.CreatedAt,
-            ResolveRetrySourceLogId(log.InputJson, log.ResultJson));
+            ResolveRetrySourceLogId(log.InputJson, log.ResultJson),
+            TriggerRetryStateResolver.Resolve(log, log.Trigger?.IsEnabled ?? true),
+            log.AutoRetryAttemptCount,
+            log.AutoRetryMaxAttempts,
+            log.AutoRetryNextAttemptAt);
     }
 
     private static void EnsureConcurrencyStamp(string currentStamp, string requestedStamp)
@@ -297,6 +368,11 @@ public sealed class TriggerDefinitionService
         return JsonSerializer.SerializeToDocument(value, JsonOptions);
     }
 
+    private static JsonDocument? SerializeNullable<TValue>(TValue? value)
+    {
+        return value is null ? null : JsonSerializer.SerializeToDocument(value, JsonOptions);
+    }
+
     private static TriggerConditionGroupDefinition DeserializeConditions(JsonDocument conditionsJson)
     {
         var conditions = conditionsJson.RootElement.Deserialize<TriggerConditionGroupDefinition>(JsonOptions);
@@ -307,6 +383,20 @@ public sealed class TriggerDefinitionService
     {
         var actions = actionsJson.RootElement.Deserialize<IReadOnlyList<TriggerActionDefinition>>(JsonOptions);
         return TriggerDefinitionValidator.NormalizeActions(actions);
+    }
+
+    private static TriggerScheduleDefinition? DeserializeSchedule(JsonDocument? scheduleJson)
+    {
+        var schedule = scheduleJson?.RootElement.Deserialize<TriggerScheduleDefinition>(JsonOptions);
+        return TriggerDefinitionValidator.NormalizeSchedule(schedule);
+    }
+
+    private static TriggerRetryPolicyDefinition ToRetryPolicyDto(TriggerDefinition trigger)
+    {
+        return new TriggerRetryPolicyDefinition(
+            trigger.AutoRetryEnabled,
+            trigger.AutoRetryMaxAttempts,
+            trigger.AutoRetryDelaySeconds);
     }
 
     private static object? DeserializeObject(JsonDocument? json)

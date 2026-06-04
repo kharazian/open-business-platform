@@ -359,7 +359,7 @@ export function ReportsPage() {
 
       <div data-print-hide="true">
         <PageHeader
-          eyebrow="Reports V2 preview"
+          eyebrow="Reports"
           title="List report definitions"
           description="Create saved V2 list report definitions from form fields."
           actions={

@@ -1,6 +1,8 @@
+import { lazy } from "react";
 import { Palette, Settings } from "lucide-react";
-import { Settings as SettingsPage } from "../../pages/Settings";
 import type { PlatformModule } from "../../platform/moduleRegistry";
+
+const SettingsPage = lazy(() => import("../../pages/Settings").then((module) => ({ default: module.Settings })));
 
 export const settingsModule: PlatformModule = {
   id: "core.settings",

@@ -7,11 +7,14 @@ import {
   type CreateTriggerRequest,
   type TriggerActionDefinition,
   type TriggerActionType,
+  type TriggerActionValueDefinition,
   type TriggerConditionDefinition,
   type TriggerConditionType,
   type TriggerDetail,
   type TriggerEventName,
   type TriggerExecutionStatus,
+  type TriggerRetryPolicyDefinition,
+  type TriggerScheduleDefinition,
   type TriggerValidationError
 } from "./types";
 
@@ -51,6 +54,11 @@ export type TriggerActionDraft = {
   title?: string;
   recipientUserId?: EntityId;
   recipientGroupId?: EntityId;
+  targetFormId?: EntityId;
+  valueMappingsText?: string;
+  webhookUrl?: string;
+  webhookMethod?: string;
+  webhookHeadersText?: string;
 };
 
 export type TriggerDraft = {
@@ -62,6 +70,8 @@ export type TriggerDraft = {
   conditions: TriggerConditionDraft[];
   actions: TriggerActionDraft[];
   isEnabled: boolean;
+  retryPolicy: TriggerRetryPolicyDefinition;
+  schedule: TriggerScheduleDefinition | null;
   concurrencyStamp?: string;
 };
 
@@ -75,7 +85,11 @@ export const triggerEventOptions: Array<{ label: string; value: TriggerEventName
   { label: "Record updated", value: "record.updated" },
   { label: "Field changed", value: "field.changed" },
   { label: "Status changed", value: "status.changed" },
-  { label: "Record assigned", value: "record.assigned" }
+  { label: "Record assigned", value: "record.assigned" },
+  { label: "Schedule once", value: "schedule.once" },
+  { label: "Schedule daily", value: "schedule.daily" },
+  { label: "Schedule weekly", value: "schedule.weekly" },
+  { label: "Schedule monthly", value: "schedule.monthly" }
 ];
 
 export const triggerConditionOptions: Array<{ label: string; value: TriggerConditionType }> = [
@@ -93,8 +107,30 @@ export const triggerActionOptions: Array<{ label: string; value: TriggerActionTy
   { label: "Change status", value: "change_status" },
   { label: "Assign record", value: "assign_record" },
   { label: "Update field", value: "update_field" },
-  { label: "Send notification", value: "send_notification" }
+  { label: "Send notification", value: "send_notification" },
+  { label: "Create record", value: "create_record" },
+  { label: "Call webhook", value: "call_webhook" }
 ];
+
+export const defaultTriggerRetryPolicy: TriggerRetryPolicyDefinition = {
+  isEnabled: true,
+  maxAttempts: 3,
+  delaySeconds: 60
+};
+
+export function createDefaultTriggerSchedule(eventName: TriggerEventName): TriggerScheduleDefinition | null {
+  const kind = scheduleKindFromEvent(eventName);
+
+  if (!kind) {
+    return null;
+  }
+
+  return {
+    kind,
+    timeZone: "Etc/UTC",
+    startAt: new Date().toISOString()
+  };
+}
 
 export function createEmptyTriggerDraft(formName = "Form"): TriggerDraft {
   return {
@@ -103,7 +139,9 @@ export function createEmptyTriggerDraft(formName = "Form"): TriggerDraft {
     eventName: "record.created",
     conditions: [],
     actions: [createTriggerActionDraft("write_audit_entry", 1)],
-    isEnabled: true
+    isEnabled: true,
+    retryPolicy: defaultTriggerRetryPolicy,
+    schedule: null
   };
 }
 
@@ -136,7 +174,12 @@ export function createTriggerActionDraft(type: TriggerActionType = "write_audit_
     value: "",
     title: type === "send_notification" ? "Record needs review" : "",
     recipientUserId: "",
-    recipientGroupId: ""
+    recipientGroupId: "",
+    targetFormId: "",
+    valueMappingsText: type === "create_record" ? "{\n  \"field_id\": { \"literal\": \"value\" }\n}" : "",
+    webhookUrl: "",
+    webhookMethod: "POST",
+    webhookHeadersText: type === "call_webhook" ? "{}" : ""
   };
 }
 
@@ -150,6 +193,8 @@ export function createTriggerDraftFromDetail(detail: TriggerDetail): TriggerDraf
     conditions: detail.conditions.conditions.map((condition, index) => createConditionDraftFromDefinition(condition, index + 1)),
     actions: detail.actions.map((action, index) => createActionDraftFromDefinition(action, index + 1)),
     isEnabled: detail.isEnabled,
+    retryPolicy: detail.retryPolicy ?? defaultTriggerRetryPolicy,
+    schedule: detail.schedule ?? null,
     concurrencyStamp: detail.concurrencyStamp
   };
 }
@@ -173,7 +218,9 @@ export function buildTriggerRequest(draft: TriggerDraft): CreateTriggerRequest {
       conditions: draft.conditions.map(buildCondition)
     },
     actions: draft.actions.map(buildAction),
-    isEnabled: draft.isEnabled
+    isEnabled: draft.isEnabled,
+    retryPolicy: normalizeRetryPolicy(draft.retryPolicy),
+    schedule: isScheduledTriggerEvent(draft.eventName) ? draft.schedule : null
   };
 }
 
@@ -186,6 +233,28 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
 
   if (!isTriggerEventName(draft.eventName)) {
     errors.push(error("eventName", "trigger.event.unsupported", "Choose a supported trigger event."));
+  }
+
+  if (draft.retryPolicy.isEnabled) {
+    if (draft.retryPolicy.maxAttempts < 1 || draft.retryPolicy.maxAttempts > 10) {
+      errors.push(error("retryPolicy.maxAttempts", "trigger.retry.max_attempts", "Enter 1 to 10 retry attempts."));
+    }
+
+    if (draft.retryPolicy.delaySeconds < 30 || draft.retryPolicy.delaySeconds > 86400) {
+      errors.push(error("retryPolicy.delaySeconds", "trigger.retry.delay", "Enter a retry delay between 30 seconds and 24 hours."));
+    }
+  }
+
+  if (isScheduledTriggerEvent(draft.eventName)) {
+    if (!draft.schedule) {
+      errors.push(error("schedule", "trigger.schedule.required", "Enter schedule metadata."));
+    } else if (draft.schedule.kind !== scheduleKindFromEvent(draft.eventName)) {
+      errors.push(error("schedule.kind", "trigger.schedule.event_kind", "Schedule kind must match the selected event."));
+    }
+
+    if (draft.conditions.length > 0) {
+      errors.push(error("conditions", "trigger.schedule.conditions", "Scheduled triggers do not support record conditions."));
+    }
   }
 
   draft.conditions.forEach((condition, index) => {
@@ -289,6 +358,34 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
         errors.push(error(`${path}.recipients`, "trigger.action.notification_recipients_required", "Choose at least one user or group."));
       }
     }
+
+    if (action.type === "create_record") {
+      if (!action.targetFormId) {
+        errors.push(error(`${path}.targetFormId`, "trigger.action.target_form_required", "Choose the target form."));
+      }
+
+      if (!parseValueMappings(action.valueMappingsText)) {
+        errors.push(error(`${path}.values`, "trigger.action.values_required", "Enter a valid target field value map."));
+      }
+    }
+
+    if (action.type === "call_webhook") {
+      if (!isHttpUrl(action.webhookUrl)) {
+        errors.push(error(`${path}.webhookUrl`, "trigger.action.webhook_url", "Enter an absolute http or https URL."));
+      }
+
+      if (!isSupportedWebhookMethod(action.webhookMethod)) {
+        errors.push(error(`${path}.webhookMethod`, "trigger.action.webhook_method", "Choose GET, POST, PUT, PATCH, or DELETE."));
+      }
+
+      if (!parseWebhookHeaders(action.webhookHeadersText)) {
+        errors.push(error(`${path}.webhookHeaders`, "trigger.action.webhook_headers", "Enter valid webhook headers JSON."));
+      }
+    }
+
+    if (isScheduledTriggerEvent(draft.eventName) && action.type !== "send_email" && action.type !== "call_webhook") {
+      errors.push(error(`${path}.type`, "trigger.schedule.action_type", "Scheduled triggers support email and webhook actions."));
+    }
   });
 
   return { valid: errors.length === 0, errors };
@@ -316,6 +413,32 @@ export function formatTriggerLogStatus(status: string): { label: string; variant
   }
 
   return { label: sentenceCase(status), variant: "default" };
+}
+
+export function formatTriggerRetryState(state?: string | null, attemptCount = 0, maxAttempts = 0): string {
+  if (!state) {
+    return "";
+  }
+
+  const attempts = maxAttempts > 0 ? ` (${attemptCount}/${maxAttempts})` : "";
+
+  if (state === "pending") {
+    return `Retry pending${attempts}`;
+  }
+
+  if (state === "completed") {
+    return `Retry completed${attempts}`;
+  }
+
+  if (state === "exhausted") {
+    return `Retries exhausted${attempts}`;
+  }
+
+  if (state === "disabled") {
+    return "Retries disabled";
+  }
+
+  return sentenceCase(state);
 }
 
 export function formatTriggerJson(value: unknown): string {
@@ -366,7 +489,12 @@ function createActionDraftFromDefinition(action: TriggerActionDefinition, index:
     value: action.value ?? "",
     title: action.title ?? "",
     recipientUserId: action.recipientUserIds?.[0] ?? "",
-    recipientGroupId: action.recipientGroupIds?.[0] ?? ""
+    recipientGroupId: action.recipientGroupIds?.[0] ?? "",
+    targetFormId: action.targetFormId ?? "",
+    valueMappingsText: formatValueMappingsText(action.values),
+    webhookUrl: action.webhookUrl ?? "",
+    webhookMethod: action.webhookMethod ?? "POST",
+    webhookHeadersText: formatWebhookHeadersText(action.webhookHeaders)
   };
 }
 
@@ -431,10 +559,35 @@ function buildAction(action: TriggerActionDraft): TriggerActionDefinition {
     };
   }
 
+  if (action.type === "create_record") {
+    return {
+      ...base,
+      targetFormId: action.targetFormId || null,
+      values: parseValueMappings(action.valueMappingsText) ?? {}
+    };
+  }
+
+  if (action.type === "call_webhook") {
+    return {
+      ...base,
+      webhookUrl: normalizeOptionalText(action.webhookUrl),
+      webhookMethod: normalizeWebhookMethod(action.webhookMethod),
+      webhookHeaders: parseWebhookHeaders(action.webhookHeadersText) ?? {}
+    };
+  }
+
   return {
     ...base,
     ...(action.assignedToUserId ? { assignedToUserId: action.assignedToUserId } : {}),
     ...(action.assignedGroupId ? { assignedGroupId: action.assignedGroupId } : {})
+  };
+}
+
+function normalizeRetryPolicy(policy: TriggerRetryPolicyDefinition | undefined): TriggerRetryPolicyDefinition {
+  return {
+    isEnabled: policy?.isEnabled ?? defaultTriggerRetryPolicy.isEnabled,
+    maxAttempts: policy?.maxAttempts ?? defaultTriggerRetryPolicy.maxAttempts,
+    delaySeconds: policy?.delaySeconds ?? defaultTriggerRetryPolicy.delaySeconds
   };
 }
 
@@ -452,6 +605,125 @@ function parseRecipients(value?: string): string[] {
     .split(/[,\n]/)
     .map((recipient) => recipient.trim())
     .filter((recipient, index, recipients) => recipient.length > 0 && recipients.indexOf(recipient) === index);
+}
+
+function parseValueMappings(value?: string): Record<string, TriggerActionValueDefinition> | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const mappings: Record<string, TriggerActionValueDefinition> = {};
+
+    for (const [rawFieldId, rawMapping] of Object.entries(parsed as Record<string, unknown>)) {
+      const fieldId = rawFieldId.trim();
+
+      if (!fieldId || !rawMapping || typeof rawMapping !== "object" || Array.isArray(rawMapping)) {
+        return null;
+      }
+
+      const mapping = rawMapping as Record<string, unknown>;
+      const literal = mapping.literal;
+      const hasSourceField = typeof mapping.sourceFieldId === "string" && mapping.sourceFieldId.trim().length > 0;
+      const hasLiteral = Object.prototype.hasOwnProperty.call(mapping, "literal") && isFormRecordValue(literal) && !isBlank(literal);
+
+      if (hasSourceField === hasLiteral) {
+        return null;
+      }
+
+      if (hasSourceField) {
+        mappings[fieldId] = { sourceFieldId: String(mapping.sourceFieldId).trim() };
+      } else if (isFormRecordValue(literal)) {
+        mappings[fieldId] = { literal: normalizeRecordValue(literal) };
+      }
+    }
+
+    return Object.keys(mappings).length > 0 ? mappings : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseWebhookHeaders(value?: string): Record<string, string> | null {
+  if (!value?.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const headers: Record<string, string> = {};
+
+    for (const [key, rawValue] of Object.entries(parsed as Record<string, unknown>)) {
+      const headerName = key.trim();
+
+      if (!headerName || typeof rawValue !== "string") {
+        return null;
+      }
+
+      headers[headerName] = rawValue.trim();
+    }
+
+    return headers;
+  } catch {
+    return null;
+  }
+}
+
+function formatValueMappingsText(values?: Record<string, TriggerActionValueDefinition> | null): string {
+  return values ? JSON.stringify(values, null, 2) : "";
+}
+
+function formatWebhookHeadersText(headers?: Record<string, string> | null): string {
+  return headers ? JSON.stringify(headers, null, 2) : "";
+}
+
+export function isScheduledTriggerEvent(eventName: TriggerEventName): boolean {
+  return eventName.startsWith("schedule.");
+}
+
+function scheduleKindFromEvent(eventName: TriggerEventName): TriggerScheduleDefinition["kind"] | "" {
+  if (eventName === "schedule.once") return "once";
+  if (eventName === "schedule.daily") return "daily";
+  if (eventName === "schedule.weekly") return "weekly";
+  if (eventName === "schedule.monthly") return "monthly";
+  return "";
+}
+
+function normalizeWebhookMethod(value?: string): string {
+  const normalized = value?.trim().toUpperCase();
+  return normalized || "POST";
+}
+
+function isSupportedWebhookMethod(value?: string): boolean {
+  return ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(normalizeWebhookMethod(value));
+}
+
+function isHttpUrl(value?: string): boolean {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isFormRecordValue(value: unknown): value is FormRecordValue {
+  return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
 function isBlank(value: FormRecordValue | undefined): boolean {

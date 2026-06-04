@@ -31,5 +31,19 @@ public sealed class TriggerExecutionLog : Entity<Guid>, IHasCreationTime
 
     public DateTimeOffset? CompletedAt { get; set; }
 
+    public int AutoRetryAttemptCount { get; set; }
+
+    public int AutoRetryMaxAttempts { get; set; } = 3;
+
+    public DateTimeOffset? AutoRetryNextAttemptAt { get; set; }
+
+    public DateTimeOffset? AutoRetryLockedAt { get; set; }
+
+    public DateTimeOffset? AutoRetryCompletedAt { get; set; }
+
+    public DateTimeOffset? AutoRetryExhaustedAt { get; set; }
+
+    public DateTimeOffset? AutoRetryDisabledAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

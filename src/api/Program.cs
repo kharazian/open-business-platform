@@ -12,6 +12,7 @@ using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
+using OpenBusinessPlatform.Api.Modules.Workflows;
 using OpenBusinessPlatform.Api.Platform;
 using Scalar.AspNetCore;
 
@@ -49,6 +50,11 @@ builder.Services.AddScoped<TriggerDefinitionService>();
 builder.Services.AddScoped<TriggerActionRegistry>();
 builder.Services.AddScoped<TriggerExecutionService>();
 builder.Services.AddScoped<TriggerEventDispatcher>();
+builder.Services.AddScoped<TriggerAutomaticRetryService>();
+builder.Services.AddScoped<TriggerScheduleService>();
+builder.Services.AddHostedService<TriggerRetryWorker>();
+builder.Services.AddHostedService<TriggerScheduleWorker>();
+builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();
 builder.Services.AddScoped<DashboardDefinitionService>();
@@ -86,6 +92,7 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
+builder.Services.AddHttpClient("trigger-webhooks");
 
 var allowedOrigins = GetAllowedOrigins(builder.Configuration);
 
