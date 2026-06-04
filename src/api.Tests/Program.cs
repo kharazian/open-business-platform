@@ -120,6 +120,7 @@ AssertTable<TriggerExecutionLog>(model, "trigger_logs");
 AssertTable<WorkflowDefinition>(model, "workflow_definitions");
 AssertTable<WorkflowDefinitionVersion>(model, "workflow_definition_versions");
 AssertTable<WorkflowHistoryEntry>(model, "workflow_history");
+AssertTable<WorkflowApprovalTask>(model, "workflow_approval_tasks");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<AuditLogEntry>(model, "audit_logs");
@@ -144,6 +145,7 @@ AssertTypeAssignable<Entity<Guid>, TriggerExecutionLog>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, WorkflowDefinition>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowDefinitionVersion>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowHistoryEntry>();
+AssertTypeAssignable<AuditedEntity<Guid>, WorkflowApprovalTask>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
@@ -167,6 +169,7 @@ AssertGuidId<TriggerExecutionLog>(model);
 AssertGuidId<WorkflowDefinition>(model);
 AssertGuidId<WorkflowDefinitionVersion>(model);
 AssertGuidId<WorkflowHistoryEntry>(model);
+AssertGuidId<WorkflowApprovalTask>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<AuditLogEntry>(model);
@@ -241,6 +244,10 @@ AssertColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionId), "workflow_definition_id", "Workflow history should link to a workflow definition.");
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Workflow history should link to the workflow version used.");
 AssertColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.RecordId), "record_id", "Workflow history should link to a record.");
+AssertColumn<WorkflowApprovalTask>(model, nameof(WorkflowApprovalTask.ApprovalGroupId), "approval_group_id", "Workflow approvals should group tasks created for one approval request.");
+AssertColumn<WorkflowApprovalTask>(model, nameof(WorkflowApprovalTask.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Workflow approvals should link to the workflow version used.");
+AssertColumn<WorkflowApprovalTask>(model, nameof(WorkflowApprovalTask.AssignedToUserId), "assigned_to_user_id", "Workflow approvals should be assigned to a user.");
+AssertColumn<WorkflowApprovalTask>(model, nameof(WorkflowApprovalTask.Status), "status", "Workflow approvals should store task status.");
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionId), "workflow_definition_id", "Records should store the active workflow definition.");
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Records should store the active workflow definition version.");
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowStateKey), "workflow_state_key", "Records should store the current workflow state key.");
@@ -281,6 +288,9 @@ AssertIndex<WorkflowDefinition>(model, new[] { nameof(WorkflowDefinition.IsEnabl
 AssertIndex<WorkflowDefinitionVersion>(model, new[] { nameof(WorkflowDefinitionVersion.WorkflowDefinitionId) }, "Workflow versions should be indexed by definition.");
 AssertIndex<WorkflowHistoryEntry>(model, new[] { nameof(WorkflowHistoryEntry.RecordId) }, "Workflow history should be indexed by record.");
 AssertIndex<WorkflowHistoryEntry>(model, new[] { nameof(WorkflowHistoryEntry.WorkflowDefinitionVersionId) }, "Workflow history should be indexed by workflow version.");
+AssertIndex<WorkflowApprovalTask>(model, new[] { nameof(WorkflowApprovalTask.AssignedToUserId), nameof(WorkflowApprovalTask.Status) }, "Workflow approvals should be indexed by assignee and status.");
+AssertIndex<WorkflowApprovalTask>(model, new[] { nameof(WorkflowApprovalTask.ApprovalGroupId) }, "Workflow approvals should be indexed by approval group.");
+AssertIndex<WorkflowApprovalTask>(model, new[] { nameof(WorkflowApprovalTask.RecordId), nameof(WorkflowApprovalTask.TransitionKey), nameof(WorkflowApprovalTask.Status) }, "Workflow approvals should be indexed by record transition status.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.UserId) }, "Notifications should be indexed by recipient user.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.ReadAt) }, "Notifications should be indexed by read state.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.CreatedAt) }, "Notifications should be indexed by creation time.");
@@ -823,6 +833,44 @@ var recordWorkflowState = new RecordWorkflowStateDto(
 AssertEqual("manager_review", recordWorkflowState.StateKey, "Record workflow state responses should expose the current state key.");
 AssertEqual("approve", recordWorkflowState.AvailableTransitions.Single().Key, "Record workflow state responses should include available direct transitions.");
 AssertEqual(RecordWorkflowHistoryActions.Transitioned, recordWorkflowState.History.Single().Action, "Record workflow state responses should include recent history.");
+AssertEqual(WorkflowApprovalTaskStatuses.Pending, "pending", "Workflow approvals should expose a pending status.");
+AssertEqual(WorkflowApprovalTaskStatuses.Approved, "approved", "Workflow approvals should expose an approved status.");
+AssertEqual(WorkflowApprovalTaskStatuses.Rejected, "rejected", "Workflow approvals should expose a rejected status.");
+AssertEqual(WorkflowApprovalTaskStatuses.Canceled, "canceled", "Workflow approvals should expose a canceled status.");
+AssertTrue(
+    WorkflowApprovalService.IsApprovalComplete(WorkflowApprovalModes.Any, new[] { WorkflowApprovalTaskStatuses.Approved, WorkflowApprovalTaskStatuses.Pending }),
+    "Any-mode approvals should complete after one approval.");
+AssertFalse(
+    WorkflowApprovalService.IsApprovalComplete(WorkflowApprovalModes.All, new[] { WorkflowApprovalTaskStatuses.Approved, WorkflowApprovalTaskStatuses.Pending }),
+    "All-mode approvals should wait for every approver.");
+AssertTrue(
+    WorkflowApprovalService.IsApprovalComplete(WorkflowApprovalModes.All, new[] { WorkflowApprovalTaskStatuses.Approved, WorkflowApprovalTaskStatuses.Approved }),
+    "All-mode approvals should complete after every approver approves.");
+var approvalTaskDto = new WorkflowApprovalTaskDto(
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"),
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"),
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000003"),
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000004"),
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000005"),
+    Guid.Parse("bbbbbbbb-0000-0000-0000-000000000006"),
+    "manager_approval",
+    "Manager approval",
+    WorkflowApprovalModes.Any,
+    "submit",
+    "Submit",
+    "draft",
+    "manager_review",
+    WorkflowApprovalTaskStatuses.Pending,
+    workflowUserId,
+    null,
+    null,
+    null,
+    null,
+    DateTimeOffset.Parse("2026-06-04T12:00:00Z"));
+AssertEqual("manager_approval", approvalTaskDto.ApprovalStepKey, "Approval task DTOs should expose approval step keys.");
+AssertEqual("submit", approvalTaskDto.TransitionKey, "Approval task DTOs should expose transition keys.");
+var approvalResponseRequest = new RespondWorkflowApprovalRequest("Looks good.");
+AssertEqual("Looks good.", approvalResponseRequest.Comment, "Approval responses should carry optional comments.");
 
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Menu.UsersAccess), "Built-in permissions should include Users & Access menu visibility.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
@@ -980,6 +1028,9 @@ AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinit
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.GetRecordWorkflowAsync)), "Record workflow service should read record workflow state.");
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.StartRecordWorkflowAsync)), "Record workflow service should start enabled published workflows on records.");
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.ExecuteTransitionAsync)), "Record workflow service should execute direct workflow transitions.");
+AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.ListForCurrentUserAsync)), "Workflow approval service should list current-user approval tasks.");
+AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.ApproveAsync)), "Workflow approval service should approve assigned tasks.");
+AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.RejectAsync)), "Workflow approval service should reject assigned tasks.");
 AssertTypeAssignable<IPlatformApiModule, WorkflowsModule>();
 AssertTrue(new WorkflowsModule().Id == "app.workflows", "Workflow module should expose a stable module id.");
 AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");

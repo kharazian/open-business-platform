@@ -246,6 +246,63 @@ public static class WorkflowsEndpoints
             });
         });
 
+        var approvalGroup = endpoints.MapGroup("/api/workflow-approvals").WithTags("Workflows").RequireAuthorization();
+
+        approvalGroup.MapGet("", async (
+            WorkflowApprovalService approvals,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetCurrentUserId(httpContext);
+            if (userId is null)
+            {
+                return Results.Ok(new { items = Array.Empty<WorkflowApprovalTaskDto>() });
+            }
+
+            var items = await approvals.ListForCurrentUserAsync(userId.Value, cancellationToken);
+            return Results.Ok(new { items });
+        });
+
+        approvalGroup.MapPost("/{approvalTaskId:guid}/approve", async (
+            Guid approvalTaskId,
+            RespondWorkflowApprovalRequest request,
+            WorkflowApprovalService approvals,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetCurrentUserId(httpContext);
+            if (userId is null)
+            {
+                return Results.NotFound(new WorkflowErrorResponse("Workflow approval task was not found."));
+            }
+
+            return await HandleRecordWorkflowRequestAsync(async () =>
+            {
+                var task = await approvals.ApproveAsync(approvalTaskId, userId.Value, request, cancellationToken);
+                return Results.Ok(task);
+            });
+        });
+
+        approvalGroup.MapPost("/{approvalTaskId:guid}/reject", async (
+            Guid approvalTaskId,
+            RespondWorkflowApprovalRequest request,
+            WorkflowApprovalService approvals,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = GetCurrentUserId(httpContext);
+            if (userId is null)
+            {
+                return Results.NotFound(new WorkflowErrorResponse("Workflow approval task was not found."));
+            }
+
+            return await HandleRecordWorkflowRequestAsync(async () =>
+            {
+                var task = await approvals.RejectAsync(approvalTaskId, userId.Value, request, cancellationToken);
+                return Results.Ok(task);
+            });
+        });
+
         return endpoints;
     }
 

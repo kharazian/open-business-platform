@@ -14,11 +14,16 @@ public sealed class RecordWorkflowService
     private const int HistoryLimit = 25;
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly WorkflowApprovalService approvalService;
 
-    public RecordWorkflowService(OpenBusinessPlatformDbContext dbContext, TriggerEventDispatcher triggerDispatcher)
+    public RecordWorkflowService(
+        OpenBusinessPlatformDbContext dbContext,
+        TriggerEventDispatcher triggerDispatcher,
+        WorkflowApprovalService approvalService)
     {
         this.dbContext = dbContext;
         this.triggerDispatcher = triggerDispatcher;
+        this.approvalService = approvalService;
     }
 
     public static IReadOnlyList<RecordWorkflowTransitionDto> GetAvailableDirectTransitions(
@@ -40,6 +45,27 @@ public sealed class RecordWorkflowService
                 transition.FromStateKey,
                 transition.ToStateKey,
                 RequiresApproval: false))
+            .ToArray();
+    }
+
+    public static IReadOnlyList<RecordWorkflowTransitionDto> GetAvailableTransitions(
+        WorkflowDefinitionConfig config,
+        string? stateKey)
+    {
+        if (string.IsNullOrWhiteSpace(stateKey))
+        {
+            return Array.Empty<RecordWorkflowTransitionDto>();
+        }
+
+        var normalized = WorkflowDefinitionValidator.NormalizeConfig(config);
+        return normalized.Transitions
+            .Where(transition => string.Equals(transition.FromStateKey, stateKey, StringComparison.Ordinal))
+            .Select(transition => new RecordWorkflowTransitionDto(
+                transition.Key,
+                transition.Name,
+                transition.FromStateKey,
+                transition.ToStateKey,
+                RequiresApproval: !string.IsNullOrWhiteSpace(transition.ApprovalStepKey)))
             .ToArray();
     }
 
@@ -276,7 +302,17 @@ public sealed class RecordWorkflowService
 
             if (!string.IsNullOrWhiteSpace(transition.ApprovalStepKey))
             {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow transition requires approval.");
+                var approvalStep = config.ApprovalSteps.FirstOrDefault(step => string.Equals(step.Key, transition.ApprovalStepKey, StringComparison.Ordinal));
+                if (approvalStep is null)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow approval step was not found.");
+                }
+
+                await approvalService.RequestApprovalAsync(record, workflow, version, transition, approvalStep, actorUserId, cancellationToken);
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                return await GetRecordWorkflowAsync(recordId, principal, permissionService, cancellationToken);
             }
 
             var targetState = config.States.FirstOrDefault(state => string.Equals(state.Key, transition.ToStateKey, StringComparison.Ordinal));
@@ -355,7 +391,7 @@ public sealed class RecordWorkflowService
 
         if (canMutateWorkflow && workflow?.IsEnabled == true && version is not null && !string.IsNullOrWhiteSpace(record.WorkflowStateKey))
         {
-            availableTransitions = GetAvailableDirectTransitions(DeserializeConfig(version.ConfigJson), record.WorkflowStateKey);
+            availableTransitions = GetAvailableTransitions(DeserializeConfig(version.ConfigJson), record.WorkflowStateKey);
         }
         else if (canMutateWorkflow
             && record.WorkflowDefinitionId is null

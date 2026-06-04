@@ -4,10 +4,13 @@ import {
   createWorkflow,
   disableWorkflow,
   enableWorkflow,
+  approveWorkflowApproval,
   executeRecordWorkflowTransition,
   getRecordWorkflow,
+  listWorkflowApprovals,
   listWorkflows,
   publishWorkflow,
+  rejectWorkflowApproval,
   startRecordWorkflow,
   updateWorkflow,
   WorkflowsApiError
@@ -98,6 +101,50 @@ test("record workflow API helpers call record workflow endpoints", async () => {
   assert.equal(transition.calls[0].input, "/api/records/record%201/workflow/transitions/submit%20for%20review");
   assert.equal(transition.calls[0].init.method, "POST");
   assert.equal(JSON.parse(transition.calls[0].init.body).concurrencyStamp, "record-stamp-2");
+});
+
+test("workflow approval API helpers call approval inbox endpoints", async () => {
+  const response = {
+    id: "approval-1",
+    approvalGroupId: "group-1",
+    workflowDefinitionId: "workflow-1",
+    workflowDefinitionVersionId: "version-1",
+    formId: "form-1",
+    recordId: "record-1",
+    approvalStepKey: "manager_approval",
+    approvalStepName: "Manager approval",
+    mode: "any",
+    transitionKey: "submit",
+    transitionName: "Submit",
+    fromStateKey: "draft",
+    toStateKey: "manager_review",
+    status: "pending",
+    assignedToUserId: "user-1",
+    requestedById: "requester-1",
+    respondedById: null,
+    respondedAt: null,
+    comment: null,
+    createdAt: "2026-06-04T12:00:00Z"
+  };
+  const list = createFetcher({ items: [response] });
+
+  const approvals = await listWorkflowApprovals(list.fetcher);
+
+  assert.equal(approvals.length, 1);
+  assert.equal(list.calls[0].input, "/api/workflow-approvals");
+  assert.equal(list.calls[0].init.method, "GET");
+
+  const approve = createFetcher(response);
+  await approveWorkflowApproval("approval 1", { comment: "Looks good" }, approve.fetcher);
+  assert.equal(approve.calls[0].input, "/api/workflow-approvals/approval%201/approve");
+  assert.equal(approve.calls[0].init.method, "POST");
+  assert.equal(JSON.parse(approve.calls[0].init.body).comment, "Looks good");
+
+  const reject = createFetcher({ ...response, status: "rejected" });
+  await rejectWorkflowApproval("approval 1", { comment: "Needs work" }, reject.fetcher);
+  assert.equal(reject.calls[0].input, "/api/workflow-approvals/approval%201/reject");
+  assert.equal(reject.calls[0].init.method, "POST");
+  assert.equal(JSON.parse(reject.calls[0].init.body).comment, "Needs work");
 });
 
 test("workflow API helpers surface validation errors", async () => {

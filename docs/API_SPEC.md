@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, and record workflow start/direct transition APIs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, and current-user workflow approval inbox APIs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1379,7 +1379,7 @@ Record submission dispatches `record.created`. Record edits dispatch `record.upd
 
 ## Workflows V5
 
-Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. The current workflow slices do not create approval inbox items, send workflow notifications, start workflows from triggers, execute transition action placeholders, or expose a visual builder.
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. The current workflow slices do not start workflows from triggers, execute transition action placeholders, or expose a visual builder.
 
 Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
 
@@ -1470,7 +1470,7 @@ Both require form `manage` or `forms.manage_all` access and `{ "concurrencyStamp
 
 `GET /api/records/{recordId}/workflow`
 
-Requires record `view` access for the record's form and scoped record rules. Response includes the active workflow/version/state when present, available start options when the user can change the record status and no workflow is active, available direct transitions when the user can change status and the active workflow state has non-approval transitions, and recent workflow history.
+Requires record `view` access for the record's form and scoped record rules. Response includes the active workflow/version/state when present, available start options when the user can change the record status and no workflow is active, available transitions when the user can change status and the active workflow state has direct or approval-gated transitions, and recent workflow history. Approval-gated transitions are marked with `requiresApproval: true`.
 
 ### Start record workflow
 
@@ -1503,7 +1503,66 @@ Request:
 }
 ```
 
-The backend uses the workflow definition version already stored on the record. It rejects unavailable transitions, transitions from another state, and transitions that require an approval step. On success it updates `workflowStateKey`, updates `records.status` to the target state key, writes `workflow_transitioned` history plus a `record_workflow_transitioned` audit entry, and dispatches a status-changed trigger event when the record status changed.
+The backend uses the workflow definition version already stored on the record. It rejects unavailable transitions and transitions from another state. Direct transitions update `workflowStateKey`, update `records.status` to the target state key, write `workflow_transitioned` history plus a `record_workflow_transitioned` audit entry, and dispatch a status-changed trigger event when the record status changed.
+
+Approval-gated transitions do not immediately move the record. They create one pending `workflow_approval_tasks` row per resolved active approver, write `workflow_approval_requested` history plus `record_workflow_approval_requested` audit, and create in-app notifications for approvers who have in-app notifications enabled. Duplicate pending approval groups for the same record, workflow version, transition, and from-state are rejected.
+
+### List current-user workflow approvals
+
+`GET /api/workflow-approvals`
+
+Requires authentication. The response is scoped to the authenticated persisted user and returns pending and recent approval tasks assigned to that user.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "approvalGroupId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "workflowDefinitionId": "11111111-1111-1111-1111-111111111111",
+      "workflowDefinitionVersionId": "22222222-2222-2222-2222-222222222222",
+      "formId": "33333333-3333-3333-3333-333333333333",
+      "recordId": "44444444-4444-4444-4444-444444444444",
+      "approvalStepKey": "manager_approval",
+      "approvalStepName": "Manager approval",
+      "mode": "any",
+      "transitionKey": "submit",
+      "transitionName": "Submit",
+      "fromStateKey": "draft",
+      "toStateKey": "manager_review",
+      "status": "pending",
+      "assignedToUserId": "55555555-5555-5555-5555-555555555555",
+      "requestedById": "66666666-6666-6666-6666-666666666666",
+      "respondedById": null,
+      "respondedAt": null,
+      "comment": null,
+      "createdAt": "2026-06-04T14:00:00Z"
+    }
+  ]
+}
+```
+
+### Approve workflow approval
+
+`POST /api/workflow-approvals/{approvalTaskId}/approve`
+
+Requires authentication and the task must be assigned to the current user. Request body:
+
+```json
+{
+  "comment": "Looks good."
+}
+```
+
+For `any` mode, the first approval executes the transition and cancels pending sibling tasks. For `all` mode, the record moves only after all assigned approvers have approved. Completed transitions write approval history/audit, `workflow_transitioned` history, `record_workflow_transitioned` audit, requester notification when applicable, and dispatch the existing status-changed trigger event when the record status changed.
+
+### Reject workflow approval
+
+`POST /api/workflow-approvals/{approvalTaskId}/reject`
+
+Requires authentication and the task must be assigned to the current user. Rejection writes approval rejection history/audit, cancels pending sibling tasks, notifies the requester when applicable, and leaves the record in its current workflow state.
 
 ## API Rules
 

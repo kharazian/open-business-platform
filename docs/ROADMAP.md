@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Workflow Foundation Started
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Workflow Foundation In Progress
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -28,8 +28,9 @@
 - V1 finalization checks passed with frontend tests/build, backend harness/build, and compose API smoke checks for auth, forms, records, and permission denials.
 - Backend workflow definition persistence, publishing/versioning, validation, management APIs, permission checks, audit logs, and history foundation exist.
 - `/workflows` frontend management UI exists for form-scoped workflow definition list/create/edit/publish/enable/disable operations over JSON-backed configs.
+- Record workflow start/direct transition execution and current-user approval inbox execution exist.
 
-Next: continue V5 with approval inbox and workflow notification groundwork.
+Next: continue V5 with workflow transition action execution and trigger-to-workflow start groundwork.
 
 ## Product Engine Path
 
@@ -174,12 +175,13 @@ Implemented foundation:
 - Workflow validation and mutation audit logs
 - Workflow management UI
 - Record workflow transition execution
+- Approval inbox and in-app approval notifications
 
 Future V5 work:
 
-- Approval inbox and notifications
 - Optional XYFlow visual workflow builder
 - Workflow actions such as sending email, updating records, calling APIs, or creating related records through the shared action engine
+- Trigger-to-workflow starts
 
 ## V6: Print Templates and PDF
 

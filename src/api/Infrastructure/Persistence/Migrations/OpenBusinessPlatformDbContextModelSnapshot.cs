@@ -1427,6 +1427,139 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("workflow_history", (string)null);
                 });
 
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowApprovalTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApprovalGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approval_group_id");
+
+                    b.Property<string>("ApprovalStepKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("approval_step_key");
+
+                    b.Property<string>("ApprovalStepName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("approval_step_name");
+
+                    b.Property<Guid>("AssignedToUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_to_user_id");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<Guid>("FormId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("form_id");
+
+                    b.Property<string>("FromStateKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("from_state_key");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("mode");
+
+                    b.Property<Guid>("RecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("record_id");
+
+                    b.Property<Guid?>("RequestedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_id");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<Guid?>("RespondedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responded_by_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("ToStateKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("to_state_key");
+
+                    b.Property<string>("TransitionKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("transition_key");
+
+                    b.Property<string>("TransitionName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("transition_name");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_id");
+
+                    b.Property<Guid>("WorkflowDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_id");
+
+                    b.Property<Guid>("WorkflowDefinitionVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workflow_definition_version_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalGroupId");
+
+                    b.HasIndex("FormId");
+
+                    b.HasIndex("RequestedById");
+
+                    b.HasIndex("RespondedById");
+
+                    b.HasIndex("WorkflowDefinitionId");
+
+                    b.HasIndex("WorkflowDefinitionVersionId");
+
+                    b.HasIndex("AssignedToUserId", "Status");
+
+                    b.HasIndex("RecordId", "TransitionKey", "Status");
+
+                    b.ToTable("workflow_approval_tasks", (string)null);
+                });
+
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1889,6 +2022,63 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("Form");
 
                     b.Navigation("Record");
+
+                    b.Navigation("WorkflowDefinition");
+
+                    b.Navigation("WorkflowDefinitionVersion");
+                });
+
+            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.WorkflowApprovalTask", b =>
+                {
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.User", "AssignedToUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", "Form")
+                        .WithMany()
+                        .HasForeignKey("FormId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormRecord", "Record")
+                        .WithMany()
+                        .HasForeignKey("RecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.User", "RequestedBy")
+                        .WithMany()
+                        .HasForeignKey("RequestedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.User", "RespondedBy")
+                        .WithMany()
+                        .HasForeignKey("RespondedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinition", "WorkflowDefinition")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.WorkflowDefinitionVersion", "WorkflowDefinitionVersion")
+                        .WithMany()
+                        .HasForeignKey("WorkflowDefinitionVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AssignedToUser");
+
+                    b.Navigation("Form");
+
+                    b.Navigation("Record");
+
+                    b.Navigation("RequestedBy");
+
+                    b.Navigation("RespondedBy");
 
                     b.Navigation("WorkflowDefinition");
 

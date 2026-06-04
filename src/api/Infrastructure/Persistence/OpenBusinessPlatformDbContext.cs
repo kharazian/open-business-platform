@@ -57,6 +57,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<WorkflowHistoryEntry> WorkflowHistory => Set<WorkflowHistoryEntry>();
 
+    public DbSet<WorkflowApprovalTask> WorkflowApprovalTasks => Set<WorkflowApprovalTask>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
@@ -719,6 +721,70 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasForeignKey(history => history.RecordId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.Entity<WorkflowApprovalTask>(entity =>
+        {
+            ConfigureAuditedEntity(entity, "workflow_approval_tasks");
+            entity.HasIndex(task => task.ApprovalGroupId);
+            entity.HasIndex(task => new { task.AssignedToUserId, task.Status });
+            entity.HasIndex(task => new { task.RecordId, task.TransitionKey, task.Status });
+            entity.HasIndex(task => task.WorkflowDefinitionId);
+            entity.HasIndex(task => task.WorkflowDefinitionVersionId);
+            entity.HasIndex(task => task.FormId);
+            entity.Property(task => task.ApprovalGroupId).HasColumnName("approval_group_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.WorkflowDefinitionId).HasColumnName("workflow_definition_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.WorkflowDefinitionVersionId).HasColumnName("workflow_definition_version_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.RecordId).HasColumnName("record_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.ApprovalStepKey).HasColumnName("approval_step_key").HasMaxLength(80).IsRequired();
+            entity.Property(task => task.ApprovalStepName).HasColumnName("approval_step_name").HasMaxLength(200).IsRequired();
+            entity.Property(task => task.Mode).HasColumnName("mode").HasMaxLength(40).IsRequired();
+            entity.Property(task => task.TransitionKey).HasColumnName("transition_key").HasMaxLength(80).IsRequired();
+            entity.Property(task => task.TransitionName).HasColumnName("transition_name").HasMaxLength(200).IsRequired();
+            entity.Property(task => task.FromStateKey).HasColumnName("from_state_key").HasMaxLength(80).IsRequired();
+            entity.Property(task => task.ToStateKey).HasColumnName("to_state_key").HasMaxLength(80).IsRequired();
+            entity.Property(task => task.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(task => task.AssignedToUserId).HasColumnName("assigned_to_user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(task => task.RequestedById).HasColumnName("requested_by_id").HasColumnType("uuid");
+            entity.Property(task => task.RespondedById).HasColumnName("responded_by_id").HasColumnType("uuid");
+            entity.Property(task => task.RespondedAt).HasColumnName("responded_at");
+            entity.Property(task => task.Comment).HasColumnName("comment").HasMaxLength(1000);
+            entity
+                .HasOne(task => task.WorkflowDefinition)
+                .WithMany()
+                .HasForeignKey(task => task.WorkflowDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(task => task.WorkflowDefinitionVersion)
+                .WithMany()
+                .HasForeignKey(task => task.WorkflowDefinitionVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(task => task.Form)
+                .WithMany()
+                .HasForeignKey(task => task.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(task => task.Record)
+                .WithMany()
+                .HasForeignKey(task => task.RecordId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(task => task.AssignedToUser)
+                .WithMany()
+                .HasForeignKey(task => task.AssignedToUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(task => task.RequestedBy)
+                .WithMany()
+                .HasForeignKey(task => task.RequestedById)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(task => task.RespondedBy)
+                .WithMany()
+                .HasForeignKey(task => task.RespondedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 
     private static void ConfigureNotificationPreferences(ModelBuilder modelBuilder)
@@ -790,6 +856,14 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         entity.Property(item => item.UpdatedById).HasColumnName("updated_by_id").HasColumnType("uuid");
         entity.Property(item => item.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(40).IsRequired();
         entity.Property(item => item.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
+    }
+
+    private static void ConfigureAuditedEntity<TEntity>(EntityTypeBuilder<TEntity> entity, string tableName)
+        where TEntity : AuditedEntity<Guid>
+    {
+        ConfigureCreationAuditedEntity(entity, tableName);
+        entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
+        entity.Property(item => item.UpdatedById).HasColumnName("updated_by_id").HasColumnType("uuid");
     }
 
     private static void ConfigureFullAuditedAggregateRoot<TEntity>(EntityTypeBuilder<TEntity> entity, string tableName)

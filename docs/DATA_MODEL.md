@@ -508,7 +508,50 @@ Indexes:
 - form_id
 - created_at
 
-V5 task 003 writes this table for record workflow starts and direct transitions. Approval inbox rows, notifications, transition action execution, and trigger-to-workflow starts remain future workflow tasks.
+V5 task 003 writes this table for record workflow starts and direct transitions. V5 task 004 also writes approval request, approval response, rejection, cancellation, and approval-completed transition history. Transition action execution and trigger-to-workflow starts remain future workflow tasks.
+
+### workflow_approval_tasks
+
+Migration: `20260604140000_WorkflowApprovalInbox`.
+
+Fields:
+
+- id
+- approval_group_id
+- workflow_definition_id
+- workflow_definition_version_id
+- form_id
+- record_id
+- approval_step_key
+- approval_step_name
+- mode
+- transition_key
+- transition_name
+- from_state_key
+- to_state_key
+- status: pending, approved, rejected, canceled
+- assigned_to_user_id
+- requested_by_id nullable
+- responded_by_id nullable
+- responded_at nullable
+- comment nullable
+- created_by_id
+- created_at
+- updated_by_id
+- updated_at
+
+Indexes:
+
+- approval_group_id
+- assigned_to_user_id + status
+- record_id + transition_key + status
+- workflow_definition_id
+- workflow_definition_version_id
+- form_id
+- requested_by_id
+- responded_by_id
+
+V5 task 004 adds this table for approval-gated workflow transitions. One row is created per resolved active approver so the current-user approval inbox can stay user-scoped. A shared `approval_group_id` links sibling tasks for the same requested transition; approvals and rejections update sibling rows according to `any` or `all` mode.
 
 ### notifications
 

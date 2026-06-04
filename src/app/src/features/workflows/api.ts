@@ -2,8 +2,10 @@ import type {
   CreateWorkflowRequest,
   ExecuteRecordWorkflowTransitionRequest,
   RecordWorkflowState,
+  RespondWorkflowApprovalRequest,
   StartRecordWorkflowRequest,
   UpdateWorkflowRequest,
+  WorkflowApprovalTask,
   WorkflowDetail,
   WorkflowSummary,
   WorkflowValidationError
@@ -134,6 +136,30 @@ export async function executeRecordWorkflowTransition(
   );
 }
 
+export async function listWorkflowApprovals(fetcher: WorkflowsFetcher = defaultFetcher): Promise<WorkflowApprovalTask[]> {
+  return requestItems<WorkflowApprovalTask>(
+    "/api/workflow-approvals",
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function approveWorkflowApproval(
+  approvalTaskId: string,
+  request: RespondWorkflowApprovalRequest = {},
+  fetcher: WorkflowsFetcher = defaultFetcher
+): Promise<WorkflowApprovalTask> {
+  return respondWorkflowApproval(approvalTaskId, "approve", request, fetcher);
+}
+
+export async function rejectWorkflowApproval(
+  approvalTaskId: string,
+  request: RespondWorkflowApprovalRequest = {},
+  fetcher: WorkflowsFetcher = defaultFetcher
+): Promise<WorkflowApprovalTask> {
+  return respondWorkflowApproval(approvalTaskId, "reject", request, fetcher);
+}
+
 async function postWorkflowStateChange(
   workflowId: string,
   action: "publish" | "enable" | "disable",
@@ -147,6 +173,24 @@ async function postWorkflowStateChange(
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ concurrencyStamp })
+    },
+    fetcher
+  );
+}
+
+async function respondWorkflowApproval(
+  approvalTaskId: string,
+  action: "approve" | "reject",
+  request: RespondWorkflowApprovalRequest,
+  fetcher: WorkflowsFetcher
+): Promise<WorkflowApprovalTask> {
+  return requestJson<WorkflowApprovalTask>(
+    `/api/workflow-approvals/${encodeURIComponent(approvalTaskId)}/${action}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
     },
     fetcher
   );

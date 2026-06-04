@@ -26,4 +26,6 @@ test("workflows module exposes the V5 management workspace", () => {
   assert.equal(workflowsModule.id, "app.workflows");
   assert.ok(workflowsModule.routes.some((route) => route.path === "/workflows" && route.permission === "menu.forms"));
   assert.ok(workflowsModule.navigation.some((item) => item.path === "/workflows" && item.label === "Workflows"));
+  assert.ok(workflowsModule.routes.some((route) => route.path === "/workflow-approvals"));
+  assert.ok(workflowsModule.navigation.some((item) => item.path === "/workflow-approvals" && item.label === "Approvals"));
 });

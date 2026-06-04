@@ -108,6 +108,26 @@ public static class RecordWorkflowHistoryActions
 {
     public const string Started = "workflow_started";
     public const string Transitioned = "workflow_transitioned";
+    public const string ApprovalRequested = "workflow_approval_requested";
+    public const string ApprovalApproved = "workflow_approval_approved";
+    public const string ApprovalRejected = "workflow_approval_rejected";
+    public const string ApprovalCanceled = "workflow_approval_canceled";
+}
+
+public static class WorkflowApprovalTaskStatuses
+{
+    public const string Pending = "pending";
+    public const string Approved = "approved";
+    public const string Rejected = "rejected";
+    public const string Canceled = "canceled";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Pending,
+        Approved,
+        Rejected,
+        Canceled
+    };
 }
 
 public sealed record CreateWorkflowDefinitionRequest(
@@ -128,6 +148,8 @@ public sealed record WorkflowStateChangeRequest(string ConcurrencyStamp);
 public sealed record StartRecordWorkflowRequest(Guid WorkflowDefinitionId, string ConcurrencyStamp);
 
 public sealed record ExecuteRecordWorkflowTransitionRequest(string ConcurrencyStamp);
+
+public sealed record RespondWorkflowApprovalRequest(string? Comment = null);
 
 public sealed record WorkflowSummaryDto(
     Guid Id,
@@ -202,6 +224,28 @@ public sealed record RecordWorkflowStateDto(
     IReadOnlyList<RecordWorkflowTransitionDto> AvailableTransitions,
     IReadOnlyList<RecordWorkflowHistoryDto> History,
     string RecordConcurrencyStamp);
+
+public sealed record WorkflowApprovalTaskDto(
+    Guid Id,
+    Guid ApprovalGroupId,
+    Guid WorkflowDefinitionId,
+    Guid WorkflowDefinitionVersionId,
+    Guid FormId,
+    Guid RecordId,
+    string ApprovalStepKey,
+    string ApprovalStepName,
+    string Mode,
+    string TransitionKey,
+    string TransitionName,
+    string FromStateKey,
+    string ToStateKey,
+    string Status,
+    Guid AssignedToUserId,
+    Guid? RequestedById,
+    Guid? RespondedById,
+    DateTimeOffset? RespondedAt,
+    string? Comment,
+    DateTimeOffset CreatedAt);
 
 public sealed record WorkflowValidationError(string Path, string Code, string Message);
 

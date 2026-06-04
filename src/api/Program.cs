@@ -55,6 +55,7 @@ builder.Services.AddScoped<TriggerScheduleService>();
 builder.Services.AddHostedService<TriggerRetryWorker>();
 builder.Services.AddHostedService<TriggerScheduleWorker>();
 builder.Services.AddScoped<WorkflowDefinitionService>();
+builder.Services.AddScoped<WorkflowApprovalService>();
 builder.Services.AddScoped<RecordWorkflowService>();
 builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();

@@ -92,6 +92,10 @@ export type ExecuteRecordWorkflowTransitionRequest = {
   concurrencyStamp: string;
 };
 
+export type RespondWorkflowApprovalRequest = {
+  comment?: string | null;
+};
+
 export interface WorkflowSummary extends AuditedEntityDto, ConcurrencyStampedDto {
   formId: EntityId;
   name: string;
@@ -158,6 +162,31 @@ export type RecordWorkflowState = {
   availableTransitions: RecordWorkflowTransition[];
   history: RecordWorkflowHistory[];
   recordConcurrencyStamp: string;
+};
+
+export type WorkflowApprovalTaskStatus = "pending" | "approved" | "rejected" | "canceled";
+
+export type WorkflowApprovalTask = {
+  id: EntityId;
+  approvalGroupId: EntityId;
+  workflowDefinitionId: EntityId;
+  workflowDefinitionVersionId: EntityId;
+  formId: EntityId;
+  recordId: EntityId;
+  approvalStepKey: string;
+  approvalStepName: string;
+  mode: WorkflowApprovalMode;
+  transitionKey: string;
+  transitionName: string;
+  fromStateKey: string;
+  toStateKey: string;
+  status: WorkflowApprovalTaskStatus;
+  assignedToUserId: EntityId;
+  requestedById?: EntityId | null;
+  respondedById?: EntityId | null;
+  respondedAt?: string | null;
+  comment?: string | null;
+  createdAt: string;
 };
 
 export type WorkflowValidationError = {

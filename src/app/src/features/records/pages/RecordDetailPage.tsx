@@ -416,7 +416,7 @@ function WorkflowPanel({
                     variant="outline"
                   >
                     <MoveRight className="size-4" />
-                    {transition.name}
+                    {transition.requiresApproval ? `Request ${transition.name}` : transition.name}
                   </Button>
                 ))
               ) : (
