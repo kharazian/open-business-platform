@@ -386,7 +386,7 @@ Indexes:
 - is_enabled
 - schedule_next_run_at
 
-`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. V4 task 003 adds current-record field updates through `update_field`. V4 task 005 adds `send_notification`. V4 task 008 adds `create_record`, which stores target form IDs and target field value mappings in `actions_json` and stores source trigger metadata on created records through `records.extra_properties_json`. V4 task 010 adds `call_webhook`, per-trigger retry policy columns, schedule metadata JSON, and due-schedule timestamps. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
+`conditions_json` stores an `all` group of typed condition objects. V4 task 001 supports field equality, field changed, status changed to, department equals, assigned user, and assigned group. `actions_json` stores ordered typed actions. V4 task 001 supports audit entry, send email, change status, and assign record. V4 task 003 adds current-record field updates through `update_field`. V4 task 005 adds `send_notification`. V4 task 008 adds `create_record`, which stores target form IDs and target field value mappings in `actions_json` and stores source trigger metadata on created records through `records.extra_properties_json`. V4 task 010 adds `call_webhook`, per-trigger retry policy columns, schedule metadata JSON, and due-schedule timestamps. V5 task 006 adds `start_workflow`, which stores the target workflow definition id in `actions_json` and writes trigger/action source metadata into workflow history and record audit logs at execution time. Trigger definitions are scoped to one form and are soft-deleted or disabled rather than physically removed while logs exist.
 
 ### trigger_logs
 
@@ -508,7 +508,7 @@ Indexes:
 - form_id
 - created_at
 
-V5 task 003 writes this table for record workflow starts and direct transitions. V5 task 004 also writes approval request, approval response, rejection, cancellation, and approval-completed transition history. V5 task 005 represents transition action attempts in this table with `workflow_action_succeeded` and `workflow_action_failed` actions. Action attempt metadata stores action id, action type, status, error message, started time, completed time, and result details in `metadata_json`; no dedicated workflow action log table was added. Trigger-to-workflow starts remain a future workflow task.
+V5 task 003 writes this table for record workflow starts and direct transitions. V5 task 004 also writes approval request, approval response, rejection, cancellation, and approval-completed transition history. V5 task 005 represents transition action attempts in this table with `workflow_action_succeeded` and `workflow_action_failed` actions. Action attempt metadata stores action id, action type, status, error message, started time, completed time, and result details in `metadata_json`; no dedicated workflow action log table was added. V5 task 006 writes `workflow_started` history for trigger-started workflows with trigger id, trigger log id, action id, event name, and `startedByTrigger` metadata.
 
 ### workflow_approval_tasks
 

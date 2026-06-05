@@ -29,7 +29,8 @@ export const triggerActionTypes = [
   "update_field",
   "send_notification",
   "create_record",
-  "call_webhook"
+  "call_webhook",
+  "start_workflow"
 ] as const;
 export const triggerExecutionStatuses = ["success", "failed", "skipped"] as const;
 export const triggerScheduleKinds = ["once", "daily", "weekly", "monthly"] as const;
@@ -89,6 +90,7 @@ export type TriggerActionDefinition = {
   webhookMethod?: string | null;
   webhookHeaders?: Record<string, string> | null;
   webhookBody?: unknown;
+  workflowDefinitionId?: EntityId | null;
 };
 
 export type TriggerActionValueDefinition = {

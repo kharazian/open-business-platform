@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, and current-user workflow approval inbox APIs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1236,8 +1236,21 @@ Supported action types are:
 - `send_notification`: creates in-app notifications for selected active users and active group members.
 - `create_record`: creates one record in another published target form using typed literal values or source-field references, validates the target record values, writes source trigger metadata on the created record, and does not recursively dispatch triggers.
 - `call_webhook`: sends an HTTP JSON request to an absolute `http` or `https` URL. Non-success responses fail the trigger action and can be retried.
+- `start_workflow`: starts an enabled published same-form workflow with a current version on the current record when no workflow is already active.
 
-Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions.
+Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions. `start_workflow` requires an event record context and is intentionally not supported for scheduled triggers in this slice.
+
+`start_workflow` action payload:
+
+```json
+{
+  "id": "workflow-1",
+  "type": "start_workflow",
+  "workflowDefinitionId": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+The backend validates the referenced workflow before saving the trigger. It must exist, be enabled, be published, belong to the trigger form, and point to a current published version. Execution updates `records.workflow_definition_id`, `records.workflow_definition_version_id`, `records.workflow_state_key`, and `records.status` to the workflow initial state key; writes `workflow_started` history with trigger id, trigger log id, action id, and event name metadata; and writes a `record_workflow_started_by_trigger` audit entry. This trigger path does not dispatch a follow-up `status.changed` trigger event, even though the record status changes, to prevent recursive automation loops. If the record already has active workflow state, the action succeeds as a skip with `workflowStartStatus: "skipped"` and `reason: "record_already_has_active_workflow"`. Invalid execution-time targets fail the action; the trigger log result includes failed action metadata and normal retry handling applies.
 
 ### List triggers
 
@@ -1249,7 +1262,7 @@ Requires form `manage` or `forms.manage_all` access. Response: `200 OK` with `{ 
 
 `POST /api/forms/{formId}/triggers`
 
-Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced source form fields, published target forms for `create_record`, target record values, active assignment targets, active notification recipients, and email/notification action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
+Requires form `manage` or `forms.manage_all` access. The backend validates event names, condition payloads, action payloads, referenced source form fields, published target forms for `create_record`, target record values, enabled/published same-form workflow targets for `start_workflow`, active assignment targets, active notification recipients, and email/notification action requirements before saving. Creating a trigger writes a `trigger_created` audit entry.
 
 Request:
 
@@ -1306,6 +1319,11 @@ Request:
       "webhookHeaders": {
         "X-Source": "open-business-platform"
       }
+    },
+    {
+      "id": "workflow-1",
+      "type": "start_workflow",
+      "workflowDefinitionId": "..."
     }
   ],
   "retryPolicy": {
@@ -1379,7 +1397,7 @@ Record submission dispatches `record.created`. Record edits dispatch `record.upd
 
 ## Workflows V5
 
-Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. V5 task 005 executes supported transition actions after direct or approval-completed transitions. The current workflow implementation does not yet start workflows from triggers or expose a visual builder.
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. V5 task 005 executes supported transition actions after direct or approval-completed transitions. V5 task 006 starts workflows from typed trigger actions. The current workflow implementation does not yet expose a visual builder.
 
 Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
 
@@ -1570,7 +1588,6 @@ Requires authentication and the task must be assigned to the current user. Rejec
 
 The remaining prepared V5 task docs are intentionally not current API guarantees:
 
-- V5 task 006 should define the trigger action contract for starting workflows on current records.
 - V5 task 007 should keep visual-builder APIs aligned with the existing workflow definition create/update/publish endpoints unless layout metadata requires a small extension.
 
 ## API Rules

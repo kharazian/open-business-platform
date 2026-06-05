@@ -15,6 +15,8 @@ import type { FormSummary } from "../../forms/drafts";
 import type { FormSchema } from "../../forms/types";
 import { listDepartments, listGroups, listUsers } from "../../users/api";
 import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
+import { listWorkflows } from "../../workflows/api";
+import type { WorkflowSummary } from "../../workflows/types";
 import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, updateTrigger } from "../api";
 import {
   buildTriggerRequest,
@@ -58,6 +60,7 @@ export function TriggersPage() {
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [authoringSchema, setAuthoringSchema] = useState<FormSchema | null>(null);
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [selectedTriggerId, setSelectedTriggerId] = useState("");
   const [draft, setDraft] = useState<TriggerDraft>(() => createEmptyTriggerDraft());
   const [logs, setLogs] = useState<TriggerExecutionLog[]>([]);
@@ -83,6 +86,7 @@ export function TriggersPage() {
       setFormDetail(null);
       setAuthoringSchema(null);
       setTriggers([]);
+      setWorkflows([]);
       setSelectedTriggerId("");
       setLogs([]);
       setDraft(createEmptyTriggerDraft());
@@ -98,6 +102,7 @@ export function TriggersPage() {
   const activeUsers = users.filter((user) => user.isActive);
   const activeDepartments = departments.filter((department) => department.isActive);
   const activeGroups = groups.filter((group) => group.isActive);
+  const eligibleWorkflows = workflows.filter((workflow) => workflow.isEnabled && workflow.status === "published" && Boolean(workflow.currentVersionId));
   const errorMap = useMemo(() => createValidationErrorMap(validationErrors), [validationErrors]);
   const scheduledEvent = isScheduledTriggerEvent(draft.eventName);
 
@@ -140,17 +145,19 @@ export function TriggersPage() {
     setLogs([]);
 
     try {
-      const [form, triggerItems] = await Promise.all([getForm(formId), listTriggers(formId)]);
+      const [form, triggerItems, workflowItems] = await Promise.all([getForm(formId), listTriggers(formId), listWorkflows(formId)]);
       const schema = await resolveAuthoringSchema(form);
       setFormDetail(form);
       setAuthoringSchema(schema);
       setTriggers(triggerItems);
+      setWorkflows(workflowItems);
       setDraft(createEmptyTriggerDraft(form.name));
     } catch (caught) {
       setError(getErrorMessage(caught));
       setFormDetail(null);
       setAuthoringSchema(null);
       setTriggers([]);
+      setWorkflows([]);
       setDraft(createEmptyTriggerDraft(selectedForm?.name));
     } finally {
       setLoadingWorkspace(false);
@@ -553,6 +560,7 @@ export function TriggersPage() {
                       onTypeChange={(type) => handleActionTypeChange(action, type)}
                       onUpdate={(patch) => updateAction(action.clientId, patch)}
                       users={activeUsers}
+                      workflows={eligibleWorkflows}
                     />
                   ))}
                 </div>
@@ -736,7 +744,8 @@ function ActionEditor({
   onRemove,
   onTypeChange,
   onUpdate,
-  users
+  users,
+  workflows
 }: {
   action: TriggerActionDraft;
   errors: Map<string, string>;
@@ -748,6 +757,7 @@ function ActionEditor({
   onTypeChange: (type: TriggerActionType) => void;
   onUpdate: (patch: Partial<TriggerActionDraft>) => void;
   users: UserDto[];
+  workflows: WorkflowSummary[];
 }) {
   const path = `actions[${index}]`;
 
@@ -758,7 +768,7 @@ function ActionEditor({
           <Select label={`Action ${index + 1}`} onChange={(event) => onTypeChange(event.target.value as TriggerActionType)} options={triggerActionOptions} value={action.type} />
           <Input error={errors.get(`${path}.id`)} label="Action id" onChange={(event) => onUpdate({ id: event.target.value })} value={action.id} />
         </div>
-        <ActionValueEditor action={action} errors={errors} fields={fields} forms={forms} groups={groups} onUpdate={onUpdate} path={path} users={users} />
+        <ActionValueEditor action={action} errors={errors} fields={fields} forms={forms} groups={groups} onUpdate={onUpdate} path={path} users={users} workflows={workflows} />
         <Button aria-label="Remove action" className="self-end" onClick={onRemove} size="icon" variant="ghost">
           <Trash2 className="size-4" />
         </Button>
@@ -775,7 +785,8 @@ function ActionValueEditor({
   groups,
   onUpdate,
   path,
-  users
+  users,
+  workflows
 }: {
   action: TriggerActionDraft;
   errors: Map<string, string>;
@@ -785,6 +796,7 @@ function ActionValueEditor({
   onUpdate: (patch: Partial<TriggerActionDraft>) => void;
   path: string;
   users: UserDto[];
+  workflows: WorkflowSummary[];
 }) {
   if (action.type === "write_audit_entry") {
     return <Textarea error={errors.get(`${path}.message`)} label="Audit message" onChange={(event) => onUpdate({ message: event.target.value })} value={action.message ?? ""} />;
@@ -892,6 +904,19 @@ function ActionValueEditor({
           value={action.webhookHeadersText ?? ""}
         />
       </div>
+    );
+  }
+
+  if (action.type === "start_workflow") {
+    return (
+      <Select error={errors.get(`${path}.workflowDefinitionId`)} label="Workflow" onChange={(event) => onUpdate({ workflowDefinitionId: event.target.value })} value={action.workflowDefinitionId ?? ""}>
+        <option value="">Choose workflow</option>
+        {workflows.map((workflow) => (
+          <option key={workflow.id} value={workflow.id}>
+            {workflow.name} v{workflow.currentVersionNumber ?? 1}
+          </option>
+        ))}
+      </Select>
     );
   }
 

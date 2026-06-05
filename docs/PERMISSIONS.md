@@ -182,9 +182,10 @@ The backend workflow definition APIs validate management through form `manage` a
 
 V5 transition action execution runs only after an authorized direct transition or assigned approval response. Supported workflow transition actions are `write_audit_entry`, `send_email`, `send_notification`, `assign_record`, `update_field`, and `create_record`; `change_status` is rejected so workflow state and `records.status` stay aligned. Record-mutating workflow actions reuse the initiating actor for audit metadata and do not recursively dispatch trigger events.
 
+Trigger-to-workflow starts run through the typed `start_workflow` trigger action boundary. Creating or updating that trigger requires form `manage` or `forms.manage_all` access for the trigger form, and backend validation only accepts enabled, published workflows on the same form with a current version. Execution uses the triggering actor for workflow history and record audit metadata, skips records that already have an active workflow, and does not dispatch recursive `status.changed` trigger events.
+
 Prepared V5 follow-up tasks should keep these rules:
 
-- Trigger-to-workflow starts must run through a typed trigger action boundary and must audit the trigger/action source.
 - The optional visual workflow builder must still use form `manage` or `forms.manage_all` access; graph UI visibility is not a backend authorization substitute.
 
 ## Record-Level Rules Later

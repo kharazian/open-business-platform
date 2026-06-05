@@ -1,6 +1,6 @@
 # Triggers and Workflows
 
-Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, V4 task 006 notification inbox/read state, V4 task 007 notification badges/preferences, V4 task 008 create-record trigger actions, V4 task 009 automatic retry queues, V4 task 010 webhook action/retry policy/scheduled trigger closure, V5 task 001 backend workflow definition foundation, V5 task 002 workflow management UI, V5 task 003 record workflow transition execution, V5 task 004 approval inbox/notifications, and V5 task 005 workflow transition action execution are implemented. V5 task 006 trigger-to-workflow starts and V5 task 007 optional XYFlow workflow builder are prepared as task docs. Incoming webhook listeners, advanced notification delivery, scheduled workflow starts, PDF actions, and custom code remain later tasks.
+Status: V4 task 001 backend trigger foundation, V4 task 002 trigger management UI, V4 task 003 update-field trigger action, V4 task 004 manual retry recovery, V4 task 005 in-app notification action, V4 task 006 notification inbox/read state, V4 task 007 notification badges/preferences, V4 task 008 create-record trigger actions, V4 task 009 automatic retry queues, V4 task 010 webhook action/retry policy/scheduled trigger closure, V5 task 001 backend workflow definition foundation, V5 task 002 workflow management UI, V5 task 003 record workflow transition execution, V5 task 004 approval inbox/notifications, V5 task 005 workflow transition action execution, and V5 task 006 trigger-to-workflow starts are implemented. V5 task 007 optional XYFlow workflow builder is prepared as a task doc. Incoming webhook listeners, advanced notification delivery, scheduled workflow starts, PDF actions, and custom code remain later tasks.
 
 ## Automation North Star
 
@@ -49,6 +49,8 @@ The V4 task 009 reliability slice schedules failed trigger logs for automatic re
 The V4 task 005 action slice adds `send_notification`, which persists in-app notifications for selected active users and active group members. V4 task 006 adds the current-user notification inbox UI, unread count API, mark-one-read API, and mark-all-read API. V4 task 007 adds unread badges and current-user preferences; disabled in-app preferences cause trigger-created notifications to skip that user. V4 task 008 adds `create_record`, which creates one target-form record from literal values and source-record field references without recursive trigger dispatch. V4 task 010 adds `call_webhook`, which sends JSON webhook requests and lets non-success responses fail into the existing retry path. Push delivery, websockets, email fallback, and admin notification management remain future notification-module work.
 
 The V4 task 010 schedule slice adds `schedule.once`, `schedule.daily`, `schedule.weekly`, and `schedule.monthly` events plus a hosted due-schedule worker. In V4, scheduled triggers intentionally support only safe non-record actions: `send_email` and `call_webhook`. Record/workflow scheduled work remains future workflow/integration work.
+
+V5 task 006 adds a typed `start_workflow` trigger action for current-record trigger events. The action validates an enabled, published, same-form workflow with a current published version. On execution, it starts the workflow only when the record has no active workflow, writes workflow history plus a `record_workflow_started_by_trigger` audit entry, and includes `workflowStartStatus` metadata in trigger logs. Duplicate active workflows are treated as a successful skip with reason `record_already_has_active_workflow`; invalid targets fail the trigger action and can use the existing retry path. To prevent recursive automation loops, trigger-started workflow status changes do not dispatch `status.changed` trigger events in this path.
 
 Trigger structure:
 
@@ -100,7 +102,7 @@ then execute actions.
 - Add comment
 - Call API/webhook
 - Generate PDF later
-- Start workflow later
+- Start workflow
 - Start another trigger/action chain later
 
 ## Scheduled Trigger Model
@@ -178,12 +180,11 @@ Workflows should use the same validation, permission, audit, notification, and a
 
 The V5 task 001 backend foundation stores form-scoped workflow definitions, editable draft configs, immutable published workflow versions, and a workflow history table for future record transition execution. Management APIs support list, create, read, update, publish, enable, and disable operations with form `manage` permission checks and workflow mutation audit logs.
 
-The first workflow slices are intentionally table/form based. The backend validates typed states, transitions, approval steps, assignee rules, and optional transition actions. The frontend `/workflows` workspace manages form-scoped workflow definitions with JSON-backed config editing plus list, create, edit, publish, enable, and disable operations. V5 task 003 lets record detail users with scoped `change_status` access start an enabled published workflow and execute direct transitions. Direct transitions update the record workflow state, update `records.status` to the workflow state key, write workflow history/audit, and dispatch status-changed trigger events. V5 task 004 adds approval-gated transitions, current-user approval tasks, in-app notifications for assignees, any/all approval modes, rejection cancellation, approval history, and approval audit logs. V5 task 005 executes supported transition actions after direct or approval-completed transitions and represents each attempt in workflow history metadata. The prepared next V5 tasks are trigger-to-workflow starts and an optional XYFlow workflow builder. Advanced workflow notification delivery, incoming webhook listeners, scheduled workflow starts, PDF actions, and custom code remain future work.
+The first workflow slices are intentionally table/form based. The backend validates typed states, transitions, approval steps, assignee rules, and optional transition actions. The frontend `/workflows` workspace manages form-scoped workflow definitions with JSON-backed config editing plus list, create, edit, publish, enable, and disable operations. V5 task 003 lets record detail users with scoped `change_status` access start an enabled published workflow and execute direct transitions. Direct transitions update the record workflow state, update `records.status` to the workflow state key, write workflow history/audit, and dispatch status-changed trigger events. V5 task 004 adds approval-gated transitions, current-user approval tasks, in-app notifications for assignees, any/all approval modes, rejection cancellation, approval history, and approval audit logs. V5 task 005 executes supported transition actions after direct or approval-completed transitions and represents each attempt in workflow history metadata. V5 task 006 lets trigger actions start eligible workflows without dispatching recursive status-changed triggers. The prepared next V5 task is an optional XYFlow workflow builder. Advanced workflow notification delivery, incoming webhook listeners, scheduled workflow starts, PDF actions, and custom code remain future work.
 
 Recommended V5 completion order:
 
-1. Add trigger-to-workflow starts through a typed trigger action boundary.
-2. Add the optional XYFlow visual workflow builder over the existing typed config.
+1. Add the optional XYFlow visual workflow builder over the existing typed config.
 
 ## Workflow States
 

@@ -3,6 +3,7 @@ import { test } from "vitest";
 import {
   buildTriggerRequest,
   createEmptyTriggerDraft,
+  createTriggerActionDraft,
   createTriggerDraftFromDetail,
   formatTriggerEventLabel,
   formatTriggerJson,
@@ -68,6 +69,12 @@ test("trigger builder creates and validates normalized trigger requests", () => 
         webhookUrl: " https://hooks.example.test/records ",
         webhookMethod: "post",
         webhookHeadersText: '{ "X-Source": "open-business-platform" }'
+      },
+      {
+        clientId: "action-8",
+        id: "workflow-1",
+        type: "start_workflow",
+        workflowDefinitionId: "workflow-1"
       }
     ]
   });
@@ -95,6 +102,7 @@ test("trigger builder creates and validates normalized trigger requests", () => 
   assert.equal(request.actions[6].webhookUrl, "https://hooks.example.test/records");
   assert.equal(request.actions[6].webhookMethod, "POST");
   assert.deepEqual(request.actions[6].webhookHeaders, { "X-Source": "open-business-platform" });
+  assert.equal(request.actions[7].workflowDefinitionId, "workflow-1");
   assert.deepEqual(request.retryPolicy, { isEnabled: true, maxAttempts: 3, delaySeconds: 60 });
   assert.equal(request.schedule, null);
 });
@@ -232,6 +240,55 @@ test("trigger builder validates create record action requirements", () => {
   assert.equal(invalid.valid, false);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].targetFormId"), true);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].values"), true);
+});
+
+test("trigger builder validates and serializes workflow start actions", () => {
+  const draft = createEmptyTriggerDraft("Employee form");
+  const action = createTriggerActionDraft("start_workflow", 42);
+
+  assert.equal(action.type, "start_workflow");
+  assert.equal(action.workflowDefinitionId, "");
+
+  const invalid = validateTriggerDraft({
+    ...draft,
+    actions: [{ clientId: "workflow-1", id: "workflow-1", type: "start_workflow", workflowDefinitionId: "" }]
+  });
+
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.errors.some((error) => error.path === "actions[0].workflowDefinitionId"), true);
+
+  const request = buildTriggerRequest({
+    ...draft,
+    actions: [{ clientId: "workflow-1", id: "workflow-1", type: "start_workflow", workflowDefinitionId: "workflow-1" }]
+  });
+
+  assert.deepEqual(request.actions[0], {
+    id: "workflow-1",
+    type: "start_workflow",
+    workflowDefinitionId: "workflow-1"
+  });
+
+  const mapped = createTriggerDraftFromDetail({
+    id: "trigger-1",
+    formId: "form-1",
+    name: "Start workflow",
+    description: null,
+    eventName: "record.created",
+    conditions: { mode: "all", conditions: [] },
+    actions: [{ id: "workflow-1", type: "start_workflow", workflowDefinitionId: "workflow-1" }],
+    isEnabled: true,
+    retryPolicy: { isEnabled: true, maxAttempts: 3, delaySeconds: 60 },
+    schedule: null,
+    scheduleNextRunAt: null,
+    scheduleLastRunAt: null,
+    concurrencyStamp: "stamp-1",
+    createdAt: "2026-06-05T12:00:00.000Z",
+    createdById: null,
+    updatedAt: null,
+    updatedById: null
+  });
+
+  assert.equal(mapped.actions[0].workflowDefinitionId, "workflow-1");
 });
 
 test("trigger builder formats labels, statuses, and JSON details", () => {

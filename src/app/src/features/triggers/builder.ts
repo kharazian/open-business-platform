@@ -59,6 +59,7 @@ export type TriggerActionDraft = {
   webhookUrl?: string;
   webhookMethod?: string;
   webhookHeadersText?: string;
+  workflowDefinitionId?: EntityId;
 };
 
 export type TriggerDraft = {
@@ -109,7 +110,8 @@ export const triggerActionOptions: Array<{ label: string; value: TriggerActionTy
   { label: "Update field", value: "update_field" },
   { label: "Send notification", value: "send_notification" },
   { label: "Create record", value: "create_record" },
-  { label: "Call webhook", value: "call_webhook" }
+  { label: "Call webhook", value: "call_webhook" },
+  { label: "Start workflow", value: "start_workflow" }
 ];
 
 export const defaultTriggerRetryPolicy: TriggerRetryPolicyDefinition = {
@@ -179,7 +181,8 @@ export function createTriggerActionDraft(type: TriggerActionType = "write_audit_
     valueMappingsText: type === "create_record" ? "{\n  \"field_id\": { \"literal\": \"value\" }\n}" : "",
     webhookUrl: "",
     webhookMethod: "POST",
-    webhookHeadersText: type === "call_webhook" ? "{}" : ""
+    webhookHeadersText: type === "call_webhook" ? "{}" : "",
+    workflowDefinitionId: ""
   };
 }
 
@@ -383,6 +386,10 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
       }
     }
 
+    if (action.type === "start_workflow" && !action.workflowDefinitionId) {
+      errors.push(error(`${path}.workflowDefinitionId`, "trigger.action.workflow_required", "Choose the workflow to start."));
+    }
+
     if (isScheduledTriggerEvent(draft.eventName) && action.type !== "send_email" && action.type !== "call_webhook") {
       errors.push(error(`${path}.type`, "trigger.schedule.action_type", "Scheduled triggers support email and webhook actions."));
     }
@@ -494,7 +501,8 @@ function createActionDraftFromDefinition(action: TriggerActionDefinition, index:
     valueMappingsText: formatValueMappingsText(action.values),
     webhookUrl: action.webhookUrl ?? "",
     webhookMethod: action.webhookMethod ?? "POST",
-    webhookHeadersText: formatWebhookHeadersText(action.webhookHeaders)
+    webhookHeadersText: formatWebhookHeadersText(action.webhookHeaders),
+    workflowDefinitionId: action.workflowDefinitionId ?? ""
   };
 }
 
@@ -574,6 +582,10 @@ function buildAction(action: TriggerActionDraft): TriggerActionDefinition {
       webhookMethod: normalizeWebhookMethod(action.webhookMethod),
       webhookHeaders: parseWebhookHeaders(action.webhookHeadersText) ?? {}
     };
+  }
+
+  if (action.type === "start_workflow") {
+    return { ...base, workflowDefinitionId: action.workflowDefinitionId || null };
   }
 
   return {

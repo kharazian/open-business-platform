@@ -62,7 +62,8 @@ public sealed class TriggerDefinitionService
         var activeUserIds = await GetActiveUserIdsAsync(cancellationToken);
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
         var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms);
+        var workflowStartTargets = await GetWorkflowStartTargetsAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, form.Id);
 
         if (!validation.Valid)
         {
@@ -128,7 +129,8 @@ public sealed class TriggerDefinitionService
         var activeUserIds = await GetActiveUserIdsAsync(cancellationToken);
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
         var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms);
+        var workflowStartTargets = await GetWorkflowStartTargetsAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, trigger.Form.Id);
 
         if (!validation.Valid)
         {
@@ -266,6 +268,35 @@ public sealed class TriggerDefinitionService
             .Where(item => item.Schema is not null)
             .Select(item => new TriggerTargetFormSchema(item.Id, item.FormVersionId, item.Schema!))
             .ToArray();
+    }
+
+    private async Task<IReadOnlyCollection<TriggerWorkflowStartTarget>> GetWorkflowStartTargetsAsync(
+        IReadOnlyList<TriggerActionDefinition>? actions,
+        CancellationToken cancellationToken)
+    {
+        var workflowIds = TriggerDefinitionValidator.NormalizeActions(actions)
+            .Where(action => string.Equals(action.Type, TriggerActionTypes.StartWorkflow, StringComparison.Ordinal))
+            .Select(action => action.WorkflowDefinitionId)
+            .Where(id => id is not null && id != Guid.Empty)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (workflowIds.Length == 0)
+        {
+            return Array.Empty<TriggerWorkflowStartTarget>();
+        }
+
+        return await dbContext.Workflows
+            .AsNoTracking()
+            .Where(workflow => workflowIds.Contains(workflow.Id) && !workflow.IsDeleted)
+            .Select(workflow => new TriggerWorkflowStartTarget(
+                workflow.Id,
+                workflow.FormId,
+                workflow.IsEnabled,
+                workflow.Status,
+                workflow.CurrentVersionId))
+            .ToArrayAsync(cancellationToken);
     }
 
     private void AddAudit(Guid triggerId, string action, Guid? userId)

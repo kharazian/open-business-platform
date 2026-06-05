@@ -1,4 +1,6 @@
+using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Workflows;
 
 namespace OpenBusinessPlatform.Api.Modules.Triggers;
 
@@ -31,6 +33,34 @@ public static class TriggerDefinitionValidator
             activeUserIds,
             activeGroupIds,
             targetForms,
+            Array.Empty<TriggerWorkflowStartTarget>(),
+            sourceFormId: null,
+            requireConcurrencyStamp: false,
+            concurrencyStamp: null);
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        CreateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        Guid sourceFormId)
+    {
+        return Validate(
+            schema,
+            request.Name,
+            request.EventName,
+            request.Conditions,
+            request.Actions,
+            request.RetryPolicy,
+            request.Schedule,
+            activeUserIds,
+            activeGroupIds,
+            targetForms,
+            workflowStartTargets,
+            sourceFormId,
             requireConcurrencyStamp: false,
             concurrencyStamp: null);
     }
@@ -62,6 +92,34 @@ public static class TriggerDefinitionValidator
             activeUserIds,
             activeGroupIds,
             targetForms,
+            Array.Empty<TriggerWorkflowStartTarget>(),
+            sourceFormId: null,
+            requireConcurrencyStamp: true,
+            concurrencyStamp: request.ConcurrencyStamp);
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        UpdateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        Guid sourceFormId)
+    {
+        return Validate(
+            schema,
+            request.Name,
+            request.EventName,
+            request.Conditions,
+            request.Actions,
+            request.RetryPolicy,
+            request.Schedule,
+            activeUserIds,
+            activeGroupIds,
+            targetForms,
+            workflowStartTargets,
+            sourceFormId,
             requireConcurrencyStamp: true,
             concurrencyStamp: request.ConcurrencyStamp);
     }
@@ -144,6 +202,8 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds,
         IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        Guid? sourceFormId,
         bool requireConcurrencyStamp,
         string? concurrencyStamp)
     {
@@ -174,7 +234,7 @@ public static class TriggerDefinitionValidator
         ValidateRetryPolicy(normalizedRetryPolicy, errors);
         ValidateSchedule(normalizedEventName, normalizedSchedule, normalizedConditions, normalizedActions, errors);
         ValidateConditions(normalizedConditions, fieldIds, errors);
-        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, errors);
+        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, sourceFormId, errors);
 
         return new TriggerValidationResult(errors);
     }
@@ -325,6 +385,8 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeUserIds,
         IReadOnlyCollection<Guid> activeGroupIds,
         IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        Guid? sourceFormId,
         List<TriggerValidationError> errors)
     {
         if (actions.Count == 0)
@@ -406,7 +468,49 @@ public static class TriggerDefinitionValidator
                 case TriggerActionTypes.CallWebhook:
                     ValidateWebhookAction(action, path, errors);
                     break;
+                case TriggerActionTypes.StartWorkflow:
+                    ValidateStartWorkflowAction(action, workflowStartTargets, sourceFormId, path, errors);
+                    break;
             }
+        }
+    }
+
+    private static void ValidateStartWorkflowAction(
+        TriggerActionDefinition action,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        Guid? sourceFormId,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        if (action.WorkflowDefinitionId is null || action.WorkflowDefinitionId == Guid.Empty)
+        {
+            errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_required", "Start workflow action requires a published workflow."));
+            return;
+        }
+
+        var workflow = workflowStartTargets.FirstOrDefault(candidate => candidate.WorkflowDefinitionId == action.WorkflowDefinitionId.Value);
+
+        if (workflow is null)
+        {
+            errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_missing", "Workflow target was not found."));
+            return;
+        }
+
+        if (sourceFormId is not null && workflow.FormId != sourceFormId.Value)
+        {
+            errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_form", "Workflow target must belong to the same form as the trigger."));
+        }
+
+        if (!workflow.IsEnabled)
+        {
+            errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_disabled", "Workflow target must be enabled."));
+        }
+
+        if (!string.Equals(workflow.Status, WorkflowDefinitionStatuses.Published, StringComparison.Ordinal)
+            || workflow.CurrentVersionId is null
+            || workflow.CurrentVersionId == Guid.Empty)
+        {
+            errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_published", "Workflow target must be published with a current version."));
         }
     }
 

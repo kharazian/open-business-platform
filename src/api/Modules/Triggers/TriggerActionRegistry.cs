@@ -5,6 +5,7 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Notifications;
+using OpenBusinessPlatform.Api.Modules.Workflows;
 
 namespace OpenBusinessPlatform.Api.Modules.Triggers;
 
@@ -42,6 +43,7 @@ public sealed class TriggerActionRegistry
             TriggerActionTypes.SendNotification => await ExecuteSendNotificationAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.CreateRecord => await ExecuteCreateRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.CallWebhook => await ExecuteCallWebhookAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.StartWorkflow => await ExecuteStartWorkflowAsync(action, context, triggerId, triggerLogId, cancellationToken),
             _ => throw new InvalidOperationException($"Trigger action type '{action.Type}' is not supported.")
         };
     }
@@ -309,6 +311,98 @@ public sealed class TriggerActionRegistry
             ("responseBody", Truncate(responseBody, 2000)));
     }
 
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteStartWorkflowAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        if (action.WorkflowDefinitionId is null || action.WorkflowDefinitionId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Start workflow action workflow definition id is required.");
+        }
+
+        if (context.RecordId == Guid.Empty || TriggerEvents.IsScheduled(context.EventName))
+        {
+            throw new InvalidOperationException("Start workflow actions require a current record context.");
+        }
+
+        var record = await LoadRecordAsync(context.RecordId, cancellationToken);
+
+        if (record.FormId != context.FormId)
+        {
+            throw new InvalidOperationException("Start workflow action record form does not match the trigger context.");
+        }
+
+        if (record.WorkflowDefinitionId is not null
+            || record.WorkflowDefinitionVersionId is not null
+            || !string.IsNullOrWhiteSpace(record.WorkflowStateKey))
+        {
+            return Result(
+                action,
+                ("workflowStartStatus", TriggerWorkflowStartResultStatuses.Skipped),
+                ("reason", TriggerWorkflowStartSkipReasons.RecordAlreadyHasActiveWorkflow),
+                ("recordId", record.Id),
+                ("workflowDefinitionId", record.WorkflowDefinitionId),
+                ("workflowDefinitionVersionId", record.WorkflowDefinitionVersionId),
+                ("stateKey", record.WorkflowStateKey));
+        }
+
+        var workflow = await dbContext.Workflows
+            .Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == action.WorkflowDefinitionId.Value && !candidate.IsDeleted, cancellationToken)
+            ?? throw new InvalidOperationException("Workflow target was not found.");
+
+        if (workflow.FormId != record.FormId)
+        {
+            throw new InvalidOperationException("Workflow target belongs to a different form.");
+        }
+
+        if (!workflow.IsEnabled)
+        {
+            throw new InvalidOperationException("Workflow target is disabled.");
+        }
+
+        if (!string.Equals(workflow.Status, WorkflowDefinitionStatuses.Published, StringComparison.Ordinal)
+            || workflow.CurrentVersionId is null
+            || workflow.CurrentVersion is null)
+        {
+            throw new InvalidOperationException("Workflow target has no current published version.");
+        }
+
+        var version = workflow.CurrentVersion;
+        var config = version.ConfigJson.RootElement.Deserialize<WorkflowDefinitionConfig>(JsonOptions)
+            ?? throw new InvalidOperationException("Workflow target config was not found.");
+        config = WorkflowDefinitionValidator.NormalizeConfig(config);
+        var initialState = config.States.FirstOrDefault(state => string.Equals(state.Key, config.InitialStateKey, StringComparison.Ordinal));
+
+        if (initialState is null)
+        {
+            throw new InvalidOperationException("Workflow target initial state was not found.");
+        }
+
+        var previousStatus = record.Status;
+        record.WorkflowDefinitionId = workflow.Id;
+        record.WorkflowDefinitionVersionId = version.Id;
+        record.WorkflowStateKey = config.InitialStateKey;
+        record.Status = config.InitialStateKey;
+        record.UpdatedById = context.ActorUserId;
+
+        AddWorkflowStartedHistory(record, workflow, version, config.InitialStateKey, context, triggerId, triggerLogId, action.Id);
+        AddWorkflowStartedAudit(record, previousStatus, context, triggerId, triggerLogId, action.Id);
+
+        return Result(
+            action,
+            ("workflowStartStatus", TriggerWorkflowStartResultStatuses.Started),
+            ("recordId", record.Id),
+            ("workflowDefinitionId", workflow.Id),
+            ("workflowDefinitionVersionId", version.Id),
+            ("previousStatus", previousStatus),
+            ("stateKey", config.InitialStateKey),
+            ("dispatchStatusChanged", false));
+    }
+
     private async Task<NotificationRecipientResolution> ResolveNotificationRecipientsAsync(
         TriggerActionDefinition action,
         CancellationToken cancellationToken)
@@ -468,6 +562,82 @@ public sealed class TriggerActionRegistry
                 triggerLogId,
                 actionId,
                 sourceRecordId
+            }, JsonOptions)
+        });
+    }
+
+    private void AddWorkflowStartedHistory(
+        FormRecord record,
+        WorkflowDefinition workflow,
+        WorkflowDefinitionVersion version,
+        string initialStateKey,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId)
+    {
+        dbContext.WorkflowHistory.Add(new WorkflowHistoryEntry
+        {
+            Id = Guid.NewGuid(),
+            WorkflowDefinitionId = workflow.Id,
+            WorkflowDefinitionVersionId = version.Id,
+            FormId = record.FormId,
+            RecordId = record.Id,
+            FromStateKey = null,
+            ToStateKey = initialStateKey,
+            TransitionKey = null,
+            Action = RecordWorkflowHistoryActions.Started,
+            ActorUserId = context.ActorUserId,
+            CreatedById = context.ActorUserId,
+            MetadataJson = JsonSerializer.SerializeToDocument(new
+            {
+                workflow.Name,
+                version.VersionNumber,
+                startedByTrigger = true,
+                triggerId,
+                triggerLogId,
+                actionId,
+                context.EventName
+            }, JsonOptions)
+        });
+    }
+
+    private void AddWorkflowStartedAudit(
+        FormRecord record,
+        string previousStatus,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        string actionId)
+    {
+        dbContext.AuditLogs.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "Record",
+            EntityId = record.Id,
+            Action = "record_workflow_started_by_trigger",
+            UserId = context.ActorUserId,
+            BeforeJson = SerializeNullable(new
+            {
+                Status = previousStatus
+            }),
+            AfterJson = SerializeNullable(new
+            {
+                Status = record.Status,
+                WorkflowDefinitionId = record.WorkflowDefinitionId,
+                WorkflowDefinitionVersionId = record.WorkflowDefinitionVersionId,
+                WorkflowStateKey = record.WorkflowStateKey
+            }),
+            MetadataJson = JsonSerializer.SerializeToDocument(new
+            {
+                triggerId,
+                triggerLogId,
+                actionId,
+                context.EventName,
+                WorkflowDefinitionId = record.WorkflowDefinitionId,
+                WorkflowDefinitionVersionId = record.WorkflowDefinitionVersionId,
+                StateKey = record.WorkflowStateKey,
+                dispatchStatusChanged = false
             }, JsonOptions)
         });
     }

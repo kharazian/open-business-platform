@@ -30,8 +30,9 @@
 - `/workflows` frontend management UI exists for form-scoped workflow definition list/create/edit/publish/enable/disable operations over JSON-backed configs.
 - Record workflow start/direct transition execution and current-user approval inbox execution exist.
 - Workflow transition action execution exists for the safe V5 action subset.
+- Trigger actions can start eligible published workflows on current records without recursive automation loops.
 
-Next: continue V5 with `tasks/v5/006-trigger-to-workflow-starts.md`.
+Next: continue V5 with `tasks/v5/007-visual-workflow-builder.md`.
 
 ## Product Engine Path
 
@@ -178,10 +179,10 @@ Implemented foundation:
 - Record workflow transition execution
 - Approval inbox and in-app approval notifications
 - Workflow transition action execution
+- Trigger-to-workflow starts
 
 Prepared V5 follow-up tasks:
 
-- `tasks/v5/006-trigger-to-workflow-starts.md` - trigger actions that start eligible published workflows on records without recursive automation loops.
 - `tasks/v5/007-visual-workflow-builder.md` - optional XYFlow visual workflow builder over the existing typed config.
 
 ## V6: Print Templates and PDF

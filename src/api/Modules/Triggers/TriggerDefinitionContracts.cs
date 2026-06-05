@@ -73,6 +73,7 @@ public static class TriggerActionTypes
     public const string SendNotification = "send_notification";
     public const string CreateRecord = "create_record";
     public const string CallWebhook = "call_webhook";
+    public const string StartWorkflow = "start_workflow";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -83,7 +84,8 @@ public static class TriggerActionTypes
         UpdateField,
         SendNotification,
         CreateRecord,
-        CallWebhook
+        CallWebhook,
+        StartWorkflow
     };
 
     public static IReadOnlySet<string> ScheduledSupported { get; } = new HashSet<string>(StringComparer.Ordinal)
@@ -126,6 +128,18 @@ public static class TriggerExecutionStatuses
     public const string Success = "success";
     public const string Failed = "failed";
     public const string Skipped = "skipped";
+}
+
+public static class TriggerWorkflowStartResultStatuses
+{
+    public const string Started = "started";
+    public const string Skipped = "skipped";
+    public const string Failed = "failed";
+}
+
+public static class TriggerWorkflowStartSkipReasons
+{
+    public const string RecordAlreadyHasActiveWorkflow = "record_already_has_active_workflow";
 }
 
 public sealed record TriggerRetryMetadata(Guid SourceLogId);
@@ -173,7 +187,8 @@ public sealed record TriggerActionDefinition(
     string? WebhookUrl = null,
     string? WebhookMethod = null,
     IReadOnlyDictionary<string, string>? WebhookHeaders = null,
-    object? WebhookBody = null);
+    object? WebhookBody = null,
+    Guid? WorkflowDefinitionId = null);
 
 public sealed record TriggerActionValueDefinition(
     object? Literal = null,
@@ -183,6 +198,13 @@ public sealed record TriggerTargetFormSchema(
     Guid FormId,
     Guid FormVersionId,
     FormSchemaDefinition Schema);
+
+public sealed record TriggerWorkflowStartTarget(
+    Guid WorkflowDefinitionId,
+    Guid FormId,
+    bool IsEnabled,
+    string Status,
+    Guid? CurrentVersionId);
 
 public sealed record CreateTriggerRequest(
     string Name,

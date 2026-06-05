@@ -437,6 +437,25 @@ var validWebhookActions = new[]
         WebhookMethod: "post",
         WebhookHeaders: new Dictionary<string, string> { ["X-Source"] = "open-business-platform" })
 };
+var sourceTriggerFormId = Guid.Parse("99999999-0000-0000-0000-000000000001");
+var workflowStartDefinitionId = Guid.Parse("99999999-0000-0000-0000-000000000002");
+var workflowStartVersionId = Guid.Parse("99999999-0000-0000-0000-000000000003");
+var validStartWorkflowActions = new[]
+{
+    new TriggerActionDefinition(
+        "workflow-1",
+        TriggerActionTypes.StartWorkflow,
+        WorkflowDefinitionId: workflowStartDefinitionId)
+};
+var validWorkflowStartTargets = new[]
+{
+    new TriggerWorkflowStartTarget(
+        workflowStartDefinitionId,
+        sourceTriggerFormId,
+        IsEnabled: true,
+        Status: WorkflowDefinitionStatuses.Published,
+        CurrentVersionId: workflowStartVersionId)
+};
 var validTriggerRetryPolicy = new TriggerRetryPolicyDefinition(true, 4, 120);
 var validDailySchedule = new TriggerScheduleDefinition(TriggerScheduleKinds.Daily, "Etc/UTC", DateTimeOffset.Parse("2026-06-04T12:00:00Z"));
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
@@ -447,6 +466,8 @@ AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField)
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.SendNotification), "Trigger actions should include send_notification.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CreateRecord), "Trigger actions should include create_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CallWebhook), "Trigger actions should include call_webhook.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.StartWorkflow), "Trigger actions should include start_workflow.");
+AssertFalse(TriggerActionTypes.ScheduledSupported.Contains(TriggerActionTypes.StartWorkflow), "Scheduled triggers should not support record-context workflow starts.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -483,6 +504,80 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A valid call_webhook action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Start approval workflow", null, TriggerEvents.RecordCreated, validTriggerConditions, validStartWorkflowActions, true, validTriggerRetryPolicy, null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        validWorkflowStartTargets,
+        sourceTriggerFormId).Valid,
+    "A valid start_workflow action should pass validation.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Missing workflow target", null, TriggerEvents.RecordCreated, validTriggerConditions, new[] { new TriggerActionDefinition("workflow-1", TriggerActionTypes.StartWorkflow) }, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        validWorkflowStartTargets,
+        sourceTriggerFormId).Valid,
+    "Validation should reject start_workflow actions without a workflow target.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Disabled workflow target", null, TriggerEvents.RecordCreated, validTriggerConditions, validStartWorkflowActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        new[]
+        {
+            new TriggerWorkflowStartTarget(
+                workflowStartDefinitionId,
+                sourceTriggerFormId,
+                IsEnabled: false,
+                Status: WorkflowDefinitionStatuses.Published,
+                CurrentVersionId: workflowStartVersionId)
+        },
+        sourceTriggerFormId).Valid,
+    "Validation should reject disabled workflow targets.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Draft workflow target", null, TriggerEvents.RecordCreated, validTriggerConditions, validStartWorkflowActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        new[]
+        {
+            new TriggerWorkflowStartTarget(
+                workflowStartDefinitionId,
+                sourceTriggerFormId,
+                IsEnabled: true,
+                Status: WorkflowDefinitionStatuses.Draft,
+                CurrentVersionId: null)
+        },
+        sourceTriggerFormId).Valid,
+    "Validation should reject draft workflow targets.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Wrong form workflow target", null, TriggerEvents.RecordCreated, validTriggerConditions, validStartWorkflowActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        new[]
+        {
+            new TriggerWorkflowStartTarget(
+                workflowStartDefinitionId,
+                Guid.Parse("99999999-0000-0000-0000-000000000004"),
+                IsEnabled: true,
+                Status: WorkflowDefinitionStatuses.Published,
+                CurrentVersionId: workflowStartVersionId)
+        },
+        sourceTriggerFormId).Valid,
+    "Validation should reject workflow targets from a different source form.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -856,6 +951,10 @@ AssertEqual(RecordWorkflowHistoryActions.Started, "workflow_started", "Record wo
 AssertEqual(RecordWorkflowHistoryActions.Transitioned, "workflow_transitioned", "Record workflow history should expose a stable transition action.");
 AssertEqual(RecordWorkflowHistoryActions.ActionSucceeded, "workflow_action_succeeded", "Workflow history should expose successful action attempts.");
 AssertEqual(RecordWorkflowHistoryActions.ActionFailed, "workflow_action_failed", "Workflow history should expose failed action attempts.");
+AssertEqual(TriggerWorkflowStartResultStatuses.Started, "started", "Workflow-start trigger results should expose a stable started status.");
+AssertEqual(TriggerWorkflowStartResultStatuses.Skipped, "skipped", "Workflow-start trigger results should expose a stable skipped status.");
+AssertEqual(TriggerWorkflowStartResultStatuses.Failed, "failed", "Workflow-start trigger results should expose a stable failed status.");
+AssertEqual(TriggerWorkflowStartSkipReasons.RecordAlreadyHasActiveWorkflow, "record_already_has_active_workflow", "Workflow-start trigger skips should identify active workflow duplicates.");
 var startWorkflowRequest = new StartRecordWorkflowRequest(Guid.Parse("99999999-9999-9999-9999-999999999999"), "record-stamp");
 AssertEqual("record-stamp", startWorkflowRequest.ConcurrencyStamp, "Record workflow starts should require record concurrency stamps.");
 var executeWorkflowTransitionRequest = new ExecuteRecordWorkflowTransitionRequest("record-stamp-2");
@@ -1057,6 +1156,12 @@ AssertNotNull(typeof(TriggerDefinitionService).GetMethod(nameof(TriggerDefinitio
 AssertTypeAssignable<IPlatformApiModule, TriggersModule>();
 AssertTrue(new TriggersModule().Id == "app.triggers", "Trigger module should expose a stable module id.");
 AssertNotNull(typeof(TriggerActionRegistry).GetMethod(nameof(TriggerActionRegistry.ExecuteAsync)), "Trigger action registry should execute approved actions.");
+AssertNotNull(
+    typeof(TriggerActionRegistry).GetMethod("ExecuteStartWorkflowAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance),
+    "Trigger action registry should execute workflow-start trigger actions.");
+AssertNotNull(
+    typeof(TriggerExecutionService).GetMethod("BuildFailedActionResult", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static),
+    "Trigger execution service should include failed action metadata in trigger log results.");
 var notificationPreferenceFilter = typeof(TriggerActionRegistry).GetMethod(
     "ExcludeDisabledNotificationRecipients",
     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);

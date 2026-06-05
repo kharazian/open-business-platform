@@ -38,19 +38,19 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Trigger definitions support a typed `start_workflow` action.
-- [ ] Backend validation rejects missing, disabled, unpublished, wrong-form, or draft workflow targets.
-- [ ] Trigger execution can start a workflow on the current record and write workflow history.
-- [ ] Trigger logs include workflow start result metadata.
-- [ ] Existing retry behavior records failed workflow start actions without duplicating active workflows.
-- [ ] Recursive trigger/workflow loops are prevented and documented.
-- [ ] Frontend trigger builder can configure the workflow-start action.
-- [ ] Documentation is updated for API contracts, data model notes, permissions, and automation behavior.
-- [ ] Relevant tests/builds are run.
+- [x] Trigger definitions support a typed `start_workflow` action.
+- [x] Backend validation rejects missing, disabled, unpublished, wrong-form, or draft workflow targets.
+- [x] Trigger execution can start a workflow on the current record and write workflow history.
+- [x] Trigger logs include workflow start result metadata.
+- [x] Existing retry behavior records failed workflow start actions without duplicating active workflows.
+- [x] Recursive trigger/workflow loops are prevented and documented.
+- [x] Frontend trigger builder can configure the workflow-start action.
+- [x] Documentation is updated for API contracts, data model notes, permissions, and automation behavior.
+- [x] Relevant tests/builds are run.
 
 ## Current Status
 
-Not started. This should follow V5 task 005 so trigger-started workflows can reuse the same transition/action execution assumptions.
+Completed. Trigger-started workflows use a typed `start_workflow` action, validate enabled published same-form workflows with current versions, skip records that already have active workflow state, write workflow history/audit with trigger/action metadata, and do not dispatch recursive `status.changed` trigger events in this path.
 
 ## Out of Scope
 

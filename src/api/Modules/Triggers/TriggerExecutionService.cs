@@ -158,7 +158,15 @@ public sealed class TriggerExecutionService
         {
             foreach (var action in DeserializeActions(trigger.ActionsJson))
             {
-                actionResults.Add(await actionRegistry.ExecuteAsync(action, context, trigger.Id, log.Id, cancellationToken));
+                try
+                {
+                    actionResults.Add(await actionRegistry.ExecuteAsync(action, context, trigger.Id, log.Id, cancellationToken));
+                }
+                catch (Exception actionException)
+                {
+                    actionResults.Add(BuildFailedActionResult(action, actionException));
+                    throw;
+                }
             }
 
             log.Status = TriggerExecutionStatuses.Success;
@@ -264,6 +272,25 @@ public sealed class TriggerExecutionService
         return retryOfLogId is null
             ? Serialize(new { actions = actionResults })
             : Serialize(new { retry = new TriggerRetryMetadata(retryOfLogId.Value), actions = actionResults });
+    }
+
+    private static IReadOnlyDictionary<string, object?> BuildFailedActionResult(TriggerActionDefinition action, Exception exception)
+    {
+        var result = new Dictionary<string, object?>
+        {
+            ["actionId"] = action.Id,
+            ["type"] = action.Type,
+            ["status"] = TriggerWorkflowStartResultStatuses.Failed,
+            ["errorMessage"] = exception.Message
+        };
+
+        if (string.Equals(action.Type, TriggerActionTypes.StartWorkflow, StringComparison.Ordinal))
+        {
+            result["workflowStartStatus"] = TriggerWorkflowStartResultStatuses.Failed;
+            result["workflowDefinitionId"] = action.WorkflowDefinitionId;
+        }
+
+        return result;
     }
 
     private static JsonDocument Serialize<TValue>(TValue value)
