@@ -1,11 +1,15 @@
 ﻿using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OpenBusinessPlatformDbContext))]
+    [Migration("20260604100000_TriggerAutomaticRetries")]
     public partial class TriggerAutomaticRetries : Migration
     {
         /// <inheritdoc />

@@ -1,11 +1,15 @@
 ﻿using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OpenBusinessPlatformDbContext))]
+    [Migration("20260604140000_WorkflowApprovalInbox")]
     public partial class WorkflowApprovalInbox : Migration
     {
         /// <inheritdoc />

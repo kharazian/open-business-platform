@@ -18,7 +18,7 @@ The current migrations include:
 - `records`
 - `reports`
 - `triggers`, `trigger_logs`
-- `workflow_definitions`, `workflow_definition_versions`, `workflow_history`
+- `workflow_definitions`, `workflow_definition_versions`, `workflow_history`, `workflow_approval_tasks`
 - `notifications`
 - `notification_preferences`
 - `audit_logs`
@@ -426,7 +426,7 @@ Trigger logs persist matching trigger executions. The first V4 slice does not wr
 
 ## Workflows
 
-Migration: `20260604110000_WorkflowEngineFoundation`.
+Migrations: `20260604110000_WorkflowEngineFoundation`, `20260605192341_WorkflowSchemaAlignment`.
 
 ### workflow_definitions
 
@@ -459,6 +459,7 @@ Indexes:
 - current_version_id
 
 V5 task 001 adds this table for form-scoped workflow definition management. `draft_config_json` stores the editable typed workflow config: states, transitions, approval steps, assignee rules, and optional transition actions. Published versions are not mutated; edits after publishing set `has_unpublished_changes` until the draft is published again.
+Migration `20260605192341_WorkflowSchemaAlignment` aligns the EF model snapshot and adds the missing default value for `workflow_definitions.is_deleted`.
 
 ### workflow_definition_versions
 

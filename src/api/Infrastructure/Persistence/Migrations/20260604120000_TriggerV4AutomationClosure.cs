@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OpenBusinessPlatformDbContext))]
+    [Migration("20260604120000_TriggerV4AutomationClosure")]
     public partial class TriggerV4AutomationClosure : Migration
     {
         /// <inheritdoc />
