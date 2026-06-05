@@ -13,6 +13,7 @@ using OpenBusinessPlatform.Api.Modules.Dashboard;
 using OpenBusinessPlatform.Api.Modules.Dashboards;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Notifications;
+using OpenBusinessPlatform.Api.Modules.Printing;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
@@ -121,6 +122,7 @@ AssertTable<WorkflowDefinition>(model, "workflow_definitions");
 AssertTable<WorkflowDefinitionVersion>(model, "workflow_definition_versions");
 AssertTable<WorkflowHistoryEntry>(model, "workflow_history");
 AssertTable<WorkflowApprovalTask>(model, "workflow_approval_tasks");
+AssertTable<PrintTemplate>(model, "print_templates");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<AuditLogEntry>(model, "audit_logs");
@@ -146,6 +148,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, WorkflowDefinition>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowDefinitionVersion>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowHistoryEntry>();
 AssertTypeAssignable<AuditedEntity<Guid>, WorkflowApprovalTask>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, PrintTemplate>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
@@ -170,6 +173,7 @@ AssertGuidId<WorkflowDefinition>(model);
 AssertGuidId<WorkflowDefinitionVersion>(model);
 AssertGuidId<WorkflowHistoryEntry>(model);
 AssertGuidId<WorkflowApprovalTask>(model);
+AssertGuidId<PrintTemplate>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<AuditLogEntry>(model);
@@ -199,6 +203,7 @@ AssertJsonColumn<TriggerExecutionLog>(model, nameof(TriggerExecutionLog.ResultJs
 AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.DraftConfigJson));
 AssertJsonColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.ConfigJson));
 AssertJsonColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.MetadataJson));
+AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
@@ -212,6 +217,7 @@ AssertJsonColumn<ReportDefinition>(model, nameof(ReportDefinition.ExtraPropertie
 AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ExtraPropertiesJson));
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ExtraPropertiesJson));
 AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPropertiesJson));
+AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -251,11 +257,18 @@ AssertColumn<WorkflowApprovalTask>(model, nameof(WorkflowApprovalTask.Status), "
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionId), "workflow_definition_id", "Records should store the active workflow definition.");
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowDefinitionVersionId), "workflow_definition_version_id", "Records should store the active workflow definition version.");
 AssertColumn<FormRecord>(model, nameof(FormRecord.WorkflowStateKey), "workflow_state_key", "Records should store the current workflow state key.");
+AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.FormId), "form_id", "Print templates should be scoped to forms.");
+AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.ReportId), "report_id", "Report print templates should optionally target reports.");
+AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.Type), "type", "Print templates should store record/report type.");
+AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson), "config_json", "Print templates should store JSONB layout config.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
+AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.FormId) }, "Print templates should be indexed by form.");
+AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.ReportId) }, "Print templates should be indexed by report.");
+AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.Type) }, "Print templates should be indexed by type.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormVersionId) }, "Records should be indexed by form version.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.Status) }, "Records should be indexed by status.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.OwnerId) }, "Records should be indexed by owner.");
@@ -375,6 +388,32 @@ AssertTrue(recoveryEmail.TextBody.Contains(resetLink, StringComparison.Ordinal),
 var demoSchema = DemoDataSeeder.CreateEmployeeInformationSchema();
 AssertEqual(8, demoSchema.Fields.Count, "Demo seed data should include the V1 employee information fields.");
 AssertTrue(demoSchema.Fields.Any(field => field.Id == "email" && field.Type == FormFieldTypes.Email), "Demo employee form should include an email field.");
+var validRecordPrintTemplate = new PrintTemplateConfig(
+    1,
+    PrintTemplateTypes.Record,
+    new PrintTemplateHeaderConfig("Employee record", null, null, true),
+    new[] { new PrintTemplateSectionConfig("main", PrintTemplateSectionKinds.Fields, "Main", new[] { "email" }, Array.Empty<string>()) },
+    new PrintTemplateFooterConfig("Open Business Platform"));
+var invalidRecordPrintTemplate = validRecordPrintTemplate with
+{
+    Sections = new[] { new PrintTemplateSectionConfig("main", PrintTemplateSectionKinds.Fields, "Main", new[] { "missing_field" }, Array.Empty<string>()) }
+};
+var validReportPrintTemplate = new PrintTemplateConfig(
+    1,
+    PrintTemplateTypes.Report,
+    new PrintTemplateHeaderConfig("Employee report", null, null, true),
+    new[] { new PrintTemplateSectionConfig("table", PrintTemplateSectionKinds.Table, "Rows", new[] { ReportSystemFields.Status }, Array.Empty<string>()) },
+    new PrintTemplateFooterConfig("Open Business Platform"));
+AssertTrue(
+    PrintTemplateValidator.Validate(validRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
+    "A record print template should accept fields from the form schema.");
+AssertSequenceEqual(
+    new[] { "print_template.field.unknown" },
+    PrintTemplateValidator.Validate(invalidRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
+    "Record print templates should reject fields that do not exist on the form schema.");
+AssertTrue(
+    PrintTemplateValidator.Validate(validReportPrintTemplate, PrintTemplateTypes.Report, demoSchema).Valid,
+    "Report print templates should accept reportable system fields.");
 AssertEqual(4, DemoDataSeeder.DemoUsers.Count, "Demo seed data should include admin, builder, user, and viewer accounts.");
 AssertEqual(3, DemoDataSeeder.DemoDepartments.Count, "Demo seed data should include HR, Finance, and Operations departments.");
 AssertEqual(10, DemoDataSeeder.DemoEmployeeRecords.Count, "Demo seed data should include ten employee records.");

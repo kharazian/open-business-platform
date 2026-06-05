@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { dashboardModule } from "./dashboard/module.tsx";
 import { notificationsModule } from "./notifications/module.tsx";
+import { printingModule } from "./printing/module.tsx";
 import { reportsModule } from "./reports/module.tsx";
 import { workflowsModule } from "./workflows/module.tsx";
 
@@ -28,4 +29,10 @@ test("workflows module exposes the V5 management workspace", () => {
   assert.ok(workflowsModule.navigation.some((item) => item.path === "/workflows" && item.label === "Workflows"));
   assert.ok(workflowsModule.routes.some((route) => route.path === "/workflow-approvals"));
   assert.ok(workflowsModule.navigation.some((item) => item.path === "/workflow-approvals" && item.label === "Approvals"));
+});
+
+test("printing module exposes the V6 template workspace", () => {
+  assert.equal(printingModule.id, "app.printing");
+  assert.ok(printingModule.routes.some((route) => route.path === "/printing" && route.permission === "menu.reports"));
+  assert.ok(printingModule.navigation.some((item) => item.path === "/printing" && item.label === "Printing"));
 });

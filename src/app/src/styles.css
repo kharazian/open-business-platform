@@ -214,6 +214,168 @@
     padding-top: 0.5rem !important;
   }
 
+  .print-template-document {
+    color: #111827 !important;
+    display: block !important;
+    font-size: 0.85rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .print-template-header {
+    border-bottom: 2px solid #111827 !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+
+  .print-template-header-main {
+    align-items: flex-start !important;
+    display: flex !important;
+    gap: 0.75rem !important;
+  }
+
+  .print-template-logo {
+    height: 2.8rem !important;
+    max-width: 7rem !important;
+    object-fit: contain !important;
+  }
+
+  .print-template-eyebrow,
+  .print-template-metadata,
+  .print-template-description,
+  .print-template-subtitle {
+    color: #4b5563 !important;
+  }
+
+  .print-template-eyebrow {
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .print-template-title {
+    color: #111827 !important;
+    font-size: 1.55rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    margin: 0.15rem 0 0 !important;
+  }
+
+  .print-template-subtitle,
+  .print-template-metadata,
+  .print-template-description {
+    font-size: 0.85rem !important;
+    margin: 0.35rem 0 0 !important;
+  }
+
+  .print-template-sections {
+    display: grid !important;
+    gap: 1rem !important;
+  }
+
+  .print-template-section {
+    break-inside: avoid !important;
+  }
+
+  .print-template-section-title {
+    color: #111827 !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    margin: 0 0 0.45rem !important;
+  }
+
+  .print-template-field-grid {
+    display: grid !important;
+    gap: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-template-field-row {
+    border: 1px solid #d1d5db !important;
+    border-bottom-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: 13rem minmax(0, 1fr) !important;
+    min-height: 2.2rem !important;
+  }
+
+  .print-template-field-row:last-child {
+    border-bottom-width: 1px !important;
+  }
+
+  .print-template-field-row dt,
+  .print-template-field-row dd {
+    margin: 0 !important;
+    padding: 0.45rem !important;
+  }
+
+  .print-template-field-row dt {
+    background: #f3f4f6 !important;
+    border-right: 1px solid #d1d5db !important;
+    font-weight: 800 !important;
+  }
+
+  .print-template-field-row dd {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+  }
+
+  .print-template-table {
+    border-collapse: collapse !important;
+    font-size: 0.78rem !important;
+    page-break-inside: auto !important;
+    width: 100% !important;
+  }
+
+  .print-template-table thead {
+    display: table-header-group !important;
+  }
+
+  .print-template-table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-template-table th,
+  .print-template-table td {
+    border: 1px solid #d1d5db !important;
+    color: #111827 !important;
+    line-height: 1.35 !important;
+    padding: 0.38rem !important;
+    vertical-align: top !important;
+  }
+
+  .print-template-table th {
+    background: #f3f4f6 !important;
+    font-weight: 800 !important;
+  }
+
+  .print-template-signatures {
+    display: grid !important;
+    gap: 1rem !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    margin-top: 2rem !important;
+  }
+
+  .print-template-signature-line {
+    border-top: 1px solid #111827 !important;
+    min-height: 2rem !important;
+    padding-top: 0.35rem !important;
+  }
+
+  .print-template-signature-line span {
+    color: #4b5563 !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+  }
+
+  .print-template-footer {
+    border-top: 1px solid #d1d5db !important;
+    color: #4b5563 !important;
+    font-size: 0.75rem !important;
+    margin-top: 1rem !important;
+    padding-top: 0.5rem !important;
+  }
+
   .print-area {
     display: grid !important;
     gap: 1rem !important;

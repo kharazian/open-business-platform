@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Edit3, GitBranch, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit3, FileDown, GitBranch, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -7,13 +7,18 @@ import { Button } from "../../../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { PageHeader } from "../../../components/ui/PageHeader";
+import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { FormRenderer } from "../../forms/components/FormRenderer";
 import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
+import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
+import { getPrintTemplate, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
+import { getPrintTemplatePdfButtonLabel } from "../../printing/templateRenderer";
+import type { PrintTemplateDetail, PrintTemplateSummary } from "../../printing/types";
 import { executeRecordWorkflowTransition, getRecordWorkflow, startRecordWorkflow } from "../../workflows/api";
 import type { RecordWorkflowState, RecordWorkflowTransition } from "../../workflows/types";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
@@ -36,10 +41,43 @@ export function RecordDetailPage() {
   const [workflowAction, setWorkflowAction] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
+  const [recordPrintTemplates, setRecordPrintTemplates] = useState<PrintTemplateSummary[]>([]);
+  const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
+  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateDetail | null>(null);
+  const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
+  const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshRecord();
   }, [resolvedRecordId]);
+
+  useEffect(() => {
+    if (!selectedPrintTemplateId) {
+      setSelectedPrintTemplate(null);
+      return;
+    }
+
+    let active = true;
+    setPrintTemplateLoading(true);
+    setPrintTemplateError(null);
+
+    getPrintTemplate(selectedPrintTemplateId)
+      .then((template) => {
+        if (active) setSelectedPrintTemplate(template);
+      })
+      .catch((caught: unknown) => {
+        if (!active) return;
+        setSelectedPrintTemplate(null);
+        setPrintTemplateError(getErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setPrintTemplateLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPrintTemplateId]);
 
   const fieldsById = useMemo(() => {
     return new Map(record?.schema.fields.map((field) => [field.id, field]) ?? []);
@@ -55,10 +93,14 @@ export function RecordDetailPage() {
     setLoading(true);
     setError(null);
     setWorkflowError(null);
+    setPrintTemplateError(null);
 
     try {
       const [loadedRecord, loadedWorkflowState] = await Promise.all([getRecord(resolvedRecordId), getRecordWorkflow(resolvedRecordId)]);
+      const templates = await loadRecordPrintTemplates(loadedRecord.formId);
       setRecord(loadedRecord);
+      setRecordPrintTemplates(templates);
+      setSelectedPrintTemplateId((current) => templates.some((template) => template.id === current) ? current : "");
       setDraftValues(createRecordEditDraft(loadedRecord));
       applyWorkflowState(loadedWorkflowState);
       setValidationErrors([]);
@@ -67,6 +109,15 @@ export function RecordDetailPage() {
       setError(getErrorMessage(caught));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadRecordPrintTemplates(formId: string): Promise<PrintTemplateSummary[]> {
+    try {
+      return await listPrintTemplates(formId, { type: "record" });
+    } catch (caught) {
+      setPrintTemplateError(getErrorMessage(caught));
+      return [];
     }
   }
 
@@ -203,12 +254,20 @@ export function RecordDetailPage() {
   return (
     <div className="grid gap-6 print-area">
       {record ? (
-        <PrintDocumentHeader
-          description={getRecordDetailPrintDescription(formatDateTime(record.createdAt), shortId(record.formVersionId))}
-          eyebrow="Record detail"
-          metadata={[getGeneratedAtPrintMetadata()]}
-          title={`Record ${shortId(record.id)}`}
-        />
+        selectedPrintTemplate ? (
+          <PrintTemplateDocument
+            metadata={[`Record ${shortId(record.id)}`, `Form version ${shortId(record.formVersionId)}`]}
+            record={{ schema: record.schema, values: record.values }}
+            template={selectedPrintTemplate}
+          />
+        ) : (
+          <PrintDocumentHeader
+            description={getRecordDetailPrintDescription(formatDateTime(record.createdAt), shortId(record.formVersionId))}
+            eyebrow="Record detail"
+            metadata={[getGeneratedAtPrintMetadata()]}
+            title={`Record ${shortId(record.id)}`}
+          />
+        )
       ) : null}
       <div data-print-hide="true">
         <PageHeader
@@ -241,9 +300,31 @@ export function RecordDetailPage() {
                 </Button>
               ) : null}
               {record ? (
-                <Button disabled={loading || saving || deleting || editing} onClick={() => requestBrowserPrint()} variant="outline">
-                  <Printer className="size-4" />
-                  Print
+                recordPrintTemplates.length > 0 ? (
+                  <Select
+                    aria-label="Print template"
+                    className="min-w-44"
+                    disabled={loading || saving || deleting || editing || printTemplateLoading}
+                    onChange={(event) => setSelectedPrintTemplateId(event.target.value)}
+                    value={selectedPrintTemplateId}
+                  >
+                    <option value="">Default layout</option>
+                    {recordPrintTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : null
+              ) : null}
+              {record ? (
+                <Button
+                  disabled={loading || saving || deleting || editing || printTemplateLoading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
+                  onClick={() => requestBrowserPrint()}
+                  variant="outline"
+                >
+                  {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
+                  {selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
                 </Button>
               ) : null}
               <Button disabled={loading || saving || deleting} onClick={() => void refreshRecord()} variant="outline">
@@ -271,30 +352,37 @@ export function RecordDetailPage() {
           <Alert title="Record detail">{error}</Alert>
         </div>
       ) : null}
+      {printTemplateError ? (
+        <div data-print-hide="true">
+          <Alert title="Print template">{printTemplateError}</Alert>
+        </div>
+      ) : null}
 
       {loading ? (
         <LoadingRecord />
       ) : record ? (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-3" data-print-hide={selectedPrintTemplate ? "true" : undefined}>
             <SummaryTile label="Status" value={<Badge variant={record.status === "active" ? "success" : "default"}>{record.status}</Badge>} />
             <SummaryTile label="Form version" value={shortId(record.formVersionId)} />
             <SummaryTile label="Created" value={formatDateTime(record.createdAt)} />
           </section>
 
-          <WorkflowPanel
-            action={workflowAction}
-            error={workflowError}
-            loading={workflowLoading}
-            onRefresh={() => void refreshWorkflowState(record.id)}
-            onSelectWorkflow={setSelectedWorkflowId}
-            onStart={() => void beginWorkflow()}
-            onTransition={(transition) => void executeWorkflowTransition(transition)}
-            selectedWorkflowId={selectedWorkflowId}
-            state={workflowState}
-          />
+          <div data-print-hide={selectedPrintTemplate ? "true" : undefined}>
+            <WorkflowPanel
+              action={workflowAction}
+              error={workflowError}
+              loading={workflowLoading}
+              onRefresh={() => void refreshWorkflowState(record.id)}
+              onSelectWorkflow={setSelectedWorkflowId}
+              onStart={() => void beginWorkflow()}
+              onTransition={(transition) => void executeWorkflowTransition(transition)}
+              selectedWorkflowId={selectedWorkflowId}
+              state={workflowState}
+            />
+          </div>
 
-          <Card className="print-card">
+          <Card className="print-card" data-print-hide={selectedPrintTemplate ? "true" : undefined}>
             <CardHeader>
               <CardTitle>{editing ? "Edit values" : "Values"}</CardTitle>
               <CardDescription>
@@ -325,7 +413,7 @@ export function RecordDetailPage() {
               )}
             </CardContent>
           </Card>
-          <PrintDocumentFooter />
+          {selectedPrintTemplate ? null : <PrintDocumentFooter />}
         </>
       ) : (
         <EmptyState title="Record not found" description="The requested record could not be loaded." action={<LinkButton to="/forms">Forms</LinkButton>} />

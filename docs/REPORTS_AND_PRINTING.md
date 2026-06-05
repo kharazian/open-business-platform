@@ -88,13 +88,19 @@ Do single-record and report table printing before custom PDF templates. They pro
 
 ## V6 PDF and Templates
 
-Later support:
+Implemented foundation:
 
 - Custom print template builder
-- PDF generation
+- Persisted record/report template APIs with form/report scope, JSONB config, validation, permissions, and audit logs
+- Browser print/save-as-PDF generation from selected record detail and report viewer templates
+- Header, footer, logo URL text, field/table sections, and signature blocks
+
+Later support:
+
+- Server-side binary PDF generation
 - Conditional sections
-- Page breaks
-- Signature blocks
+- Page breaks and pagination controls
+- Template versioning and logo upload assets
 - Attach PDF to emails/triggers
 
 ## Report Config Example

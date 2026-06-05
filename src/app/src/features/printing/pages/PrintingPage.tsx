@@ -1,0 +1,491 @@
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Loader2, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Alert } from "../../../components/ui/Alert";
+import { Badge } from "../../../components/ui/Badge";
+import { Button } from "../../../components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/Card";
+import { Checkbox } from "../../../components/ui/Checkbox";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { Input } from "../../../components/ui/Input";
+import { PageHeader } from "../../../components/ui/PageHeader";
+import { Select } from "../../../components/ui/Select";
+import { Textarea } from "../../../components/ui/Textarea";
+import { listForms, getForm, type FormDetail } from "../../forms/api";
+import type { FormSummary } from "../../forms/drafts";
+import { getReportFieldOptions } from "../../reports/builder";
+import { listReports } from "../../reports/api";
+import type { ListReportSummary } from "../../reports/types";
+import {
+  createPrintTemplate,
+  deletePrintTemplate,
+  getPrintTemplate,
+  listPrintTemplates,
+  PrintingApiError,
+  updatePrintTemplate
+} from "../api";
+import {
+  buildPrintTemplateRequest,
+  createPrintTemplateDraft,
+  createPrintTemplateDraftFromDetail,
+  createTemplateSection,
+  validatePrintTemplateDraft
+} from "../templateBuilder";
+import type { PrintTemplateDraft, PrintTemplateSectionConfig, PrintTemplateSummary, PrintTemplateType, PrintTemplateValidationError } from "../types";
+
+export function PrintingPage() {
+  const [forms, setForms] = useState<FormSummary[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState("");
+  const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
+  const [reports, setReports] = useState<ListReportSummary[]>([]);
+  const [templates, setTemplates] = useState<PrintTemplateSummary[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [draft, setDraft] = useState<PrintTemplateDraft>(() => createPrintTemplateDraft("record"));
+  const [loading, setLoading] = useState(true);
+  const [loadingWorkspace, setLoadingWorkspace] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<PrintTemplateValidationError[]>([]);
+
+  useEffect(() => {
+    void loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedFormId) {
+      setFormDetail(null);
+      setReports([]);
+      setTemplates([]);
+      setSelectedTemplateId("");
+      setDraft(createPrintTemplateDraft("record"));
+      return;
+    }
+
+    void loadWorkspace(selectedFormId);
+  }, [selectedFormId]);
+
+  const selectedForm = forms.find((form) => form.id === selectedFormId) ?? null;
+  const selectedReport = reports.find((report) => report.id === draft.reportId) ?? null;
+  const recordFieldOptions = useMemo(
+    () => formDetail?.draftSchema?.fields.map((field) => ({ id: field.id, label: field.label })) ?? [],
+    [formDetail]
+  );
+  const reportFieldOptions = useMemo(() => (formDetail?.draftSchema ? getReportFieldOptions(formDetail.draftSchema) : []), [formDetail]);
+  const fieldOptions = draft.type === "record" ? recordFieldOptions : reportFieldOptions;
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
+  const errorMap = useMemo(() => new Map(validationErrors.map((validationError) => [validationError.path, validationError.message])), [validationErrors]);
+
+  async function loadInitialData() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formItems = await listForms();
+      setForms(formItems);
+      setSelectedFormId((current) => current || formItems[0]?.id || "");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setForms([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadWorkspace(formId: string) {
+    setLoadingWorkspace(true);
+    setError(null);
+    setNotice(null);
+    setValidationErrors([]);
+
+    try {
+      const [form, reportItems, templateItems] = await Promise.all([
+        getForm(formId),
+        listReports(formId),
+        listPrintTemplates(formId)
+      ]);
+      setFormDetail(form);
+      setReports(reportItems);
+      setTemplates(templateItems);
+      setSelectedTemplateId("");
+      setDraft(createPrintTemplateDraft("record", form.name));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setReports([]);
+      setTemplates([]);
+    } finally {
+      setLoadingWorkspace(false);
+    }
+  }
+
+  async function handleSelectTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setError(null);
+    setNotice(null);
+    setValidationErrors([]);
+
+    try {
+      const template = await getPrintTemplate(templateId);
+      setDraft(createPrintTemplateDraftFromDetail(template));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    }
+  }
+
+  function handleNewTemplate(type: PrintTemplateType = draft.type) {
+    setSelectedTemplateId("");
+    setDraft(createPrintTemplateDraft(type, selectedReport?.name ?? selectedForm?.name ?? "Document"));
+    setValidationErrors([]);
+    setNotice("New print template draft started.");
+    setError(null);
+  }
+
+  function updateDraft(patch: Partial<PrintTemplateDraft>) {
+    setDraft((current) => ({ ...current, ...patch }));
+    setNotice(null);
+  }
+
+  function updateConfig(patch: Partial<PrintTemplateDraft["config"]>) {
+    updateDraft({ config: { ...draft.config, ...patch } });
+  }
+
+  function updateHeader(patch: Partial<PrintTemplateDraft["config"]["header"]>) {
+    updateConfig({ header: { ...draft.config.header, ...patch } });
+  }
+
+  function updateFooterText(text: string) {
+    updateConfig({ footer: { ...draft.config.footer, text } });
+  }
+
+  function updateSection(index: number, patch: Partial<PrintTemplateSectionConfig>) {
+    const sections = draft.config.sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, ...patch } : section);
+    updateConfig({ sections });
+  }
+
+  function addSection(kind: "fields" | "table" | "signature") {
+    const section = createTemplateSection(draft.type, draft.config.sections.length + 1);
+    updateConfig({
+      sections: [
+        ...draft.config.sections,
+        {
+          ...section,
+          kind,
+          id: `${kind}_${draft.config.sections.length + 1}`,
+          title: kind === "signature" ? "Signatures" : section.title
+        }
+      ]
+    });
+  }
+
+  function removeSection(index: number) {
+    updateConfig({ sections: draft.config.sections.filter((_section, sectionIndex) => sectionIndex !== index) });
+  }
+
+  function setTemplateType(type: PrintTemplateType) {
+    const nextDraft = createPrintTemplateDraft(type, selectedForm?.name ?? "Document");
+    setDraft({
+      ...nextDraft,
+      name: draft.name,
+      description: draft.description
+    });
+    setSelectedTemplateId("");
+    setValidationErrors([]);
+    setNotice(null);
+  }
+
+  async function handleSave() {
+    if (!selectedFormId) return;
+
+    const validation = validatePrintTemplateDraft(draft);
+    setValidationErrors(validation.errors);
+    setError(null);
+    setNotice(null);
+
+    if (!validation.valid) {
+      setError("Fix the highlighted print template fields before saving.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const request = buildPrintTemplateRequest(draft);
+      const saved = draft.id && draft.concurrencyStamp
+        ? await updatePrintTemplate(draft.id, { ...request, concurrencyStamp: draft.concurrencyStamp })
+        : await createPrintTemplate(selectedFormId, request);
+      setDraft(createPrintTemplateDraftFromDetail(saved));
+      setSelectedTemplateId(saved.id);
+      setTemplates(await listPrintTemplates(saved.formId));
+      setValidationErrors([]);
+      setNotice("Print template saved.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setValidationErrors(getValidationErrors(caught));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!draft.id || !selectedFormId) return;
+
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await deletePrintTemplate(draft.id);
+      setTemplates(await listPrintTemplates(selectedFormId));
+      handleNewTemplate(draft.type);
+      setNotice("Print template deleted.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-6">
+      <PageHeader
+        eyebrow="Printing V6"
+        title="Print templates"
+        description="Create reusable record and report print layouts for browser PDF generation."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={loading || loadingWorkspace} onClick={() => selectedFormId ? void loadWorkspace(selectedFormId) : void loadInitialData()} variant="outline">
+              <RefreshCw className="size-4" />
+              Refresh
+            </Button>
+            <Button disabled={!selectedFormId} onClick={() => handleNewTemplate("record")} variant="outline">
+              <Plus className="size-4" />
+              Record template
+            </Button>
+            <Button disabled={!selectedFormId || reports.length === 0} onClick={() => handleNewTemplate("report")} variant="outline">
+              <Plus className="size-4" />
+              Report template
+            </Button>
+          </div>
+        }
+      />
+
+      {error ? <Alert title="Printing">{error}</Alert> : null}
+      {notice ? <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-semibold text-success">{notice}</div> : null}
+
+      <section className="grid gap-4 xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <Card className="self-start">
+          <CardHeader>
+            <CardTitle>Templates</CardTitle>
+            <CardDescription>Choose a form and edit one print layout.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <Select disabled={loading || forms.length === 0} label="Form" onChange={(event) => setSelectedFormId(event.target.value)} value={selectedFormId}>
+              {forms.map((form) => (
+                <option key={form.id} value={form.id}>
+                  {form.name}
+                </option>
+              ))}
+            </Select>
+            <div className="grid grid-cols-3 gap-3">
+              <Metric label="Total" value={templates.length} />
+              <Metric label="Record" value={templates.filter((template) => template.type === "record").length} />
+              <Metric label="Report" value={templates.filter((template) => template.type === "report").length} />
+            </div>
+            {loadingWorkspace ? (
+              <p className="text-sm font-semibold text-muted-foreground">Loading templates...</p>
+            ) : templates.length > 0 ? (
+              <div className="grid gap-2">
+                {templates.map((template) => (
+                  <button
+                    className={[
+                      "rounded-xl border p-3 text-left transition hover:bg-muted/50",
+                      selectedTemplateId === template.id ? "border-primary bg-primary-soft" : "border-border bg-card/70"
+                    ].join(" ")}
+                    key={template.id}
+                    onClick={() => void handleSelectTemplate(template.id)}
+                    type="button"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-foreground">{template.name}</p>
+                        <p className="mt-1 text-xs font-semibold text-muted-foreground">{template.sectionCount} sections</p>
+                      </div>
+                      <Badge>{template.type}</Badge>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No templates" description="Create the first print template for this form." />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>{selectedTemplate ? "Edit print template" : "New print template"}</CardTitle>
+                <CardDescription>{selectedForm ? `${selectedForm.name}.` : "Choose a form to start."}</CardDescription>
+              </div>
+              <Badge>{draft.type}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-5">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+              <Input error={errorMap.get("name")} label="Name" onChange={(event) => updateDraft({ name: event.target.value })} value={draft.name} />
+              <Select label="Type" onChange={(event) => setTemplateType(event.target.value as PrintTemplateType)} value={draft.type}>
+                <option value="record">Record</option>
+                <option value="report">Report</option>
+              </Select>
+            </div>
+            <Textarea label="Description" onChange={(event) => updateDraft({ description: event.target.value })} value={draft.description} />
+            {draft.type === "report" ? (
+              <Select error={errorMap.get("reportId")} label="Saved report" onChange={(event) => updateDraft({ reportId: event.target.value || null })} value={draft.reportId ?? ""}>
+                <option value="">Select report</option>
+                {reports.map((report) => (
+                  <option key={report.id} value={report.id}>
+                    {report.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+
+            <section className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+              <h3 className="text-sm font-black text-foreground">Header and footer</h3>
+              <Input error={errorMap.get("config.header.title")} label="Header title" onChange={(event) => updateHeader({ title: event.target.value })} value={draft.config.header.title} />
+              <Input label="Subtitle" onChange={(event) => updateHeader({ subtitle: event.target.value })} value={draft.config.header.subtitle ?? ""} />
+              <Input label="Logo URL" onChange={(event) => updateHeader({ logoUrl: event.target.value })} value={draft.config.header.logoUrl ?? ""} />
+              <Checkbox checked={draft.config.header.showGeneratedAt} label="Show generated time" onChange={(event) => updateHeader({ showGeneratedAt: event.target.checked })} />
+              <Input label="Footer" onChange={(event) => updateFooterText(event.target.value)} value={draft.config.footer.text ?? ""} />
+            </section>
+
+            <section className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-black text-foreground">Sections</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button disabled={draft.type !== "record"} onClick={() => addSection("fields")} size="sm" variant="outline">Fields</Button>
+                  <Button disabled={draft.type !== "report"} onClick={() => addSection("table")} size="sm" variant="outline">Table</Button>
+                  <Button onClick={() => addSection("signature")} size="sm" variant="outline">Signature</Button>
+                </div>
+              </div>
+              {draft.config.sections.map((section, index) => (
+                <div className="grid gap-3 rounded-xl border border-border bg-card/80 p-4" key={`${section.id}-${index}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge>{section.kind}</Badge>
+                    <Button aria-label="Remove section" disabled={draft.config.sections.length <= 1} onClick={() => removeSection(index)} size="icon" variant="ghost">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  <Input label="Section ID" onChange={(event) => updateSection(index, { id: event.target.value })} value={section.id} />
+                  <Input label="Title" onChange={(event) => updateSection(index, { title: event.target.value })} value={section.title} />
+                  {section.kind === "signature" ? (
+                    <Textarea
+                      className="min-h-20"
+                      label="Signature labels"
+                      onChange={(event) => updateSection(index, { signatureLabels: splitLines(event.target.value) })}
+                      value={(section.signatureLabels ?? []).join("\n")}
+                    />
+                  ) : (
+                    <FieldCheckboxes
+                      fieldIds={section.fieldIds}
+                      fieldOptions={fieldOptions}
+                      onChange={(fieldIds) => updateSection(index, { fieldIds })}
+                    />
+                  )}
+                </div>
+              ))}
+            </section>
+
+            {validationErrors.length > 0 ? <ValidationErrorsPanel errors={validationErrors} /> : null}
+
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!selectedFormId || saving || deleting} onClick={() => void handleSave()}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {saving ? "Saving..." : "Save"}
+              </Button>
+              <Button disabled={!draft.id || saving || deleting} onClick={() => void handleDelete()} variant="danger">
+                {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                Delete
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function FieldCheckboxes({
+  fieldIds,
+  fieldOptions,
+  onChange
+}: {
+  fieldIds: string[];
+  fieldOptions: Array<{ id: string; label: string }>;
+  onChange: (fieldIds: string[]) => void;
+}) {
+  if (fieldOptions.length === 0) {
+    return <div className="rounded-xl border border-dashed border-border bg-muted/40 p-3 text-sm font-semibold text-muted-foreground">No fields available.</div>;
+  }
+
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-bold text-foreground">Fields</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {fieldOptions.map((field) => (
+          <Checkbox
+            checked={fieldIds.includes(field.id)}
+            key={field.id}
+            label={field.label}
+            onChange={(event) => {
+              onChange(event.target.checked ? [...fieldIds, field.id] : fieldIds.filter((fieldId) => fieldId !== field.id));
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/70 p-3">
+      <p className="text-xs font-bold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-black text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function ValidationErrorsPanel({ errors }: { errors: PrintTemplateValidationError[] }) {
+  return (
+    <div className="rounded-xl border border-danger/30 bg-danger-soft p-4">
+      <div className="flex items-center gap-2 text-sm font-bold text-danger">
+        <FileText className="size-4" />
+        Validation
+      </div>
+      <ul className="mt-2 grid gap-1 text-sm text-danger">
+        {errors.map((error) => (
+          <li key={`${error.path}-${error.code}`}>
+            <span className="font-bold">{error.path}</span>: {error.message}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function splitLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getValidationErrors(error: unknown): PrintTemplateValidationError[] {
+  return error instanceof PrintingApiError ? error.errors : [];
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Printing request failed.";
+}

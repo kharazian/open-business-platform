@@ -191,6 +191,23 @@ Actions:
 - Edit
 - Delete if allowed
 - Print
+- Optional print template selector when record templates exist
+- Generate PDF through browser print/save-as-PDF when a template is selected
+
+## Printing
+
+V6 implemented a real `/printing` workspace for reusable print templates.
+
+Workspace controls:
+
+- Form selector
+- Template list
+- Record/report template draft
+- Header title, subtitle, logo URL text, generated-time toggle, and footer text
+- Field, table, and signature sections
+- Save, update, and soft-delete actions
+
+Record detail and report viewer keep the default print layout when no template is selected. Selecting a saved template switches the print output to the saved layout and exposes the browser-based Generate PDF action.
 
 ## Permissions UI
 

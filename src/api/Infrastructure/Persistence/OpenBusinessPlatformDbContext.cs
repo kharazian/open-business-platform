@@ -59,6 +59,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<WorkflowApprovalTask> WorkflowApprovalTasks => Set<WorkflowApprovalTask>();
 
+    public DbSet<PrintTemplate> PrintTemplates => Set<PrintTemplate>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
@@ -101,6 +103,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureDashboards(modelBuilder);
         ConfigureTriggers(modelBuilder);
         ConfigureWorkflows(modelBuilder);
+        ConfigurePrinting(modelBuilder);
         ConfigureNotifications(modelBuilder);
         ConfigureNotificationPreferences(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
@@ -805,6 +808,34 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(preference => preference.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePrinting(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PrintTemplate>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "print_templates");
+            entity.HasIndex(template => template.FormId);
+            entity.HasIndex(template => template.ReportId);
+            entity.HasIndex(template => template.Type);
+            entity.HasIndex(template => template.CreatedById);
+            entity.Property(template => template.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(template => template.ReportId).HasColumnName("report_id").HasColumnType("uuid");
+            entity.Property(template => template.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(template => template.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(template => template.Type).HasColumnName("type").HasMaxLength(40).IsRequired();
+            entity.Property(template => template.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity
+                .HasOne(template => template.Form)
+                .WithMany()
+                .HasForeignKey(template => template.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(template => template.Report)
+                .WithMany()
+                .HasForeignKey(template => template.ReportId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

@@ -1120,6 +1120,65 @@ Requires authentication plus `menu.reports`, form `view`, form `manage`, or `for
 
 Exports all permitted report rows matching the saved report config and optional runtime search. CSV columns match the visible saved report columns after hidden field rules are applied. Export requests write a `report_exported` audit entry after the report is resolved.
 
+## Printing V6
+
+### List print templates
+
+`GET /api/forms/{formId}/print-templates?type=record&reportId={reportId}`
+
+Requires authentication plus form `print` or form `view` access. `type` is optional and supports `record` or `report`; `reportId` narrows report templates to one saved report.
+
+Response: `200 OK` with `{ "items": [...] }`. Items include `id`, `formId`, optional `reportId`, `name`, `description`, `type`, `sectionCount`, audit fields, and `concurrencyStamp`.
+
+### Create print template
+
+`POST /api/forms/{formId}/print-templates`
+
+Requires authentication plus form `manage` or global `reports.manage`.
+
+Request:
+
+```json
+{
+  "name": "Employee record template",
+  "description": "HR printable record",
+  "type": "record",
+  "reportId": null,
+  "config": {
+    "schemaVersion": 1,
+    "type": "record",
+    "header": {
+      "title": "Employee record",
+      "subtitle": "Record detail",
+      "logoUrl": null,
+      "showGeneratedAt": true
+    },
+    "sections": [
+      {
+        "id": "main",
+        "kind": "fields",
+        "title": "Fields",
+        "fieldIds": ["first_name", "email"],
+        "signatureLabels": []
+      }
+    ],
+    "footer": {
+      "text": "Open Business Platform"
+    }
+  }
+}
+```
+
+Response: `201 Created` with the saved template detail. The backend validates name, record/report scope, config schema version, section kind, section ids, field ids against the form/reportable schema, and report ownership for report templates. Creates a `print_template_created` audit log entry.
+
+### Get, update, delete print template
+
+- `GET /api/print-templates/{templateId}` requires form `print` or form `view`.
+- `PUT /api/print-templates/{templateId}` requires form `manage` or global `reports.manage`, validates `concurrencyStamp`, and writes `print_template_updated`.
+- `DELETE /api/print-templates/{templateId}` requires form `manage` or global `reports.manage` and soft-deletes with `print_template_deleted`.
+
+The V6 frontend uses these templates for selected record-detail and report-viewer browser print/save-as-PDF output. Server-side binary PDF generation and email attachment delivery remain later work.
+
 ## Permissions V3
 
 ### Get permissions

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileDown, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -13,7 +13,11 @@ import { Table, type TableColumn } from "../../../components/ui/Table";
 import { listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
+import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
+import { getPrintTemplate, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
+import { getPrintTemplatePdfButtonLabel } from "../../printing/templateRenderer";
+import type { PrintTemplateDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
@@ -67,6 +71,11 @@ export function ReportsPage() {
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reportNameError, setReportNameError] = useState<string | undefined>();
+  const [reportPrintTemplates, setReportPrintTemplates] = useState<PrintTemplateSummary[]>([]);
+  const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
+  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateDetail | null>(null);
+  const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
+  const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -93,11 +102,42 @@ export function ReportsPage() {
   }, []);
 
   useEffect(() => {
+    if (!selectedPrintTemplateId) {
+      setSelectedPrintTemplate(null);
+      return;
+    }
+
+    let active = true;
+    setPrintTemplateLoading(true);
+    setPrintTemplateError(null);
+
+    getPrintTemplate(selectedPrintTemplateId)
+      .then((template) => {
+        if (active) setSelectedPrintTemplate(template);
+      })
+      .catch((caught: unknown) => {
+        if (!active) return;
+        setSelectedPrintTemplate(null);
+        setPrintTemplateError(getErrorMessage(caught));
+      })
+      .finally(() => {
+        if (active) setPrintTemplateLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPrintTemplateId]);
+
+  useEffect(() => {
     if (!selectedFormId) {
       setFormDetail(null);
       setReports([]);
       setSelectedReportId("");
       setReportExecution(null);
+      setReportPrintTemplates([]);
+      setSelectedPrintTemplateId("");
+      setSelectedPrintTemplate(null);
       return;
     }
 
@@ -109,6 +149,10 @@ export function ReportsPage() {
     setNotice(null);
     setSelectedReportId("");
     setReportExecution(null);
+    setReportPrintTemplates([]);
+    setSelectedPrintTemplateId("");
+    setSelectedPrintTemplate(null);
+    setPrintTemplateError(null);
     setReportSearch("");
     setExecutedReportSearch("");
     setReportPage(1);
@@ -231,6 +275,9 @@ export function ReportsPage() {
       if (selectedReportId && !refreshedReports.some((report) => report.id === selectedReportId)) {
         setSelectedReportId("");
         setReportExecution(null);
+        setReportPrintTemplates([]);
+        setSelectedPrintTemplateId("");
+        setSelectedPrintTemplate(null);
         setExecutedReportSearch("");
       }
     } catch (caught) {
@@ -328,16 +375,33 @@ export function ReportsPage() {
     setReportPage(page);
     setRunningReport(true);
     setViewerError(null);
+    setPrintTemplateError(null);
 
     try {
       const search = reportSearch;
-      setReportExecution(await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search }));
+      const execution = await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search });
+      const templates = await loadReportPrintTemplates(execution.formId, execution.reportId);
+      setReportExecution(execution);
+      setReportPrintTemplates(templates);
+      setSelectedPrintTemplateId((current) => templates.some((template) => template.id === current) ? current : "");
       setExecutedReportSearch(search);
     } catch (caught) {
       setViewerError(getErrorMessage(caught));
       setReportExecution(null);
+      setReportPrintTemplates([]);
+      setSelectedPrintTemplateId("");
+      setSelectedPrintTemplate(null);
     } finally {
       setRunningReport(false);
+    }
+  }
+
+  async function loadReportPrintTemplates(formId: string, reportId: string): Promise<PrintTemplateSummary[]> {
+    try {
+      return await listPrintTemplates(formId, { type: "report", reportId });
+    } catch (caught) {
+      setPrintTemplateError(getErrorMessage(caught));
+      return [];
     }
   }
 
@@ -349,12 +413,20 @@ export function ReportsPage() {
   return (
     <div className="grid gap-6 print-area">
       {reportExecution ? (
-        <PrintDocumentHeader
-          description={reportPrintDescription}
-          eyebrow="Report table"
-          metadata={[reportExecution.formName, getGeneratedAtPrintMetadata()]}
-          title={reportExecution.reportName}
-        />
+        selectedPrintTemplate ? (
+          <PrintTemplateDocument
+            metadata={[reportExecution.formName, `${reportExecution.totalCount} rows`]}
+            report={toReportTemplateExecution(reportExecution)}
+            template={selectedPrintTemplate}
+          />
+        ) : (
+          <PrintDocumentHeader
+            description={reportPrintDescription}
+            eyebrow="Report table"
+            metadata={[reportExecution.formName, getGeneratedAtPrintMetadata()]}
+            title={reportExecution.reportName}
+          />
+        )
       ) : null}
 
       <div data-print-hide="true">
@@ -385,6 +457,11 @@ export function ReportsPage() {
       {notice ? (
         <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-semibold text-success" data-print-hide="true">
           {notice}
+        </div>
+      ) : null}
+      {printTemplateError ? (
+        <div data-print-hide="true">
+          <Alert title="Print template">{printTemplateError}</Alert>
         </div>
       ) : null}
 
@@ -597,7 +674,7 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
-      <Card className="print-card">
+      <Card className="print-card" data-print-hide={selectedPrintTemplate ? "true" : undefined}>
         <CardHeader data-print-hide="true">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -606,9 +683,29 @@ export function ReportsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
-              <Button disabled={!reportExecution || runningReport} onClick={() => requestBrowserPrint()} variant="outline">
-                <Printer className="size-4" />
-                Print
+              {reportExecution && reportPrintTemplates.length > 0 ? (
+                <Select
+                  aria-label="Print template"
+                  className="min-w-44"
+                  disabled={runningReport || printTemplateLoading}
+                  onChange={(event) => setSelectedPrintTemplateId(event.target.value)}
+                  value={selectedPrintTemplateId}
+                >
+                  <option value="">Default layout</option>
+                  {reportPrintTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </Select>
+              ) : null}
+              <Button
+                disabled={!reportExecution || runningReport || printTemplateLoading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
+                onClick={() => requestBrowserPrint()}
+                variant="outline"
+              >
+                {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
+                {selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
               </Button>
               <Button
                 disabled={!reportExecution || runningReport}
@@ -715,9 +812,24 @@ export function ReportsPage() {
           )}
         </CardContent>
       </Card>
-      {reportExecution ? <PrintDocumentFooter /> : null}
+      {reportExecution && !selectedPrintTemplate ? <PrintDocumentFooter /> : null}
     </div>
   );
+}
+
+function toReportTemplateExecution(execution: ListReportExecution): ReportTemplateExecution {
+  return {
+    columns: execution.columns.map((column) => ({
+      fieldId: column.fieldId,
+      label: column.label
+    })),
+    rows: execution.rows.map((row) => ({
+      id: row.recordId,
+      cells: Object.fromEntries(
+        Object.entries(row.cells).flatMap(([fieldId, cell]) => cell ? [[fieldId, { displayValue: cell.displayValue }]] : [])
+      )
+    }))
+  };
 }
 
 function filterRequiresValue(operator: ReportFilterOperator): boolean {

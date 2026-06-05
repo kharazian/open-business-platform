@@ -621,7 +621,7 @@ Fields:
 - metadata_json JSONB nullable
 - created_at
 
-## Print Templates Later
+## Print Templates V6
 
 ### print_templates
 
@@ -631,11 +631,27 @@ Fields:
 - form_id
 - report_id nullable
 - name
-- type: record, list
+- description nullable
+- type: record, report
 - config_json JSONB
+- concurrency_stamp
 - created_by_id
 - created_at
+- updated_by_id nullable
 - updated_at
+- deleted_by_id nullable
+- deleted_at nullable
+- is_deleted
+- extra_properties_json JSONB nullable
+
+Indexes:
+
+- form_id
+- report_id
+- type
+- created_by_id
+
+`config_json` stores schema version 1 header/footer settings, ordered `fields`, `table`, and `signature` sections, optional logo URL text, selected field ids, and signature labels. Record template fields validate against the form schema; report template fields validate against reportable form/system fields. Browser print/save-as-PDF is the current V6 PDF path; server-side binary PDF output remains later work.
 
 ## Example Form Schema JSON
 
