@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Loader2, Plus, Power, PowerOff, RefreshCw, Rocket, Save } from "lucide-react";
+import { AlertCircle, Braces, Loader2, Plus, Power, PowerOff, RefreshCw, Rocket, Save, Workflow } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -18,11 +18,16 @@ import {
   createEmptyWorkflowDraft,
   createWorkflowDraftFromDetail,
   formatWorkflowDate,
+  formatWorkflowConfigText,
   formatWorkflowStatus,
+  parseWorkflowConfig,
   validateWorkflowDraft,
   type WorkflowDraft
 } from "../builder";
+import { VisualWorkflowBuilder } from "../VisualWorkflowBuilder";
 import type { WorkflowDetail, WorkflowSummary, WorkflowValidationError } from "../types";
+
+type WorkflowEditorMode = "visual" | "json";
 
 export function WorkflowsPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
@@ -39,6 +44,7 @@ export function WorkflowsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<WorkflowValidationError[]>([]);
+  const [editorMode, setEditorMode] = useState<WorkflowEditorMode>("visual");
 
   useEffect(() => {
     void loadInitialData();
@@ -59,7 +65,14 @@ export function WorkflowsPage() {
   const selectedWorkflow = workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null;
   const selectedStatus = selectedWorkflow ? formatWorkflowStatus(selectedWorkflow) : null;
   const errorMap = useMemo(() => createValidationErrorMap(validationErrors), [validationErrors]);
+  const parsedWorkflowConfig = useMemo(() => parseWorkflowConfig(draft.configText), [draft.configText]);
   const canUseSavedActions = Boolean(draft.id && draft.concurrencyStamp);
+
+  useEffect(() => {
+    if (!parsedWorkflowConfig && editorMode === "visual") {
+      setEditorMode("json");
+    }
+  }, [editorMode, parsedWorkflowConfig]);
 
   async function loadInitialData() {
     setLoadingInitial(true);
@@ -134,6 +147,10 @@ export function WorkflowsPage() {
   function updateDraft(patch: Partial<WorkflowDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
     setNotice(null);
+  }
+
+  function updateWorkflowConfig(config: NonNullable<typeof parsedWorkflowConfig>) {
+    updateDraft({ configText: formatWorkflowConfigText(config) });
   }
 
   async function handleSave() {
@@ -344,14 +361,42 @@ export function WorkflowsPage() {
 
             <Textarea label="Description" onChange={(event) => updateDraft({ description: event.target.value })} value={draft.description} />
 
-            <Textarea
-              className="min-h-[28rem] font-mono text-xs leading-5"
-              error={errorMap.get("config")}
-              label="Definition JSON"
-              onChange={(event) => updateDraft({ configText: event.target.value })}
-              spellCheck={false}
-              value={draft.configText}
-            />
+            <div className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-black text-foreground">Definition</h3>
+                  {errorMap.get("config") ? <p className="mt-1 text-xs font-semibold text-danger">{errorMap.get("config")}</p> : null}
+                </div>
+                <div className="flex rounded-xl border border-border bg-card/80 p-1">
+                  <Button
+                    disabled={!parsedWorkflowConfig}
+                    onClick={() => setEditorMode("visual")}
+                    size="sm"
+                    variant={editorMode === "visual" ? "primary" : "ghost"}
+                  >
+                    <Workflow className="size-4" />
+                    Visual
+                  </Button>
+                  <Button onClick={() => setEditorMode("json")} size="sm" variant={editorMode === "json" ? "primary" : "ghost"}>
+                    <Braces className="size-4" />
+                    JSON
+                  </Button>
+                </div>
+              </div>
+
+              {editorMode === "visual" && parsedWorkflowConfig ? (
+                <VisualWorkflowBuilder config={parsedWorkflowConfig} onChange={updateWorkflowConfig} validationErrors={validationErrors} />
+              ) : (
+                <Textarea
+                  className="min-h-[28rem] font-mono text-xs leading-5"
+                  error={errorMap.get("config")}
+                  label="Definition JSON"
+                  onChange={(event) => updateDraft({ configText: event.target.value })}
+                  spellCheck={false}
+                  value={draft.configText}
+                />
+              )}
+            </div>
 
             {validationErrors.length > 0 ? <ValidationErrorsPanel errors={validationErrors} /> : null}
 

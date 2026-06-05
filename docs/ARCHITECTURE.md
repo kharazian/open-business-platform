@@ -249,6 +249,6 @@ Infrastructure responsibility:
 - Store common query fields as relational columns.
 - Use backend permission checks for every sensitive API.
 - Keep responsive form layout grid-based, not canvas-based.
-- Add XYFlow only for workflows later.
+- Use XYFlow only for workflow visual authoring.
 - Keep shared UI in `src/app/src/components`.
 - Keep `/theme` as a playground, not as the owner of reusable UI.

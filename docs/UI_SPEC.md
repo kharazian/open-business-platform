@@ -60,6 +60,19 @@ The trigger workspace uses:
 
 The builder exposes only the V4 backend-supported events, conditions, and actions. It is intentionally not a diagram surface and does not use XYFlow. Backend permission checks remain authoritative.
 
+## Workflow Management UI
+
+Current status: V5 adds a real `/workflows` workspace for form-scoped workflow definitions. The workspace lists workflow definitions, edits draft metadata, saves draft configs, publishes immutable versions, enables/disables saved definitions, and exposes an optional workflow-only XYFlow visual builder over the same typed config used by the backend APIs.
+
+The workflow workspace uses:
+
+- Form selection and workflow definition list.
+- Visual builder mode for states, transitions, initial/final state treatment, approval references, and basic transition action metadata.
+- JSON editor mode as the non-visual fallback for debugging and power-user edits.
+- Existing save, publish, enable, disable, validation error, concurrency stamp, and unpublished-change behavior.
+
+The visual builder does not persist graph layout metadata and does not introduce XYFlow into form layout, reports, permissions, or trigger basics. Backend permission and validation checks remain authoritative.
+
 ## Notification Inbox UI
 
 Current status: V4 task 006 adds a real `/notifications` page for the authenticated user's in-app notifications.

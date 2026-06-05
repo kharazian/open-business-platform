@@ -37,19 +37,19 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] `/workflows` includes a visual builder mode for editing workflow draft configs.
-- [ ] Visual state/transition edits produce the same typed config accepted by backend validation.
-- [ ] Users can edit states, transitions, approval references, and basic action metadata through structured UI.
-- [ ] Backend validation errors map back to visible graph/editor elements where practical.
-- [ ] Publish/enable/disable workflows continue to use the existing APIs and concurrency stamps.
-- [ ] Existing non-visual workflow management remains available.
-- [ ] The implementation does not introduce XYFlow into form layout or unrelated modules.
-- [ ] Documentation is updated for visual-builder scope and any layout metadata.
-- [ ] Relevant tests/builds and frontend visual checks are run.
+- [x] `/workflows` includes a visual builder mode for editing workflow draft configs.
+- [x] Visual state/transition edits produce the same typed config accepted by backend validation.
+- [x] Users can edit states, transitions, approval references, and basic action metadata through structured UI.
+- [x] Backend validation errors map back to visible graph/editor elements where practical.
+- [x] Publish/enable/disable workflows continue to use the existing APIs and concurrency stamps.
+- [x] Existing non-visual workflow management remains available.
+- [x] The implementation does not introduce XYFlow into form layout or unrelated modules.
+- [x] Documentation is updated for visual-builder scope and layout metadata.
+- [x] Relevant tests/builds and frontend visual checks are run.
 
 ## Current Status
 
-Not started. This is optional V5 polish after action execution and trigger-to-workflow starts.
+Implemented. `/workflows` now offers a workflow-only XYFlow visual mode over the existing typed draft config, with the JSON editor still available for debugging and power-user edits. No graph layout metadata is persisted and no backend API or database shape changed.
 
 ## Out of Scope
 

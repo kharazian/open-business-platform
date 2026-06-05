@@ -1397,7 +1397,7 @@ Record submission dispatches `record.created`. Record edits dispatch `record.upd
 
 ## Workflows V5
 
-Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. V5 task 005 executes supported transition actions after direct or approval-completed transitions. V5 task 006 starts workflows from typed trigger actions. The current workflow implementation does not yet expose a visual builder.
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. V5 task 005 executes supported transition actions after direct or approval-completed transitions. V5 task 006 starts workflows from typed trigger actions. V5 task 007 adds a frontend-only visual builder that still reads and writes the same typed workflow definition config through the existing create/update/publish endpoints.
 
 Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
 
@@ -1584,11 +1584,9 @@ For `any` mode, the first approval executes the transition and cancels pending s
 
 Requires authentication and the task must be assigned to the current user. Rejection writes approval rejection history/audit, cancels pending sibling tasks, notifies the requester when applicable, and leaves the record in its current workflow state.
 
-### Planned V5 workflow APIs and behavior
+### V5 visual workflow builder API behavior
 
-The remaining prepared V5 task docs are intentionally not current API guarantees:
-
-- V5 task 007 should keep visual-builder APIs aligned with the existing workflow definition create/update/publish endpoints unless layout metadata requires a small extension.
+The V5 visual workflow builder does not introduce a new backend endpoint, database field, or layout metadata contract. Visual state, transition, approval, and action edits are serialized back into the same workflow definition config accepted by the existing create/update/publish endpoints.
 
 ## API Rules
 

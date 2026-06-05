@@ -553,14 +553,9 @@ Indexes:
 
 V5 task 004 adds this table for approval-gated workflow transitions. One row is created per resolved active approver so the current-user approval inbox can stay user-scoped. A shared `approval_group_id` links sibling tasks for the same requested transition; approvals and rejections update sibling rows according to `any` or `all` mode.
 
-### Planned V5 workflow persistence
+### V5 workflow persistence notes
 
-Prepared V5 task docs after task 005 may add or extend persistence for:
-
-- trigger-started workflow metadata in trigger logs and workflow history;
-- optional visual builder layout metadata that must not affect workflow execution semantics.
-
-Do not add these tables or columns until the relevant V5 task is implemented.
+V5 task 006 adds trigger-started workflow metadata in trigger logs and workflow history. V5 task 007 adds a frontend-only visual workflow builder and does not add graph layout tables, columns, or workflow config layout metadata.
 
 ### notifications
 

@@ -10,7 +10,7 @@ V5 starts the workflow and approval engine. Workflows should reuse the existing 
 4. `004-approval-inbox-and-notifications.md` - current-user approval inbox APIs/UI, approval task persistence, approval notifications, any/all response modes, workflow history, and audit logs. Completed for the current approval execution slice.
 5. `005-workflow-transition-action-execution.md` - execute typed workflow transition actions after direct or approval-completed transitions, with deterministic logging, audit, validation, and failure behavior. Completed for the current action execution slice.
 6. `006-trigger-to-workflow-starts.md` - let trigger actions start eligible published workflows on records without creating recursive automation loops. Completed for the current trigger/workflow integration slice.
-7. `007-visual-workflow-builder.md` - optional XYFlow workflow builder over the existing typed workflow config after the table/form workflow stack is stable. Next recommended V5 task.
+7. `007-visual-workflow-builder.md` - optional XYFlow workflow builder over the existing typed workflow config after the table/form workflow stack is stable. Completed for the current visual builder slice.
 
 ## Scope Rules
 

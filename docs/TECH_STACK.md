@@ -153,4 +153,4 @@ Local development can use a root `.env` file copied from `.env.example`. Default
 
 Do not add XYFlow in V1.
 
-Add `@xyflow/react` only when implementing the workflow/approval builder in V5 or later.
+`@xyflow/react` is used only for the V5 workflow visual builder. Do not use it for form layout, reports, permissions, or basic trigger authoring.

@@ -184,7 +184,7 @@ V5 transition action execution runs only after an authorized direct transition o
 
 Trigger-to-workflow starts run through the typed `start_workflow` trigger action boundary. Creating or updating that trigger requires form `manage` or `forms.manage_all` access for the trigger form, and backend validation only accepts enabled, published workflows on the same form with a current version. Execution uses the triggering actor for workflow history and record audit metadata, skips records that already have an active workflow, and does not dispatch recursive `status.changed` trigger events.
 
-Prepared V5 follow-up tasks should keep these rules:
+The V5 visual workflow builder keeps these rules:
 
 - The optional visual workflow builder must still use form `manage` or `forms.manage_all` access; graph UI visibility is not a backend authorization substitute.
 

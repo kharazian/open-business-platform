@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Workflow Foundation In Progress
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Feature-Complete Pending Final Verification
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -31,8 +31,9 @@
 - Record workflow start/direct transition execution and current-user approval inbox execution exist.
 - Workflow transition action execution exists for the safe V5 action subset.
 - Trigger actions can start eligible published workflows on current records without recursive automation loops.
+- `/workflows` includes a workflow-only XYFlow visual builder over the existing typed draft config, with JSON fallback and no persisted graph layout metadata.
 
-Next: continue V5 with `tasks/v5/007-visual-workflow-builder.md`.
+Next: review and verify the whole system to finalize V5, then continue V6 with print/PDF work.
 
 ## Product Engine Path
 
@@ -180,10 +181,7 @@ Implemented foundation:
 - Approval inbox and in-app approval notifications
 - Workflow transition action execution
 - Trigger-to-workflow starts
-
-Prepared V5 follow-up tasks:
-
-- `tasks/v5/007-visual-workflow-builder.md` - optional XYFlow visual workflow builder over the existing typed config.
+- Optional XYFlow visual workflow builder over the existing typed config
 
 ## V6: Print Templates and PDF
 
