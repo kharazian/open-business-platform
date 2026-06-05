@@ -1,6 +1,8 @@
 import type { EntityId } from "../../types/entities";
 import type {
   CreateWorkflowRequest,
+  WorkflowActionDefinition,
+  WorkflowActionType,
   WorkflowDefinitionConfig,
   WorkflowDetail,
   WorkflowSummary,
@@ -23,6 +25,15 @@ export type WorkflowDraftValidationResult = {
   valid: boolean;
   errors: WorkflowValidationError[];
 };
+
+export const workflowActionOptions: Array<{ label: string; value: WorkflowActionType }> = [
+  { label: "Write audit entry", value: "write_audit_entry" },
+  { label: "Send email", value: "send_email" },
+  { label: "Assign record", value: "assign_record" },
+  { label: "Update field", value: "update_field" },
+  { label: "Send notification", value: "send_notification" },
+  { label: "Create record", value: "create_record" }
+];
 
 export const defaultWorkflowConfig: WorkflowDefinitionConfig = {
   schemaVersion: 1,
@@ -57,6 +68,26 @@ export function createWorkflowDraftFromDetail(detail: WorkflowDetail): WorkflowD
     configText: formatWorkflowConfigText(detail.config),
     isEnabled: detail.isEnabled,
     concurrencyStamp: detail.concurrencyStamp
+  };
+}
+
+export function createWorkflowAction(type: WorkflowActionType = "write_audit_entry", index = Date.now()): WorkflowActionDefinition {
+  return {
+    id: `action-${index}`,
+    type,
+    message: type === "write_audit_entry" ? "Workflow transition completed." : "",
+    to: type === "send_email" ? [] : null,
+    subject: type === "send_email" ? "Workflow update" : null,
+    body: type === "send_email" || type === "send_notification" ? "A workflow transition completed." : null,
+    assignedToUserId: null,
+    assignedGroupId: null,
+    fieldId: type === "update_field" ? "" : null,
+    value: type === "update_field" ? "" : undefined,
+    title: type === "send_notification" ? "Workflow update" : null,
+    recipientUserIds: type === "send_notification" ? [] : null,
+    recipientGroupIds: type === "send_notification" ? [] : null,
+    targetFormId: type === "create_record" ? "" : null,
+    values: type === "create_record" ? { field_id: { literal: "value" } } : null
   };
 }
 

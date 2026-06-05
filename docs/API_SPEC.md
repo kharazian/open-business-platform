@@ -1379,7 +1379,7 @@ Record submission dispatches `record.created`. Record edits dispatch `record.upd
 
 ## Workflows V5
 
-Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. The current workflow slices do not start workflows from triggers, execute transition action placeholders, or expose a visual builder.
+Workflow APIs require authentication. V5 task 001 management endpoints require form `manage` access for the target form, which is also granted by `forms.manage_all`. V5 task 002 adds the `/workflows` management UI over these APIs. V5 task 003 adds record workflow state, start, and direct transition APIs over published workflow versions. V5 task 004 adds approval-gated transition requests, current-user approval inbox APIs, and in-app notifications for assigned approvers. V5 task 005 executes supported transition actions after direct or approval-completed transitions. The current workflow implementation does not yet start workflows from triggers or expose a visual builder.
 
 Workflow definitions are scoped to one form. The mutable definition stores a draft config and points to the current published immutable version when published. Future workflow history can reference the exact `workflowDefinitionVersionId` used for a record.
 
@@ -1389,9 +1389,9 @@ Workflow config supports typed:
 - transitions: `{ "key": "submit", "name": "Submit", "fromStateKey": "draft", "toStateKey": "manager_review", "approvalStepKey": "manager_approval" }`
 - approval steps: `{ "key": "manager_approval", "name": "Manager approval", "mode": "any", "assigneeRules": [...] }`
 - assignee rules: `user`, `group`, `department_manager`, and `record_owner`
-- optional transition actions: typed action placeholders such as `send_email`, `send_notification`, `change_status`, `assign_record`, `update_field`, and `create_record`; actions are not executed in this slice.
+- optional transition actions: typed actions such as `write_audit_entry`, `send_email`, `send_notification`, `assign_record`, `update_field`, and `create_record`; `change_status`, `call_webhook`, PDF, external integration, retry-queue, and custom-code actions are rejected or left out of this slice.
 
-Validation rejects duplicate state/transition/approval keys, missing or final initial states, missing final states, invalid transition endpoints, transitions from final states, invalid approval references, unsupported approval modes, missing assignee rules, and assignee targets that are not active users, groups, or departments.
+Validation rejects duplicate state/transition/approval keys, missing or final initial states, missing final states, invalid transition endpoints, transitions from final states, invalid approval references, unsupported approval modes, missing assignee rules, assignee targets that are not active users, groups, or departments, and unsupported workflow action types.
 
 ### List workflows
 
@@ -1503,7 +1503,9 @@ Request:
 }
 ```
 
-The backend uses the workflow definition version already stored on the record. It rejects unavailable transitions and transitions from another state. Direct transitions update `workflowStateKey`, update `records.status` to the target state key, write `workflow_transitioned` history plus a `record_workflow_transitioned` audit entry, and dispatch a status-changed trigger event when the record status changed.
+The backend uses the workflow definition version already stored on the record. It rejects unavailable transitions and transitions from another state. Direct transitions update `workflowStateKey`, update `records.status` to the target state key, write `workflow_transitioned` history plus a `record_workflow_transitioned` audit entry, execute configured transition actions from the stored workflow version, and dispatch a status-changed trigger event when the record status changed.
+
+Supported transition actions run in configured order. Action attempts are represented as `workflow_action_succeeded` or `workflow_action_failed` rows in `workflow_history`; each row stores action id, action type, status, error message, started time, completed time, and result metadata in `metadata_json`. `assign_record`, `update_field`, `create_record`, and audit-entry action failures roll back the transition transaction and persist rollback failure history afterward. `send_email` and `send_notification` failures are logged in workflow history without hiding the completed transition outcome. Workflow action record mutations do not recursively dispatch trigger events; the normal status-changed trigger dispatch still happens after the workflow transition commits.
 
 Approval-gated transitions do not immediately move the record. They create one pending `workflow_approval_tasks` row per resolved active approver, write `workflow_approval_requested` history plus `record_workflow_approval_requested` audit, and create in-app notifications for approvers who have in-app notifications enabled. Duplicate pending approval groups for the same record, workflow version, transition, and from-state are rejected.
 
@@ -1556,13 +1558,20 @@ Requires authentication and the task must be assigned to the current user. Reque
 }
 ```
 
-For `any` mode, the first approval executes the transition and cancels pending sibling tasks. For `all` mode, the record moves only after all assigned approvers have approved. Completed transitions write approval history/audit, `workflow_transitioned` history, `record_workflow_transitioned` audit, requester notification when applicable, and dispatch the existing status-changed trigger event when the record status changed.
+For `any` mode, the first approval executes the transition and cancels pending sibling tasks. For `all` mode, the record moves only after all assigned approvers have approved. Completed transitions write approval history/audit, `workflow_transitioned` history, `record_workflow_transitioned` audit, requester notification when applicable, execute transition actions through the same backend path as direct transitions, and dispatch the existing status-changed trigger event when the record status changed.
 
 ### Reject workflow approval
 
 `POST /api/workflow-approvals/{approvalTaskId}/reject`
 
 Requires authentication and the task must be assigned to the current user. Rejection writes approval rejection history/audit, cancels pending sibling tasks, notifies the requester when applicable, and leaves the record in its current workflow state.
+
+### Planned V5 workflow APIs and behavior
+
+The remaining prepared V5 task docs are intentionally not current API guarantees:
+
+- V5 task 006 should define the trigger action contract for starting workflows on current records.
+- V5 task 007 should keep visual-builder APIs aligned with the existing workflow definition create/update/publish endpoints unless layout metadata requires a small extension.
 
 ## API Rules
 

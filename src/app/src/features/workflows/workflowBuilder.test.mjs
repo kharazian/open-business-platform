@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   buildWorkflowRequest,
+  createWorkflowAction,
   createEmptyWorkflowDraft,
   createWorkflowDraftFromDetail,
   formatWorkflowStatus,
+  workflowActionOptions,
   validateWorkflowDraft
 } from "./builder.ts";
 
@@ -82,3 +84,14 @@ test("workflow builder maps saved details and formats statuses", () => {
   assert.equal(status.tone, "warning");
 });
 
+test("workflow builder exposes safe transition action helpers", () => {
+  assert.equal(workflowActionOptions.some((option) => option.value === "change_status"), false);
+  assert.equal(workflowActionOptions.some((option) => option.value === "send_notification"), true);
+
+  const action = createWorkflowAction("send_notification", 3);
+
+  assert.equal(action.id, "action-3");
+  assert.equal(action.type, "send_notification");
+  assert.equal(action.title, "Workflow update");
+  assert.deepEqual(action.recipientUserIds, []);
+});

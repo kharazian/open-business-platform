@@ -508,7 +508,7 @@ Indexes:
 - form_id
 - created_at
 
-V5 task 003 writes this table for record workflow starts and direct transitions. V5 task 004 also writes approval request, approval response, rejection, cancellation, and approval-completed transition history. Transition action execution and trigger-to-workflow starts remain future workflow tasks.
+V5 task 003 writes this table for record workflow starts and direct transitions. V5 task 004 also writes approval request, approval response, rejection, cancellation, and approval-completed transition history. V5 task 005 represents transition action attempts in this table with `workflow_action_succeeded` and `workflow_action_failed` actions. Action attempt metadata stores action id, action type, status, error message, started time, completed time, and result details in `metadata_json`; no dedicated workflow action log table was added. Trigger-to-workflow starts remain a future workflow task.
 
 ### workflow_approval_tasks
 
@@ -552,6 +552,15 @@ Indexes:
 - responded_by_id
 
 V5 task 004 adds this table for approval-gated workflow transitions. One row is created per resolved active approver so the current-user approval inbox can stay user-scoped. A shared `approval_group_id` links sibling tasks for the same requested transition; approvals and rejections update sibling rows according to `any` or `all` mode.
+
+### Planned V5 workflow persistence
+
+Prepared V5 task docs after task 005 may add or extend persistence for:
+
+- trigger-started workflow metadata in trigger logs and workflow history;
+- optional visual builder layout metadata that must not affect workflow execution semantics.
+
+Do not add these tables or columns until the relevant V5 task is implemented.
 
 ### notifications
 

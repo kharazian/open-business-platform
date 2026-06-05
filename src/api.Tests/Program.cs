@@ -722,11 +722,40 @@ var validWorkflowConfig = new WorkflowDefinitionConfig(
                 new WorkflowAssigneeRuleDefinition(WorkflowAssigneeRuleTypes.Group, GroupId: workflowGroupId)
             })
     });
+var workflowActionConfig = validWorkflowConfig with
+{
+    Transitions = new[]
+    {
+        new WorkflowTransitionDefinition(
+            "approve",
+            "Approve",
+            "manager_review",
+            "approved",
+            Actions: new[]
+            {
+                new WorkflowActionDefinition("audit-1", WorkflowActionTypes.WriteAuditEntry, Message: "Workflow transition completed."),
+                new WorkflowActionDefinition("email-1", WorkflowActionTypes.SendEmail, To: new[] { "ops@example.test" }, Subject: "Approved", Body: "The record was approved."),
+                new WorkflowActionDefinition("assign-1", WorkflowActionTypes.AssignRecord, AssignedToUserId: workflowUserId),
+                new WorkflowActionDefinition("field-1", WorkflowActionTypes.UpdateField, FieldId: "email", Value: "approved@example.test"),
+                new WorkflowActionDefinition("notify-1", WorkflowActionTypes.SendNotification, Title: "Approved", Body: "Record approved.", RecipientUserIds: new[] { workflowUserId }),
+                new WorkflowActionDefinition(
+                    "create-1",
+                    WorkflowActionTypes.CreateRecord,
+                    TargetFormId: targetFormId,
+                    Values: new Dictionary<string, WorkflowActionValueDefinition>
+                    {
+                        ["email"] = new WorkflowActionValueDefinition(SourceFieldId: "email"),
+                        ["department"] = new WorkflowActionValueDefinition(Literal: "HR")
+                    })
+            })
+    }
+};
 AssertEqual(WorkflowDefinitionStatuses.Draft, WorkflowDefinitionStatuses.Draft, "Workflow definition status contracts should expose draft.");
 AssertEqual(WorkflowDefinitionStatuses.Published, WorkflowDefinitionStatuses.Published, "Workflow definition status contracts should expose published.");
 AssertTrue(WorkflowApprovalModes.Supported.Contains(WorkflowApprovalModes.Any), "Workflow approval modes should include any.");
 AssertTrue(WorkflowAssigneeRuleTypes.Supported.Contains(WorkflowAssigneeRuleTypes.DepartmentManager), "Workflow assignee rules should include department managers.");
-AssertTrue(WorkflowActionTypes.Supported.Contains(WorkflowActionTypes.SendNotification), "Workflow action contracts should include notification actions for later execution slices.");
+AssertTrue(WorkflowActionTypes.Supported.Contains(WorkflowActionTypes.SendNotification), "Workflow action contracts should include notification actions.");
+AssertFalse(WorkflowActionTypes.Supported.Contains(WorkflowActionTypes.ChangeStatus), "Workflow action contracts should reject change_status so records.status stays aligned with workflow state.");
 AssertTrue(
     WorkflowDefinitionValidator.Validate(
         new CreateWorkflowDefinitionRequest("Employee approval", null, validWorkflowConfig, true),
@@ -734,6 +763,13 @@ AssertTrue(
         new[] { workflowGroupId },
         new[] { workflowDepartmentId }).Valid,
     "A valid workflow definition should pass validation.");
+AssertTrue(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest("Action workflow", null, workflowActionConfig, true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "Workflow validation should accept the safe V5 action execution subset.");
 AssertFalse(
     WorkflowDefinitionValidator.Validate(
         new CreateWorkflowDefinitionRequest(
@@ -794,12 +830,38 @@ AssertFalse(
         new[] { workflowGroupId },
         new[] { workflowDepartmentId }).Valid,
     "Workflow validation should reject approval assignee rules that reference inactive or missing users.");
+AssertFalse(
+    WorkflowDefinitionValidator.Validate(
+        new CreateWorkflowDefinitionRequest(
+            "Unsafe action",
+            null,
+            validWorkflowConfig with
+            {
+                Transitions = new[]
+                {
+                    new WorkflowTransitionDefinition(
+                        "submit",
+                        "Submit",
+                        "draft",
+                        "manager_review",
+                        Actions: new[] { new WorkflowActionDefinition("status-1", WorkflowActionTypes.ChangeStatus, Status: "archived") })
+                }
+            },
+            true),
+        new[] { workflowUserId },
+        new[] { workflowGroupId },
+        new[] { workflowDepartmentId }).Valid,
+    "Workflow validation should reject change_status transition actions.");
 AssertEqual(RecordWorkflowHistoryActions.Started, "workflow_started", "Record workflow history should expose a stable start action.");
 AssertEqual(RecordWorkflowHistoryActions.Transitioned, "workflow_transitioned", "Record workflow history should expose a stable transition action.");
+AssertEqual(RecordWorkflowHistoryActions.ActionSucceeded, "workflow_action_succeeded", "Workflow history should expose successful action attempts.");
+AssertEqual(RecordWorkflowHistoryActions.ActionFailed, "workflow_action_failed", "Workflow history should expose failed action attempts.");
 var startWorkflowRequest = new StartRecordWorkflowRequest(Guid.Parse("99999999-9999-9999-9999-999999999999"), "record-stamp");
 AssertEqual("record-stamp", startWorkflowRequest.ConcurrencyStamp, "Record workflow starts should require record concurrency stamps.");
 var executeWorkflowTransitionRequest = new ExecuteRecordWorkflowTransitionRequest("record-stamp-2");
 AssertEqual("record-stamp-2", executeWorkflowTransitionRequest.ConcurrencyStamp, "Record workflow transitions should require record concurrency stamps.");
+var workflowTriggerAction = WorkflowActionExecutionService.ToTriggerActionDefinition(workflowActionConfig.Transitions.Single().Actions!.First());
+AssertEqual(TriggerActionTypes.WriteAuditEntry, workflowTriggerAction.Type, "Workflow actions should convert to the shared trigger action primitive shape.");
 var directTransitionOptions = RecordWorkflowService.GetAvailableDirectTransitions(validWorkflowConfig, "manager_review");
 AssertEqual(1, directTransitionOptions.Count, "Only direct transitions from the current state should be available.");
 AssertEqual("approve", directTransitionOptions.Single().Key, "Available direct transitions should expose transition keys.");
@@ -1028,6 +1090,8 @@ AssertNotNull(typeof(WorkflowDefinitionService).GetMethod(nameof(WorkflowDefinit
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.GetRecordWorkflowAsync)), "Record workflow service should read record workflow state.");
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.StartRecordWorkflowAsync)), "Record workflow service should start enabled published workflows on records.");
 AssertNotNull(typeof(RecordWorkflowService).GetMethod(nameof(RecordWorkflowService.ExecuteTransitionAsync)), "Record workflow service should execute direct workflow transitions.");
+AssertNotNull(typeof(WorkflowActionExecutionService).GetMethod(nameof(WorkflowActionExecutionService.ExecuteTransitionActionsAsync)), "Workflow action service should execute transition actions.");
+AssertNotNull(typeof(WorkflowActionExecutionService).GetMethod(nameof(WorkflowActionExecutionService.PersistRolledBackActionFailureAsync)), "Workflow action service should persist rolled-back action failures.");
 AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.ListForCurrentUserAsync)), "Workflow approval service should list current-user approval tasks.");
 AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.ApproveAsync)), "Workflow approval service should approve assigned tasks.");
 AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.RejectAsync)), "Workflow approval service should reject assigned tasks.");

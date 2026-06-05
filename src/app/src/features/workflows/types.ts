@@ -4,7 +4,7 @@ import type { FormRecordValue } from "../forms/types";
 export const workflowStatuses = ["draft", "published"] as const;
 export const workflowApprovalModes = ["any", "all"] as const;
 export const workflowAssigneeRuleTypes = ["user", "group", "department_manager", "record_owner"] as const;
-export const workflowActionTypes = ["write_audit_entry", "send_email", "change_status", "assign_record", "update_field", "send_notification", "create_record"] as const;
+export const workflowActionTypes = ["write_audit_entry", "send_email", "assign_record", "update_field", "send_notification", "create_record"] as const;
 
 export type WorkflowStatus = (typeof workflowStatuses)[number];
 export type WorkflowApprovalMode = (typeof workflowApprovalModes)[number];

@@ -170,15 +170,22 @@ Resources can be:
 - Trigger
 - Workflow
 
-## Implemented V5 Workflow Action Contracts
+## Implemented V5 Workflow Permission Contracts
 
-Workflow action constants currently include:
+Workflow permission constants currently include:
 
 - `view`
 - `manage`
 - `approve`
 
 The backend workflow definition APIs validate management through form `manage` access. Record workflow state reads require record `view` access. Starting a workflow and requesting or executing a transition require record `change_status`, form `manage`, or `forms.manage_all` access with the same scoped record rules used by status changes. Current-user approval inbox APIs are scoped to tasks assigned to the authenticated persisted user; approving or rejecting a task is rejected when the task belongs to another user.
+
+V5 transition action execution runs only after an authorized direct transition or assigned approval response. Supported workflow transition actions are `write_audit_entry`, `send_email`, `send_notification`, `assign_record`, `update_field`, and `create_record`; `change_status` is rejected so workflow state and `records.status` stay aligned. Record-mutating workflow actions reuse the initiating actor for audit metadata and do not recursively dispatch trigger events.
+
+Prepared V5 follow-up tasks should keep these rules:
+
+- Trigger-to-workflow starts must run through a typed trigger action boundary and must audit the trigger/action source.
+- The optional visual workflow builder must still use form `manage` or `forms.manage_all` access; graph UI visibility is not a backend authorization substitute.
 
 ## Record-Level Rules Later
 

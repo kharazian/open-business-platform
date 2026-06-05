@@ -12,11 +12,16 @@ public sealed class WorkflowApprovalService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly WorkflowActionExecutionService actionExecutionService;
 
-    public WorkflowApprovalService(OpenBusinessPlatformDbContext dbContext, TriggerEventDispatcher triggerDispatcher)
+    public WorkflowApprovalService(
+        OpenBusinessPlatformDbContext dbContext,
+        TriggerEventDispatcher triggerDispatcher,
+        WorkflowActionExecutionService actionExecutionService)
     {
         this.dbContext = dbContext;
         this.triggerDispatcher = triggerDispatcher;
+        this.actionExecutionService = actionExecutionService;
     }
 
     public static bool IsApprovalComplete(string mode, IReadOnlyCollection<string> statuses)
@@ -122,74 +127,120 @@ public sealed class WorkflowApprovalService
         string? previousStatus = null;
         string? currentStatus = null;
         WorkflowApprovalTask? responseTask;
+        WorkflowTransitionActionContext? failedActionContext = null;
 
-        await using (var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken))
+        try
         {
-            responseTask = await dbContext.WorkflowApprovalTasks
-                .FirstOrDefaultAsync(task => task.Id == approvalTaskId && task.AssignedToUserId == userId, cancellationToken);
-
-            if (responseTask is null)
+            await using (var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken))
             {
-                throw new RecordWorkflowException(StatusCodes.Status404NotFound, "Workflow approval task was not found.");
-            }
+                responseTask = await dbContext.WorkflowApprovalTasks
+                    .FirstOrDefaultAsync(task => task.Id == approvalTaskId && task.AssignedToUserId == userId, cancellationToken);
 
-            if (!string.Equals(responseTask.Status, WorkflowApprovalTaskStatuses.Pending, StringComparison.Ordinal))
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow approval task is no longer pending.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-            responseTask.Status = approved ? WorkflowApprovalTaskStatuses.Approved : WorkflowApprovalTaskStatuses.Rejected;
-            responseTask.RespondedById = userId;
-            responseTask.RespondedAt = now;
-            responseTask.Comment = NormalizeComment(request.Comment);
-            responseTask.UpdatedById = userId;
-
-            var groupTasks = await dbContext.WorkflowApprovalTasks
-                .Where(task => task.ApprovalGroupId == responseTask.ApprovalGroupId)
-                .ToArrayAsync(cancellationToken);
-
-            AddHistory(responseTask.WorkflowDefinitionId, responseTask.WorkflowDefinitionVersionId, responseTask.FormId, responseTask.RecordId, responseTask.FromStateKey, responseTask.ToStateKey, responseTask.TransitionKey, approved ? RecordWorkflowHistoryActions.ApprovalApproved : RecordWorkflowHistoryActions.ApprovalRejected, userId, new { responseTask.ApprovalStepKey, responseTask.Comment });
-
-            if (!approved)
-            {
-                CancelPendingSiblings(groupTasks, responseTask.Id, userId, now);
-                AddRecordAudit(responseTask.RecordId, "record_workflow_approval_rejected", userId, new { responseTask.ApprovalGroupId, responseTask.TransitionKey });
-                await NotifyRequesterAsync(responseTask, "Workflow approval rejected", $"Transition '{responseTask.TransitionName}' was rejected.", cancellationToken);
-            }
-            else if (IsApprovalComplete(responseTask.Mode, groupTasks.Select(task => task.Status).ToArray()))
-            {
-                var record = await dbContext.Records
-                    .FirstOrDefaultAsync(candidate => candidate.Id == responseTask.RecordId && !candidate.IsDeleted, cancellationToken);
-
-                if (record is null)
+                if (responseTask is null)
                 {
-                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Approval record was not found.");
+                    throw new RecordWorkflowException(StatusCodes.Status404NotFound, "Workflow approval task was not found.");
                 }
 
-                if (record.WorkflowDefinitionVersionId != responseTask.WorkflowDefinitionVersionId
-                    || !string.Equals(record.WorkflowStateKey, responseTask.FromStateKey, StringComparison.Ordinal))
+                if (!string.Equals(responseTask.Status, WorkflowApprovalTaskStatuses.Pending, StringComparison.Ordinal))
                 {
-                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow state changed before approval completed.");
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow approval task is no longer pending.");
                 }
 
-                var values = DeserializeValues(record.ValuesJson);
-                beforeSnapshot = ToTriggerSnapshot(record, values);
-                previousStatus = record.Status;
-                record.WorkflowStateKey = responseTask.ToStateKey;
-                record.Status = responseTask.ToStateKey;
-                record.UpdatedById = userId;
-                currentStatus = record.Status;
-                afterSnapshot = ToTriggerSnapshot(record, values);
+                var now = DateTimeOffset.UtcNow;
+                responseTask.Status = approved ? WorkflowApprovalTaskStatuses.Approved : WorkflowApprovalTaskStatuses.Rejected;
+                responseTask.RespondedById = userId;
+                responseTask.RespondedAt = now;
+                responseTask.Comment = NormalizeComment(request.Comment);
+                responseTask.UpdatedById = userId;
 
-                CancelPendingSiblings(groupTasks, responseTask.Id, userId, now);
-                AddHistory(responseTask.WorkflowDefinitionId, responseTask.WorkflowDefinitionVersionId, responseTask.FormId, responseTask.RecordId, responseTask.FromStateKey, responseTask.ToStateKey, responseTask.TransitionKey, RecordWorkflowHistoryActions.Transitioned, userId, new { responseTask.TransitionName, ApprovedById = userId });
-                AddRecordAudit(responseTask.RecordId, "record_workflow_approval_completed", userId, new { responseTask.ApprovalGroupId, responseTask.TransitionKey });
-                await NotifyRequesterAsync(responseTask, "Workflow approval approved", $"Transition '{responseTask.TransitionName}' was approved.", cancellationToken);
+                var groupTasks = await dbContext.WorkflowApprovalTasks
+                    .Where(task => task.ApprovalGroupId == responseTask.ApprovalGroupId)
+                    .ToArrayAsync(cancellationToken);
+
+                AddHistory(responseTask.WorkflowDefinitionId, responseTask.WorkflowDefinitionVersionId, responseTask.FormId, responseTask.RecordId, responseTask.FromStateKey, responseTask.ToStateKey, responseTask.TransitionKey, approved ? RecordWorkflowHistoryActions.ApprovalApproved : RecordWorkflowHistoryActions.ApprovalRejected, userId, new { responseTask.ApprovalStepKey, responseTask.Comment });
+
+                if (!approved)
+                {
+                    CancelPendingSiblings(groupTasks, responseTask.Id, userId, now);
+                    AddRecordAudit(responseTask.RecordId, "record_workflow_approval_rejected", userId, new { responseTask.ApprovalGroupId, responseTask.TransitionKey });
+                    await NotifyRequesterAsync(responseTask, "Workflow approval rejected", $"Transition '{responseTask.TransitionName}' was rejected.", cancellationToken);
+                }
+                else if (IsApprovalComplete(responseTask.Mode, groupTasks.Select(task => task.Status).ToArray()))
+                {
+                    var record = await dbContext.Records
+                        .FirstOrDefaultAsync(candidate => candidate.Id == responseTask.RecordId && !candidate.IsDeleted, cancellationToken);
+
+                    if (record is null)
+                    {
+                        throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Approval record was not found.");
+                    }
+
+                    if (record.WorkflowDefinitionVersionId != responseTask.WorkflowDefinitionVersionId
+                        || !string.Equals(record.WorkflowStateKey, responseTask.FromStateKey, StringComparison.Ordinal))
+                    {
+                        throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow state changed before approval completed.");
+                    }
+
+                    var version = await dbContext.WorkflowVersions
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(candidate => candidate.Id == responseTask.WorkflowDefinitionVersionId, cancellationToken);
+
+                    if (version is null)
+                    {
+                        throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow version was not found.");
+                    }
+
+                    var config = DeserializeConfig(version.ConfigJson);
+                    var transition = config.Transitions.FirstOrDefault(candidate =>
+                        string.Equals(candidate.Key, responseTask.TransitionKey, StringComparison.Ordinal)
+                        && string.Equals(candidate.FromStateKey, responseTask.FromStateKey, StringComparison.Ordinal)
+                        && string.Equals(candidate.ToStateKey, responseTask.ToStateKey, StringComparison.Ordinal));
+
+                    if (transition is null)
+                    {
+                        throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow transition was not found in the published version.");
+                    }
+
+                    var values = DeserializeValues(record.ValuesJson);
+                    beforeSnapshot = ToTriggerSnapshot(record, values);
+                    previousStatus = record.Status;
+                    record.WorkflowStateKey = responseTask.ToStateKey;
+                    record.Status = responseTask.ToStateKey;
+                    record.UpdatedById = userId;
+                    currentStatus = record.Status;
+                    afterSnapshot = ToTriggerSnapshot(record, values);
+                    failedActionContext = new WorkflowTransitionActionContext(
+                        responseTask.WorkflowDefinitionId,
+                        responseTask.WorkflowDefinitionVersionId,
+                        responseTask.FormId,
+                        responseTask.RecordId,
+                        responseTask.FromStateKey,
+                        responseTask.ToStateKey,
+                        responseTask.TransitionKey,
+                        responseTask.TransitionName,
+                        userId);
+
+                    CancelPendingSiblings(groupTasks, responseTask.Id, userId, now);
+                    AddHistory(responseTask.WorkflowDefinitionId, responseTask.WorkflowDefinitionVersionId, responseTask.FormId, responseTask.RecordId, responseTask.FromStateKey, responseTask.ToStateKey, responseTask.TransitionKey, RecordWorkflowHistoryActions.Transitioned, userId, new { responseTask.TransitionName, ApprovedById = userId });
+                    AddRecordAudit(responseTask.RecordId, "record_workflow_approval_completed", userId, new { responseTask.ApprovalGroupId, responseTask.TransitionKey });
+                    await NotifyRequesterAsync(responseTask, "Workflow approval approved", $"Transition '{responseTask.TransitionName}' was approved.", cancellationToken);
+                    await actionExecutionService.ExecuteTransitionActionsAsync(record, transition, failedActionContext, cancellationToken);
+                }
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        catch (WorkflowActionExecutionException exception)
+        {
+            dbContext.ChangeTracker.Clear();
+
+            if (failedActionContext is not null)
+            {
+                await actionExecutionService.PersistRolledBackActionFailureAsync(failedActionContext, exception.Results, cancellationToken);
             }
 
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            throw new RecordWorkflowException(StatusCodes.Status409Conflict, exception.Message);
         }
 
         await DispatchStatusChangedIfNeededAsync(beforeSnapshot, afterSnapshot, userId, previousStatus, currentStatus, cancellationToken);
@@ -427,6 +478,12 @@ public sealed class WorkflowApprovalService
     {
         return JsonSerializer.Deserialize<Dictionary<string, object?>>(valuesJson.RootElement.GetRawText(), JsonOptions)
             ?? new Dictionary<string, object?>();
+    }
+
+    private static WorkflowDefinitionConfig DeserializeConfig(JsonDocument configJson)
+    {
+        var config = configJson.RootElement.Deserialize<WorkflowDefinitionConfig>(JsonOptions);
+        return WorkflowDefinitionValidator.NormalizeConfig(config);
     }
 
     private static TriggerRecordSnapshot ToTriggerSnapshot(FormRecord record, IReadOnlyDictionary<string, object?> values)

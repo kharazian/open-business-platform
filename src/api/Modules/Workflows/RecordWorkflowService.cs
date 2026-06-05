@@ -15,15 +15,18 @@ public sealed class RecordWorkflowService
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventDispatcher triggerDispatcher;
     private readonly WorkflowApprovalService approvalService;
+    private readonly WorkflowActionExecutionService actionExecutionService;
 
     public RecordWorkflowService(
         OpenBusinessPlatformDbContext dbContext,
         TriggerEventDispatcher triggerDispatcher,
-        WorkflowApprovalService approvalService)
+        WorkflowApprovalService approvalService,
+        WorkflowActionExecutionService actionExecutionService)
     {
         this.dbContext = dbContext;
         this.triggerDispatcher = triggerDispatcher;
         this.approvalService = approvalService;
+        this.actionExecutionService = actionExecutionService;
     }
 
     public static IReadOnlyList<RecordWorkflowTransitionDto> GetAvailableDirectTransitions(
@@ -242,122 +245,148 @@ public sealed class RecordWorkflowService
         TriggerRecordSnapshot? afterSnapshot = null;
         string? previousStatus = null;
         string? currentStatus = null;
+        WorkflowTransitionActionContext? failedActionContext = null;
 
-        await using (var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken))
+        try
         {
-            var record = await dbContext.Records
-                .FirstOrDefaultAsync(candidate => candidate.Id == recordId && !candidate.IsDeleted, cancellationToken);
-
-            if (record is null)
+            await using (var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken))
             {
-                throw new RecordWorkflowException(StatusCodes.Status404NotFound, "Record was not found.");
-            }
+                var record = await dbContext.Records
+                    .FirstOrDefaultAsync(candidate => candidate.Id == recordId && !candidate.IsDeleted, cancellationToken);
 
-            if (!await permissionService.CanAccessRecordAsync(principal, record, PlatformPermissions.Form.ChangeStatus, cancellationToken))
-            {
-                throw new RecordWorkflowException(StatusCodes.Status403Forbidden, "Record access was denied.");
-            }
-
-            EnsureConcurrencyStamp(record.ConcurrencyStamp, request.ConcurrencyStamp);
-
-            if (record.WorkflowDefinitionId is null
-                || record.WorkflowDefinitionVersionId is null
-                || string.IsNullOrWhiteSpace(record.WorkflowStateKey))
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record has no active workflow.");
-            }
-
-            var workflow = await dbContext.Workflows
-                .AsNoTracking()
-                .FirstOrDefaultAsync(candidate => candidate.Id == record.WorkflowDefinitionId.Value && !candidate.IsDeleted, cancellationToken);
-
-            if (workflow is null)
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow definition was not found.");
-            }
-
-            if (!workflow.IsEnabled)
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow is disabled.");
-            }
-
-            var version = await dbContext.WorkflowVersions
-                .AsNoTracking()
-                .FirstOrDefaultAsync(candidate => candidate.Id == record.WorkflowDefinitionVersionId.Value, cancellationToken);
-
-            if (version is null)
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow version was not found.");
-            }
-
-            var config = DeserializeConfig(version.ConfigJson);
-            var transition = config.Transitions.FirstOrDefault(candidate =>
-                string.Equals(candidate.Key, normalizedTransitionKey, StringComparison.Ordinal)
-                && string.Equals(candidate.FromStateKey, record.WorkflowStateKey, StringComparison.Ordinal));
-
-            if (transition is null)
-            {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow transition is not available from the current state.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(transition.ApprovalStepKey))
-            {
-                var approvalStep = config.ApprovalSteps.FirstOrDefault(step => string.Equals(step.Key, transition.ApprovalStepKey, StringComparison.Ordinal));
-                if (approvalStep is null)
+                if (record is null)
                 {
-                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow approval step was not found.");
+                    throw new RecordWorkflowException(StatusCodes.Status404NotFound, "Record was not found.");
                 }
 
-                await approvalService.RequestApprovalAsync(record, workflow, version, transition, approvalStep, actorUserId, cancellationToken);
+                if (!await permissionService.CanAccessRecordAsync(principal, record, PlatformPermissions.Form.ChangeStatus, cancellationToken))
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status403Forbidden, "Record access was denied.");
+                }
+
+                EnsureConcurrencyStamp(record.ConcurrencyStamp, request.ConcurrencyStamp);
+
+                if (record.WorkflowDefinitionId is null
+                    || record.WorkflowDefinitionVersionId is null
+                    || string.IsNullOrWhiteSpace(record.WorkflowStateKey))
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record has no active workflow.");
+                }
+
+                var workflow = await dbContext.Workflows
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(candidate => candidate.Id == record.WorkflowDefinitionId.Value && !candidate.IsDeleted, cancellationToken);
+
+                if (workflow is null)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow definition was not found.");
+                }
+
+                if (!workflow.IsEnabled)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow is disabled.");
+                }
+
+                var version = await dbContext.WorkflowVersions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(candidate => candidate.Id == record.WorkflowDefinitionVersionId.Value, cancellationToken);
+
+                if (version is null)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Record workflow version was not found.");
+                }
+
+                var config = DeserializeConfig(version.ConfigJson);
+                var transition = config.Transitions.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Key, normalizedTransitionKey, StringComparison.Ordinal)
+                    && string.Equals(candidate.FromStateKey, record.WorkflowStateKey, StringComparison.Ordinal));
+
+                if (transition is null)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow transition is not available from the current state.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(transition.ApprovalStepKey))
+                {
+                    var approvalStep = config.ApprovalSteps.FirstOrDefault(step => string.Equals(step.Key, transition.ApprovalStepKey, StringComparison.Ordinal));
+                    if (approvalStep is null)
+                    {
+                        throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow approval step was not found.");
+                    }
+
+                    await approvalService.RequestApprovalAsync(record, workflow, version, transition, approvalStep, actorUserId, cancellationToken);
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+
+                    return await GetRecordWorkflowAsync(recordId, principal, permissionService, cancellationToken);
+                }
+
+                var targetState = config.States.FirstOrDefault(state => string.Equals(state.Key, transition.ToStateKey, StringComparison.Ordinal));
+                if (targetState is null)
+                {
+                    throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow target state was not found.");
+                }
+
+                var values = DeserializeValues(record.ValuesJson);
+                beforeSnapshot = ToTriggerSnapshot(record, values);
+                previousStatus = record.Status;
+                var fromStateKey = record.WorkflowStateKey;
+                record.WorkflowStateKey = transition.ToStateKey;
+                record.Status = transition.ToStateKey;
+                record.UpdatedById = actorUserId;
+                currentStatus = record.Status;
+                afterSnapshot = ToTriggerSnapshot(record, values);
+                failedActionContext = new WorkflowTransitionActionContext(
+                    workflow.Id,
+                    version.Id,
+                    record.FormId,
+                    record.Id,
+                    fromStateKey,
+                    transition.ToStateKey,
+                    transition.Key,
+                    transition.Name,
+                    actorUserId);
+
+                AddHistory(
+                    workflow.Id,
+                    version.Id,
+                    record.FormId,
+                    record.Id,
+                    fromStateKey,
+                    transition.ToStateKey,
+                    transition.Key,
+                    RecordWorkflowHistoryActions.Transitioned,
+                    actorUserId,
+                    new { transition.Name });
+
+                AddRecordAudit(
+                    record.Id,
+                    "record_workflow_transitioned",
+                    actorUserId,
+                    new
+                    {
+                        WorkflowDefinitionId = workflow.Id,
+                        WorkflowDefinitionVersionId = version.Id,
+                        FromStateKey = fromStateKey,
+                        ToStateKey = transition.ToStateKey,
+                        TransitionKey = transition.Key
+                    });
+
+                await actionExecutionService.ExecuteTransitionActionsAsync(record, transition, failedActionContext, cancellationToken);
                 await dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
-
-                return await GetRecordWorkflowAsync(recordId, principal, permissionService, cancellationToken);
             }
+        }
+        catch (WorkflowActionExecutionException exception)
+        {
+            dbContext.ChangeTracker.Clear();
 
-            var targetState = config.States.FirstOrDefault(state => string.Equals(state.Key, transition.ToStateKey, StringComparison.Ordinal));
-            if (targetState is null)
+            if (failedActionContext is not null)
             {
-                throw new RecordWorkflowException(StatusCodes.Status409Conflict, "Workflow target state was not found.");
+                await actionExecutionService.PersistRolledBackActionFailureAsync(failedActionContext, exception.Results, cancellationToken);
             }
 
-            var values = DeserializeValues(record.ValuesJson);
-            beforeSnapshot = ToTriggerSnapshot(record, values);
-            previousStatus = record.Status;
-            var fromStateKey = record.WorkflowStateKey;
-            record.WorkflowStateKey = transition.ToStateKey;
-            record.Status = transition.ToStateKey;
-            record.UpdatedById = actorUserId;
-            currentStatus = record.Status;
-            afterSnapshot = ToTriggerSnapshot(record, values);
-
-            AddHistory(
-                workflow.Id,
-                version.Id,
-                record.FormId,
-                record.Id,
-                fromStateKey,
-                transition.ToStateKey,
-                transition.Key,
-                RecordWorkflowHistoryActions.Transitioned,
-                actorUserId,
-                new { transition.Name });
-
-            AddRecordAudit(
-                record.Id,
-                "record_workflow_transitioned",
-                actorUserId,
-                new
-                {
-                    WorkflowDefinitionId = workflow.Id,
-                    WorkflowDefinitionVersionId = version.Id,
-                    FromStateKey = fromStateKey,
-                    ToStateKey = transition.ToStateKey,
-                    TransitionKey = transition.Key
-                });
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            throw new RecordWorkflowException(StatusCodes.Status409Conflict, exception.Message);
         }
 
         await DispatchStatusChangedIfNeededAsync(beforeSnapshot, afterSnapshot, actorUserId, previousStatus, currentStatus, cancellationToken);

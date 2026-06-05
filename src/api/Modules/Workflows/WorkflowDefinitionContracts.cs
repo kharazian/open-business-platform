@@ -42,7 +42,6 @@ public static class WorkflowActionTypes
     {
         WriteAuditEntry,
         SendEmail,
-        ChangeStatus,
         AssignRecord,
         UpdateField,
         SendNotification,
@@ -112,6 +111,8 @@ public static class RecordWorkflowHistoryActions
     public const string ApprovalApproved = "workflow_approval_approved";
     public const string ApprovalRejected = "workflow_approval_rejected";
     public const string ApprovalCanceled = "workflow_approval_canceled";
+    public const string ActionSucceeded = "workflow_action_succeeded";
+    public const string ActionFailed = "workflow_action_failed";
 }
 
 public static class WorkflowApprovalTaskStatuses

@@ -29,8 +29,9 @@
 - Backend workflow definition persistence, publishing/versioning, validation, management APIs, permission checks, audit logs, and history foundation exist.
 - `/workflows` frontend management UI exists for form-scoped workflow definition list/create/edit/publish/enable/disable operations over JSON-backed configs.
 - Record workflow start/direct transition execution and current-user approval inbox execution exist.
+- Workflow transition action execution exists for the safe V5 action subset.
 
-Next: continue V5 with workflow transition action execution and trigger-to-workflow start groundwork.
+Next: continue V5 with `tasks/v5/006-trigger-to-workflow-starts.md`.
 
 ## Product Engine Path
 
@@ -176,12 +177,12 @@ Implemented foundation:
 - Workflow management UI
 - Record workflow transition execution
 - Approval inbox and in-app approval notifications
+- Workflow transition action execution
 
-Future V5 work:
+Prepared V5 follow-up tasks:
 
-- Optional XYFlow visual workflow builder
-- Workflow actions such as sending email, updating records, calling APIs, or creating related records through the shared action engine
-- Trigger-to-workflow starts
+- `tasks/v5/006-trigger-to-workflow-starts.md` - trigger actions that start eligible published workflows on records without recursive automation loops.
+- `tasks/v5/007-visual-workflow-builder.md` - optional XYFlow visual workflow builder over the existing typed config.
 
 ## V6: Print Templates and PDF
 
