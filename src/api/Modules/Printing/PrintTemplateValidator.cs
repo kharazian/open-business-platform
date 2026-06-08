@@ -71,6 +71,8 @@ public static class PrintTemplateValidator
             {
                 ValidateFieldIds(section.FieldIds, validFieldIds, $"{path}.fieldIds", errors);
             }
+
+            ValidateConditions(section.Conditions, validFieldIds, $"{path}.conditions", errors);
         }
 
         return new PrintTemplateValidationResult(errors);
@@ -144,6 +146,46 @@ public static class PrintTemplateValidator
             if (!validFieldIds.Contains(fieldId))
             {
                 errors.Add(Error(fieldPath, "print_template.field.unknown", "Template field does not exist for this template scope."));
+            }
+        }
+    }
+
+    private static void ValidateConditions(
+        IReadOnlyList<PrintTemplateSectionConditionConfig>? conditions,
+        IReadOnlySet<string>? validFieldIds,
+        string path,
+        List<PrintTemplateValidationError> errors)
+    {
+        if (conditions is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < conditions.Count; index += 1)
+        {
+            var condition = conditions[index];
+            var conditionPath = $"{path}[{index}]";
+            var fieldId = condition.FieldId?.Trim() ?? string.Empty;
+            var operatorName = condition.Operator?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(fieldId))
+            {
+                errors.Add(Error($"{conditionPath}.fieldId", "print_template.condition.field_required", "Condition field is required."));
+            }
+            else if (validFieldIds is not null && !validFieldIds.Contains(fieldId))
+            {
+                errors.Add(Error($"{conditionPath}.fieldId", "print_template.condition.field_unknown", "Condition field does not exist for this template scope."));
+            }
+
+            if (!PrintTemplateConditionOperators.Supported.Contains(operatorName))
+            {
+                errors.Add(Error($"{conditionPath}.operator", "print_template.condition.operator_invalid", "Condition operator is not supported."));
+            }
+
+            if (PrintTemplateConditionOperators.RequiresValue.Contains(operatorName)
+                && string.IsNullOrWhiteSpace(condition.Value))
+            {
+                errors.Add(Error($"{conditionPath}.value", "print_template.condition.value_required", "Condition value is required for this operator."));
             }
         }
     }

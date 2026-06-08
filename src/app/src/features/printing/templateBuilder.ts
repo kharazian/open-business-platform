@@ -3,13 +3,14 @@ import type {
   PrintTemplateDetail,
   PrintTemplateDraft,
   PrintTemplateLayoutConfig,
+  PrintTemplateSectionConditionConfig,
   PrintTemplateSectionPaginationConfig,
   PrintTemplateSectionConfig,
   PrintTemplateType,
   PrintTemplateValidationError,
   PrintTemplateValidationResult
 } from "./types";
-import { printTemplateMargins, printTemplateOrientations, printTemplatePageSizes } from "./types";
+import { printTemplateConditionOperators, printTemplateMargins, printTemplateOrientations, printTemplatePageSizes } from "./types";
 
 export function createDefaultPrintTemplateConfig(type: PrintTemplateType, sourceName = "Document"): PrintTemplateConfig {
   const normalizedName = sourceName.trim() || "Document";
@@ -121,6 +122,22 @@ export function validatePrintTemplateDraft(draft: PrintTemplateDraft): PrintTemp
     if (draft.type === "report" && section.kind === "fields") {
       errors.push(error(`config.sections[${index}].kind`, "print_template.section.fields_report", "Report templates cannot use field sections."));
     }
+
+    for (const [conditionIndex, condition] of (section.conditions ?? []).entries()) {
+      const conditionPath = `config.sections[${index}].conditions[${conditionIndex}]`;
+
+      if (!condition.fieldId.trim()) {
+        errors.push(error(`${conditionPath}.fieldId`, "print_template.condition.field_required", "Condition field is required."));
+      }
+
+      if (!printTemplateConditionOperators.includes(condition.operator)) {
+        errors.push(error(`${conditionPath}.operator`, "print_template.condition.operator_invalid", "Condition operator is not supported."));
+      }
+
+      if (conditionRequiresValue(condition.operator) && !condition.value?.trim()) {
+        errors.push(error(`${conditionPath}.value`, "print_template.condition.value_required", "Condition value is required for this operator."));
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -137,7 +154,8 @@ function createDefaultSection(type: PrintTemplateType, index: number): PrintTemp
     title: type === "record" ? "Record fields" : "Report rows",
     fieldIds: [],
     signatureLabels: [],
-    pagination: createDefaultSectionPagination()
+    pagination: createDefaultSectionPagination(),
+    conditions: []
   };
 }
 
@@ -158,7 +176,8 @@ export function normalizePrintTemplateConfig(config: PrintTemplateConfig, type: 
       title: section.title.trim(),
       fieldIds: section.fieldIds.map((fieldId) => fieldId.trim()).filter(Boolean),
       signatureLabels: (section.signatureLabels ?? []).map((label) => label.trim()).filter(Boolean),
-      pagination: normalizeSectionPagination(section.pagination)
+      pagination: normalizeSectionPagination(section.pagination),
+      conditions: normalizeConditions(section.conditions)
     })),
     footer: {
       text: normalizeOptionalText(config.footer.text)
@@ -202,8 +221,22 @@ function normalizeSectionPagination(pagination?: PrintTemplateSectionPaginationC
   };
 }
 
+function normalizeConditions(conditions?: PrintTemplateSectionConditionConfig[] | null): PrintTemplateSectionConditionConfig[] {
+  return (conditions ?? [])
+    .map((condition) => ({
+      fieldId: condition.fieldId.trim(),
+      operator: normalizeOption(condition.operator, printTemplateConditionOperators, "equals"),
+      value: normalizeOptionalText(condition.value)
+    }))
+    .filter((condition) => condition.fieldId);
+}
+
 function normalizeOption<TOption extends string>(value: unknown, options: readonly TOption[], fallback: TOption): TOption {
   return typeof value === "string" && options.includes(value as TOption) ? value as TOption : fallback;
+}
+
+function conditionRequiresValue(operator: string): boolean {
+  return operator === "equals" || operator === "not_equals" || operator === "contains";
 }
 
 function normalizeOptionalText(value?: string | null): string | null {

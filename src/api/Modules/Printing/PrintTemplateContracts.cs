@@ -68,13 +68,44 @@ public sealed record PrintTemplateSectionPaginationConfig(
     bool PageBreakBefore,
     bool AvoidBreakInside);
 
+public static class PrintTemplateConditionOperators
+{
+    public const string Equal = "equals";
+    public const string NotEquals = "not_equals";
+    public const string Contains = "contains";
+    public const string IsEmpty = "is_empty";
+    public const string IsNotEmpty = "is_not_empty";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Equal,
+        NotEquals,
+        Contains,
+        IsEmpty,
+        IsNotEmpty
+    };
+
+    public static IReadOnlySet<string> RequiresValue { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Equal,
+        NotEquals,
+        Contains
+    };
+}
+
+public sealed record PrintTemplateSectionConditionConfig(
+    string FieldId,
+    string Operator,
+    string? Value);
+
 public sealed record PrintTemplateSectionConfig(
     string Id,
     string Kind,
     string Title,
     IReadOnlyList<string> FieldIds,
     IReadOnlyList<string>? SignatureLabels,
-    PrintTemplateSectionPaginationConfig? Pagination = null);
+    PrintTemplateSectionPaginationConfig? Pagination = null,
+    IReadOnlyList<PrintTemplateSectionConditionConfig>? Conditions = null);
 
 public sealed record PrintTemplateFooterConfig(string? Text);
 

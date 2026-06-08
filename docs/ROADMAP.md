@@ -190,8 +190,8 @@ Goal: professional printable documents.
 Features:
 
 - Print template foundation implemented for the current slice: persisted record/report templates, JSONB config, backend validation/permissions/audit, `/printing` management UI, and selected record/report browser print/save-as-PDF output.
-- Header/footer/logo URL text, field/table sections, signature blocks, page setup, repeated report table headers, and section page-break controls are supported in schema version 1 templates.
-- Remaining V6 hardening: server-side binary PDF generation, conditional sections, template versioning, logo upload assets, and attaching generated PDFs to email/trigger delivery.
+- Header/footer/logo URL text, field/table sections, signature blocks, page setup, repeated report table headers, section page-break controls, and field-based conditional sections are supported in schema version 1 templates.
+- Remaining V6 hardening: server-side binary PDF generation, template versioning, logo upload assets, and attaching generated PDFs to email/trigger delivery.
 
 ## V7: Advanced Dashboards and Analytics
 

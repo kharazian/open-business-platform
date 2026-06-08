@@ -95,11 +95,11 @@ Implemented foundation:
 - Browser print/save-as-PDF generation from selected record detail and report viewer templates
 - Header, footer, logo URL text, field/table sections, and signature blocks
 - Browser print page setup for Letter/A4, portrait/landscape, margin presets, repeated report table headers, and section page-break controls
+- Field-based conditional sections for record/report templates
 
 Later support:
 
 - Server-side binary PDF generation
-- Conditional sections
 - Template versioning and logo upload assets
 - Attach PDF to emails/triggers
 

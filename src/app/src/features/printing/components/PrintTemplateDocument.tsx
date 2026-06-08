@@ -1,5 +1,11 @@
 import { getGeneratedAtPrintMetadata, joinPrintMetadata } from "../printLayout";
-import { formatRecordValue, getPrintTemplateDocumentClassName, getPrintTemplateSectionClassName } from "../templateRenderer";
+import {
+  formatRecordValue,
+  getPrintTemplateDocumentClassName,
+  getPrintTemplateSectionClassName,
+  shouldRenderPrintTemplateSection,
+  type PrintTemplateConditionSource
+} from "../templateRenderer";
 import type {
   PrintTemplateConfig,
   PrintTemplateDetail,
@@ -60,6 +66,12 @@ function PrintTemplateSection({
   report?: ReportTemplateExecution;
   section: PrintTemplateSectionConfig;
 }) {
+  const conditionSource = getConditionSource(config, record, report);
+
+  if (!shouldRenderPrintTemplateSection(section, conditionSource)) {
+    return null;
+  }
+
   if (section.kind === "signature") {
     return <SignatureSection section={section} />;
   }
@@ -70,6 +82,22 @@ function PrintTemplateSection({
 
   if (section.kind === "table" && config.type === "report" && report) {
     return <ReportTableSection report={report} section={section} />;
+  }
+
+  return null;
+}
+
+function getConditionSource(
+  config: PrintTemplateConfig,
+  record?: RecordTemplateSource,
+  report?: ReportTemplateExecution
+): PrintTemplateConditionSource | null {
+  if (config.type === "record" && record) {
+    return { type: "record", values: record.values };
+  }
+
+  if (config.type === "report" && report) {
+    return { type: "report", report };
   }
 
   return null;

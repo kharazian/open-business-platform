@@ -33,6 +33,7 @@ import {
 import type {
   PrintTemplateDraft,
   PrintTemplateLayoutConfig,
+  PrintTemplateSectionConditionConfig,
   PrintTemplateSectionConfig,
   PrintTemplateSectionPaginationConfig,
   PrintTemplateSummary,
@@ -177,6 +178,24 @@ export function PrintingPage() {
   function updateSectionPagination(index: number, patch: Partial<PrintTemplateSectionPaginationConfig>) {
     const currentPagination = draft.config.sections[index]?.pagination ?? { pageBreakBefore: false, avoidBreakInside: true };
     updateSection(index, { pagination: { ...currentPagination, ...patch } });
+  }
+
+  function addSectionCondition(sectionIndex: number) {
+    const section = draft.config.sections[sectionIndex];
+    const fieldId = fieldOptions[0]?.id ?? "";
+    const conditions = [...(section.conditions ?? []), { fieldId, operator: "equals" as const, value: "" }];
+    updateSection(sectionIndex, { conditions });
+  }
+
+  function updateSectionCondition(sectionIndex: number, conditionIndex: number, patch: Partial<PrintTemplateSectionConditionConfig>) {
+    const section = draft.config.sections[sectionIndex];
+    const conditions = (section.conditions ?? []).map((condition, index) => index === conditionIndex ? { ...condition, ...patch } : condition);
+    updateSection(sectionIndex, { conditions });
+  }
+
+  function removeSectionCondition(sectionIndex: number, conditionIndex: number) {
+    const section = draft.config.sections[sectionIndex];
+    updateSection(sectionIndex, { conditions: (section.conditions ?? []).filter((_condition, index) => index !== conditionIndex) });
   }
 
   function addSection(kind: "fields" | "table" | "signature") {
@@ -447,6 +466,13 @@ export function PrintingPage() {
                       onChange={(event) => updateSectionPagination(index, { avoidBreakInside: event.target.checked })}
                     />
                   </div>
+                  <SectionConditionsEditor
+                    conditions={section.conditions ?? []}
+                    fieldOptions={fieldOptions}
+                    onAdd={() => addSectionCondition(index)}
+                    onRemove={(conditionIndex) => removeSectionCondition(index, conditionIndex)}
+                    onUpdate={(conditionIndex, patch) => updateSectionCondition(index, conditionIndex, patch)}
+                  />
                   {section.kind === "signature" ? (
                     <Textarea
                       className="min-h-20"
@@ -514,6 +540,79 @@ function FieldCheckboxes({
       </div>
     </div>
   );
+}
+
+function SectionConditionsEditor({
+  conditions,
+  fieldOptions,
+  onAdd,
+  onRemove,
+  onUpdate
+}: {
+  conditions: PrintTemplateSectionConditionConfig[];
+  fieldOptions: Array<{ id: string; label: string }>;
+  onAdd: () => void;
+  onRemove: (conditionIndex: number) => void;
+  onUpdate: (conditionIndex: number, patch: Partial<PrintTemplateSectionConditionConfig>) => void;
+}) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-foreground">Conditions</p>
+        <Button disabled={fieldOptions.length === 0} onClick={onAdd} size="sm" variant="outline">
+          <Plus className="size-4" />
+          Add
+        </Button>
+      </div>
+      {conditions.length > 0 ? (
+        <div className="grid gap-2">
+          {conditions.map((condition, conditionIndex) => (
+            <div className="grid gap-2 rounded-lg border border-border bg-card/80 p-3 lg:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)_2.5rem]" key={`${condition.fieldId}-${conditionIndex}`}>
+              <Select
+                label="Field"
+                onChange={(event) => onUpdate(conditionIndex, { fieldId: event.target.value })}
+                value={condition.fieldId}
+              >
+                <option value="">Select field</option>
+                {fieldOptions.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {field.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                label="Operator"
+                onChange={(event) => onUpdate(conditionIndex, { operator: event.target.value as PrintTemplateSectionConditionConfig["operator"] })}
+                value={condition.operator}
+              >
+                <option value="equals">Equals</option>
+                <option value="not_equals">Not equals</option>
+                <option value="contains">Contains</option>
+                <option value="is_empty">Is empty</option>
+                <option value="is_not_empty">Is not empty</option>
+              </Select>
+              {conditionRequiresValue(condition.operator) ? (
+                <Input
+                  label="Value"
+                  onChange={(event) => onUpdate(conditionIndex, { value: event.target.value })}
+                  value={condition.value ?? ""}
+                />
+              ) : (
+                <div />
+              )}
+              <Button aria-label="Remove condition" className="self-end" onClick={() => onRemove(conditionIndex)} size="icon" variant="ghost">
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function conditionRequiresValue(operator: PrintTemplateSectionConditionConfig["operator"]): boolean {
+  return operator === "equals" || operator === "not_equals" || operator === "contains";
 }
 
 function Metric({ label, value }: { label: string; value: number }) {

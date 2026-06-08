@@ -11,7 +11,8 @@ import {
   buildReportTemplateRows,
   getPrintTemplateDocumentClassName,
   getPrintTemplatePdfButtonLabel,
-  getPrintTemplateSectionClassName
+  getPrintTemplateSectionClassName,
+  shouldRenderPrintTemplateSection
 } from "./templateRenderer.ts";
 
 const schema = {
@@ -40,6 +41,7 @@ test("print template builder creates valid record template defaults", () => {
     pageBreakBefore: false,
     avoidBreakInside: true
   });
+  assert.deepEqual(draft.config.sections[0].conditions, []);
   assert.deepEqual(validatePrintTemplateDraft(draft).errors, []);
 });
 
@@ -69,6 +71,7 @@ test("print template normalization fills legacy page control defaults", () => {
     pageBreakBefore: false,
     avoidBreakInside: true
   });
+  assert.deepEqual(normalized.sections[0].conditions, []);
 });
 
 test("print template renderer exposes page setup and section break classes", () => {
@@ -117,6 +120,67 @@ test("print template validation rejects unsupported page controls", () => {
       "print_template.layout.orientation_invalid",
       "print_template.layout.margin_invalid"
     ]
+  );
+});
+
+test("print template validation rejects unsupported condition controls", () => {
+  const draft = createPrintTemplateDraft("record", "Employee onboarding");
+  draft.config.sections[0].conditions = [
+    { fieldId: "department", operator: "starts_with", value: "Fin" },
+    { fieldId: "first_name", operator: "contains", value: " " }
+  ];
+
+  const validation = validatePrintTemplateDraft(draft);
+
+  assert.equal(validation.valid, false);
+  assert.deepEqual(
+    validation.errors.map((error) => error.code),
+    ["print_template.condition.operator_invalid", "print_template.condition.value_required"]
+  );
+});
+
+test("record template renderer evaluates section conditions against record values", () => {
+  const section = {
+    id: "main",
+    kind: "fields",
+    title: "Finance only",
+    fieldIds: ["department"],
+    conditions: [{ fieldId: "department", operator: "equals", value: "Finance" }]
+  };
+
+  assert.equal(
+    shouldRenderPrintTemplateSection(section, { type: "record", values: { department: "Finance" } }),
+    true
+  );
+  assert.equal(
+    shouldRenderPrintTemplateSection(section, { type: "record", values: { department: "Operations" } }),
+    false
+  );
+});
+
+test("report template renderer evaluates section conditions against visible report rows", () => {
+  const section = {
+    id: "table",
+    kind: "table",
+    title: "Finance rows",
+    fieldIds: ["department"],
+    conditions: [{ fieldId: "department", operator: "equals", value: "Finance" }]
+  };
+  const report = {
+    columns: [{ fieldId: "department", label: "Department" }],
+    rows: [
+      { id: "1", cells: { department: { displayValue: "Operations" } } },
+      { id: "2", cells: { department: { displayValue: "Finance" } } }
+    ]
+  };
+
+  assert.equal(shouldRenderPrintTemplateSection(section, { type: "report", report }), true);
+  assert.equal(
+    shouldRenderPrintTemplateSection(section, {
+      type: "report",
+      report: { ...report, rows: [{ id: "3", cells: { department: { displayValue: "HR" } } }] }
+    }),
+    false
   );
 });
 

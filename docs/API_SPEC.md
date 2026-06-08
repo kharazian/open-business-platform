@@ -1169,7 +1169,14 @@ Request:
         "pagination": {
           "pageBreakBefore": false,
           "avoidBreakInside": true
-        }
+        },
+        "conditions": [
+          {
+            "fieldId": "department",
+            "operator": "equals",
+            "value": "Finance"
+          }
+        ]
       }
     ],
     "footer": {
@@ -1179,7 +1186,7 @@ Request:
 }
 ```
 
-Response: `201 Created` with the saved template detail. The backend validates name, record/report scope, config schema version, page size/orientation/margin, section kind, section ids, field ids against the form/reportable schema, and report ownership for report templates. Creates a `print_template_created` audit log entry.
+Response: `201 Created` with the saved template detail. The backend validates name, record/report scope, config schema version, page size/orientation/margin, section kind, section ids, section condition operators, field ids against the form/reportable schema, and report ownership for report templates. Creates a `print_template_created` audit log entry.
 
 ### Get, update, delete print template
 

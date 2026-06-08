@@ -6,12 +6,14 @@ export const printTemplateSectionKinds = ["fields", "table", "signature"] as con
 export const printTemplatePageSizes = ["letter", "a4"] as const;
 export const printTemplateOrientations = ["portrait", "landscape"] as const;
 export const printTemplateMargins = ["narrow", "normal", "wide"] as const;
+export const printTemplateConditionOperators = ["equals", "not_equals", "contains", "is_empty", "is_not_empty"] as const;
 
 export type PrintTemplateType = (typeof printTemplateTypes)[number];
 export type PrintTemplateSectionKind = (typeof printTemplateSectionKinds)[number];
 export type PrintTemplatePageSize = (typeof printTemplatePageSizes)[number];
 export type PrintTemplateOrientation = (typeof printTemplateOrientations)[number];
 export type PrintTemplateMargin = (typeof printTemplateMargins)[number];
+export type PrintTemplateConditionOperator = (typeof printTemplateConditionOperators)[number];
 
 export type PrintTemplateHeaderConfig = {
   title: string;
@@ -32,6 +34,12 @@ export type PrintTemplateSectionPaginationConfig = {
   avoidBreakInside: boolean;
 };
 
+export type PrintTemplateSectionConditionConfig = {
+  fieldId: string;
+  operator: PrintTemplateConditionOperator;
+  value?: string | null;
+};
+
 export type PrintTemplateSectionConfig = {
   id: string;
   kind: PrintTemplateSectionKind;
@@ -39,6 +47,7 @@ export type PrintTemplateSectionConfig = {
   fieldIds: string[];
   signatureLabels?: string[];
   pagination?: PrintTemplateSectionPaginationConfig;
+  conditions?: PrintTemplateSectionConditionConfig[];
 };
 
 export type PrintTemplateFooterConfig = {

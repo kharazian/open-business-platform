@@ -3,9 +3,14 @@ import type {
   PrintTemplateConfig,
   PrintTemplateRecordRows,
   PrintTemplateReportRows,
+  PrintTemplateSectionConditionConfig,
   PrintTemplateSectionConfig,
   ReportTemplateExecution
 } from "./types";
+
+export type PrintTemplateConditionSource =
+  | { type: "record"; values: Record<string, FormRecordValue> }
+  | { type: "report"; report: ReportTemplateExecution };
 
 export function buildRecordTemplateRows(
   config: PrintTemplateConfig,
@@ -79,6 +84,29 @@ export function getPrintTemplateSectionClassName(section: PrintTemplateSectionCo
   return classNames.join(" ");
 }
 
+export function shouldRenderPrintTemplateSection(
+  section: PrintTemplateSectionConfig,
+  source: PrintTemplateConditionSource | null
+): boolean {
+  const conditions = section.conditions ?? [];
+
+  if (conditions.length === 0) {
+    return true;
+  }
+
+  if (source === null) {
+    return false;
+  }
+
+  if (source.type === "record") {
+    return conditions.every((condition) => matchesCondition(recordConditionValue(source.values, condition.fieldId), condition));
+  }
+
+  return source.report.rows.some((row) =>
+    conditions.every((condition) => matchesCondition(row.cells[condition.fieldId]?.displayValue ?? "", condition))
+  );
+}
+
 export function formatRecordValue(value: FormRecordValue): string {
   if (value === null || value === undefined || value === "") {
     return "-";
@@ -93,6 +121,46 @@ export function formatRecordValue(value: FormRecordValue): string {
   }
 
   return String(value);
+}
+
+function recordConditionValue(values: Record<string, FormRecordValue>, fieldId: string): string {
+  const value = values[fieldId];
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  return String(value);
+}
+
+function matchesCondition(value: string, condition: PrintTemplateSectionConditionConfig): boolean {
+  const actual = value.trim();
+  const expected = (condition.value ?? "").trim();
+  const actualLower = actual.toLowerCase();
+  const expectedLower = expected.toLowerCase();
+
+  switch (condition.operator) {
+    case "equals":
+      return actualLower === expectedLower;
+    case "not_equals":
+      return actualLower !== expectedLower;
+    case "contains":
+      return expectedLower.length > 0 && actualLower.includes(expectedLower);
+    case "is_empty":
+      return actual.length === 0;
+    case "is_not_empty":
+      return actual.length > 0;
+    default:
+      return false;
+  }
 }
 
 function getSelectedFieldIds(config: PrintTemplateConfig, fallbackFieldIds: string[]): string[] {

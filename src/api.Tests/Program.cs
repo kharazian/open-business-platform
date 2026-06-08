@@ -416,6 +416,39 @@ var paginatedRecordPrintTemplate = validRecordPrintTemplate with
             new PrintTemplateSectionPaginationConfig(PageBreakBefore: true, AvoidBreakInside: false))
     }
 };
+var conditionalRecordPrintTemplate = validRecordPrintTemplate with
+{
+    Sections = new[]
+    {
+        new PrintTemplateSectionConfig(
+            "main",
+            PrintTemplateSectionKinds.Fields,
+            "Main",
+            new[] { "email" },
+            Array.Empty<string>(),
+            null,
+            new[] { new PrintTemplateSectionConditionConfig("department", PrintTemplateConditionOperators.Equal, "Finance") })
+    }
+};
+var invalidConditionPrintTemplate = validRecordPrintTemplate with
+{
+    Sections = new[]
+    {
+        new PrintTemplateSectionConfig(
+            "main",
+            PrintTemplateSectionKinds.Fields,
+            "Main",
+            new[] { "email" },
+            Array.Empty<string>(),
+            null,
+            new[]
+            {
+                new PrintTemplateSectionConditionConfig("missing_field", PrintTemplateConditionOperators.Equal, "Finance"),
+                new PrintTemplateSectionConditionConfig("department", "starts_with", "Fin"),
+                new PrintTemplateSectionConditionConfig("email", PrintTemplateConditionOperators.Contains, " ")
+            })
+    }
+};
 var validReportPrintTemplate = new PrintTemplateConfig(
     1,
     PrintTemplateTypes.Report,
@@ -442,6 +475,18 @@ AssertSequenceEqual(
 AssertTrue(
     PrintTemplateValidator.Validate(paginatedRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
     "Record print templates should accept section pagination controls.");
+AssertTrue(
+    PrintTemplateValidator.Validate(conditionalRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
+    "Record print templates should accept valid section conditions.");
+AssertSequenceEqual(
+    new[]
+    {
+        "print_template.condition.field_unknown",
+        "print_template.condition.operator_invalid",
+        "print_template.condition.value_required"
+    },
+    PrintTemplateValidator.Validate(invalidConditionPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
+    "Print templates should reject unsupported or unknown section conditions.");
 AssertTrue(
     PrintTemplateValidator.Validate(validReportPrintTemplate, PrintTemplateTypes.Report, demoSchema).Valid,
     "Report print templates should accept reportable system fields.");

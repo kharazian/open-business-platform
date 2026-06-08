@@ -307,7 +307,13 @@ public sealed class PrintTemplateService
                         .Select(label => label.Trim())
                         .Where(label => !string.IsNullOrWhiteSpace(label))
                         .ToArray(),
-                    section.Pagination ?? DefaultSectionPagination()))
+                    section.Pagination ?? DefaultSectionPagination(),
+                    (section.Conditions ?? Array.Empty<PrintTemplateSectionConditionConfig>())
+                        .Select(condition => new PrintTemplateSectionConditionConfig(
+                            condition.FieldId?.Trim() ?? string.Empty,
+                            condition.Operator?.Trim() ?? string.Empty,
+                            NormalizeOptionalText(condition.Value)))
+                        .ToArray()))
                 .ToArray(),
             new PrintTemplateFooterConfig(NormalizeOptionalText(footer.Text)),
             new PrintTemplateLayoutConfig(
