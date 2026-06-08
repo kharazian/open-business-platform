@@ -98,10 +98,10 @@ Implemented foundation:
 - Field-based conditional sections for record/report templates
 - Immutable published template versions with latest-published rendering for record/report print selectors
 - Safe small logo uploads stored as template header data URLs, with preview and remove controls
+- Dependency-light server-side PDF generation for published record/report template versions
 
 Later support:
 
-- Server-side binary PDF generation
 - Attach PDF to emails/triggers
 
 ## Report Config Example

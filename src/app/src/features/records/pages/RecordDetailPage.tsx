@@ -15,7 +15,7 @@ import type { FormField, FormRecordValue, FormRecordValues, ValidationError } fr
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
-import { getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
+import { downloadRecordPrintTemplatePdf, getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
 import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
 import type { PrintTemplateRenderDetail, PrintTemplateSummary } from "../../printing/types";
@@ -45,6 +45,7 @@ export function RecordDetailPage() {
   const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
   const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateRenderDetail | null>(null);
   const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
+  const [printTemplateDownloading, setPrintTemplateDownloading] = useState(false);
   const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -95,6 +96,12 @@ export function RecordDetailPage() {
   const fieldsById = useMemo(() => {
     return new Map(record?.schema.fields.map((field) => [field.id, field]) ?? []);
   }, [record]);
+  const selectedPrintTemplateSummary = useMemo(
+    () => recordPrintTemplates.find((template) => template.id === selectedPrintTemplateId) ?? null,
+    [recordPrintTemplates, selectedPrintTemplateId]
+  );
+  const selectedPrintRenderTarget = selectedPrintTemplateSummary ? resolvePrintTemplateRenderTarget(selectedPrintTemplateSummary) : null;
+  const selectedServerPdfVersionId = selectedPrintRenderTarget?.source === "version" ? selectedPrintRenderTarget.versionId : null;
 
   async function refreshRecord() {
     if (!resolvedRecordId) {
@@ -264,6 +271,27 @@ export function RecordDetailPage() {
     }
   }
 
+  async function handlePrintAction() {
+    if (!record) return;
+
+    if (!selectedServerPdfVersionId) {
+      requestBrowserPrint();
+      return;
+    }
+
+    setPrintTemplateDownloading(true);
+    setPrintTemplateError(null);
+
+    try {
+      const pdf = await downloadRecordPrintTemplatePdf(selectedServerPdfVersionId, record.id);
+      downloadBlob(pdf, `record-${shortId(record.id)}.pdf`);
+    } catch (caught) {
+      setPrintTemplateError(getErrorMessage(caught));
+    } finally {
+      setPrintTemplateDownloading(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 print-area">
       {record ? (
@@ -332,12 +360,12 @@ export function RecordDetailPage() {
               ) : null}
               {record ? (
                 <Button
-                  disabled={loading || saving || deleting || editing || printTemplateLoading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
-                  onClick={() => requestBrowserPrint()}
+                  disabled={loading || saving || deleting || editing || printTemplateLoading || printTemplateDownloading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
+                  onClick={() => void handlePrintAction()}
                   variant="outline"
                 >
                   {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
-                  {selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
+                  {selectedServerPdfVersionId ? "Download PDF" : selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
                 </Button>
               ) : null}
               <Button disabled={loading || saving || deleting} onClick={() => void refreshRecord()} variant="outline">
@@ -631,6 +659,17 @@ function formatWorkflowAction(action: string): string {
   if (action === "workflow_started") return "Started";
   if (action === "workflow_transitioned") return "Transitioned";
   return action.replaceAll("_", " ");
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function getErrorMessage(error: unknown): string {

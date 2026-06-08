@@ -1,5 +1,8 @@
 using System.Security.Claims;
+using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Records;
+using OpenBusinessPlatform.Api.Modules.Reports;
 
 namespace OpenBusinessPlatform.Api.Modules.Printing;
 
@@ -273,6 +276,107 @@ public static class PrintingEndpoints
             });
         });
 
+        versionGroup.MapGet("/{versionId:guid}/records/{recordId:guid}.pdf", async (
+            Guid versionId,
+            Guid recordId,
+            PrintTemplateService templates,
+            PrintPdfService pdfService,
+            RecordQueryService records,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandlePrintTemplateRequestAsync(async () =>
+            {
+                var version = await templates.GetVersionAsync(versionId, cancellationToken);
+
+                if (!string.Equals(version.Type, PrintTemplateTypes.Record, StringComparison.Ordinal))
+                {
+                    return Results.Json(new PrintTemplateErrorResponse("Print template version is not a record template."), statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                var recordFormId = await records.GetRecordFormIdAsync(recordId, cancellationToken);
+
+                if (recordFormId is null)
+                {
+                    return Results.NotFound(new PrintTemplateErrorResponse("Record was not found."));
+                }
+
+                if (recordFormId.Value != version.FormId)
+                {
+                    return Results.Json(new PrintTemplateErrorResponse("Record does not belong to this print template form."), statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                if (!await CanViewFormTemplatesAsync(permissionService, httpContext, version.FormId, cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
+                var record = await records.GetRecordAsync(httpContext.User, recordId, permissionService, cancellationToken);
+                var pdfBytes = pdfService.BuildRecordPdf(version, record);
+                await templates.LogPdfGeneratedAsync(
+                    version.PrintTemplateId,
+                    version.Id,
+                    GetCurrentUserId(httpContext),
+                    new { recordId },
+                    cancellationToken);
+
+                return Results.File(pdfBytes, PrintPdfDocumentBuilder.ContentType, CreatePdfFileName(version.Name, version.VersionNumber));
+            });
+        });
+
+        versionGroup.MapGet("/{versionId:guid}/reports/{reportId:guid}.pdf", async (
+            Guid versionId,
+            Guid reportId,
+            int? page,
+            int? pageSize,
+            string? search,
+            PrintTemplateService templates,
+            PrintPdfService pdfService,
+            ReportManagementService reports,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandlePrintTemplateRequestAsync(async () =>
+            {
+                var version = await templates.GetVersionAsync(versionId, cancellationToken);
+
+                if (!string.Equals(version.Type, PrintTemplateTypes.Report, StringComparison.Ordinal))
+                {
+                    return Results.Json(new PrintTemplateErrorResponse("Print template version is not a report template."), statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                if (version.ReportId != reportId)
+                {
+                    return Results.Json(new PrintTemplateErrorResponse("Report does not belong to this print template version."), statusCode: StatusCodes.Status400BadRequest);
+                }
+
+                if (!await CanViewFormTemplatesAsync(permissionService, httpContext, version.FormId, cancellationToken)
+                    || !await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.View, cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
+                var report = await reports.ExecuteListReportAsync(
+                    httpContext.User,
+                    version.FormId,
+                    reportId,
+                    new RunListReportRequest(page ?? 1, pageSize ?? 100, search),
+                    permissionService,
+                    cancellationToken);
+                var pdfBytes = pdfService.BuildReportPdf(version, report);
+                await templates.LogPdfGeneratedAsync(
+                    version.PrintTemplateId,
+                    version.Id,
+                    GetCurrentUserId(httpContext),
+                    new { reportId, report.Page, report.PageSize, search },
+                    cancellationToken);
+
+                return Results.File(pdfBytes, PrintPdfDocumentBuilder.ContentType, CreatePdfFileName(version.Name, version.VersionNumber));
+            });
+        });
+
         return endpoints;
     }
 
@@ -307,11 +411,29 @@ public static class PrintingEndpoints
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new PrintTemplateErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
         }
+        catch (RecordQueryException exception)
+        {
+            return Results.Json(new PrintTemplateErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (ReportManagementException exception)
+        {
+            return Results.Json(new PrintTemplateErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
     }
 
     private static Guid? GetCurrentUserId(HttpContext httpContext)
     {
         var value = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static string CreatePdfFileName(string name, int versionNumber)
+    {
+        var safeName = new string(name
+            .Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')
+            .ToArray())
+            .Trim('-');
+
+        return $"{(string.IsNullOrWhiteSpace(safeName) ? "print-template" : safeName)}-v{versionNumber}.pdf";
     }
 }

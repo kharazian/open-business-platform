@@ -523,6 +523,92 @@ AssertSequenceEqual(
 AssertTrue(
     PrintTemplateValidator.Validate(validReportPrintTemplate, PrintTemplateTypes.Report, demoSchema).Valid,
     "Report print templates should accept reportable system fields.");
+var pdfBytes = PrintPdfDocumentBuilder.Build(new PrintPdfDocument(
+    "Employee record",
+    new[] { "Record abc123", "Version 1" },
+    new[]
+    {
+        new PrintPdfSection("Main", new[] { "Email: jane@example.test", "Department: Finance" })
+    },
+    "Open Business Platform"));
+var pdfText = System.Text.Encoding.ASCII.GetString(pdfBytes);
+AssertTrue(pdfText.StartsWith("%PDF-1.4", StringComparison.Ordinal), "Server-side print PDFs should start with a PDF header.");
+AssertTrue(pdfText.Contains("Employee record", StringComparison.Ordinal), "Server-side print PDFs should include the template title.");
+AssertTrue(pdfText.Contains("jane@example.test", StringComparison.Ordinal), "Server-side print PDFs should include rendered record values.");
+AssertTrue(pdfText.TrimEnd().EndsWith("%%EOF", StringComparison.Ordinal), "Server-side print PDFs should end with a PDF EOF marker.");
+var pdfService = new PrintPdfService();
+var recordPdfText = System.Text.Encoding.ASCII.GetString(pdfService.BuildRecordPdf(
+    new PrintTemplateVersionDetailDto(
+        Guid.Parse("12121212-1212-1212-1212-121212121212"),
+        Guid.Parse("34343434-3434-3434-3434-343434343434"),
+        Guid.Parse("56565656-5656-5656-5656-565656565656"),
+        null,
+        "Employee record",
+        null,
+        PrintTemplateTypes.Record,
+        2,
+        validRecordPrintTemplate,
+        DateTimeOffset.UtcNow,
+        null,
+        DateTimeOffset.UtcNow,
+        null),
+    new FormRecordDetailDto(
+        Guid.Parse("78787878-7878-7878-7878-787878787878"),
+        Guid.Parse("56565656-5656-5656-5656-565656565656"),
+        Guid.Parse("90909090-9090-9090-9090-909090909090"),
+        "active",
+        null,
+        null,
+        null,
+        null,
+        new Dictionary<string, object?> { ["email"] = "jane@example.test" },
+        demoSchema,
+        Array.Empty<string>(),
+        "stamp",
+        DateTimeOffset.UtcNow,
+        null,
+        null,
+        null)));
+AssertTrue(recordPdfText.Contains("Template version 2", StringComparison.Ordinal), "Record PDFs should include the published template version number.");
+AssertTrue(recordPdfText.Contains("Email: jane@example.test", StringComparison.Ordinal), "Record PDFs should render selected record fields.");
+var reportPdfText = System.Text.Encoding.ASCII.GetString(pdfService.BuildReportPdf(
+    new PrintTemplateVersionDetailDto(
+        Guid.Parse("abababab-abab-abab-abab-abababababab"),
+        Guid.Parse("bcbcbcbc-bcbc-bcbc-bcbc-bcbcbcbcbcbc"),
+        Guid.Parse("cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd"),
+        Guid.Parse("dededede-dede-dede-dede-dededededede"),
+        "Employee report",
+        null,
+        PrintTemplateTypes.Report,
+        3,
+        validReportPrintTemplate,
+        DateTimeOffset.UtcNow,
+        null,
+        DateTimeOffset.UtcNow,
+        null),
+    new ListReportExecutionDto(
+        Guid.Parse("dededede-dede-dede-dede-dededededede"),
+        Guid.Parse("cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd"),
+        "Employee report",
+        "Employee information",
+        1,
+        100,
+        1,
+        new[] { new ListReportExecutionColumnDto(ReportSystemFields.Status, "Status", "system", "system", null) },
+        new[]
+        {
+            new ListReportExecutionRowDto(
+                Guid.Parse("efefefef-efef-efef-efef-efefefefefef"),
+                "active",
+                new Dictionary<string, ListReportExecutionCellDto>
+                {
+                    [ReportSystemFields.Status] = new("active", "Active")
+                },
+                DateTimeOffset.UtcNow)
+        })));
+AssertTrue(reportPdfText.Contains("Template version 3", StringComparison.Ordinal), "Report PDFs should include the published template version number.");
+AssertTrue(reportPdfText.Contains("Status", StringComparison.Ordinal), "Report PDFs should render selected report columns.");
+AssertTrue(reportPdfText.Contains("Active", StringComparison.Ordinal), "Report PDFs should render report row display values.");
 var viewablePrintTemplates = await PrintTemplateAuthorization.FilterViewableTemplatesAsync(
     new[]
     {

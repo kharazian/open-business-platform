@@ -9,6 +9,7 @@ V6 starts the print template and PDF foundation. The current slice keeps the pla
 3. `003-conditional-print-template-sections.md` - field-based section visibility conditions for record and report templates.
 4. `004-print-template-versioning.md` - immutable published print template snapshots, publish/history APIs, builder publish controls, and latest-published rendering for record/report prints.
 5. `005-print-template-logo-uploads.md` - safe small logo uploads stored as template header data URLs, with preview/remove controls and logo source validation.
+6. `006-server-side-pdf-generation.md` - dependency-light server PDF generation for published record/report print template versions, with audit logs and frontend downloads.
 
 ## Scope Rules
 

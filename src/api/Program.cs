@@ -47,6 +47,7 @@ builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<PrintTemplateService>();
+builder.Services.AddScoped<PrintPdfService>();
 builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<TriggerDefinitionService>();
 builder.Services.AddScoped<TriggerActionRegistry>();

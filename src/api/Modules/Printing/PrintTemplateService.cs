@@ -212,6 +212,17 @@ public sealed class PrintTemplateService
         return ToDetailDto(template);
     }
 
+    public async Task LogPdfGeneratedAsync(
+        Guid templateId,
+        Guid versionId,
+        Guid? generatedById,
+        object metadata,
+        CancellationToken cancellationToken)
+    {
+        AddAudit(templateId, "print_template_pdf_generated", generatedById, new { versionId, metadata });
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid templateId, Guid? deletedById, CancellationToken cancellationToken)
     {
         var template = await dbContext.PrintTemplates

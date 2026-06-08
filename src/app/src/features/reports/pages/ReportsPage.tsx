@@ -14,7 +14,7 @@ import { listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
-import { getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
+import { downloadReportPrintTemplatePdf, getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
 import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
@@ -75,6 +75,7 @@ export function ReportsPage() {
   const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
   const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateRenderDetail | null>(null);
   const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
+  const [printTemplateDownloading, setPrintTemplateDownloading] = useState(false);
   const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -234,6 +235,12 @@ export function ReportsPage() {
   const reportPrintDescription = reportExecution
     ? getReportTablePrintDescription(reportExecution.totalCount, reportExecution.page, totalReportPages, executedReportSearch)
     : "";
+  const selectedPrintTemplateSummary = useMemo(
+    () => reportPrintTemplates.find((template) => template.id === selectedPrintTemplateId) ?? null,
+    [reportPrintTemplates, selectedPrintTemplateId]
+  );
+  const selectedPrintRenderTarget = selectedPrintTemplateSummary ? resolvePrintTemplateRenderTarget(selectedPrintTemplateSummary) : null;
+  const selectedServerPdfVersionId = selectedPrintRenderTarget?.source === "version" ? selectedPrintRenderTarget.versionId : null;
   const executionColumns = useMemo<Array<TableColumn<ListReportExecutionRow>>>(
     () =>
       reportExecution?.columns.map((column) => ({
@@ -421,6 +428,35 @@ export function ReportsPage() {
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void handleRunReport(selectedReportId, 1);
+  }
+
+  async function handlePrintAction() {
+    if (!reportExecution) return;
+
+    if (!selectedServerPdfVersionId) {
+      requestBrowserPrint();
+      return;
+    }
+
+    setPrintTemplateDownloading(true);
+    setPrintTemplateError(null);
+
+    try {
+      const pdf = await downloadReportPrintTemplatePdf(
+        selectedServerPdfVersionId,
+        reportExecution.reportId,
+        {
+          page: reportExecution.page,
+          pageSize: reportExecution.pageSize,
+          search: executedReportSearch
+        }
+      );
+      downloadBlob(pdf, `${slugify(reportExecution.reportName)}.pdf`);
+    } catch (caught) {
+      setPrintTemplateError(getErrorMessage(caught));
+    } finally {
+      setPrintTemplateDownloading(false);
+    }
   }
 
   return (
@@ -713,12 +749,12 @@ export function ReportsPage() {
                 </Select>
               ) : null}
               <Button
-                disabled={!reportExecution || runningReport || printTemplateLoading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
-                onClick={() => requestBrowserPrint()}
+                disabled={!reportExecution || runningReport || printTemplateLoading || printTemplateDownloading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
+                onClick={() => void handlePrintAction()}
                 variant="outline"
               >
                 {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
-                {selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
+                {selectedServerPdfVersionId ? "Download PDF" : selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
               </Button>
               <Button
                 disabled={!reportExecution || runningReport}
@@ -856,6 +892,27 @@ function formatDate(value: string | null | undefined): string {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function slugify(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "report";
 }
 
 function getErrorMessage(error: unknown): string {
