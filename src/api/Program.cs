@@ -51,6 +51,7 @@ builder.Services.AddScoped<PrintPdfService>();
 builder.Services.AddScoped<ReportManagementService>();
 builder.Services.AddScoped<TriggerDefinitionService>();
 builder.Services.AddScoped<TriggerActionRegistry>();
+builder.Services.AddScoped<TriggerPdfAttachmentService>();
 builder.Services.AddScoped<TriggerExecutionService>();
 builder.Services.AddScoped<TriggerEventDispatcher>();
 builder.Services.AddScoped<TriggerAutomaticRetryService>();

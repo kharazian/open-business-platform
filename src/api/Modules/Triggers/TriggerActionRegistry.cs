@@ -15,15 +15,18 @@ public sealed class TriggerActionRegistry
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly IEmailSender emailSender;
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly TriggerPdfAttachmentService pdfAttachmentService;
 
     public TriggerActionRegistry(
         OpenBusinessPlatformDbContext dbContext,
         IEmailSender emailSender,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        TriggerPdfAttachmentService pdfAttachmentService)
     {
         this.dbContext = dbContext;
         this.emailSender = emailSender;
         this.httpClientFactory = httpClientFactory;
+        this.pdfAttachmentService = pdfAttachmentService;
     }
 
     public async Task<IReadOnlyDictionary<string, object?>> ExecuteAsync(
@@ -36,7 +39,7 @@ public sealed class TriggerActionRegistry
         return action.Type switch
         {
             TriggerActionTypes.WriteAuditEntry => ExecuteWriteAuditEntry(action, context, triggerId, triggerLogId),
-            TriggerActionTypes.SendEmail => await ExecuteSendEmailAsync(action, cancellationToken),
+            TriggerActionTypes.SendEmail => await ExecuteSendEmailAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.ChangeStatus => await ExecuteChangeStatusAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.AssignRecord => await ExecuteAssignRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.UpdateField => await ExecuteUpdateFieldAsync(action, context, triggerId, triggerLogId, cancellationToken),
@@ -69,9 +72,13 @@ public sealed class TriggerActionRegistry
 
     private async Task<IReadOnlyDictionary<string, object?>> ExecuteSendEmailAsync(
         TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
         CancellationToken cancellationToken)
     {
         var recipients = action.To ?? Array.Empty<string>();
+        var attachments = await pdfAttachmentService.BuildEmailAttachmentsAsync(action, context, triggerId, triggerLogId, cancellationToken);
 
         foreach (var recipient in recipients)
         {
@@ -79,11 +86,16 @@ public sealed class TriggerActionRegistry
                 new EmailMessage(
                     recipient,
                     action.Subject ?? string.Empty,
-                    action.Body ?? string.Empty),
+                    action.Body ?? string.Empty,
+                    Attachments: attachments),
                 cancellationToken);
         }
 
-        return Result(action, ("recipientCount", recipients.Count));
+        return Result(
+            action,
+            ("recipientCount", recipients.Count),
+            ("attachmentCount", attachments.Count),
+            ("printTemplateId", action.PrintTemplateId));
     }
 
     private async Task<IReadOnlyDictionary<string, object?>> ExecuteChangeStatusAsync(

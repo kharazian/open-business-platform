@@ -43,7 +43,15 @@ test("trigger builder creates and validates normalized trigger requests", () => 
     ],
     actions: [
       { clientId: "action-1", id: "audit-1", type: "write_audit_entry", message: " Matched " },
-      { clientId: "action-2", id: "email-1", type: "send_email", toText: "hr@example.test, finance@example.test", subject: " New record ", body: " Please review. " },
+      {
+        clientId: "action-2",
+        id: "email-1",
+        type: "send_email",
+        toText: "hr@example.test, finance@example.test",
+        subject: " New record ",
+        body: " Please review. ",
+        printTemplateId: "template-1"
+      },
       { clientId: "action-3", id: "assign-1", type: "assign_record", assignedToUserId: "user-1", assignedGroupId: "" },
       { clientId: "action-4", id: "field-1", type: "update_field", fieldId: "email", value: " jane@example.test " },
       {
@@ -86,6 +94,7 @@ test("trigger builder creates and validates normalized trigger requests", () => 
     { type: "status_changed_to", status: "submitted" }
   ]);
   assert.deepEqual(request.actions[1].to, ["hr@example.test", "finance@example.test"]);
+  assert.equal(request.actions[1].printTemplateId, "template-1");
   assert.equal(request.actions[2].assignedToUserId, "user-1");
   assert.equal("assignedGroupId" in request.actions[2], false);
   assert.equal(request.actions[3].fieldId, "email");
@@ -115,7 +124,10 @@ test("trigger builder maps saved trigger details and form fields", () => {
     description: null,
     eventName: "schedule.daily",
     conditions: { mode: "all", conditions: [{ type: "field_changed", fieldId: "email" }] },
-    actions: [{ id: "webhook-1", type: "call_webhook", webhookUrl: "https://hooks.example.test/records", webhookMethod: "POST" }],
+    actions: [
+      { id: "webhook-1", type: "call_webhook", webhookUrl: "https://hooks.example.test/records", webhookMethod: "POST" },
+      { id: "email-1", type: "send_email", to: ["manager@example.test"], subject: "Employee record", body: "Attached.", printTemplateId: "template-1" }
+    ],
     isEnabled: true,
     retryPolicy: { isEnabled: true, maxAttempts: 5, delaySeconds: 300 },
     schedule: { kind: "daily", timeZone: "Etc/UTC", startAt: "2026-06-04T12:00:00.000Z" },
@@ -154,6 +166,7 @@ test("trigger builder maps saved trigger details and form fields", () => {
   assert.equal(draft.actions[0].clientId, "webhook-1");
   assert.equal(draft.actions[0].webhookUrl, "https://hooks.example.test/records");
   assert.equal(draft.actions[0].webhookMethod, "POST");
+  assert.equal(draft.actions[1].printTemplateId, "template-1");
   assert.equal(fields[0].label, "Email");
   assert.equal(fields[1].options[0].value, "HR");
 });

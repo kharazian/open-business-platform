@@ -60,6 +60,7 @@ export type TriggerActionDraft = {
   webhookMethod?: string;
   webhookHeadersText?: string;
   workflowDefinitionId?: EntityId;
+  printTemplateId?: EntityId;
 };
 
 export type TriggerDraft = {
@@ -182,7 +183,8 @@ export function createTriggerActionDraft(type: TriggerActionType = "write_audit_
     webhookUrl: "",
     webhookMethod: "POST",
     webhookHeadersText: type === "call_webhook" ? "{}" : "",
-    workflowDefinitionId: ""
+    workflowDefinitionId: "",
+    printTemplateId: ""
   };
 }
 
@@ -393,6 +395,10 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
     if (isScheduledTriggerEvent(draft.eventName) && action.type !== "send_email" && action.type !== "call_webhook") {
       errors.push(error(`${path}.type`, "trigger.schedule.action_type", "Scheduled triggers support email and webhook actions."));
     }
+
+    if (isScheduledTriggerEvent(draft.eventName) && action.printTemplateId) {
+      errors.push(error(`${path}.printTemplateId`, "trigger.schedule.pdf_attachment", "Scheduled email PDF attachments require a record trigger."));
+    }
   });
 
   return { valid: errors.length === 0, errors };
@@ -502,7 +508,8 @@ function createActionDraftFromDefinition(action: TriggerActionDefinition, index:
     webhookUrl: action.webhookUrl ?? "",
     webhookMethod: action.webhookMethod ?? "POST",
     webhookHeadersText: formatWebhookHeadersText(action.webhookHeaders),
-    workflowDefinitionId: action.workflowDefinitionId ?? ""
+    workflowDefinitionId: action.workflowDefinitionId ?? "",
+    printTemplateId: action.printTemplateId ?? ""
   };
 }
 
@@ -545,7 +552,8 @@ function buildAction(action: TriggerActionDraft): TriggerActionDefinition {
       ...base,
       to: parseRecipients(action.toText),
       subject: normalizeOptionalText(action.subject),
-      body: normalizeOptionalText(action.body)
+      body: normalizeOptionalText(action.body),
+      ...(action.printTemplateId ? { printTemplateId: action.printTemplateId } : {})
     };
   }
 

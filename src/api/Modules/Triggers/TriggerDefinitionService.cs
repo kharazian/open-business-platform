@@ -63,7 +63,8 @@ public sealed class TriggerDefinitionService
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
         var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
         var workflowStartTargets = await GetWorkflowStartTargetsAsync(request.Actions, cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, form.Id);
+        var printTemplateTargets = await GetPrintTemplateTargetsAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, printTemplateTargets, form.Id);
 
         if (!validation.Valid)
         {
@@ -130,7 +131,8 @@ public sealed class TriggerDefinitionService
         var activeGroupIds = await GetActiveGroupIdsAsync(cancellationToken);
         var targetForms = await GetTargetFormSchemasAsync(request.Actions, cancellationToken);
         var workflowStartTargets = await GetWorkflowStartTargetsAsync(request.Actions, cancellationToken);
-        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, trigger.Form.Id);
+        var printTemplateTargets = await GetPrintTemplateTargetsAsync(request.Actions, cancellationToken);
+        var validation = TriggerDefinitionValidator.Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, printTemplateTargets, trigger.Form.Id);
 
         if (!validation.Valid)
         {
@@ -296,6 +298,34 @@ public sealed class TriggerDefinitionService
                 workflow.IsEnabled,
                 workflow.Status,
                 workflow.CurrentVersionId))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyCollection<TriggerPrintTemplateTarget>> GetPrintTemplateTargetsAsync(
+        IReadOnlyList<TriggerActionDefinition>? actions,
+        CancellationToken cancellationToken)
+    {
+        var printTemplateIds = TriggerDefinitionValidator.NormalizeActions(actions)
+            .Where(action => string.Equals(action.Type, TriggerActionTypes.SendEmail, StringComparison.Ordinal))
+            .Select(action => action.PrintTemplateId)
+            .Where(id => id is not null && id != Guid.Empty)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (printTemplateIds.Length == 0)
+        {
+            return Array.Empty<TriggerPrintTemplateTarget>();
+        }
+
+        return await dbContext.PrintTemplates
+            .AsNoTracking()
+            .Where(template => printTemplateIds.Contains(template.Id) && !template.IsDeleted)
+            .Select(template => new TriggerPrintTemplateTarget(
+                template.Id,
+                template.FormId,
+                template.Type,
+                template.CurrentVersionId))
             .ToArrayAsync(cancellationToken);
     }
 

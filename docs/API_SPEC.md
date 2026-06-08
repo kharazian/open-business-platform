@@ -1128,7 +1128,7 @@ Exports all permitted report rows matching the saved report config and optional 
 
 Requires authentication plus form `print` or form `view` access. `type` is optional and supports `record` or `report`; `reportId` narrows report templates to one saved report. Report-scoped templates are returned only when the current user can view the saved report.
 
-Response: `200 OK` with `{ "items": [...] }`. Items include `id`, `formId`, optional `reportId`, `name`, `description`, `type`, `sectionCount`, audit fields, and `concurrencyStamp`.
+Response: `200 OK` with `{ "items": [...] }`. Items include `id`, `formId`, optional `reportId`, `name`, `description`, `type`, `sectionCount`, audit fields, `concurrencyStamp`, optional `currentVersionId`, optional `currentVersionNumber`, and optional `publishedAt`.
 
 ### Create print template
 
@@ -1194,7 +1194,15 @@ Response: `201 Created` with the saved template detail. The backend validates na
 - `PUT /api/print-templates/{templateId}` requires form `manage` or global `reports.manage`; report templates also require report `manage`, validates `concurrencyStamp`, and writes `print_template_updated`.
 - `DELETE /api/print-templates/{templateId}` requires form `manage` or global `reports.manage`; report templates also require report `manage` and soft-deletes with `print_template_deleted`.
 
-The V6 frontend uses these templates for selected record-detail and report-viewer browser print/save-as-PDF output. Server-side binary PDF generation and email attachment delivery remain later work.
+### Publish and use print template versions
+
+- `POST /api/print-templates/{templateId}/versions` requires template manage access, validates `concurrencyStamp`, stores an immutable published version, updates the template's current version pointer, and writes `print_template_published`.
+- `GET /api/print-templates/{templateId}/versions` requires template view access and lists immutable published versions newest first.
+- `GET /api/print-template-versions/{versionId}` requires template view access and returns one immutable published version.
+- `GET /api/print-template-versions/{versionId}/records/{recordId}.pdf` requires form print/view and record view access, renders a published record template version as `application/pdf`, and writes `print_template_pdf_generated`.
+- `GET /api/print-template-versions/{versionId}/reports/{reportId}.pdf?page={page}&pageSize={pageSize}&search={search}` requires form print/view plus report view access, renders the permitted report execution page as `application/pdf`, and writes `print_template_pdf_generated`.
+
+The V6 frontend uses templates for selected record-detail/report-viewer browser print output, server-side PDF downloads for published template versions, and trigger email record PDF attachments.
 
 ## Permissions V3
 
@@ -1305,7 +1313,7 @@ Supported condition types are:
 Supported action types are:
 
 - `write_audit_entry`: writes an audit entry connected to the current record.
-- `send_email`: sends one email per recipient through the configured email sender.
+- `send_email`: sends one email per recipient through the configured email sender. Optional `printTemplateId` attaches a generated record PDF from a published same-form record print template when the trigger has a current record context.
 - `change_status`: changes the current record status without recursive trigger dispatch.
 - `assign_record`: assigns the current record to one user or one group without recursive trigger dispatch.
 - `update_field`: updates one field on the current record, validates the merged record values against the record's form version schema, writes a record audit entry, and does not recursively dispatch triggers.
@@ -1314,7 +1322,7 @@ Supported action types are:
 - `call_webhook`: sends an HTTP JSON request to an absolute `http` or `https` URL. Non-success responses fail the trigger action and can be retried.
 - `start_workflow`: starts an enabled published same-form workflow with a current version on the current record when no workflow is already active.
 
-Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions. `start_workflow` requires an event record context and is intentionally not supported for scheduled triggers in this slice.
+Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions. Scheduled `send_email` actions cannot attach record PDFs because no current record exists. `start_workflow` requires an event record context and is intentionally not supported for scheduled triggers in this slice.
 
 `start_workflow` action payload:
 

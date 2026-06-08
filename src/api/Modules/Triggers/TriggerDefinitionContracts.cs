@@ -188,7 +188,8 @@ public sealed record TriggerActionDefinition(
     string? WebhookMethod = null,
     IReadOnlyDictionary<string, string>? WebhookHeaders = null,
     object? WebhookBody = null,
-    Guid? WorkflowDefinitionId = null);
+    Guid? WorkflowDefinitionId = null,
+    Guid? PrintTemplateId = null);
 
 public sealed record TriggerActionValueDefinition(
     object? Literal = null,
@@ -204,6 +205,12 @@ public sealed record TriggerWorkflowStartTarget(
     Guid FormId,
     bool IsEnabled,
     string Status,
+    Guid? CurrentVersionId);
+
+public sealed record TriggerPrintTemplateTarget(
+    Guid PrintTemplateId,
+    Guid FormId,
+    string Type,
     Guid? CurrentVersionId);
 
 public sealed record CreateTriggerRequest(

@@ -13,6 +13,8 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { getForm, getPublishedFormForSubmission, listForms, type FormDetail } from "../../forms/api";
 import type { FormSummary } from "../../forms/drafts";
 import type { FormSchema } from "../../forms/types";
+import { listPrintTemplates } from "../../printing/api";
+import type { PrintTemplateSummary } from "../../printing/types";
 import { listDepartments, listGroups, listUsers } from "../../users/api";
 import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
 import { listWorkflows } from "../../workflows/api";
@@ -61,6 +63,7 @@ export function TriggersPage() {
   const [authoringSchema, setAuthoringSchema] = useState<FormSchema | null>(null);
   const [triggers, setTriggers] = useState<TriggerSummary[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const [recordPrintTemplates, setRecordPrintTemplates] = useState<PrintTemplateSummary[]>([]);
   const [selectedTriggerId, setSelectedTriggerId] = useState("");
   const [draft, setDraft] = useState<TriggerDraft>(() => createEmptyTriggerDraft());
   const [logs, setLogs] = useState<TriggerExecutionLog[]>([]);
@@ -87,6 +90,7 @@ export function TriggersPage() {
       setAuthoringSchema(null);
       setTriggers([]);
       setWorkflows([]);
+      setRecordPrintTemplates([]);
       setSelectedTriggerId("");
       setLogs([]);
       setDraft(createEmptyTriggerDraft());
@@ -140,17 +144,24 @@ export function TriggersPage() {
     setLoadingWorkspace(true);
     setError(null);
     setNotice(null);
+    setLookupWarning(null);
     setValidationErrors([]);
     setSelectedTriggerId("");
     setLogs([]);
 
     try {
-      const [form, triggerItems, workflowItems] = await Promise.all([getForm(formId), listTriggers(formId), listWorkflows(formId)]);
+      const [form, triggerItems, workflowItems, printTemplateItems] = await Promise.all([
+        getForm(formId),
+        listTriggers(formId),
+        listWorkflows(formId),
+        loadPublishedRecordPrintTemplates(formId)
+      ]);
       const schema = await resolveAuthoringSchema(form);
       setFormDetail(form);
       setAuthoringSchema(schema);
       setTriggers(triggerItems);
       setWorkflows(workflowItems);
+      setRecordPrintTemplates(printTemplateItems);
       setDraft(createEmptyTriggerDraft(form.name));
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -158,9 +169,20 @@ export function TriggersPage() {
       setAuthoringSchema(null);
       setTriggers([]);
       setWorkflows([]);
+      setRecordPrintTemplates([]);
       setDraft(createEmptyTriggerDraft(selectedForm?.name));
     } finally {
       setLoadingWorkspace(false);
+    }
+  }
+
+  async function loadPublishedRecordPrintTemplates(formId: string): Promise<PrintTemplateSummary[]> {
+    try {
+      const templates = await listPrintTemplates(formId, { type: "record" });
+      return templates.filter((template) => Boolean(template.currentVersionId));
+    } catch {
+      setLookupWarning("Published record print templates could not be loaded. Email PDF attachment choices are unavailable.");
+      return [];
     }
   }
 
@@ -284,7 +306,10 @@ export function TriggersPage() {
     updateDraft({
       eventName,
       schedule,
-      conditions: isScheduledTriggerEvent(eventName) ? [] : draft.conditions
+      conditions: isScheduledTriggerEvent(eventName) ? [] : draft.conditions,
+      actions: isScheduledTriggerEvent(eventName)
+        ? draft.actions.map((action) => ({ ...action, printTemplateId: "" }))
+        : draft.actions
     });
   }
 
@@ -559,6 +584,8 @@ export function TriggersPage() {
                       onRemove={() => updateDraft({ actions: draft.actions.filter((item) => item.clientId !== action.clientId) })}
                       onTypeChange={(type) => handleActionTypeChange(action, type)}
                       onUpdate={(patch) => updateAction(action.clientId, patch)}
+                      printTemplates={recordPrintTemplates}
+                      recordPdfAttachmentsEnabled={!scheduledEvent}
                       users={activeUsers}
                       workflows={eligibleWorkflows}
                     />
@@ -744,6 +771,8 @@ function ActionEditor({
   onRemove,
   onTypeChange,
   onUpdate,
+  printTemplates,
+  recordPdfAttachmentsEnabled,
   users,
   workflows
 }: {
@@ -756,6 +785,8 @@ function ActionEditor({
   onRemove: () => void;
   onTypeChange: (type: TriggerActionType) => void;
   onUpdate: (patch: Partial<TriggerActionDraft>) => void;
+  printTemplates: PrintTemplateSummary[];
+  recordPdfAttachmentsEnabled: boolean;
   users: UserDto[];
   workflows: WorkflowSummary[];
 }) {
@@ -768,7 +799,19 @@ function ActionEditor({
           <Select label={`Action ${index + 1}`} onChange={(event) => onTypeChange(event.target.value as TriggerActionType)} options={triggerActionOptions} value={action.type} />
           <Input error={errors.get(`${path}.id`)} label="Action id" onChange={(event) => onUpdate({ id: event.target.value })} value={action.id} />
         </div>
-        <ActionValueEditor action={action} errors={errors} fields={fields} forms={forms} groups={groups} onUpdate={onUpdate} path={path} users={users} workflows={workflows} />
+        <ActionValueEditor
+          action={action}
+          errors={errors}
+          fields={fields}
+          forms={forms}
+          groups={groups}
+          onUpdate={onUpdate}
+          path={path}
+          printTemplates={printTemplates}
+          recordPdfAttachmentsEnabled={recordPdfAttachmentsEnabled}
+          users={users}
+          workflows={workflows}
+        />
         <Button aria-label="Remove action" className="self-end" onClick={onRemove} size="icon" variant="ghost">
           <Trash2 className="size-4" />
         </Button>
@@ -785,6 +828,8 @@ function ActionValueEditor({
   groups,
   onUpdate,
   path,
+  printTemplates,
+  recordPdfAttachmentsEnabled,
   users,
   workflows
 }: {
@@ -795,6 +840,8 @@ function ActionValueEditor({
   groups: GroupDto[];
   onUpdate: (patch: Partial<TriggerActionDraft>) => void;
   path: string;
+  printTemplates: PrintTemplateSummary[];
+  recordPdfAttachmentsEnabled: boolean;
   users: UserDto[];
   workflows: WorkflowSummary[];
 }) {
@@ -808,6 +855,20 @@ function ActionValueEditor({
         <Input error={errors.get(`${path}.to`)} label="Recipients" onChange={(event) => onUpdate({ toText: event.target.value })} placeholder="admin@example.com, ops@example.com" value={action.toText ?? ""} />
         <Input error={errors.get(`${path}.subject`)} label="Subject" onChange={(event) => onUpdate({ subject: event.target.value })} value={action.subject ?? ""} />
         <Textarea label="Body" onChange={(event) => onUpdate({ body: event.target.value })} value={action.body ?? ""} />
+        <Select
+          disabled={!recordPdfAttachmentsEnabled || printTemplates.length === 0}
+          error={errors.get(`${path}.printTemplateId`)}
+          label="PDF attachment"
+          onChange={(event) => onUpdate({ printTemplateId: event.target.value })}
+          value={action.printTemplateId ?? ""}
+        >
+          <option value="">No PDF attachment</option>
+          {printTemplates.map((template) => (
+            <option key={template.id} value={template.id}>
+              {template.name} v{template.currentVersionNumber ?? 1}
+            </option>
+          ))}
+        </Select>
       </div>
     );
   }

@@ -91,6 +91,7 @@ export type TriggerActionDefinition = {
   webhookHeaders?: Record<string, string> | null;
   webhookBody?: unknown;
   workflowDefinitionId?: EntityId | null;
+  printTemplateId?: EntityId | null;
 };
 
 export type TriggerActionValueDefinition = {

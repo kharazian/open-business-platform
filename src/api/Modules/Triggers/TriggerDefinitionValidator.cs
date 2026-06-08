@@ -1,5 +1,6 @@
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Printing;
 using OpenBusinessPlatform.Api.Modules.Workflows;
 
 namespace OpenBusinessPlatform.Api.Modules.Triggers;
@@ -34,6 +35,7 @@ public static class TriggerDefinitionValidator
             activeGroupIds,
             targetForms,
             Array.Empty<TriggerWorkflowStartTarget>(),
+            Array.Empty<TriggerPrintTemplateTarget>(),
             sourceFormId: null,
             requireConcurrencyStamp: false,
             concurrencyStamp: null);
@@ -48,6 +50,19 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
         Guid sourceFormId)
     {
+        return Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, Array.Empty<TriggerPrintTemplateTarget>(), sourceFormId);
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        CreateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        IReadOnlyCollection<TriggerPrintTemplateTarget> printTemplateTargets,
+        Guid sourceFormId)
+    {
         return Validate(
             schema,
             request.Name,
@@ -60,6 +75,7 @@ public static class TriggerDefinitionValidator
             activeGroupIds,
             targetForms,
             workflowStartTargets,
+            printTemplateTargets,
             sourceFormId,
             requireConcurrencyStamp: false,
             concurrencyStamp: null);
@@ -93,6 +109,7 @@ public static class TriggerDefinitionValidator
             activeGroupIds,
             targetForms,
             Array.Empty<TriggerWorkflowStartTarget>(),
+            Array.Empty<TriggerPrintTemplateTarget>(),
             sourceFormId: null,
             requireConcurrencyStamp: true,
             concurrencyStamp: request.ConcurrencyStamp);
@@ -107,6 +124,19 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
         Guid sourceFormId)
     {
+        return Validate(schema, request, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, Array.Empty<TriggerPrintTemplateTarget>(), sourceFormId);
+    }
+
+    public static TriggerValidationResult Validate(
+        FormSchemaDefinition schema,
+        UpdateTriggerRequest request,
+        IReadOnlyCollection<Guid> activeUserIds,
+        IReadOnlyCollection<Guid> activeGroupIds,
+        IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        IReadOnlyCollection<TriggerPrintTemplateTarget> printTemplateTargets,
+        Guid sourceFormId)
+    {
         return Validate(
             schema,
             request.Name,
@@ -119,6 +149,7 @@ public static class TriggerDefinitionValidator
             activeGroupIds,
             targetForms,
             workflowStartTargets,
+            printTemplateTargets,
             sourceFormId,
             requireConcurrencyStamp: true,
             concurrencyStamp: request.ConcurrencyStamp);
@@ -163,7 +194,8 @@ public static class TriggerDefinitionValidator
                 WebhookUrl = NormalizeOptional(action.WebhookUrl),
                 WebhookMethod = NormalizeWebhookMethod(action.WebhookMethod),
                 WebhookHeaders = NormalizeWebhookHeaders(action.WebhookHeaders),
-                WebhookBody = NormalizeActionValue(action.WebhookBody)
+                WebhookBody = NormalizeActionValue(action.WebhookBody),
+                PrintTemplateId = NormalizeNullableId(action.PrintTemplateId)
             })
             .ToArray();
     }
@@ -203,6 +235,7 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeGroupIds,
         IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
         IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        IReadOnlyCollection<TriggerPrintTemplateTarget> printTemplateTargets,
         Guid? sourceFormId,
         bool requireConcurrencyStamp,
         string? concurrencyStamp)
@@ -234,7 +267,7 @@ public static class TriggerDefinitionValidator
         ValidateRetryPolicy(normalizedRetryPolicy, errors);
         ValidateSchedule(normalizedEventName, normalizedSchedule, normalizedConditions, normalizedActions, errors);
         ValidateConditions(normalizedConditions, fieldIds, errors);
-        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, sourceFormId, errors);
+        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, printTemplateTargets, sourceFormId, errors);
 
         return new TriggerValidationResult(errors);
     }
@@ -308,6 +341,11 @@ public static class TriggerDefinitionValidator
             if (!TriggerActionTypes.ScheduledSupported.Contains(actions[index].Type))
             {
                 errors.Add(Error($"actions[{index}].type", "trigger.schedule.action_type", "Scheduled triggers only support email and webhook actions in V4."));
+            }
+
+            if (actions[index].PrintTemplateId is not null)
+            {
+                errors.Add(Error($"actions[{index}].printTemplateId", "trigger.schedule.pdf_attachment", "Scheduled email PDF attachments require a record context."));
             }
         }
     }
@@ -386,6 +424,7 @@ public static class TriggerDefinitionValidator
         IReadOnlyCollection<Guid> activeGroupIds,
         IReadOnlyCollection<TriggerTargetFormSchema> targetForms,
         IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        IReadOnlyCollection<TriggerPrintTemplateTarget> printTemplateTargets,
         Guid? sourceFormId,
         List<TriggerValidationError> errors)
     {
@@ -419,6 +458,11 @@ public static class TriggerDefinitionValidator
 
             var fieldIds = sourceFieldsById.Keys.ToHashSet(StringComparer.Ordinal);
 
+            if (action.PrintTemplateId is not null && !string.Equals(action.Type, TriggerActionTypes.SendEmail, StringComparison.Ordinal))
+            {
+                errors.Add(Error($"{path}.printTemplateId", "trigger.action.pdf_attachment_type", "PDF print template attachments are only supported for email actions."));
+            }
+
             switch (action.Type)
             {
                 case TriggerActionTypes.WriteAuditEntry:
@@ -438,6 +482,8 @@ public static class TriggerDefinitionValidator
                     {
                         errors.Add(Error($"{path}.subject", "trigger.action.email_subject_required", "Email action subject is required."));
                     }
+
+                    ValidateEmailPdfAttachment(action, printTemplateTargets, sourceFormId, path, errors);
 
                     break;
                 case TriggerActionTypes.ChangeStatus:
@@ -511,6 +557,43 @@ public static class TriggerDefinitionValidator
             || workflow.CurrentVersionId == Guid.Empty)
         {
             errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_published", "Workflow target must be published with a current version."));
+        }
+    }
+
+    private static void ValidateEmailPdfAttachment(
+        TriggerActionDefinition action,
+        IReadOnlyCollection<TriggerPrintTemplateTarget> printTemplateTargets,
+        Guid? sourceFormId,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        if (action.PrintTemplateId is null)
+        {
+            return;
+        }
+
+        var printTemplateId = action.PrintTemplateId.Value;
+        var target = printTemplateTargets.FirstOrDefault(candidate => candidate.PrintTemplateId == printTemplateId);
+
+        if (target is null)
+        {
+            errors.Add(Error($"{path}.printTemplateId", "trigger.action.print_template_missing", "Email PDF attachment template was not found."));
+            return;
+        }
+
+        if (!string.Equals(target.Type, PrintTemplateTypes.Record, StringComparison.Ordinal))
+        {
+            errors.Add(Error($"{path}.printTemplateId", "trigger.action.print_template_type", "Email PDF attachments require a record print template."));
+        }
+
+        if (target.CurrentVersionId is null || target.CurrentVersionId == Guid.Empty)
+        {
+            errors.Add(Error($"{path}.printTemplateId", "trigger.action.print_template_unpublished", "Email PDF attachment template must have a published version."));
+        }
+
+        if (sourceFormId is not null && target.FormId != sourceFormId.Value)
+        {
+            errors.Add(Error($"{path}.printTemplateId", "trigger.action.print_template_form", "Email PDF attachment template must belong to this trigger form."));
         }
     }
 
@@ -686,6 +769,11 @@ public static class TriggerDefinitionValidator
             .Where(id => id != Guid.Empty)
             .Distinct()
             .ToArray();
+    }
+
+    private static Guid? NormalizeNullableId(Guid? id)
+    {
+        return id is null || id == Guid.Empty ? null : id;
     }
 
     private static IReadOnlyDictionary<string, TriggerActionValueDefinition>? NormalizeActionValues(

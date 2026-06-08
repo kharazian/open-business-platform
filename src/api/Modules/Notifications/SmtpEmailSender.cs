@@ -20,12 +20,17 @@ public sealed class SmtpEmailSender : IEmailSender
     {
         if (string.IsNullOrWhiteSpace(options.SmtpHost))
         {
+            var attachments = message.Attachments ?? Array.Empty<EmailAttachment>();
             logger.LogInformation(
-                "Email is not configured. Development email to {ToEmail}: {Subject}{NewLine}{Body}",
+                "Email is not configured. Development email to {ToEmail}: {Subject}{LineBreak}{Body}{LineBreak}Attachments: {Attachments}",
                 message.ToEmail,
                 message.Subject,
                 Environment.NewLine,
-                message.TextBody);
+                message.TextBody,
+                Environment.NewLine,
+                attachments.Count == 0
+                    ? "none"
+                    : string.Join(", ", attachments.Select(attachment => $"{attachment.FileName} ({attachment.ContentType}, {attachment.Content.Length} bytes)")));
             return;
         }
 
@@ -37,6 +42,14 @@ public sealed class SmtpEmailSender : IEmailSender
             IsBodyHtml = !string.IsNullOrWhiteSpace(message.HtmlBody)
         };
         mailMessage.To.Add(message.ToEmail);
+
+        foreach (var attachment in message.Attachments ?? Array.Empty<EmailAttachment>())
+        {
+            mailMessage.Attachments.Add(new Attachment(
+                new MemoryStream(attachment.Content),
+                attachment.FileName,
+                attachment.ContentType));
+        }
 
         using var client = new SmtpClient(options.SmtpHost, options.SmtpPort)
         {

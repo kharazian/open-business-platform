@@ -402,6 +402,18 @@ var recoveryEmail = PasswordRecoveryEmailFactory.CreateResetEmail("jane@company.
 AssertEqual("jane@company.test", recoveryEmail.ToEmail, "Password recovery emails should target the requested user email.");
 AssertTrue(recoveryEmail.Subject.Contains("password", StringComparison.OrdinalIgnoreCase), "Password recovery emails should describe the password reset.");
 AssertTrue(recoveryEmail.TextBody.Contains(resetLink, StringComparison.Ordinal), "Password recovery emails should include the reset link.");
+var pdfEmailAttachment = new EmailAttachment(
+    "employee-record-v2.pdf",
+    PrintPdfDocumentBuilder.ContentType,
+    "%PDF-1.4 attachment"u8.ToArray());
+var emailWithAttachment = new EmailMessage(
+    "manager@example.test",
+    "Employee record",
+    "Attached.",
+    Attachments: new[] { pdfEmailAttachment });
+var emailAttachments = emailWithAttachment.Attachments ?? Array.Empty<EmailAttachment>();
+AssertEqual(1, emailAttachments.Count, "Email messages should carry PDF attachments.");
+AssertEqual(PrintPdfDocumentBuilder.ContentType, emailAttachments.Single().ContentType, "PDF email attachments should carry application/pdf content type.");
 
 var demoSchema = DemoDataSeeder.CreateEmployeeInformationSchema();
 AssertEqual(8, demoSchema.Fields.Count, "Demo seed data should include the V1 employee information fields.");
@@ -734,6 +746,25 @@ var validWebhookActions = new[]
         WebhookHeaders: new Dictionary<string, string> { ["X-Source"] = "open-business-platform" })
 };
 var sourceTriggerFormId = Guid.Parse("99999999-0000-0000-0000-000000000001");
+var emailPrintTemplateId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+var validEmailAttachmentActions = new[]
+{
+    new TriggerActionDefinition(
+        "email-attachment-1",
+        TriggerActionTypes.SendEmail,
+        To: new[] { "manager@example.test" },
+        Subject: "Employee record",
+        Body: "Attached.",
+        PrintTemplateId: emailPrintTemplateId)
+};
+var validEmailAttachmentTargets = new[]
+{
+    new TriggerPrintTemplateTarget(
+        emailPrintTemplateId,
+        sourceTriggerFormId,
+        PrintTemplateTypes.Record,
+        CurrentVersionId: Guid.Parse("88888888-8888-8888-8888-888888888888"))
+};
 var workflowStartDefinitionId = Guid.Parse("99999999-0000-0000-0000-000000000002");
 var workflowStartVersionId = Guid.Parse("99999999-0000-0000-0000-000000000003");
 var validStartWorkflowActions = new[]
@@ -800,6 +831,28 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A valid call_webhook action should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Email record PDF", null, TriggerEvents.RecordCreated, validTriggerConditions, validEmailAttachmentActions, true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        Array.Empty<TriggerWorkflowStartTarget>(),
+        validEmailAttachmentTargets,
+        sourceTriggerFormId).Valid,
+    "A valid send_email action should accept a published same-form record print template attachment.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Scheduled PDF email", null, TriggerEvents.ScheduleDaily, null, validEmailAttachmentActions, true, validTriggerRetryPolicy, validDailySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        Array.Empty<TriggerWorkflowStartTarget>(),
+        validEmailAttachmentTargets,
+        sourceTriggerFormId).Valid,
+    "Scheduled email actions should reject record PDF attachments because no record context exists.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
