@@ -204,7 +204,9 @@ Workspace controls:
 - Template list
 - Record/report template draft
 - Header title, subtitle, logo URL text, generated-time toggle, and footer text
+- Page size, orientation, margin, and repeated table header controls
 - Field, table, and signature sections
+- Section-level start-on-new-page and keep-together controls
 - Save, update, and soft-delete actions
 
 Record detail and report viewer keep the default print layout when no template is selected. Selecting a saved template switches the print output to the saved layout and exposes the browser-based Generate PDF action.

@@ -5,6 +5,7 @@ V6 starts the print template and PDF foundation. The current slice keeps the pla
 ## Recommended Execution Order
 
 1. `001-print-template-foundation.md` - backend print template persistence, validation, permission-protected APIs, audit logs, frontend template management, record/report template rendering, and browser PDF generation.
+2. `002-page-break-pagination-controls.md` - dependency-light browser print page setup, table header repetition, and section page-break controls.
 
 ## Scope Rules
 

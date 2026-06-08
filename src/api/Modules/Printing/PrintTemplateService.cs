@@ -277,13 +277,15 @@ public sealed class PrintTemplateService
             type,
             new PrintTemplateHeaderConfig("Print template", null, null, true),
             Array.Empty<PrintTemplateSectionConfig>(),
-            new PrintTemplateFooterConfig("Open Business Platform"));
+            new PrintTemplateFooterConfig("Open Business Platform"),
+            DefaultLayout());
     }
 
     private static PrintTemplateConfig NormalizeConfig(PrintTemplateConfig config)
     {
         var header = config.Header ?? new PrintTemplateHeaderConfig(string.Empty, null, null, true);
         var footer = config.Footer ?? new PrintTemplateFooterConfig(null);
+        var layout = config.Layout ?? DefaultLayout();
 
         return new PrintTemplateConfig(
             config.SchemaVersion,
@@ -304,9 +306,29 @@ public sealed class PrintTemplateService
                     (section.SignatureLabels ?? Array.Empty<string>())
                         .Select(label => label.Trim())
                         .Where(label => !string.IsNullOrWhiteSpace(label))
-                        .ToArray()))
+                        .ToArray(),
+                    section.Pagination ?? DefaultSectionPagination()))
                 .ToArray(),
-            new PrintTemplateFooterConfig(NormalizeOptionalText(footer.Text)));
+            new PrintTemplateFooterConfig(NormalizeOptionalText(footer.Text)),
+            new PrintTemplateLayoutConfig(
+                layout.PageSize?.Trim() ?? string.Empty,
+                layout.Orientation?.Trim() ?? string.Empty,
+                layout.Margin?.Trim() ?? string.Empty,
+                layout.RepeatTableHeaders));
+    }
+
+    private static PrintTemplateLayoutConfig DefaultLayout()
+    {
+        return new PrintTemplateLayoutConfig(
+            PrintTemplatePageSizes.Letter,
+            PrintTemplateOrientations.Portrait,
+            PrintTemplateMargins.Normal,
+            RepeatTableHeaders: true);
+    }
+
+    private static PrintTemplateSectionPaginationConfig DefaultSectionPagination()
+    {
+        return new PrintTemplateSectionPaginationConfig(PageBreakBefore: false, AvoidBreakInside: true);
     }
 
     private static FormSchemaDefinition? ResolveAuthoringSchema(FormDefinition form)

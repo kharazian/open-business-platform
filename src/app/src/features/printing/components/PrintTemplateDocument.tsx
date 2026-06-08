@@ -1,5 +1,5 @@
 import { getGeneratedAtPrintMetadata, joinPrintMetadata } from "../printLayout";
-import { formatRecordValue } from "../templateRenderer";
+import { formatRecordValue, getPrintTemplateDocumentClassName, getPrintTemplateSectionClassName } from "../templateRenderer";
 import type {
   PrintTemplateConfig,
   PrintTemplateDetail,
@@ -24,7 +24,7 @@ export function PrintTemplateDocument({ metadata = [], record, report, template 
   ]);
 
   return (
-    <article className="print-only print-template-document">
+    <article className={getPrintTemplateDocumentClassName(config)}>
       <header className="print-template-header">
         <div className="print-template-header-main">
           {config.header.logoUrl ? <img alt="" className="print-template-logo" src={config.header.logoUrl} /> : null}
@@ -90,7 +90,7 @@ function RecordFieldsSection({ record, section }: { record: RecordTemplateSource
     }));
 
   return (
-    <section className="print-template-section">
+    <section className={getPrintTemplateSectionClassName(section)}>
       <h2 className="print-template-section-title">{section.title}</h2>
       <dl className="print-template-field-grid">
         {rows.map((row) => (
@@ -108,7 +108,7 @@ function ReportTableSection({ report, section }: { report: ReportTemplateExecuti
   const columns = getSelectedColumns(report.columns, section.fieldIds);
 
   return (
-    <section className="print-template-section">
+    <section className={getPrintTemplateSectionClassName(section)}>
       <h2 className="print-template-section-title">{section.title}</h2>
       <table className="print-template-table">
         <thead>
@@ -140,7 +140,7 @@ function SignatureSection({ section }: { section: PrintTemplateSectionConfig }) 
   }
 
   return (
-    <section className="print-template-section">
+    <section className={getPrintTemplateSectionClassName(section)}>
       <h2 className="print-template-section-title">{section.title}</h2>
       <div className="print-template-signatures">
         {labels.map((label) => (

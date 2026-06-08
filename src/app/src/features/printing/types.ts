@@ -3,9 +3,15 @@ import type { FormRecordValue, FormSchema } from "../forms/types";
 
 export const printTemplateTypes = ["record", "report"] as const;
 export const printTemplateSectionKinds = ["fields", "table", "signature"] as const;
+export const printTemplatePageSizes = ["letter", "a4"] as const;
+export const printTemplateOrientations = ["portrait", "landscape"] as const;
+export const printTemplateMargins = ["narrow", "normal", "wide"] as const;
 
 export type PrintTemplateType = (typeof printTemplateTypes)[number];
 export type PrintTemplateSectionKind = (typeof printTemplateSectionKinds)[number];
+export type PrintTemplatePageSize = (typeof printTemplatePageSizes)[number];
+export type PrintTemplateOrientation = (typeof printTemplateOrientations)[number];
+export type PrintTemplateMargin = (typeof printTemplateMargins)[number];
 
 export type PrintTemplateHeaderConfig = {
   title: string;
@@ -14,12 +20,25 @@ export type PrintTemplateHeaderConfig = {
   showGeneratedAt: boolean;
 };
 
+export type PrintTemplateLayoutConfig = {
+  pageSize: PrintTemplatePageSize;
+  orientation: PrintTemplateOrientation;
+  margin: PrintTemplateMargin;
+  repeatTableHeaders: boolean;
+};
+
+export type PrintTemplateSectionPaginationConfig = {
+  pageBreakBefore: boolean;
+  avoidBreakInside: boolean;
+};
+
 export type PrintTemplateSectionConfig = {
   id: string;
   kind: PrintTemplateSectionKind;
   title: string;
   fieldIds: string[];
   signatureLabels?: string[];
+  pagination?: PrintTemplateSectionPaginationConfig;
 };
 
 export type PrintTemplateFooterConfig = {
@@ -29,6 +48,7 @@ export type PrintTemplateFooterConfig = {
 export type PrintTemplateConfig = {
   schemaVersion: 1;
   type: PrintTemplateType;
+  layout: PrintTemplateLayoutConfig;
   header: PrintTemplateHeaderConfig;
   sections: PrintTemplateSectionConfig[];
   footer: PrintTemplateFooterConfig;

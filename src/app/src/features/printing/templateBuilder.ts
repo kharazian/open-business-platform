@@ -2,11 +2,14 @@ import type {
   PrintTemplateConfig,
   PrintTemplateDetail,
   PrintTemplateDraft,
+  PrintTemplateLayoutConfig,
+  PrintTemplateSectionPaginationConfig,
   PrintTemplateSectionConfig,
   PrintTemplateType,
   PrintTemplateValidationError,
   PrintTemplateValidationResult
 } from "./types";
+import { printTemplateMargins, printTemplateOrientations, printTemplatePageSizes } from "./types";
 
 export function createDefaultPrintTemplateConfig(type: PrintTemplateType, sourceName = "Document"): PrintTemplateConfig {
   const normalizedName = sourceName.trim() || "Document";
@@ -14,6 +17,7 @@ export function createDefaultPrintTemplateConfig(type: PrintTemplateType, source
   return {
     schemaVersion: 1,
     type,
+    layout: createDefaultLayoutConfig(),
     header: {
       title: normalizedName,
       subtitle: type === "record" ? "Record detail" : "Report table",
@@ -47,7 +51,7 @@ export function createPrintTemplateDraftFromDetail(template: PrintTemplateDetail
     name: template.name,
     description: template.description ?? "",
     type: template.type,
-    config: template.config,
+    config: normalizePrintTemplateConfig(template.config, template.type),
     concurrencyStamp: template.concurrencyStamp
   };
 }
@@ -85,6 +89,18 @@ export function validatePrintTemplateDraft(draft: PrintTemplateDraft): PrintTemp
     errors.push(error("config.header.title", "print_template.header.title_required", "Header title is required."));
   }
 
+  if (!printTemplatePageSizes.includes(draft.config.layout.pageSize)) {
+    errors.push(error("config.layout.pageSize", "print_template.layout.page_size_invalid", "Page size must be Letter or A4."));
+  }
+
+  if (!printTemplateOrientations.includes(draft.config.layout.orientation)) {
+    errors.push(error("config.layout.orientation", "print_template.layout.orientation_invalid", "Orientation must be portrait or landscape."));
+  }
+
+  if (!printTemplateMargins.includes(draft.config.layout.margin)) {
+    errors.push(error("config.layout.margin", "print_template.layout.margin_invalid", "Margin must be narrow, normal, or wide."));
+  }
+
   if (draft.config.sections.length === 0) {
     errors.push(error("config.sections", "print_template.sections.required", "At least one section is required."));
   }
@@ -120,14 +136,16 @@ function createDefaultSection(type: PrintTemplateType, index: number): PrintTemp
     kind: type === "record" ? "fields" : "table",
     title: type === "record" ? "Record fields" : "Report rows",
     fieldIds: [],
-    signatureLabels: []
+    signatureLabels: [],
+    pagination: createDefaultSectionPagination()
   };
 }
 
-function normalizePrintTemplateConfig(config: PrintTemplateConfig, type: PrintTemplateType): PrintTemplateConfig {
+export function normalizePrintTemplateConfig(config: PrintTemplateConfig, type: PrintTemplateType): PrintTemplateConfig {
   return {
     schemaVersion: 1,
     type,
+    layout: normalizeLayoutConfig(config.layout),
     header: {
       title: config.header.title.trim(),
       subtitle: normalizeOptionalText(config.header.subtitle),
@@ -139,12 +157,53 @@ function normalizePrintTemplateConfig(config: PrintTemplateConfig, type: PrintTe
       kind: section.kind,
       title: section.title.trim(),
       fieldIds: section.fieldIds.map((fieldId) => fieldId.trim()).filter(Boolean),
-      signatureLabels: (section.signatureLabels ?? []).map((label) => label.trim()).filter(Boolean)
+      signatureLabels: (section.signatureLabels ?? []).map((label) => label.trim()).filter(Boolean),
+      pagination: normalizeSectionPagination(section.pagination)
     })),
     footer: {
       text: normalizeOptionalText(config.footer.text)
     }
   };
+}
+
+function createDefaultLayoutConfig(): PrintTemplateLayoutConfig {
+  return {
+    pageSize: "letter",
+    orientation: "portrait",
+    margin: "normal",
+    repeatTableHeaders: true
+  };
+}
+
+function createDefaultSectionPagination(): PrintTemplateSectionPaginationConfig {
+  return {
+    pageBreakBefore: false,
+    avoidBreakInside: true
+  };
+}
+
+function normalizeLayoutConfig(layout?: PrintTemplateLayoutConfig | null): PrintTemplateLayoutConfig {
+  const defaults = createDefaultLayoutConfig();
+
+  return {
+    pageSize: normalizeOption(layout?.pageSize, printTemplatePageSizes, defaults.pageSize),
+    orientation: normalizeOption(layout?.orientation, printTemplateOrientations, defaults.orientation),
+    margin: normalizeOption(layout?.margin, printTemplateMargins, defaults.margin),
+    repeatTableHeaders: layout?.repeatTableHeaders ?? defaults.repeatTableHeaders
+  };
+}
+
+function normalizeSectionPagination(pagination?: PrintTemplateSectionPaginationConfig | null): PrintTemplateSectionPaginationConfig {
+  const defaults = createDefaultSectionPagination();
+
+  return {
+    pageBreakBefore: pagination?.pageBreakBefore ?? defaults.pageBreakBefore,
+    avoidBreakInside: pagination?.avoidBreakInside ?? defaults.avoidBreakInside
+  };
+}
+
+function normalizeOption<TOption extends string>(value: unknown, options: readonly TOption[], fallback: TOption): TOption {
+  return typeof value === "string" && options.includes(value as TOption) ? value as TOption : fallback;
 }
 
 function normalizeOptionalText(value?: string | null): string | null {

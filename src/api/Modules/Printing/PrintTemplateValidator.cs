@@ -25,6 +25,8 @@ public static class PrintTemplateValidator
             errors.Add(Error("config.header.title", "print_template.header.title_required", "Header title is required."));
         }
 
+        ValidateLayout(config.Layout, errors);
+
         if (config.Sections.Count == 0)
         {
             errors.Add(Error("config.sections", "print_template.sections.required", "At least one section is required."));
@@ -72,6 +74,29 @@ public static class PrintTemplateValidator
         }
 
         return new PrintTemplateValidationResult(errors);
+    }
+
+    private static void ValidateLayout(PrintTemplateLayoutConfig? layout, List<PrintTemplateValidationError> errors)
+    {
+        if (layout is null)
+        {
+            return;
+        }
+
+        if (!PrintTemplatePageSizes.Supported.Contains(layout.PageSize?.Trim() ?? string.Empty))
+        {
+            errors.Add(Error("config.layout.pageSize", "print_template.layout.page_size_invalid", "Page size must be Letter or A4."));
+        }
+
+        if (!PrintTemplateOrientations.Supported.Contains(layout.Orientation?.Trim() ?? string.Empty))
+        {
+            errors.Add(Error("config.layout.orientation", "print_template.layout.orientation_invalid", "Orientation must be portrait or landscape."));
+        }
+
+        if (!PrintTemplateMargins.Supported.Contains(layout.Margin?.Trim() ?? string.Empty))
+        {
+            errors.Add(Error("config.layout.margin", "print_template.layout.margin_invalid", "Margin must be narrow, normal, or wide."));
+        }
     }
 
     private static IReadOnlySet<string>? ResolveValidFieldIds(string templateType, FormSchemaDefinition? schema)

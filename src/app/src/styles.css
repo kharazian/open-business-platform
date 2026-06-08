@@ -137,6 +137,66 @@
     margin: 0.55in;
   }
 
+  @page print-template-letter-portrait-narrow {
+    size: letter portrait;
+    margin: 0.35in;
+  }
+
+  @page print-template-letter-portrait-normal {
+    size: letter portrait;
+    margin: 0.6in;
+  }
+
+  @page print-template-letter-portrait-wide {
+    size: letter portrait;
+    margin: 1in;
+  }
+
+  @page print-template-letter-landscape-narrow {
+    size: letter landscape;
+    margin: 0.35in;
+  }
+
+  @page print-template-letter-landscape-normal {
+    size: letter landscape;
+    margin: 0.6in;
+  }
+
+  @page print-template-letter-landscape-wide {
+    size: letter landscape;
+    margin: 1in;
+  }
+
+  @page print-template-a4-portrait-narrow {
+    size: A4 portrait;
+    margin: 9mm;
+  }
+
+  @page print-template-a4-portrait-normal {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  @page print-template-a4-portrait-wide {
+    size: A4 portrait;
+    margin: 25mm;
+  }
+
+  @page print-template-a4-landscape-narrow {
+    size: A4 landscape;
+    margin: 9mm;
+  }
+
+  @page print-template-a4-landscape-normal {
+    size: A4 landscape;
+    margin: 15mm;
+  }
+
+  @page print-template-a4-landscape-wide {
+    size: A4 landscape;
+    margin: 25mm;
+  }
+
   html,
   body {
     color: #111827 !important;
@@ -221,6 +281,54 @@
     line-height: 1.45 !important;
   }
 
+  .print-template-page-letter-portrait-narrow {
+    page: print-template-letter-portrait-narrow;
+  }
+
+  .print-template-page-letter-portrait-normal {
+    page: print-template-letter-portrait-normal;
+  }
+
+  .print-template-page-letter-portrait-wide {
+    page: print-template-letter-portrait-wide;
+  }
+
+  .print-template-page-letter-landscape-narrow {
+    page: print-template-letter-landscape-narrow;
+  }
+
+  .print-template-page-letter-landscape-normal {
+    page: print-template-letter-landscape-normal;
+  }
+
+  .print-template-page-letter-landscape-wide {
+    page: print-template-letter-landscape-wide;
+  }
+
+  .print-template-page-a4-portrait-narrow {
+    page: print-template-a4-portrait-narrow;
+  }
+
+  .print-template-page-a4-portrait-normal {
+    page: print-template-a4-portrait-normal;
+  }
+
+  .print-template-page-a4-portrait-wide {
+    page: print-template-a4-portrait-wide;
+  }
+
+  .print-template-page-a4-landscape-narrow {
+    page: print-template-a4-landscape-narrow;
+  }
+
+  .print-template-page-a4-landscape-normal {
+    page: print-template-a4-landscape-normal;
+  }
+
+  .print-template-page-a4-landscape-wide {
+    page: print-template-a4-landscape-wide;
+  }
+
   .print-template-header {
     border-bottom: 2px solid #111827 !important;
     margin-bottom: 1rem !important;
@@ -277,6 +385,16 @@
     break-inside: avoid !important;
   }
 
+  .print-template-section-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .print-template-section-allow-breaks {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
   .print-template-section-title {
     color: #111827 !important;
     font-size: 1rem !important;
@@ -328,6 +446,10 @@
 
   .print-template-table thead {
     display: table-header-group !important;
+  }
+
+  .print-template-no-repeat-table-headers .print-template-table thead {
+    display: table-row-group !important;
   }
 
   .print-template-table tr {

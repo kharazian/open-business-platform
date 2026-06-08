@@ -393,17 +393,36 @@ var validRecordPrintTemplate = new PrintTemplateConfig(
     PrintTemplateTypes.Record,
     new PrintTemplateHeaderConfig("Employee record", null, null, true),
     new[] { new PrintTemplateSectionConfig("main", PrintTemplateSectionKinds.Fields, "Main", new[] { "email" }, Array.Empty<string>()) },
-    new PrintTemplateFooterConfig("Open Business Platform"));
+    new PrintTemplateFooterConfig("Open Business Platform"),
+    new PrintTemplateLayoutConfig(PrintTemplatePageSizes.Letter, PrintTemplateOrientations.Portrait, PrintTemplateMargins.Normal, RepeatTableHeaders: true));
 var invalidRecordPrintTemplate = validRecordPrintTemplate with
 {
     Sections = new[] { new PrintTemplateSectionConfig("main", PrintTemplateSectionKinds.Fields, "Main", new[] { "missing_field" }, Array.Empty<string>()) }
+};
+var invalidLayoutPrintTemplate = validRecordPrintTemplate with
+{
+    Layout = new PrintTemplateLayoutConfig("tabloid", "sideways", "tiny", RepeatTableHeaders: true)
+};
+var paginatedRecordPrintTemplate = validRecordPrintTemplate with
+{
+    Sections = new[]
+    {
+        new PrintTemplateSectionConfig(
+            "main",
+            PrintTemplateSectionKinds.Fields,
+            "Main",
+            new[] { "email" },
+            Array.Empty<string>(),
+            new PrintTemplateSectionPaginationConfig(PageBreakBefore: true, AvoidBreakInside: false))
+    }
 };
 var validReportPrintTemplate = new PrintTemplateConfig(
     1,
     PrintTemplateTypes.Report,
     new PrintTemplateHeaderConfig("Employee report", null, null, true),
     new[] { new PrintTemplateSectionConfig("table", PrintTemplateSectionKinds.Table, "Rows", new[] { ReportSystemFields.Status }, Array.Empty<string>()) },
-    new PrintTemplateFooterConfig("Open Business Platform"));
+    new PrintTemplateFooterConfig("Open Business Platform"),
+    new PrintTemplateLayoutConfig(PrintTemplatePageSizes.A4, PrintTemplateOrientations.Landscape, PrintTemplateMargins.Wide, RepeatTableHeaders: false));
 AssertTrue(
     PrintTemplateValidator.Validate(validRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
     "A record print template should accept fields from the form schema.");
@@ -411,6 +430,18 @@ AssertSequenceEqual(
     new[] { "print_template.field.unknown" },
     PrintTemplateValidator.Validate(invalidRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
     "Record print templates should reject fields that do not exist on the form schema.");
+AssertSequenceEqual(
+    new[]
+    {
+        "print_template.layout.page_size_invalid",
+        "print_template.layout.orientation_invalid",
+        "print_template.layout.margin_invalid"
+    },
+    PrintTemplateValidator.Validate(invalidLayoutPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
+    "Print templates should reject unsupported page setup values.");
+AssertTrue(
+    PrintTemplateValidator.Validate(paginatedRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
+    "Record print templates should accept section pagination controls.");
 AssertTrue(
     PrintTemplateValidator.Validate(validReportPrintTemplate, PrintTemplateTypes.Report, demoSchema).Valid,
     "Report print templates should accept reportable system fields.");

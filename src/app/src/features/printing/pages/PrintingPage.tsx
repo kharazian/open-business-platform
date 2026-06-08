@@ -30,7 +30,15 @@ import {
   createTemplateSection,
   validatePrintTemplateDraft
 } from "../templateBuilder";
-import type { PrintTemplateDraft, PrintTemplateSectionConfig, PrintTemplateSummary, PrintTemplateType, PrintTemplateValidationError } from "../types";
+import type {
+  PrintTemplateDraft,
+  PrintTemplateLayoutConfig,
+  PrintTemplateSectionConfig,
+  PrintTemplateSectionPaginationConfig,
+  PrintTemplateSummary,
+  PrintTemplateType,
+  PrintTemplateValidationError
+} from "../types";
 
 export function PrintingPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
@@ -153,6 +161,10 @@ export function PrintingPage() {
     updateConfig({ header: { ...draft.config.header, ...patch } });
   }
 
+  function updateLayout(patch: Partial<PrintTemplateLayoutConfig>) {
+    updateConfig({ layout: { ...draft.config.layout, ...patch } });
+  }
+
   function updateFooterText(text: string) {
     updateConfig({ footer: { ...draft.config.footer, text } });
   }
@@ -160,6 +172,11 @@ export function PrintingPage() {
   function updateSection(index: number, patch: Partial<PrintTemplateSectionConfig>) {
     const sections = draft.config.sections.map((section, sectionIndex) => sectionIndex === index ? { ...section, ...patch } : section);
     updateConfig({ sections });
+  }
+
+  function updateSectionPagination(index: number, patch: Partial<PrintTemplateSectionPaginationConfig>) {
+    const currentPagination = draft.config.sections[index]?.pagination ?? { pageBreakBefore: false, avoidBreakInside: true };
+    updateSection(index, { pagination: { ...currentPagination, ...patch } });
   }
 
   function addSection(kind: "fields" | "table" | "signature") {
@@ -360,6 +377,45 @@ export function PrintingPage() {
               <Input label="Footer" onChange={(event) => updateFooterText(event.target.value)} value={draft.config.footer.text ?? ""} />
             </section>
 
+            <section className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+              <h3 className="text-sm font-black text-foreground">Page setup</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Select
+                  error={errorMap.get("config.layout.pageSize")}
+                  label="Page size"
+                  onChange={(event) => updateLayout({ pageSize: event.target.value as PrintTemplateLayoutConfig["pageSize"] })}
+                  value={draft.config.layout.pageSize}
+                >
+                  <option value="letter">Letter</option>
+                  <option value="a4">A4</option>
+                </Select>
+                <Select
+                  error={errorMap.get("config.layout.orientation")}
+                  label="Orientation"
+                  onChange={(event) => updateLayout({ orientation: event.target.value as PrintTemplateLayoutConfig["orientation"] })}
+                  value={draft.config.layout.orientation}
+                >
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </Select>
+                <Select
+                  error={errorMap.get("config.layout.margin")}
+                  label="Margin"
+                  onChange={(event) => updateLayout({ margin: event.target.value as PrintTemplateLayoutConfig["margin"] })}
+                  value={draft.config.layout.margin}
+                >
+                  <option value="narrow">Narrow</option>
+                  <option value="normal">Normal</option>
+                  <option value="wide">Wide</option>
+                </Select>
+              </div>
+              <Checkbox
+                checked={draft.config.layout.repeatTableHeaders}
+                label="Repeat table headers"
+                onChange={(event) => updateLayout({ repeatTableHeaders: event.target.checked })}
+              />
+            </section>
+
             <section className="grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-black text-foreground">Sections</h3>
@@ -379,6 +435,18 @@ export function PrintingPage() {
                   </div>
                   <Input label="Section ID" onChange={(event) => updateSection(index, { id: event.target.value })} value={section.id} />
                   <Input label="Title" onChange={(event) => updateSection(index, { title: event.target.value })} value={section.title} />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Checkbox
+                      checked={section.pagination?.pageBreakBefore ?? false}
+                      label="Start on new page"
+                      onChange={(event) => updateSectionPagination(index, { pageBreakBefore: event.target.checked })}
+                    />
+                    <Checkbox
+                      checked={section.pagination?.avoidBreakInside ?? true}
+                      label="Keep section together"
+                      onChange={(event) => updateSectionPagination(index, { avoidBreakInside: event.target.checked })}
+                    />
+                  </div>
                   {section.kind === "signature" ? (
                     <Textarea
                       className="min-h-20"

@@ -3,6 +3,7 @@ import type {
   PrintTemplateConfig,
   PrintTemplateRecordRows,
   PrintTemplateReportRows,
+  PrintTemplateSectionConfig,
   ReportTemplateExecution
 } from "./types";
 
@@ -46,6 +47,36 @@ export function buildReportTemplateRows(config: PrintTemplateConfig, execution: 
 
 export function getPrintTemplatePdfButtonLabel(_config?: PrintTemplateConfig | null): string {
   return "Generate PDF";
+}
+
+export function getPrintTemplateDocumentClassName(config: PrintTemplateConfig): string {
+  const layout = config.layout;
+  const classNames = [
+    "print-only",
+    "print-template-document",
+    `print-template-page-${layout.pageSize}-${layout.orientation}-${layout.margin}`
+  ];
+
+  if (!layout.repeatTableHeaders) {
+    classNames.push("print-template-no-repeat-table-headers");
+  }
+
+  return classNames.join(" ");
+}
+
+export function getPrintTemplateSectionClassName(section: PrintTemplateSectionConfig): string {
+  const pagination = section.pagination ?? { pageBreakBefore: false, avoidBreakInside: true };
+  const classNames = ["print-template-section"];
+
+  if (pagination.pageBreakBefore) {
+    classNames.push("print-template-section-break-before");
+  }
+
+  if (!pagination.avoidBreakInside) {
+    classNames.push("print-template-section-allow-breaks");
+  }
+
+  return classNames.join(" ");
 }
 
 export function formatRecordValue(value: FormRecordValue): string {

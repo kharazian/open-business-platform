@@ -20,12 +20,61 @@ public sealed record PrintTemplateHeaderConfig(
     string? LogoUrl,
     bool ShowGeneratedAt);
 
+public static class PrintTemplatePageSizes
+{
+    public const string Letter = "letter";
+    public const string A4 = "a4";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Letter,
+        A4
+    };
+}
+
+public static class PrintTemplateOrientations
+{
+    public const string Portrait = "portrait";
+    public const string Landscape = "landscape";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Portrait,
+        Landscape
+    };
+}
+
+public static class PrintTemplateMargins
+{
+    public const string Narrow = "narrow";
+    public const string Normal = "normal";
+    public const string Wide = "wide";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Narrow,
+        Normal,
+        Wide
+    };
+}
+
+public sealed record PrintTemplateLayoutConfig(
+    string PageSize,
+    string Orientation,
+    string Margin,
+    bool RepeatTableHeaders);
+
+public sealed record PrintTemplateSectionPaginationConfig(
+    bool PageBreakBefore,
+    bool AvoidBreakInside);
+
 public sealed record PrintTemplateSectionConfig(
     string Id,
     string Kind,
     string Title,
     IReadOnlyList<string> FieldIds,
-    IReadOnlyList<string>? SignatureLabels);
+    IReadOnlyList<string>? SignatureLabels,
+    PrintTemplateSectionPaginationConfig? Pagination = null);
 
 public sealed record PrintTemplateFooterConfig(string? Text);
 
@@ -34,7 +83,8 @@ public sealed record PrintTemplateConfig(
     string Type,
     PrintTemplateHeaderConfig Header,
     IReadOnlyList<PrintTemplateSectionConfig> Sections,
-    PrintTemplateFooterConfig Footer);
+    PrintTemplateFooterConfig Footer,
+    PrintTemplateLayoutConfig? Layout = null);
 
 public sealed record CreatePrintTemplateRequest(
     string Name,

@@ -651,7 +651,7 @@ Indexes:
 - type
 - created_by_id
 
-`config_json` stores schema version 1 header/footer settings, ordered `fields`, `table`, and `signature` sections, optional logo URL text, selected field ids, and signature labels. Record template fields validate against the form schema; report template fields validate against reportable form/system fields. Browser print/save-as-PDF is the current V6 PDF path; server-side binary PDF output remains later work.
+`config_json` stores schema version 1 header/footer settings, page setup options, repeated table header preference, ordered `fields`, `table`, and `signature` sections, per-section page-break preferences, optional logo URL text, selected field ids, and signature labels. Record template fields validate against the form schema; report template fields validate against reportable form/system fields. Browser print/save-as-PDF is the current V6 PDF path; server-side binary PDF output remains later work.
 
 ## Example Form Schema JSON
 
