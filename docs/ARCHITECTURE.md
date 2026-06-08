@@ -208,7 +208,7 @@ Infrastructure responsibility:
 - EF repository implementation for `IRepository<TEntity, TKey>`
 - Email provider
 - File storage
-- PDF generation later
+- Print/PDF generation services
 
 ## Data Flow: Form Submission
 

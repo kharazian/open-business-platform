@@ -17,7 +17,7 @@ It is not only a form builder. It is a complete platform for:
 - Permissions by user, role, group, department, owner, and custom rule
 - Trigger-based automation
 - Workflow and approval processes
-- Future PDF generation, dashboards, and integrations
+- Print/PDF generation, dashboards, and integrations
 
 The goal is to start simple and grow step by step into a comprehensive internal business application builder.
 
