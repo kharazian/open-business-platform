@@ -895,7 +895,7 @@ V6 task 007 is complete for PDF email attachments on record-trigger email action
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should review and verify the whole system across V1-V6, then move to the next roadmap version or a targeted hardening slice.
+Next concrete work should start V7 task 001 for the advanced dashboard analytics foundation.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 
