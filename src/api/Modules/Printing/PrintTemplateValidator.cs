@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Forms;
 
@@ -5,6 +6,11 @@ namespace OpenBusinessPlatform.Api.Modules.Printing;
 
 public static class PrintTemplateValidator
 {
+    private const int MaxLogoBytes = 256 * 1024;
+    private static readonly Regex LogoDataUrlPattern = new(
+        @"^data:(image/png|image/jpeg|image/webp);base64,([a-z0-9+/]+={0,2})$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     public static PrintTemplateValidationResult Validate(PrintTemplateConfig config, string templateType, FormSchemaDefinition? schema = null)
     {
         var errors = new List<PrintTemplateValidationError>();
@@ -25,6 +31,7 @@ public static class PrintTemplateValidator
             errors.Add(Error("config.header.title", "print_template.header.title_required", "Header title is required."));
         }
 
+        ValidateLogoUrl(config.Header.LogoUrl, errors);
         ValidateLayout(config.Layout, errors);
 
         if (config.Sections.Count == 0)
@@ -99,6 +106,47 @@ public static class PrintTemplateValidator
         {
             errors.Add(Error("config.layout.margin", "print_template.layout.margin_invalid", "Margin must be narrow, normal, or wide."));
         }
+    }
+
+    private static void ValidateLogoUrl(string? logoUrl, List<PrintTemplateValidationError> errors)
+    {
+        var value = logoUrl?.Trim();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        if (IsHttpLogoUrl(value) || IsImageDataUrl(value))
+        {
+            return;
+        }
+
+        errors.Add(Error("config.header.logoUrl", "print_template.header.logo_url_invalid", "Logo URL must be http, https, or a PNG/JPEG/WebP data URL."));
+    }
+
+    private static bool IsHttpLogoUrl(string value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static bool IsImageDataUrl(string value)
+    {
+        var match = LogoDataUrlPattern.Match(value);
+
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        return GetBase64ByteLength(match.Groups[2].Value) <= MaxLogoBytes;
+    }
+
+    private static int GetBase64ByteLength(string base64)
+    {
+        var padding = base64.EndsWith("==", StringComparison.Ordinal) ? 2 : base64.EndsWith('=') ? 1 : 0;
+        return (base64.Length * 3 / 4) - padding;
     }
 
     private static IReadOnlySet<string>? ResolveValidFieldIds(string templateType, FormSchemaDefinition? schema)

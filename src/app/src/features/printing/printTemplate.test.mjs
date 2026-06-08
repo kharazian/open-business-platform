@@ -4,6 +4,7 @@ import {
   createDefaultPrintTemplateConfig,
   createPrintTemplateDraft,
   normalizePrintTemplateConfig,
+  validatePrintTemplateLogoFile,
   validatePrintTemplateDraft
 } from "./templateBuilder.ts";
 import {
@@ -138,6 +139,31 @@ test("print template validation rejects unsupported condition controls", () => {
     validation.errors.map((error) => error.code),
     ["print_template.condition.operator_invalid", "print_template.condition.value_required"]
   );
+});
+
+test("print template validation rejects unsafe logo sources and upload files", () => {
+  const draft = createPrintTemplateDraft("record", "Employee onboarding");
+  draft.config.header.logoUrl = "javascript:alert(1)";
+
+  const validation = validatePrintTemplateDraft(draft);
+  const unsupportedFile = validatePrintTemplateLogoFile({ type: "image/svg+xml", size: 1200 });
+  const oversizedFile = validatePrintTemplateLogoFile({ type: "image/png", size: 300 * 1024 });
+  const validFile = validatePrintTemplateLogoFile({ type: "image/png", size: 24 * 1024 });
+
+  assert.deepEqual(validation.errors.map((error) => error.code), ["print_template.header.logo_url_invalid"]);
+  assert.deepEqual(unsupportedFile.errors.map((error) => error.code), ["print_template.logo.type_invalid"]);
+  assert.deepEqual(oversizedFile.errors.map((error) => error.code), ["print_template.logo.size_exceeded"]);
+  assert.deepEqual(validFile.errors, []);
+});
+
+test("print template normalization keeps safe uploaded logo data URLs", () => {
+  const dataUrl = "data:image/png;base64,iVBORw0KGgo=";
+  const config = createDefaultPrintTemplateConfig("record", "Employee onboarding");
+  config.header.logoUrl = ` ${dataUrl} `;
+
+  const normalized = normalizePrintTemplateConfig(config, "record");
+
+  assert.equal(normalized.header.logoUrl, dataUrl);
 });
 
 test("record template renderer evaluates section conditions against record values", () => {

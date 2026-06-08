@@ -97,11 +97,11 @@ Implemented foundation:
 - Browser print page setup for Letter/A4, portrait/landscape, margin presets, repeated report table headers, and section page-break controls
 - Field-based conditional sections for record/report templates
 - Immutable published template versions with latest-published rendering for record/report print selectors
+- Safe small logo uploads stored as template header data URLs, with preview and remove controls
 
 Later support:
 
 - Server-side binary PDF generation
-- Logo upload assets
 - Attach PDF to emails/triggers
 
 ## Report Config Example

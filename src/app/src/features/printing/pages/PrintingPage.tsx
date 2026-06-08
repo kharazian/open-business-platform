@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import { FileText, Loader2, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -30,6 +30,9 @@ import {
   createPrintTemplateDraft,
   createPrintTemplateDraftFromDetail,
   createTemplateSection,
+  printTemplateLogoAcceptedMimeTypes,
+  readPrintTemplateLogoFile,
+  validatePrintTemplateLogoFile,
   validatePrintTemplateDraft
 } from "../templateBuilder";
 import type {
@@ -179,6 +182,33 @@ export function PrintingPage() {
 
   function updateHeader(patch: Partial<PrintTemplateDraft["config"]["header"]>) {
     updateConfig({ header: { ...draft.config.header, ...patch } });
+  }
+
+  async function handleLogoUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const validation = validatePrintTemplateLogoFile(file);
+    setValidationErrors(validation.errors);
+    setError(null);
+    setNotice(null);
+
+    if (!validation.valid) {
+      setError("Choose a PNG, JPEG, or WebP logo that is 256 KB or smaller.");
+      return;
+    }
+
+    try {
+      const logoUrl = await readPrintTemplateLogoFile(file);
+      updateHeader({ logoUrl });
+      setValidationErrors([]);
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    }
   }
 
   function updateLayout(patch: Partial<PrintTemplateLayoutConfig>) {
@@ -461,7 +491,30 @@ export function PrintingPage() {
               <h3 className="text-sm font-black text-foreground">Header and footer</h3>
               <Input error={errorMap.get("config.header.title")} label="Header title" onChange={(event) => updateHeader({ title: event.target.value })} value={draft.config.header.title} />
               <Input label="Subtitle" onChange={(event) => updateHeader({ subtitle: event.target.value })} value={draft.config.header.subtitle ?? ""} />
-              <Input label="Logo URL" onChange={(event) => updateHeader({ logoUrl: event.target.value })} value={draft.config.header.logoUrl ?? ""} />
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <Input
+                  error={errorMap.get("config.header.logoUrl")}
+                  label="Logo URL"
+                  onChange={(event) => updateHeader({ logoUrl: event.target.value })}
+                  value={draft.config.header.logoUrl ?? ""}
+                />
+                <Input
+                  accept={printTemplateLogoAcceptedMimeTypes.join(",")}
+                  error={errorMap.get("logoFile")}
+                  label="Upload logo"
+                  onChange={(event) => void handleLogoUpload(event)}
+                  type="file"
+                />
+              </div>
+              {draft.config.header.logoUrl ? (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/80 p-3">
+                  <img alt="" className="max-h-16 max-w-48 rounded border border-border object-contain" src={draft.config.header.logoUrl} />
+                  <Button onClick={() => updateHeader({ logoUrl: null })} size="sm" variant="outline">
+                    <Trash2 className="size-4" />
+                    Remove logo
+                  </Button>
+                </div>
+              ) : null}
               <Checkbox checked={draft.config.header.showGeneratedAt} label="Show generated time" onChange={(event) => updateHeader({ showGeneratedAt: event.target.checked })} />
               <Input label="Footer" onChange={(event) => updateFooterText(event.target.value)} value={draft.config.footer.text ?? ""} />
             </section>

@@ -421,6 +421,14 @@ var invalidLayoutPrintTemplate = validRecordPrintTemplate with
 {
     Layout = new PrintTemplateLayoutConfig("tabloid", "sideways", "tiny", RepeatTableHeaders: true)
 };
+var logoRecordPrintTemplate = validRecordPrintTemplate with
+{
+    Header = validRecordPrintTemplate.Header with { LogoUrl = "data:image/png;base64,iVBORw0KGgo=" }
+};
+var invalidLogoPrintTemplate = validRecordPrintTemplate with
+{
+    Header = validRecordPrintTemplate.Header with { LogoUrl = "javascript:alert(1)" }
+};
 var paginatedRecordPrintTemplate = validRecordPrintTemplate with
 {
     Sections = new[]
@@ -490,6 +498,13 @@ AssertSequenceEqual(
     },
     PrintTemplateValidator.Validate(invalidLayoutPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
     "Print templates should reject unsupported page setup values.");
+AssertTrue(
+    PrintTemplateValidator.Validate(logoRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
+    "Print templates should accept safe uploaded logo data URLs.");
+AssertSequenceEqual(
+    new[] { "print_template.header.logo_url_invalid" },
+    PrintTemplateValidator.Validate(invalidLogoPrintTemplate, PrintTemplateTypes.Record, demoSchema).Errors.Select(error => error.Code).ToArray(),
+    "Print templates should reject unsafe logo URL schemes.");
 AssertTrue(
     PrintTemplateValidator.Validate(paginatedRecordPrintTemplate, PrintTemplateTypes.Record, demoSchema).Valid,
     "Record print templates should accept section pagination controls.");

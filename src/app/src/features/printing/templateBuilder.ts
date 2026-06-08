@@ -12,6 +12,14 @@ import type {
 } from "./types";
 import { printTemplateConditionOperators, printTemplateMargins, printTemplateOrientations, printTemplatePageSizes } from "./types";
 
+export const printTemplateLogoAcceptedMimeTypes = ["image/png", "image/jpeg", "image/webp"] as const;
+export const printTemplateLogoMaxBytes = 256 * 1024;
+
+type PrintTemplateLogoFile = {
+  type: string;
+  size: number;
+};
+
 export function createDefaultPrintTemplateConfig(type: PrintTemplateType, sourceName = "Document"): PrintTemplateConfig {
   const normalizedName = sourceName.trim() || "Document";
 
@@ -90,6 +98,8 @@ export function validatePrintTemplateDraft(draft: PrintTemplateDraft): PrintTemp
     errors.push(error("config.header.title", "print_template.header.title_required", "Header title is required."));
   }
 
+  errors.push(...validatePrintTemplateLogoSource(draft.config.header.logoUrl).errors);
+
   if (!printTemplatePageSizes.includes(draft.config.layout.pageSize)) {
     errors.push(error("config.layout.pageSize", "print_template.layout.page_size_invalid", "Page size must be Letter or A4."));
   }
@@ -141,6 +151,52 @@ export function validatePrintTemplateDraft(draft: PrintTemplateDraft): PrintTemp
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+export function validatePrintTemplateLogoFile(file: PrintTemplateLogoFile): PrintTemplateValidationResult {
+  const errors: PrintTemplateValidationError[] = [];
+
+  if (!printTemplateLogoAcceptedMimeTypes.includes(file.type as (typeof printTemplateLogoAcceptedMimeTypes)[number])) {
+    errors.push(error("logoFile", "print_template.logo.type_invalid", "Logo must be a PNG, JPEG, or WebP image."));
+  }
+
+  if (file.size > printTemplateLogoMaxBytes) {
+    errors.push(error("logoFile", "print_template.logo.size_exceeded", "Logo must be 256 KB or smaller."));
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validatePrintTemplateLogoSource(value?: string | null): PrintTemplateValidationResult {
+  const source = value?.trim();
+
+  if (!source) {
+    return { valid: true, errors: [] };
+  }
+
+  if (isSafeHttpLogoUrl(source) || isSafeLogoDataUrl(source)) {
+    return { valid: true, errors: [] };
+  }
+
+  return {
+    valid: false,
+    errors: [error("config.header.logoUrl", "print_template.header.logo_url_invalid", "Logo URL must be http, https, or a PNG/JPEG/WebP data URL.")]
+  };
+}
+
+export function readPrintTemplateLogoFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Logo file could not be read."));
+      }
+    });
+    reader.addEventListener("error", () => reject(new Error("Logo file could not be read.")));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function createTemplateSection(type: PrintTemplateType, index: number): PrintTemplateSectionConfig {
@@ -237,6 +293,30 @@ function normalizeOption<TOption extends string>(value: unknown, options: readon
 
 function conditionRequiresValue(operator: string): boolean {
   return operator === "equals" || operator === "not_equals" || operator === "contains";
+}
+
+function isSafeHttpLogoUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function isSafeLogoDataUrl(value: string): boolean {
+  const match = /^data:(image\/png|image\/jpeg|image\/webp);base64,([a-z0-9+/]+={0,2})$/i.exec(value);
+
+  if (!match) {
+    return false;
+  }
+
+  return getBase64ByteLength(match[2]) <= printTemplateLogoMaxBytes;
+}
+
+function getBase64ByteLength(base64: string): number {
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
 }
 
 function normalizeOptionalText(value?: string | null): string | null {
