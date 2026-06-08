@@ -3,10 +3,15 @@ import type {
   PrintTemplateConfig,
   PrintTemplateRecordRows,
   PrintTemplateReportRows,
+  PrintTemplateSummary,
   PrintTemplateSectionConditionConfig,
   PrintTemplateSectionConfig,
   ReportTemplateExecution
 } from "./types";
+
+export type PrintTemplateRenderTarget =
+  | { source: "draft"; templateId: string }
+  | { source: "version"; templateId: string; versionId: string; versionNumber: number | null };
 
 export type PrintTemplateConditionSource =
   | { type: "record"; values: Record<string, FormRecordValue> }
@@ -52,6 +57,19 @@ export function buildReportTemplateRows(config: PrintTemplateConfig, execution: 
 
 export function getPrintTemplatePdfButtonLabel(_config?: PrintTemplateConfig | null): string {
   return "Generate PDF";
+}
+
+export function resolvePrintTemplateRenderTarget(template: PrintTemplateSummary): PrintTemplateRenderTarget {
+  if (template.currentVersionId) {
+    return {
+      source: "version",
+      templateId: template.id,
+      versionId: template.currentVersionId,
+      versionNumber: template.currentVersionNumber ?? null
+    };
+  }
+
+  return { source: "draft", templateId: template.id };
 }
 
 export function getPrintTemplateDocumentClassName(config: PrintTemplateConfig): string {

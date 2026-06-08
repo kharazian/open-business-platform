@@ -8,7 +8,7 @@ import {
 } from "../templateRenderer";
 import type {
   PrintTemplateConfig,
-  PrintTemplateDetail,
+  PrintTemplateRenderDetail,
   PrintTemplateReportColumn,
   PrintTemplateSectionConfig,
   RecordTemplateSource,
@@ -19,7 +19,7 @@ type PrintTemplateDocumentProps = {
   metadata?: string[];
   record?: RecordTemplateSource;
   report?: ReportTemplateExecution;
-  template: PrintTemplateDetail;
+  template: PrintTemplateRenderDetail;
 };
 
 export function PrintTemplateDocument({ metadata = [], record, report, template }: PrintTemplateDocumentProps) {

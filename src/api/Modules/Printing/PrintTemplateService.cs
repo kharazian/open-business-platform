@@ -24,6 +24,7 @@ public sealed class PrintTemplateService
     {
         var query = dbContext.PrintTemplates
             .AsNoTracking()
+            .Include(template => template.CurrentVersion)
             .Where(template => template.FormId == formId && !template.IsDeleted);
 
         if (!string.IsNullOrWhiteSpace(type))
@@ -48,6 +49,7 @@ public sealed class PrintTemplateService
     {
         var template = await dbContext.PrintTemplates
             .AsNoTracking()
+            .Include(candidate => candidate.CurrentVersion)
             .FirstOrDefaultAsync(candidate => candidate.Id == templateId && !candidate.IsDeleted, cancellationToken);
 
         if (template is null)
@@ -91,6 +93,7 @@ public sealed class PrintTemplateService
         CancellationToken cancellationToken)
     {
         var template = await dbContext.PrintTemplates
+            .Include(candidate => candidate.CurrentVersion)
             .FirstOrDefaultAsync(candidate => candidate.Id == templateId && !candidate.IsDeleted, cancellationToken);
 
         if (template is null)
@@ -111,6 +114,99 @@ public sealed class PrintTemplateService
         template.ConfigJson = Serialize(normalized.Config);
         template.UpdatedById = updatedById;
         AddAudit(template.Id, "print_template_updated", updatedById);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDetailDto(template);
+    }
+
+    public async Task<IReadOnlyCollection<PrintTemplateVersionSummaryDto>> ListVersionsAsync(
+        Guid templateId,
+        CancellationToken cancellationToken)
+    {
+        var templateExists = await dbContext.PrintTemplates
+            .AsNoTracking()
+            .AnyAsync(candidate => candidate.Id == templateId && !candidate.IsDeleted, cancellationToken);
+
+        if (!templateExists)
+        {
+            throw new PrintTemplateException(StatusCodes.Status404NotFound, "Print template was not found.");
+        }
+
+        var versions = await dbContext.PrintTemplateVersions
+            .AsNoTracking()
+            .Where(version => version.PrintTemplateId == templateId)
+            .OrderByDescending(version => version.VersionNumber)
+            .ToArrayAsync(cancellationToken);
+
+        return versions.Select(ToVersionSummaryDto).ToArray();
+    }
+
+    public async Task<PrintTemplateVersionDetailDto> GetVersionAsync(
+        Guid versionId,
+        CancellationToken cancellationToken)
+    {
+        var version = await dbContext.PrintTemplateVersions
+            .AsNoTracking()
+            .Include(candidate => candidate.PrintTemplate)
+            .FirstOrDefaultAsync(
+                candidate => candidate.Id == versionId
+                    && candidate.PrintTemplate != null
+                    && !candidate.PrintTemplate.IsDeleted,
+                cancellationToken);
+
+        if (version is null)
+        {
+            throw new PrintTemplateException(StatusCodes.Status404NotFound, "Print template version was not found.");
+        }
+
+        return ToVersionDetailDto(version);
+    }
+
+    public async Task<PrintTemplateDetailDto> PublishAsync(
+        Guid templateId,
+        PublishPrintTemplateRequest request,
+        Guid? publishedById,
+        CancellationToken cancellationToken)
+    {
+        var template = await dbContext.PrintTemplates
+            .Include(candidate => candidate.CurrentVersion)
+            .Include(candidate => candidate.Versions)
+            .FirstOrDefaultAsync(candidate => candidate.Id == templateId && !candidate.IsDeleted, cancellationToken);
+
+        if (template is null)
+        {
+            throw new PrintTemplateException(StatusCodes.Status404NotFound, "Print template was not found.");
+        }
+
+        EnsureConcurrencyStamp(template.ConcurrencyStamp, request.ConcurrencyStamp);
+
+        var config = Deserialize<PrintTemplateConfig>(template.ConfigJson) ?? EmptyConfig(template.Type);
+        var normalized = await ValidateRequestAsync(template.FormId, template.Name, template.Type, template.ReportId, config, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var versionNumber = template.Versions.Count == 0 ? 1 : template.Versions.Max(version => version.VersionNumber) + 1;
+        var version = new PrintTemplateVersion
+        {
+            Id = Guid.NewGuid(),
+            PrintTemplateId = template.Id,
+            PrintTemplate = template,
+            FormId = template.FormId,
+            ReportId = normalized.ReportId,
+            Name = normalized.Name,
+            Description = template.Description,
+            Type = normalized.Type,
+            VersionNumber = versionNumber,
+            ConfigJson = Serialize(normalized.Config),
+            CreatedById = publishedById,
+            PublishedById = publishedById,
+            PublishedAt = now
+        };
+
+        dbContext.PrintTemplateVersions.Add(version);
+        template.CurrentVersionId = version.Id;
+        template.CurrentVersion = version;
+        template.UpdatedById = publishedById;
+
+        AddAudit(template.Id, "print_template_published", publishedById, new { versionId = version.Id, versionNumber });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return ToDetailDto(template);
@@ -218,7 +314,10 @@ public sealed class PrintTemplateService
             template.CreatedAt,
             template.CreatedById,
             template.UpdatedAt,
-            template.UpdatedById);
+            template.UpdatedById,
+            template.CurrentVersionId,
+            template.CurrentVersion?.VersionNumber,
+            template.CurrentVersion?.PublishedAt);
     }
 
     private static PrintTemplateDetailDto ToDetailDto(PrintTemplate template)
@@ -235,10 +334,51 @@ public sealed class PrintTemplateService
             template.CreatedAt,
             template.CreatedById,
             template.UpdatedAt,
-            template.UpdatedById);
+            template.UpdatedById,
+            template.CurrentVersionId,
+            template.CurrentVersion?.VersionNumber,
+            template.CurrentVersion?.PublishedAt);
     }
 
-    private void AddAudit(Guid entityId, string action, Guid? userId = null)
+    private static PrintTemplateVersionSummaryDto ToVersionSummaryDto(PrintTemplateVersion version)
+    {
+        var config = Deserialize<PrintTemplateConfig>(version.ConfigJson);
+
+        return new PrintTemplateVersionSummaryDto(
+            version.Id,
+            version.PrintTemplateId,
+            version.FormId,
+            version.ReportId,
+            version.Name,
+            version.Description,
+            version.Type,
+            version.VersionNumber,
+            config?.Sections.Count ?? 0,
+            version.PublishedAt,
+            version.PublishedById,
+            version.CreatedAt,
+            version.CreatedById);
+    }
+
+    private static PrintTemplateVersionDetailDto ToVersionDetailDto(PrintTemplateVersion version)
+    {
+        return new PrintTemplateVersionDetailDto(
+            version.Id,
+            version.PrintTemplateId,
+            version.FormId,
+            version.ReportId,
+            version.Name,
+            version.Description,
+            version.Type,
+            version.VersionNumber,
+            Deserialize<PrintTemplateConfig>(version.ConfigJson) ?? EmptyConfig(version.Type),
+            version.PublishedAt,
+            version.PublishedById,
+            version.CreatedAt,
+            version.CreatedById);
+    }
+
+    private void AddAudit(Guid entityId, string action, Guid? userId = null, object? metadata = null)
     {
         dbContext.AuditLogs.Add(new AuditLogEntry
         {
@@ -246,8 +386,18 @@ public sealed class PrintTemplateService
             EntityType = "PrintTemplate",
             EntityId = entityId,
             Action = action,
-            UserId = userId
+            UserId = userId,
+            MetadataJson = metadata is null ? null : Serialize(metadata)
         });
+    }
+
+    private static void EnsureConcurrencyStamp(string currentStamp, string requestedStamp)
+    {
+        if (string.IsNullOrWhiteSpace(requestedStamp)
+            || !string.Equals(currentStamp, requestedStamp, StringComparison.Ordinal))
+        {
+            throw new PrintTemplateException(StatusCodes.Status409Conflict, "Print template was updated by someone else. Refresh and try again.");
+        }
     }
 
     private static JsonDocument Serialize<T>(T value)

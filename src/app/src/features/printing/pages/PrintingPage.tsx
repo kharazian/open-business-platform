@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Loader2, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { FileText, Loader2, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -19,8 +19,10 @@ import {
   createPrintTemplate,
   deletePrintTemplate,
   getPrintTemplate,
+  listPrintTemplateVersions,
   listPrintTemplates,
   PrintingApiError,
+  publishPrintTemplateVersion,
   updatePrintTemplate
 } from "../api";
 import {
@@ -32,13 +34,15 @@ import {
 } from "../templateBuilder";
 import type {
   PrintTemplateDraft,
+  PrintTemplateDetail,
   PrintTemplateLayoutConfig,
   PrintTemplateSectionConditionConfig,
   PrintTemplateSectionConfig,
   PrintTemplateSectionPaginationConfig,
   PrintTemplateSummary,
   PrintTemplateType,
-  PrintTemplateValidationError
+  PrintTemplateValidationError,
+  PrintTemplateVersionSummary
 } from "../types";
 
 export function PrintingPage() {
@@ -47,11 +51,14 @@ export function PrintingPage() {
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
   const [templates, setTemplates] = useState<PrintTemplateSummary[]>([]);
+  const [versions, setVersions] = useState<PrintTemplateVersionSummary[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [draft, setDraft] = useState<PrintTemplateDraft>(() => createPrintTemplateDraft("record"));
   const [loading, setLoading] = useState(true);
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -66,6 +73,7 @@ export function PrintingPage() {
       setFormDetail(null);
       setReports([]);
       setTemplates([]);
+      setVersions([]);
       setSelectedTemplateId("");
       setDraft(createPrintTemplateDraft("record"));
       return;
@@ -116,12 +124,14 @@ export function PrintingPage() {
       setFormDetail(form);
       setReports(reportItems);
       setTemplates(templateItems);
+      setVersions([]);
       setSelectedTemplateId("");
       setDraft(createPrintTemplateDraft("record", form.name));
     } catch (caught) {
       setError(getErrorMessage(caught));
       setReports([]);
       setTemplates([]);
+      setVersions([]);
     } finally {
       setLoadingWorkspace(false);
     }
@@ -132,18 +142,27 @@ export function PrintingPage() {
     setError(null);
     setNotice(null);
     setValidationErrors([]);
+    setLoadingVersions(true);
 
     try {
-      const template = await getPrintTemplate(templateId);
+      const [template, versionItems] = await Promise.all([
+        getPrintTemplate(templateId),
+        listPrintTemplateVersions(templateId)
+      ]);
       setDraft(createPrintTemplateDraftFromDetail(template));
+      setVersions(versionItems);
     } catch (caught) {
       setError(getErrorMessage(caught));
+      setVersions([]);
+    } finally {
+      setLoadingVersions(false);
     }
   }
 
   function handleNewTemplate(type: PrintTemplateType = draft.type) {
     setSelectedTemplateId("");
     setDraft(createPrintTemplateDraft(type, selectedReport?.name ?? selectedForm?.name ?? "Document"));
+    setVersions([]);
     setValidationErrors([]);
     setNotice("New print template draft started.");
     setError(null);
@@ -249,9 +268,14 @@ export function PrintingPage() {
       const saved = draft.id && draft.concurrencyStamp
         ? await updatePrintTemplate(draft.id, { ...request, concurrencyStamp: draft.concurrencyStamp })
         : await createPrintTemplate(selectedFormId, request);
+      const [templateItems, versionItems] = await Promise.all([
+        listPrintTemplates(saved.formId),
+        listPrintTemplateVersions(saved.id)
+      ]);
       setDraft(createPrintTemplateDraftFromDetail(saved));
       setSelectedTemplateId(saved.id);
-      setTemplates(await listPrintTemplates(saved.formId));
+      setTemplates(templateItems);
+      setVersions(versionItems);
       setValidationErrors([]);
       setNotice("Print template saved.");
     } catch (caught) {
@@ -272,12 +296,52 @@ export function PrintingPage() {
     try {
       await deletePrintTemplate(draft.id);
       setTemplates(await listPrintTemplates(selectedFormId));
+      setVersions([]);
       handleNewTemplate(draft.type);
       setNotice("Print template deleted.");
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handlePublish() {
+    if (!selectedFormId) return;
+
+    const validation = validatePrintTemplateDraft(draft);
+    setValidationErrors(validation.errors);
+    setError(null);
+    setNotice(null);
+
+    if (!validation.valid) {
+      setError("Fix the highlighted print template fields before publishing.");
+      return;
+    }
+
+    setPublishing(true);
+
+    try {
+      const request = buildPrintTemplateRequest(draft);
+      const saved: PrintTemplateDetail = draft.id && draft.concurrencyStamp
+        ? await updatePrintTemplate(draft.id, { ...request, concurrencyStamp: draft.concurrencyStamp })
+        : await createPrintTemplate(selectedFormId, request);
+      const published = await publishPrintTemplateVersion(saved.id, saved.concurrencyStamp);
+      const [templateItems, versionItems] = await Promise.all([
+        listPrintTemplates(published.formId),
+        listPrintTemplateVersions(published.id)
+      ]);
+      setDraft(createPrintTemplateDraftFromDetail(published));
+      setSelectedTemplateId(published.id);
+      setTemplates(templateItems);
+      setVersions(versionItems);
+      setValidationErrors([]);
+      setNotice(`Print template version ${published.currentVersionNumber ?? versionItems[0]?.versionNumber ?? 1} published.`);
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setValidationErrors(getValidationErrors(caught));
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -322,10 +386,11 @@ export function PrintingPage() {
                 </option>
               ))}
             </Select>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Metric label="Total" value={templates.length} />
               <Metric label="Record" value={templates.filter((template) => template.type === "record").length} />
               <Metric label="Report" value={templates.filter((template) => template.type === "report").length} />
+              <Metric label="Published" value={templates.filter((template) => template.currentVersionId).length} />
             </div>
             {loadingWorkspace ? (
               <p className="text-sm font-semibold text-muted-foreground">Loading templates...</p>
@@ -344,7 +409,9 @@ export function PrintingPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate font-bold text-foreground">{template.name}</p>
-                        <p className="mt-1 text-xs font-semibold text-muted-foreground">{template.sectionCount} sections</p>
+                        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                          {template.sectionCount} sections{template.currentVersionNumber ? `, v${template.currentVersionNumber}` : ""}
+                        </p>
                       </div>
                       <Badge>{template.type}</Badge>
                     </div>
@@ -364,7 +431,10 @@ export function PrintingPage() {
                 <CardTitle>{selectedTemplate ? "Edit print template" : "New print template"}</CardTitle>
                 <CardDescription>{selectedForm ? `${selectedForm.name}.` : "Choose a form to start."}</CardDescription>
               </div>
-              <Badge>{draft.type}</Badge>
+              <div className="flex flex-wrap gap-2">
+                {selectedTemplate?.currentVersionNumber ? <Badge>v{selectedTemplate.currentVersionNumber}</Badge> : null}
+                <Badge>{draft.type}</Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="grid gap-5">
@@ -493,12 +563,42 @@ export function PrintingPage() {
 
             {validationErrors.length > 0 ? <ValidationErrorsPanel errors={validationErrors} /> : null}
 
+            {draft.id ? (
+              <section className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-black text-foreground">Version history</h3>
+                  {loadingVersions ? <span className="text-xs font-bold text-muted-foreground">Loading...</span> : null}
+                </div>
+                {versions.length > 0 ? (
+                  <div className="grid gap-2">
+                    {versions.map((version) => (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/80 px-3 py-2" key={version.id}>
+                        <div>
+                          <p className="text-sm font-bold text-foreground">Version {version.versionNumber}</p>
+                          <p className="text-xs font-semibold text-muted-foreground">{formatDateTime(version.publishedAt ?? version.createdAt)}</p>
+                        </div>
+                        <Badge>{version.sectionCount} sections</Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border bg-card/70 px-3 py-2 text-sm font-semibold text-muted-foreground">
+                    No published versions yet.
+                  </p>
+                )}
+              </section>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
-              <Button disabled={!selectedFormId || saving || deleting} onClick={() => void handleSave()}>
+              <Button disabled={!selectedFormId || saving || deleting || publishing} onClick={() => void handleSave()}>
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {saving ? "Saving..." : "Save"}
               </Button>
-              <Button disabled={!draft.id || saving || deleting} onClick={() => void handleDelete()} variant="danger">
+              <Button disabled={!selectedFormId || saving || deleting || publishing} onClick={() => void handlePublish()} variant="outline">
+                {publishing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                {publishing ? "Publishing..." : "Publish"}
+              </Button>
+              <Button disabled={!draft.id || saving || deleting || publishing} onClick={() => void handleDelete()} variant="danger">
                 {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 Delete
               </Button>
@@ -647,6 +747,16 @@ function splitLines(value: string): string[] {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }
 
 function getValidationErrors(error: unknown): PrintTemplateValidationError[] {

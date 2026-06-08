@@ -3,6 +3,8 @@ import type {
   PrintTemplateDetail,
   PrintTemplateSummary,
   PrintTemplateValidationError,
+  PrintTemplateVersionDetail,
+  PrintTemplateVersionSummary,
   UpdatePrintTemplateRequest
 } from "./types";
 
@@ -70,6 +72,45 @@ export async function createPrintTemplate(
 export async function getPrintTemplate(templateId: string, fetcher: PrintingFetcher = defaultFetcher): Promise<PrintTemplateDetail> {
   return requestJson<PrintTemplateDetail>(
     `/api/print-templates/${encodeURIComponent(templateId)}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listPrintTemplateVersions(
+  templateId: string,
+  fetcher: PrintingFetcher = defaultFetcher
+): Promise<PrintTemplateVersionSummary[]> {
+  return requestItems<PrintTemplateVersionSummary>(
+    `/api/print-templates/${encodeURIComponent(templateId)}/versions`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function publishPrintTemplateVersion(
+  templateId: string,
+  concurrencyStamp: string,
+  fetcher: PrintingFetcher = defaultFetcher
+): Promise<PrintTemplateDetail> {
+  return requestJson<PrintTemplateDetail>(
+    `/api/print-templates/${encodeURIComponent(templateId)}/versions`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ concurrencyStamp })
+    },
+    fetcher
+  );
+}
+
+export async function getPrintTemplateVersion(
+  versionId: string,
+  fetcher: PrintingFetcher = defaultFetcher
+): Promise<PrintTemplateVersionDetail> {
+  return requestJson<PrintTemplateVersionDetail>(
+    `/api/print-template-versions/${encodeURIComponent(versionId)}`,
     { method: "GET", credentials: "include" },
     fetcher
   );

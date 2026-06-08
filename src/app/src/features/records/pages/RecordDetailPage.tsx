@@ -15,10 +15,10 @@ import type { FormField, FormRecordValue, FormRecordValues, ValidationError } fr
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
-import { getPrintTemplate, listPrintTemplates } from "../../printing/api";
+import { getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
-import { getPrintTemplatePdfButtonLabel } from "../../printing/templateRenderer";
-import type { PrintTemplateDetail, PrintTemplateSummary } from "../../printing/types";
+import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
+import type { PrintTemplateRenderDetail, PrintTemplateSummary } from "../../printing/types";
 import { executeRecordWorkflowTransition, getRecordWorkflow, startRecordWorkflow } from "../../workflows/api";
 import type { RecordWorkflowState, RecordWorkflowTransition } from "../../workflows/types";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
@@ -43,7 +43,7 @@ export function RecordDetailPage() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
   const [recordPrintTemplates, setRecordPrintTemplates] = useState<PrintTemplateSummary[]>([]);
   const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
-  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateDetail | null>(null);
+  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateRenderDetail | null>(null);
   const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
   const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
@@ -57,11 +57,24 @@ export function RecordDetailPage() {
       return;
     }
 
+    const templateSummary = recordPrintTemplates.find((template) => template.id === selectedPrintTemplateId);
+
+    if (!templateSummary) {
+      setSelectedPrintTemplate(null);
+      return;
+    }
+
+    const renderTarget = resolvePrintTemplateRenderTarget(templateSummary);
+
     let active = true;
     setPrintTemplateLoading(true);
     setPrintTemplateError(null);
 
-    getPrintTemplate(selectedPrintTemplateId)
+    const request = renderTarget.source === "version"
+      ? getPrintTemplateVersion(renderTarget.versionId)
+      : getPrintTemplate(renderTarget.templateId);
+
+    request
       .then((template) => {
         if (active) setSelectedPrintTemplate(template);
       })
@@ -77,7 +90,7 @@ export function RecordDetailPage() {
     return () => {
       active = false;
     };
-  }, [selectedPrintTemplateId]);
+  }, [recordPrintTemplates, selectedPrintTemplateId]);
 
   const fieldsById = useMemo(() => {
     return new Map(record?.schema.fields.map((field) => [field.id, field]) ?? []);

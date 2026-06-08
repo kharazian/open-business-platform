@@ -12,6 +12,7 @@ import {
   getPrintTemplateDocumentClassName,
   getPrintTemplatePdfButtonLabel,
   getPrintTemplateSectionClassName,
+  resolvePrintTemplateRenderTarget,
   shouldRenderPrintTemplateSection
 } from "./templateRenderer.ts";
 
@@ -238,4 +239,35 @@ test("report template renderer returns selected columns and pdf action label", (
   assert.deepEqual(table.columns.map((column) => column.label), ["Department"]);
   assert.equal(table.rows[0].cells.department.displayValue, "Finance");
   assert.equal(getPrintTemplatePdfButtonLabel(config), "Generate PDF");
+});
+
+test("print template renderer prefers published versions for real print targets", () => {
+  const baseSummary = {
+    id: "template-1",
+    formId: "form-1",
+    reportId: null,
+    name: "Employee record",
+    description: null,
+    type: "record",
+    sectionCount: 1,
+    concurrencyStamp: "stamp-1",
+    createdAt: "2026-06-08T12:00:00.000Z",
+    createdById: null,
+    updatedAt: null,
+    updatedById: null,
+    currentVersionId: null,
+    currentVersionNumber: null,
+    publishedAt: null
+  };
+
+  assert.deepEqual(resolvePrintTemplateRenderTarget(baseSummary), {
+    source: "draft",
+    templateId: "template-1"
+  });
+  assert.deepEqual(resolvePrintTemplateRenderTarget({ ...baseSummary, currentVersionId: "version-3", currentVersionNumber: 3 }), {
+    source: "version",
+    templateId: "template-1",
+    versionId: "version-3",
+    versionNumber: 3
+  });
 });

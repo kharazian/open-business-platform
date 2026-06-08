@@ -14,10 +14,10 @@ import { listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
-import { getPrintTemplate, listPrintTemplates } from "../../printing/api";
+import { getPrintTemplate, getPrintTemplateVersion, listPrintTemplates } from "../../printing/api";
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
-import { getPrintTemplatePdfButtonLabel } from "../../printing/templateRenderer";
-import type { PrintTemplateDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
+import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
+import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
@@ -73,7 +73,7 @@ export function ReportsPage() {
   const [reportNameError, setReportNameError] = useState<string | undefined>();
   const [reportPrintTemplates, setReportPrintTemplates] = useState<PrintTemplateSummary[]>([]);
   const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
-  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateDetail | null>(null);
+  const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateRenderDetail | null>(null);
   const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
   const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
 
@@ -107,11 +107,24 @@ export function ReportsPage() {
       return;
     }
 
+    const templateSummary = reportPrintTemplates.find((template) => template.id === selectedPrintTemplateId);
+
+    if (!templateSummary) {
+      setSelectedPrintTemplate(null);
+      return;
+    }
+
+    const renderTarget = resolvePrintTemplateRenderTarget(templateSummary);
+
     let active = true;
     setPrintTemplateLoading(true);
     setPrintTemplateError(null);
 
-    getPrintTemplate(selectedPrintTemplateId)
+    const request = renderTarget.source === "version"
+      ? getPrintTemplateVersion(renderTarget.versionId)
+      : getPrintTemplate(renderTarget.templateId);
+
+    request
       .then((template) => {
         if (active) setSelectedPrintTemplate(template);
       })
@@ -127,7 +140,7 @@ export function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [selectedPrintTemplateId]);
+  }, [reportPrintTemplates, selectedPrintTemplateId]);
 
   useEffect(() => {
     if (!selectedFormId) {

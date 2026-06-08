@@ -132,6 +132,8 @@ public sealed record UpdatePrintTemplateRequest(
     PrintTemplateConfig Config,
     string ConcurrencyStamp);
 
+public sealed record PublishPrintTemplateRequest(string ConcurrencyStamp);
+
 public sealed record PrintTemplateSummaryDto(
     Guid Id,
     Guid FormId,
@@ -144,7 +146,10 @@ public sealed record PrintTemplateSummaryDto(
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
     DateTimeOffset? UpdatedAt,
-    Guid? UpdatedById);
+    Guid? UpdatedById,
+    Guid? CurrentVersionId = null,
+    int? CurrentVersionNumber = null,
+    DateTimeOffset? PublishedAt = null);
 
 public sealed record PrintTemplateDetailDto(
     Guid Id,
@@ -158,7 +163,40 @@ public sealed record PrintTemplateDetailDto(
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
     DateTimeOffset? UpdatedAt,
-    Guid? UpdatedById);
+    Guid? UpdatedById,
+    Guid? CurrentVersionId = null,
+    int? CurrentVersionNumber = null,
+    DateTimeOffset? PublishedAt = null);
+
+public sealed record PrintTemplateVersionSummaryDto(
+    Guid Id,
+    Guid PrintTemplateId,
+    Guid FormId,
+    Guid? ReportId,
+    string Name,
+    string? Description,
+    string Type,
+    int VersionNumber,
+    int SectionCount,
+    DateTimeOffset? PublishedAt,
+    Guid? PublishedById,
+    DateTimeOffset CreatedAt,
+    Guid? CreatedById);
+
+public sealed record PrintTemplateVersionDetailDto(
+    Guid Id,
+    Guid PrintTemplateId,
+    Guid FormId,
+    Guid? ReportId,
+    string Name,
+    string? Description,
+    string Type,
+    int VersionNumber,
+    PrintTemplateConfig Config,
+    DateTimeOffset? PublishedAt,
+    Guid? PublishedById,
+    DateTimeOffset CreatedAt,
+    Guid? CreatedById);
 
 public sealed record PrintTemplateValidationError(string Path, string Code, string Message);
 

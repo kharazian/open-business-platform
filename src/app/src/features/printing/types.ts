@@ -76,9 +76,42 @@ export type PrintTemplateSummary = {
   createdById?: EntityId | null;
   updatedAt?: string | null;
   updatedById?: EntityId | null;
+  currentVersionId?: EntityId | null;
+  currentVersionNumber?: number | null;
+  publishedAt?: string | null;
 };
 
 export type PrintTemplateDetail = Omit<PrintTemplateSummary, "sectionCount"> & {
+  config: PrintTemplateConfig;
+};
+
+export type PrintTemplateRenderDetail = {
+  id: EntityId;
+  formId: EntityId;
+  reportId?: EntityId | null;
+  name: string;
+  description?: string | null;
+  type: PrintTemplateType;
+  config: PrintTemplateConfig;
+};
+
+export type PrintTemplateVersionSummary = {
+  id: EntityId;
+  printTemplateId: EntityId;
+  formId: EntityId;
+  reportId?: EntityId | null;
+  name: string;
+  description?: string | null;
+  type: PrintTemplateType;
+  versionNumber: number;
+  sectionCount: number;
+  publishedAt?: string | null;
+  publishedById?: EntityId | null;
+  createdAt: string;
+  createdById?: EntityId | null;
+};
+
+export type PrintTemplateVersionDetail = Omit<PrintTemplateVersionSummary, "sectionCount"> & {
   config: PrintTemplateConfig;
 };
 

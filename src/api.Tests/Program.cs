@@ -123,6 +123,7 @@ AssertTable<WorkflowDefinitionVersion>(model, "workflow_definition_versions");
 AssertTable<WorkflowHistoryEntry>(model, "workflow_history");
 AssertTable<WorkflowApprovalTask>(model, "workflow_approval_tasks");
 AssertTable<PrintTemplate>(model, "print_templates");
+AssertTable<PrintTemplateVersion>(model, "print_template_versions");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<AuditLogEntry>(model, "audit_logs");
@@ -149,6 +150,7 @@ AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowDefinitionVersion>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, WorkflowHistoryEntry>();
 AssertTypeAssignable<AuditedEntity<Guid>, WorkflowApprovalTask>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, PrintTemplate>();
+AssertTypeAssignable<CreationAuditedEntity<Guid>, PrintTemplateVersion>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
@@ -174,6 +176,7 @@ AssertGuidId<WorkflowDefinitionVersion>(model);
 AssertGuidId<WorkflowHistoryEntry>(model);
 AssertGuidId<WorkflowApprovalTask>(model);
 AssertGuidId<PrintTemplate>(model);
+AssertGuidId<PrintTemplateVersion>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<AuditLogEntry>(model);
@@ -188,6 +191,7 @@ AssertUniqueIndex<RoleReportPermission>(model, new[] { nameof(RoleReportPermissi
 AssertUniqueIndex<RoleFieldPermission>(model, new[] { nameof(RoleFieldPermission.RoleId), nameof(RoleFieldPermission.FormId), nameof(RoleFieldPermission.FieldId) }, "Field permissions should be unique per role/form/field.");
 AssertUniqueIndex<FormVersion>(model, new[] { nameof(FormVersion.FormId), nameof(FormVersion.VersionNumber) }, "Form versions should be unique per form/version number.");
 AssertUniqueIndex<WorkflowDefinitionVersion>(model, new[] { nameof(WorkflowDefinitionVersion.WorkflowDefinitionId), nameof(WorkflowDefinitionVersion.VersionNumber) }, "Workflow definition versions should be unique per workflow/version number.");
+AssertUniqueIndex<PrintTemplateVersion>(model, new[] { nameof(PrintTemplateVersion.PrintTemplateId), nameof(PrintTemplateVersion.VersionNumber) }, "Print template versions should be unique per template/version number.");
 
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.SchemaJson));
 AssertJsonColumn<FormVersion>(model, nameof(FormVersion.LayoutJson));
@@ -204,6 +208,7 @@ AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.DraftConfi
 AssertJsonColumn<WorkflowDefinitionVersion>(model, nameof(WorkflowDefinitionVersion.ConfigJson));
 AssertJsonColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.MetadataJson));
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson));
+AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ConfigJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
@@ -218,6 +223,7 @@ AssertJsonColumn<DashboardDefinition>(model, nameof(DashboardDefinition.ExtraPro
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ExtraPropertiesJson));
 AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPropertiesJson));
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson));
+AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -261,6 +267,13 @@ AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.FormId), "form_id", "Pri
 AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.ReportId), "report_id", "Report print templates should optionally target reports.");
 AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.Type), "type", "Print templates should store record/report type.");
 AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson), "config_json", "Print templates should store JSONB layout config.");
+AssertColumn<PrintTemplate>(model, nameof(PrintTemplate.CurrentVersionId), "current_version_id", "Print templates should point at the latest published version.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.PrintTemplateId), "print_template_id", "Print template versions should point at their draft template.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.FormId), "form_id", "Print template versions should retain form scope.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ReportId), "report_id", "Print template versions should retain report scope.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.VersionNumber), "version_number", "Print template versions should store sequential version numbers.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.PublishedAt), "published_at", "Print template versions should store publish time.");
+AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.PublishedById), "published_by_id", "Print template versions should store publisher metadata.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
@@ -269,6 +282,11 @@ AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records sho
 AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.FormId) }, "Print templates should be indexed by form.");
 AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.ReportId) }, "Print templates should be indexed by report.");
 AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.Type) }, "Print templates should be indexed by type.");
+AssertIndex<PrintTemplate>(model, new[] { nameof(PrintTemplate.CurrentVersionId) }, "Print templates should be indexed by current published version.");
+AssertIndex<PrintTemplateVersion>(model, new[] { nameof(PrintTemplateVersion.PrintTemplateId) }, "Print template versions should be indexed by template.");
+AssertIndex<PrintTemplateVersion>(model, new[] { nameof(PrintTemplateVersion.FormId) }, "Print template versions should be indexed by form.");
+AssertIndex<PrintTemplateVersion>(model, new[] { nameof(PrintTemplateVersion.ReportId) }, "Print template versions should be indexed by report.");
+AssertIndex<PrintTemplateVersion>(model, new[] { nameof(PrintTemplateVersion.PublishedAt) }, "Print template versions should be indexed by publish time.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormVersionId) }, "Records should be indexed by form version.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.Status) }, "Records should be indexed by status.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.OwnerId) }, "Records should be indexed by owner.");

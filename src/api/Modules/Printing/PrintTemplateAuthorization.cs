@@ -37,6 +37,15 @@ public static class PrintTemplateAuthorization
             || template.ReportId is Guid reportId && await canViewReportAsync(reportId, cancellationToken);
     }
 
+    public static async Task<bool> CanViewVersionAsync(
+        PrintTemplateVersionDetailDto version,
+        Func<Guid, CancellationToken, Task<bool>> canViewReportAsync,
+        CancellationToken cancellationToken)
+    {
+        return !IsReportTemplate(version.Type)
+            || version.ReportId is Guid reportId && await canViewReportAsync(reportId, cancellationToken);
+    }
+
     public static async Task<bool> CanManageTemplateAsync(
         PrintTemplateDetailDto template,
         Func<Guid, CancellationToken, Task<bool>> canManageReportAsync,

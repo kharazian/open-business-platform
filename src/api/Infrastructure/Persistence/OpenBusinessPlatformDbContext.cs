@@ -61,6 +61,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<PrintTemplate> PrintTemplates => Set<PrintTemplate>();
 
+    public DbSet<PrintTemplateVersion> PrintTemplateVersions => Set<PrintTemplateVersion>();
+
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
@@ -819,12 +821,14 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(template => template.FormId);
             entity.HasIndex(template => template.ReportId);
             entity.HasIndex(template => template.Type);
+            entity.HasIndex(template => template.CurrentVersionId);
             entity.HasIndex(template => template.CreatedById);
             entity.Property(template => template.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
             entity.Property(template => template.ReportId).HasColumnName("report_id").HasColumnType("uuid");
             entity.Property(template => template.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(template => template.Description).HasColumnName("description").HasMaxLength(1000);
             entity.Property(template => template.Type).HasColumnName("type").HasMaxLength(40).IsRequired();
+            entity.Property(template => template.CurrentVersionId).HasColumnName("current_version_id").HasColumnType("uuid");
             entity.Property(template => template.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
             entity
                 .HasOne(template => template.Form)
@@ -836,6 +840,47 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(template => template.ReportId)
                 .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(template => template.CurrentVersion)
+                .WithMany()
+                .HasForeignKey(template => template.CurrentVersionId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<PrintTemplateVersion>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "print_template_versions");
+            entity.HasIndex(version => version.PrintTemplateId);
+            entity.HasIndex(version => new { version.PrintTemplateId, version.VersionNumber }).IsUnique();
+            entity.HasIndex(version => version.FormId);
+            entity.HasIndex(version => version.ReportId);
+            entity.HasIndex(version => version.PublishedAt);
+            entity.Property(version => version.PrintTemplateId).HasColumnName("print_template_id").HasColumnType("uuid").IsRequired();
+            entity.Property(version => version.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(version => version.ReportId).HasColumnName("report_id").HasColumnType("uuid");
+            entity.Property(version => version.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(version => version.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(version => version.Type).HasColumnName("type").HasMaxLength(40).IsRequired();
+            entity.Property(version => version.VersionNumber).HasColumnName("version_number").IsRequired();
+            entity.Property(version => version.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(version => version.PublishedById).HasColumnName("published_by_id").HasColumnType("uuid");
+            entity.Property(version => version.PublishedAt).HasColumnName("published_at");
+            entity.Property(version => version.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
+            entity
+                .HasOne(version => version.PrintTemplate)
+                .WithMany(template => template.Versions)
+                .HasForeignKey(version => version.PrintTemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(version => version.Form)
+                .WithMany()
+                .HasForeignKey(version => version.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(version => version.Report)
+                .WithMany()
+                .HasForeignKey(version => version.ReportId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 
