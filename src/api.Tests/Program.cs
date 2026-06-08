@@ -414,6 +414,68 @@ AssertSequenceEqual(
 AssertTrue(
     PrintTemplateValidator.Validate(validReportPrintTemplate, PrintTemplateTypes.Report, demoSchema).Valid,
     "Report print templates should accept reportable system fields.");
+var viewablePrintTemplates = await PrintTemplateAuthorization.FilterViewableTemplatesAsync(
+    new[]
+    {
+        new PrintTemplateSummaryDto(
+            Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            null,
+            "Record template",
+            null,
+            PrintTemplateTypes.Record,
+            1,
+            "stamp",
+            DateTimeOffset.UtcNow,
+            null,
+            null,
+            null),
+        new PrintTemplateSummaryDto(
+            Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+            "Allowed report template",
+            null,
+            PrintTemplateTypes.Report,
+            1,
+            "stamp",
+            DateTimeOffset.UtcNow,
+            null,
+            null,
+            null),
+        new PrintTemplateSummaryDto(
+            Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+            "Denied report template",
+            null,
+            PrintTemplateTypes.Report,
+            1,
+            "stamp",
+            DateTimeOffset.UtcNow,
+            null,
+            null,
+            null),
+        new PrintTemplateSummaryDto(
+            Guid.Parse("11111111-2222-3333-4444-555555555555"),
+            Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            null,
+            "Unscoped report template",
+            null,
+            PrintTemplateTypes.Report,
+            1,
+            "stamp",
+            DateTimeOffset.UtcNow,
+            null,
+            null,
+            null)
+    },
+    (reportId, _) => Task.FromResult(reportId == Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd")),
+    CancellationToken.None);
+AssertSequenceEqual(
+    new[] { "Record template", "Allowed report template" },
+    viewablePrintTemplates.Select(template => template.Name).ToArray(),
+    "Report print templates should only list templates for reports the user can view.");
 AssertEqual(4, DemoDataSeeder.DemoUsers.Count, "Demo seed data should include admin, builder, user, and viewer accounts.");
 AssertEqual(3, DemoDataSeeder.DemoDepartments.Count, "Demo seed data should include HR, Finance, and Operations departments.");
 AssertEqual(10, DemoDataSeeder.DemoEmployeeRecords.Count, "Demo seed data should include ten employee records.");

@@ -26,7 +26,15 @@ public static class PrintingEndpoints
             return await HandlePrintTemplateRequestAsync(async () =>
             {
                 var items = await templates.ListAsync(formId, type, reportId, cancellationToken);
-                return Results.Ok(new { items });
+                var viewableItems = await PrintTemplateAuthorization.FilterViewableTemplatesAsync(
+                    items,
+                    (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                        httpContext.User,
+                        targetReportId,
+                        PlatformPermissions.Report.View,
+                        targetCancellationToken),
+                    cancellationToken);
+                return Results.Ok(new { items = viewableItems });
             });
         });
 
@@ -45,6 +53,19 @@ public static class PrintingEndpoints
 
             return await HandlePrintTemplateRequestAsync(async () =>
             {
+                if (!await PrintTemplateAuthorization.CanManageRequestedReportTemplateAsync(
+                    request.Type,
+                    request.ReportId,
+                    (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                        httpContext.User,
+                        targetReportId,
+                        PlatformPermissions.Report.Manage,
+                        targetCancellationToken),
+                    cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
                 var template = await templates.CreateAsync(formId, request, GetCurrentUserId(httpContext), cancellationToken);
                 return Results.Created($"/api/print-templates/{template.Id}", template);
             });
@@ -63,6 +84,18 @@ public static class PrintingEndpoints
             {
                 var template = await templates.GetAsync(templateId, cancellationToken);
                 if (!await CanViewFormTemplatesAsync(permissionService, httpContext, template.FormId, cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
+                if (!await PrintTemplateAuthorization.CanViewTemplateAsync(
+                    template,
+                    (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                        httpContext.User,
+                        targetReportId,
+                        PlatformPermissions.Report.View,
+                        targetCancellationToken),
+                    cancellationToken))
                 {
                     return Results.Forbid();
                 }
@@ -87,6 +120,27 @@ public static class PrintingEndpoints
                     return Results.Forbid();
                 }
 
+                if (!await PrintTemplateAuthorization.CanManageTemplateAsync(
+                    existing,
+                    (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                        httpContext.User,
+                        targetReportId,
+                        PlatformPermissions.Report.Manage,
+                        targetCancellationToken),
+                    cancellationToken)
+                    || !await PrintTemplateAuthorization.CanManageRequestedReportTemplateAsync(
+                        request.Type,
+                        request.ReportId,
+                        (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                            httpContext.User,
+                            targetReportId,
+                            PlatformPermissions.Report.Manage,
+                            targetCancellationToken),
+                        cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
                 return Results.Ok(await templates.UpdateAsync(templateId, request, GetCurrentUserId(httpContext), cancellationToken));
             });
         });
@@ -102,6 +156,18 @@ public static class PrintingEndpoints
             {
                 var existing = await templates.GetAsync(templateId, cancellationToken);
                 if (!await CanManageFormTemplatesAsync(permissionService, httpContext, existing.FormId, cancellationToken))
+                {
+                    return Results.Forbid();
+                }
+
+                if (!await PrintTemplateAuthorization.CanManageTemplateAsync(
+                    existing,
+                    (targetReportId, targetCancellationToken) => permissionService.CanAccessReportAsync(
+                        httpContext.User,
+                        targetReportId,
+                        PlatformPermissions.Report.Manage,
+                        targetCancellationToken),
+                    cancellationToken))
                 {
                     return Results.Forbid();
                 }
