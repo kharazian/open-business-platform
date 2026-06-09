@@ -2,6 +2,10 @@
 
 V7 deepens the V2 dashboard foundation into richer analytics while keeping dashboards separate from reports, records, triggers, workflows, and print/PDF modules.
 
+## Start Packet
+
+Before implementing V7, read `docs/V7_START_HERE.md`, then follow the design and implementation plan linked from V7 task 001.
+
 ## Recommended Execution Order
 
 1. `001-advanced-dashboard-analytics-foundation.md` - backend analytics contracts and permission-checked summary/trend/breakdown primitives for dashboard widgets.

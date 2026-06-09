@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V5 workflow transition execution added for core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, V4 trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, and notification preference tables/read state. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V6 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, and print template version tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -21,9 +21,9 @@ The current migrations include:
 - `workflow_definitions`, `workflow_definition_versions`, `workflow_history`, `workflow_approval_tasks`
 - `notifications`
 - `notification_preferences`
+- `print_templates`
+- `print_template_versions`
 - `audit_logs`
-
-Print templates remain target tables for later tasks.
 
 Recommended approach:
 
@@ -332,6 +332,34 @@ Indexes:
 
 The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`.
 
+## Dashboards
+
+### dashboards
+
+Fields:
+
+- id uuid
+- name
+- description nullable
+- config_json JSONB
+- layout_json JSONB
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+- is_deleted
+- deleted_at nullable
+- deleted_by_id nullable
+
+Indexes:
+
+- created_by_id
+- name
+
+The current V2 dashboard definition stores saved dashboard widget config in `config_json` and responsive width/order metadata in `layout_json`. Saved widgets currently reuse chart widget config values. V7 task 001 adds read-only dashboard analytics execution contracts and does not require a dashboard schema migration.
+
 ## Permissions
 
 ### permission_rules later
@@ -634,6 +662,7 @@ Fields:
 - description nullable
 - type: record, report
 - config_json JSONB
+- current_version_id nullable
 - concurrency_stamp
 - created_by_id
 - created_at
@@ -650,8 +679,37 @@ Indexes:
 - report_id
 - type
 - created_by_id
+- current_version_id
 
 `config_json` stores schema version 1 header/footer settings, page setup options, repeated table header preference, ordered `fields`, `table`, and `signature` sections, per-section page-break preferences, optional field-based section conditions, optional logo URL text, selected field ids, and signature labels. Record template fields and conditions validate against the form schema; report template fields and conditions validate against reportable form/system fields. Browser print/save-as-PDF, server-side PDF downloads, and trigger email record PDF attachments are implemented for the V6 foundation.
+
+### print_template_versions
+
+Fields:
+
+- id
+- print_template_id
+- form_id
+- report_id nullable
+- name
+- description nullable
+- type: record, report
+- version_number
+- config_json JSONB
+- published_at
+- published_by_id nullable
+- created_at
+- created_by_id nullable
+- extra_properties_json JSONB nullable
+
+Indexes:
+
+- print_template_id
+- form_id
+- report_id
+- published_at
+
+Published print template versions are immutable snapshots used by browser rendering, server-side PDF downloads, and trigger email record PDF attachments.
 
 ## Example Form Schema JSON
 

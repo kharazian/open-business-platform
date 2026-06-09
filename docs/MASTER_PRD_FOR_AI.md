@@ -788,15 +788,17 @@ src/api/
     Forms/
     Identity/
     Notifications/
+    Printing/
     Records/
     Reports/
     Triggers/
+    Workflows/
   Platform/
   Configuration/
   Program.cs
 ```
 
-Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: workflows, printing, audit, and richer notification/preferences surfaces.
+Planned backend modules should be added under `src/api/Modules/` as their tasks are implemented: audit and richer notification/preferences surfaces.
 
 Current backend configuration details:
 

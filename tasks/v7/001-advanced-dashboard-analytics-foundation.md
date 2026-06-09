@@ -16,6 +16,9 @@ Read:
 - `tasks/v2/006-dashboard-summary-api.md`
 - `tasks/v2/007-chart-builder-lite.md`
 - `tasks/v2/008-dashboard-builder-lite.md`
+- `docs/V7_START_HERE.md`
+- `docs/superpowers/specs/2026-06-08-v7-advanced-dashboard-analytics-design.md`
+- `docs/superpowers/plans/2026-06-08-v7-advanced-dashboard-analytics-foundation.md`
 - `AGENTS.md`
 
 ## Requirements
