@@ -2,6 +2,8 @@ import type {
   ChartWidgetConfig,
   ChartWidgetPreview,
   CreateDashboardRequest,
+  DashboardAnalyticsRequest,
+  DashboardAnalyticsResponse,
   DashboardDetail,
   DashboardSummary,
   DashboardSummaryItem,
@@ -81,6 +83,22 @@ export async function previewChartWidget(
 ): Promise<ChartWidgetPreview> {
   return requestJson<ChartWidgetPreview>(
     `/api/forms/${encodeURIComponent(formId)}/chart-widgets/preview`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function runDashboardAnalytics(
+  request: DashboardAnalyticsRequest,
+  fetcher: DashboardFetcher = defaultFetcher
+): Promise<DashboardAnalyticsResponse> {
+  return requestJson<DashboardAnalyticsResponse>(
+    "/api/dashboard/analytics/run",
     {
       method: "POST",
       credentials: "include",

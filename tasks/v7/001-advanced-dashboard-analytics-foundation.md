@@ -34,15 +34,15 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Advanced dashboard analytics contracts are typed on the backend.
-- [ ] Analytics execution supports count, sum, average, status/choice breakdowns, date trends, and table slices over permitted records.
-- [ ] Optional saved report sources reuse report filters and report view permissions.
-- [ ] Hidden fields cannot be selected or returned by analytics responses.
-- [ ] Backend validation returns structured errors for unsupported fields, metrics, grouping, date fields, limits, or report sources.
-- [ ] Existing V2 dashboard summary, chart preview, and saved dashboards still work.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts change.
-- [ ] Relevant build/test commands are run.
+- [x] Advanced dashboard analytics contracts are typed on the backend.
+- [x] Analytics execution supports count, sum, average, status/choice breakdowns, date trends, and table slices over permitted records.
+- [x] Optional saved report sources reuse report filters and report view permissions.
+- [x] Hidden fields cannot be selected or returned by analytics responses.
+- [x] Backend validation returns structured errors for unsupported fields, metrics, grouping, date fields, limits, or report sources.
+- [x] Existing V2 dashboard summary, chart preview, and saved dashboards still work.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts change.
+- [x] Relevant build/test commands are run.
 
 ## Out of Scope
 

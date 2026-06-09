@@ -62,6 +62,10 @@ Displays widgets:
 
 V2 dashboards now start with real database-backed workspace summaries, recent audit activity, previewable chart widgets, and saved custom dashboard layouts. Saved dashboards persist widget config and responsive layout JSON in PostgreSQL; workspace ownership is intentionally deferred to a later workspace module.
 
+### Dashboard Analytics V7
+
+V7 task 001 adds a dashboard-owned analytics execution API for summary, breakdown, trend, and table widgets over one source form and an optional saved list report. The API reuses existing form/report permissions, record scopes, saved report filters, and hidden-field rules. It keeps V2 chart preview and saved dashboard definitions working while giving the next V7 dashboard builder task a richer typed contract.
+
 ## V1 Printing
 
 V1 supports browser print only:

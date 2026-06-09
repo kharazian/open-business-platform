@@ -77,6 +77,44 @@ export type ChartWidgetPreview = {
   totalCount: number;
 };
 
+export const dashboardAnalyticsWidgetTypes = ["summary", "breakdown", "trend", "table"] as const;
+export const dashboardAnalyticsMetricTypes = ["count", "sum", "average"] as const;
+
+export type DashboardAnalyticsWidgetType = (typeof dashboardAnalyticsWidgetTypes)[number];
+export type DashboardAnalyticsMetricType = (typeof dashboardAnalyticsMetricTypes)[number];
+
+export type DashboardAnalyticsSource = {
+  formId: EntityId;
+  reportId?: EntityId | null;
+};
+
+export type DashboardAnalyticsMetric = {
+  type: DashboardAnalyticsMetricType;
+  fieldId?: string | null;
+};
+
+export type DashboardAnalyticsRequest = {
+  widgetType: DashboardAnalyticsWidgetType;
+  source: DashboardAnalyticsSource;
+  metric: DashboardAnalyticsMetric;
+  groupByFieldId?: string | null;
+  dateFieldId?: string | null;
+  columns?: string[] | null;
+  limit?: number | null;
+};
+
+export type DashboardAnalyticsResponse = {
+  formId: EntityId;
+  formName: string;
+  reportId?: EntityId | null;
+  widgetType: DashboardAnalyticsWidgetType;
+  metric: DashboardAnalyticsMetric;
+  series: ChartSeriesPoint[];
+  columns: ChartTableColumn[];
+  rows: ChartTableRow[];
+  totalCount: number;
+};
+
 export const dashboardWidgetWidths = ["small", "medium", "wide", "full"] as const;
 
 export type DashboardWidgetWidth = (typeof dashboardWidgetWidths)[number];

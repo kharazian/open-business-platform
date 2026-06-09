@@ -2290,6 +2290,114 @@ AssertEqual(2, chartResult.Series.Count, "Bar chart aggregation should group act
 AssertEqual("Human Resources", chartResult.Series.Single(point => point.Key == "hr").Label, "Choice chart labels should use option labels.");
 AssertEqual(1m, chartResult.Series.Single(point => point.Key == "hr").Value, "Count chart values should count records per group.");
 
+var analyticsBreakdownRequest = new DashboardAnalyticsRequest(
+    DashboardAnalyticsWidgetTypes.Breakdown,
+    new DashboardAnalyticsSourceDefinition(sampleDepartmentId),
+    new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Count),
+    GroupByFieldId: "department",
+    DateFieldId: null,
+    Columns: Array.Empty<string>(),
+    Limit: 5);
+AssertTrue(
+    DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsBreakdownRequest).Valid,
+    "Dashboard analytics should validate grouped breakdown requests.");
+
+var analyticsSummaryRequest = analyticsBreakdownRequest with
+{
+    WidgetType = DashboardAnalyticsWidgetTypes.Summary,
+    Metric = new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Sum, "salary"),
+    GroupByFieldId = null
+};
+AssertTrue(
+    DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsSummaryRequest).Valid,
+    "Dashboard analytics should validate numeric summary metrics.");
+
+var analyticsTrendRequest = analyticsBreakdownRequest with
+{
+    WidgetType = DashboardAnalyticsWidgetTypes.Trend,
+    DateFieldId = ReportableSystemFields.CreatedAt,
+    GroupByFieldId = null
+};
+AssertTrue(
+    DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsTrendRequest).Valid,
+    "Dashboard analytics should validate date trend requests.");
+
+var analyticsTableRequest = analyticsBreakdownRequest with
+{
+    WidgetType = DashboardAnalyticsWidgetTypes.Table,
+    GroupByFieldId = null,
+    Columns = new[] { "employee_name", ReportableSystemFields.Status }
+};
+AssertTrue(
+    DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsTableRequest).Valid,
+    "Dashboard analytics should validate table slice requests.");
+
+AssertFalse(
+    DashboardAnalyticsRequestValidator.Validate(
+        reportingSchema,
+        analyticsSummaryRequest with { Metric = new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Average, "department") }).Valid,
+    "Dashboard analytics should reject non-numeric average metrics.");
+
+AssertFalse(
+    DashboardAnalyticsRequestValidator.Validate(
+        reportingSchema,
+        analyticsBreakdownRequest with { GroupByFieldId = "salary" }).Valid,
+    "Dashboard analytics should reject non-choice grouping fields.");
+
+AssertFalse(
+    DashboardAnalyticsRequestValidator.Validate(
+        reportingSchema,
+        analyticsTrendRequest with { DateFieldId = "department" }).Valid,
+    "Dashboard analytics should reject non-date trend fields.");
+
+AssertFalse(
+    DashboardAnalyticsRequestValidator.Validate(
+        reportingSchema,
+        analyticsTableRequest with { Columns = new[] { "missing_field" } }).Valid,
+    "Dashboard analytics should reject unknown table columns.");
+
+AssertTypeAssignable<object, DashboardAnalyticsService>();
+var invalidAnalytics = DashboardAnalyticsRequestValidator.Validate(
+    reportingSchema,
+    analyticsBreakdownRequest with { Limit = 100 });
+AssertEqual(
+    "dashboard.analytics.limit.range",
+    invalidAnalytics.Errors.Single().Code,
+    "Dashboard analytics limit errors should have stable structured codes.");
+AssertNotNull(
+    typeof(DashboardAnalyticsService).GetMethod(nameof(DashboardAnalyticsService.RunAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)),
+    "Dashboard analytics execution should receive the current principal.");
+var analyticsSourceReportConfig = typeof(DashboardAnalyticsService).GetMethod(
+    "GetSourceReportConfigAsync",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+AssertNotNull(analyticsSourceReportConfig, "Dashboard analytics should resolve source report configs through a dedicated helper.");
+var analyticsSourceReportConfigParameters = analyticsSourceReportConfig!.GetParameters().Select(parameter => parameter.ParameterType).ToArray();
+AssertTrue(
+    analyticsSourceReportConfigParameters.Contains(typeof(ClaimsPrincipal))
+        && analyticsSourceReportConfigParameters.Contains(typeof(PermissionService)),
+    "Dashboard analytics source report configs should receive the current principal and permission service for report-level checks.");
+var ensureVisibleAnalyticsRequest = typeof(DashboardAnalyticsService).GetMethod(
+    "EnsureVisibleRequest",
+    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+AssertNotNull(ensureVisibleAnalyticsRequest, "Dashboard analytics should check hidden direct field references through a focused helper.");
+try
+{
+    ensureVisibleAnalyticsRequest!.Invoke(
+        null,
+        new object[]
+        {
+            analyticsTableRequest with { Columns = new[] { "salary" } },
+            new HashSet<string>(new[] { "salary" }, StringComparer.Ordinal)
+        });
+    throw new InvalidOperationException("Hidden dashboard analytics table fields should be rejected.");
+}
+catch (System.Reflection.TargetInvocationException exception)
+{
+    var analyticsException = exception.InnerException as DashboardAnalyticsException;
+    AssertNotNull(analyticsException, "Hidden dashboard analytics table fields should raise a dashboard analytics exception.");
+    AssertEqual(403, analyticsException!.StatusCode, "Hidden dashboard analytics field references should be forbidden.");
+}
+
 var tableChartResult = ChartAggregationEngine.Execute(
     sampleDepartmentId,
     "Employee information",
@@ -2304,6 +2412,23 @@ var tableChartResult = ChartAggregationEngine.Execute(
 AssertEqual(2, tableChartResult.Rows.Count, "Table chart widgets should return record rows.");
 AssertEqual("Jane Cooper", tableChartResult.Rows.First().Cells["employee_name"].DisplayValue, "Table chart rows should expose display cells.");
 AssertTypeAssignable<object, ChartAggregationService>();
+
+var analyticsChartConfig = new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    GroupByFieldId: null,
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Columns: Array.Empty<string>(),
+    Limit: 5,
+    ReportId: null);
+var analyticsTrendPreview = ChartAggregationEngine.Execute(
+    sampleDepartmentId,
+    "Employee information",
+    analyticsChartConfig,
+    reportingSchema,
+    executionRecords.Where(record => record.Status == RecordStatuses.Active).ToArray());
+AssertEqual(2, analyticsTrendPreview.TotalCount, "Dashboard analytics trend execution should count permitted active records.");
+AssertTrue(analyticsTrendPreview.Series.Count > 0, "Dashboard analytics trend execution should return date series points.");
 
 var dashboardConfig = new SavedDashboardConfigDefinition(
     1,

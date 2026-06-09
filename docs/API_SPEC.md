@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -103,6 +103,54 @@ Response:
 ```
 
 Table widgets return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid configs, `403` for failed permission checks, `404` when the form or source report is missing, and `409` when the form or report schema cannot be used for charting.
+
+### Run dashboard analytics
+
+`POST /api/dashboard/analytics/run`
+
+Requires authentication, `menu.dashboard`, source form `view` access, and source report `view` access when `source.reportId` is supplied. Record rows are filtered through the user's V3 form record scope. Hidden fields cannot be directly selected and are removed from saved report source filters, sorts, and columns before execution.
+
+Request:
+
+```json
+{
+  "widgetType": "breakdown",
+  "source": {
+    "formId": "00000000-0000-0000-0000-000000000000",
+    "reportId": null
+  },
+  "metric": {
+    "type": "count",
+    "fieldId": null
+  },
+  "groupByFieldId": "status",
+  "dateFieldId": null,
+  "columns": [],
+  "limit": 10
+}
+```
+
+Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field.
+
+Response:
+
+```json
+{
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "formName": "Employee information",
+  "reportId": null,
+  "widgetType": "breakdown",
+  "metric": { "type": "count", "fieldId": null },
+  "series": [
+    { "key": "active", "label": "Active", "value": 10 }
+  ],
+  "columns": [],
+  "rows": [],
+  "totalCount": 10
+}
+```
+
+Table analytics return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid analytics requests, `403` for failed menu/form/report/hidden-field checks, `404` when the source form or source report is missing, and `409` when the form or saved report schema cannot be used for analytics.
 
 ### Export list report CSV
 

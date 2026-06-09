@@ -46,7 +46,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Notifications`: current email sender abstraction for password recovery plus current-user notification inbox APIs/read-state/preference service
 - `src/api/Modules/Triggers`: current V4 backend trigger definitions, validation, detail/list/create/update APIs, event dispatch, starter action execution, trigger logs, manual failed-log retry recovery, automatic retry queue worker, in-app notification trigger action, webhook action, user-authored retry policy handling, and scheduled trigger worker
 - `src/api/Modules/Workflows`: current V5 backend workflow definitions, typed validation, list/create/read/update/publish/enable/disable APIs, immutable version publishing, record workflow state/start/direct transition execution, approval-gated transition tasks, current-user approval APIs, approval notifications, and workflow history writes
-- `src/api/Modules/Dashboard`: current database-backed dashboard summary API and chart widget preview module
+- `src/api/Modules/Dashboard`: current database-backed dashboard summary API, V2 chart widget preview module, and V7 dashboard analytics execution API
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, and notification preferences
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
@@ -61,6 +61,7 @@ V3 is complete for the current task list: groups, departments, department manage
 V4 is complete through task 010: trigger definitions, trigger logs, management APIs, record event dispatch, supported conditions, audit/email/status/assignment starter actions, trigger management UI, `update_field`, manual retry, in-app notifications/inbox/badges/preferences, `create_record`, automatic retry queues, `call_webhook`, user-authored retry policy controls, and scheduled triggers for safe email/webhook actions.
 V5 is complete through task 007: workflow definition persistence, management UI, record workflow state, published starts, direct transitions, approval inbox/notifications, transition action execution, trigger-to-workflow starts, and an optional workflow-only XYFlow visual builder over the typed draft config.
 V6 print template foundation is complete through task 007: persisted record/report templates, permission-protected APIs, validation, audit logs, `/printing` management UI, selected record/report template rendering, browser print/save-as-PDF generation, page setup, repeated table headers, section page-break controls, conditional sections, immutable published template versions, safe small logo uploads, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
+V7 is complete through task 001: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions.
 Incoming webhook listeners, advanced notification delivery, scheduled workflow starts, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 V6 task 003 is complete for field-based conditional print template sections over already-permission-filtered record/report data.
@@ -68,6 +69,7 @@ V6 task 004 is complete for immutable published print template versions, publish
 V6 task 005 is complete for safe small logo uploads stored as template header data URLs with preview/remove controls and logo source validation.
 V6 task 006 is complete for dependency-light server-side PDF generation from published record/report print template versions.
 V6 task 007 is complete for trigger email record PDF attachments from published same-form record print templates.
+V7 task 001 is complete for backend dashboard analytics contracts, validation, permission-checked execution, hidden-field protection, and frontend API helper coverage.
 
 ## 2. Core Product Philosophy
 

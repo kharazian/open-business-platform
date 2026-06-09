@@ -64,6 +64,7 @@ builder.Services.AddScoped<WorkflowApprovalService>();
 builder.Services.AddScoped<RecordWorkflowService>();
 builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();
+builder.Services.AddScoped<DashboardAnalyticsService>();
 builder.Services.AddScoped<DashboardDefinitionService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>

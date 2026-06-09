@@ -23,6 +23,25 @@ public static class DashboardEndpoints
             return Results.Ok(await dashboardSummary.GetSummaryAsync(cancellationToken));
         });
 
+        group.MapPost("/analytics/run", async (
+            DashboardAnalyticsRequest request,
+            DashboardAnalyticsService dashboardAnalytics,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Menu.Dashboard, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleDashboardAnalyticsRequestAsync(async () =>
+            {
+                var result = await dashboardAnalytics.RunAsync(httpContext.User, request, permissionService, cancellationToken);
+                return Results.Ok(result);
+            });
+        });
+
         endpoints.MapPost("/api/forms/{formId:guid}/chart-widgets/preview", async (
             Guid formId,
             ChartWidgetConfigDefinition request,
@@ -66,6 +85,19 @@ public static class DashboardEndpoints
         {
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new ChartErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
+        }
+    }
+
+    private static async Task<IResult> HandleDashboardAnalyticsRequestAsync(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (DashboardAnalyticsException exception)
+        {
+            var errors = exception.Errors.Count == 0 ? null : exception.Errors;
+            return Results.Json(new DashboardAnalyticsErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
         }
     }
 }

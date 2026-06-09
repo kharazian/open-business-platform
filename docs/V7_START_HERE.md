@@ -6,7 +6,8 @@ This packet is the handoff for starting V7: Advanced Dashboards and Analytics.
 
 - V1 through V6 are complete for the current task lists.
 - V6 task 007 added trigger email record PDF attachments from published print templates.
-- The next implementation task is `tasks/v7/001-advanced-dashboard-analytics-foundation.md`.
+- V7 task 001 adds the backend dashboard analytics foundation.
+- The next implementation task after task 001 is `tasks/v7/002-dashboard-widget-builder-upgrade.md`.
 - The working branch used for preparation was `dev`.
 - Docker Compose services were stopped after verification cleanup.
 
@@ -28,7 +29,7 @@ This packet is the handoff for starting V7: Advanced Dashboards and Analytics.
 
 ## V7 Task 001 Decision
 
-Start backend-first. Add a typed dashboard analytics execution contract beside the existing V2 chart preview endpoint.
+Task 001 starts backend-first. It adds a typed dashboard analytics execution contract beside the existing V2 chart preview endpoint.
 
 The planned endpoint is:
 

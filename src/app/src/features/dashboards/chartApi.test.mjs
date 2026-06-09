@@ -58,3 +58,61 @@ test("chart API client maps preview requests and errors", async () => {
     }
   );
 });
+
+test("dashboard analytics API client maps run requests and errors", async () => {
+  const calls = [];
+  const request = {
+    widgetType: "breakdown",
+    source: { formId: "form-2", reportId: null },
+    metric: { type: "count", fieldId: null },
+    groupByFieldId: "status",
+    dateFieldId: null,
+    columns: [],
+    limit: 10
+  };
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+
+    if (input === "/api/dashboard/analytics/run" && init.method === "POST") {
+      return {
+        ok: true,
+        json: async () => ({
+          formId: "form-2",
+          formName: "Employee information",
+          reportId: null,
+          widgetType: "breakdown",
+          metric: request.metric,
+          columns: [],
+          series: [{ key: "active", label: "Active", value: 2 }],
+          rows: [],
+          totalCount: 2
+        })
+      };
+    }
+
+    return { ok: false, json: async () => ({ message: "Unexpected request." }) };
+  };
+
+  const result = await api.runDashboardAnalytics(request, fetcher);
+
+  assert.equal(result.widgetType, "breakdown");
+  assert.equal(result.series[0].label, "Active");
+  assert.equal(calls[0].input, "/api/dashboard/analytics/run");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[0].init.body), request);
+
+  await assert.rejects(
+    () =>
+      api.runDashboardAnalytics(request, async () => ({
+        ok: false,
+        json: async () => ({ message: "Dashboard analytics request is invalid." })
+      })),
+    (error) => {
+      assert.equal(error.name, "DashboardApiError");
+      assert.equal(error.message, "Dashboard analytics request is invalid.");
+      return true;
+    }
+  );
+});
