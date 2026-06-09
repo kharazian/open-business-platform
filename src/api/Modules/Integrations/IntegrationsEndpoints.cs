@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Records;
 
 namespace OpenBusinessPlatform.Api.Modules.Integrations;
 
@@ -154,6 +156,57 @@ public static class IntegrationsEndpoints
             });
         });
 
+        var publicRecords = endpoints.MapGroup($"/api/integration/{PublicRecordApiVersions.V1}")
+            .WithTags("Integration Records")
+            .RequireAuthorization(new AuthorizeAttribute
+            {
+                AuthenticationSchemes = IntegrationApiKeyAuthenticationDefaults.AuthenticationScheme
+            });
+
+        publicRecords.MapGet("/forms/{formId:guid}/records", async (
+            Guid formId,
+            int? page,
+            int? pageSize,
+            string? search,
+            PublicRecordApiService publicRecordApi,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var records = await publicRecordApi.ListRecordsAsync(
+                    httpContext.User,
+                    formId,
+                    new ListRecordsRequest(page ?? 1, pageSize ?? 25, search),
+                    cancellationToken);
+
+                return Results.Ok(records);
+            });
+        });
+
+        publicRecords.MapPost("/forms/{formId:guid}/records", async (
+            Guid formId,
+            PublicCreateRecordRequest request,
+            PublicRecordApiService publicRecordApi,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var record = await publicRecordApi.CreateRecordAsync(httpContext.User, formId, request, cancellationToken);
+                return Results.Created($"/api/integration/{PublicRecordApiVersions.V1}/records/{record.Id}", record);
+            });
+        });
+
+        publicRecords.MapGet("/records/{recordId:guid}", async (
+            Guid recordId,
+            PublicRecordApiService publicRecordApi,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            return await HandleIntegrationRequestAsync(async () => Results.Ok(await publicRecordApi.GetRecordAsync(httpContext.User, recordId, cancellationToken)));
+        });
+
         return endpoints;
     }
 
@@ -174,6 +227,14 @@ public static class IntegrationsEndpoints
         catch (IntegrationApiKeyException exception)
         {
             return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (RecordSubmissionException exception)
+        {
+            return Results.Json(new RecordErrorResponse(exception.Message, exception.Errors), statusCode: exception.StatusCode);
+        }
+        catch (RecordQueryException exception)
+        {
+            return Results.Json(new RecordErrorResponse(exception.Message, exception.Errors), statusCode: exception.StatusCode);
         }
     }
 

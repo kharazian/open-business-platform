@@ -72,6 +72,7 @@ builder.Services.AddScoped<DashboardAnalyticsService>();
 builder.Services.AddScoped<DashboardDefinitionService>();
 builder.Services.AddScoped<IntegrationApiKeyService>();
 builder.Services.AddScoped<IntegrationLogService>();
+builder.Services.AddScoped<PublicRecordApiService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

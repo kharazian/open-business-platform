@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -38,6 +38,8 @@ The raw API key is returned only by create and rotate responses. List/get/revoke
 Supported initial scopes are conservative and typed:
 
 - `integrations.authenticate`
+- `integrations.records.read`
+- `integrations.records.create`
 - `integrations.webhooks.receive`
 
 `GET /api/integrations/api-keys`
@@ -140,6 +142,65 @@ Request:
 ```
 
 Future integration endpoints can opt into the `IntegrationApiKey` authentication scheme. Requests may pass the key as `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`. A successful API-key authentication updates `lastUsedAt`, `lastUsedIp`, and `lastUsedUserAgent` only when the key is still active and non-revoked.
+
+### Public/internal record API v1
+
+The public/internal record API uses the `IntegrationApiKey` authentication scheme. Requests must pass a valid API key by `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`.
+
+The API key must:
+
+- be active and non-revoked,
+- have `integrations.records.read` for list/read endpoints,
+- have `integrations.records.create` for create endpoints,
+- be linked to a platform user through its `createdById`.
+
+Record permissions are evaluated through the linked user. That means existing backend form permissions, V3 record scopes, and hidden-field rules still apply. API keys without a linked platform user cannot access record data. Successful list/read/create operations write integration logs with source `PublicRecordApi` and do not store record values in log metadata. Creates also reuse the existing record submission audit log.
+
+`GET /api/integration/v1/forms/{formId}/records`
+
+Lists records for one form. Requires `integrations.records.read` and linked-user form `view` access. The existing V3 record scopes filter rows, and hidden fields are removed from returned `values`.
+
+Query parameters:
+
+- `page` default `1`
+- `pageSize` default `25`, maximum `100`
+- `search` optional
+
+`GET /api/integration/v1/records/{recordId}`
+
+Returns one record. Requires `integrations.records.read`, linked-user record `view` scope access, and hidden-field filtering.
+
+`POST /api/integration/v1/forms/{formId}/records`
+
+Creates a record for a published form. Requires `integrations.records.create` and linked-user form `submit` access. Values are validated through the existing backend form schema validator before save.
+
+Request:
+
+```json
+{
+  "values": {
+    "email": "jane@example.test",
+    "department": "Finance"
+  }
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "formVersionId": "00000000-0000-0000-0000-000000000000",
+  "status": "active",
+  "values": {
+    "email": "jane@example.test",
+    "department": "Finance"
+  },
+  "createdAt": "2026-06-09T21:20:00Z",
+  "updatedAt": null
+}
+```
 
 ### Integration logs
 

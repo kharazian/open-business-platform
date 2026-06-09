@@ -8,11 +8,15 @@ namespace OpenBusinessPlatform.Api.Modules.Integrations;
 public static class IntegrationApiKeyScopes
 {
     public const string Authenticate = "integrations.authenticate";
+    public const string RecordsRead = "integrations.records.read";
+    public const string RecordsCreate = "integrations.records.create";
     public const string WebhooksReceive = "integrations.webhooks.receive";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         Authenticate,
+        RecordsRead,
+        RecordsCreate,
         WebhooksReceive
     };
 
@@ -27,6 +31,7 @@ public static class IntegrationApiKeyAuthenticationDefaults
 public static class IntegrationApiKeyClaims
 {
     public const string ApiKeyId = "obp.integration_api_key_id";
+    public const string CreatedByUserId = "obp.integration_api_key_created_by_user_id";
     public const string IntegrationKey = "obp.integration_key";
     public const string Scope = "scope";
 }
@@ -131,6 +136,11 @@ public static class IntegrationApiKeyPrincipalFactory
             new(IntegrationApiKeyClaims.ApiKeyId, apiKey.Id.ToString()),
             new(IntegrationApiKeyClaims.IntegrationKey, apiKey.IntegrationKey)
         };
+
+        if (apiKey.CreatedById is not null)
+        {
+            claims.Add(new Claim(IntegrationApiKeyClaims.CreatedByUserId, apiKey.CreatedById.Value.ToString()));
+        }
 
         claims.AddRange(scopes.Select(scope => new Claim(IntegrationApiKeyClaims.Scope, scope)));
 

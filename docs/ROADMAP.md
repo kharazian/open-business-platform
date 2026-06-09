@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 002 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 003 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -35,8 +35,9 @@
 - `/printing` includes persisted record/report print template management, immutable published versions, safe small logo uploads, browser print/save-as-PDF output, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 - Backend integration API key management exists with hashed key storage, conservative typed scopes, `integrations.manage` management endpoints, create/revoke/rotate audit logs, and API-key authentication plumbing.
 - Backend integration log persistence exists with typed directions/types/statuses, sanitized metadata, retry metadata, read endpoints, and auditable explicit retry requests.
+- Versioned API-key-authenticated record list/read/create endpoints exist under `/api/integration/v1`, reusing linked-user form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs.
 
-Next: start V8 task 003 with public/internal record API foundation.
+Next: start V8 task 004 with incoming webhook listeners.
 
 ## Product Engine Path
 

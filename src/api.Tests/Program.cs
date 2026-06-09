@@ -416,6 +416,8 @@ AssertEqual(generatedApiKey.KeyPrefix, IntegrationApiKeyGenerator.ExtractPrefix(
 AssertTrue(apiKeyHasher.Verify(generatedApiKey.RawKey, generatedApiKey.KeyHash), "Integration API key hasher should verify the original raw key.");
 AssertFalse(apiKeyHasher.Verify($"{generatedApiKey.RawKey}x", generatedApiKey.KeyHash), "Integration API key hasher should reject a different key.");
 AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.Authenticate), "Integration API key scopes should include conservative authentication scope.");
+AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.RecordsRead), "Integration API key scopes should include explicit record read scope.");
+AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.RecordsCreate), "Integration API key scopes should include explicit record create scope.");
 AssertFalse(
     IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = false }),
     "Inactive integration API keys should not authenticate.");
@@ -425,6 +427,31 @@ AssertFalse(
 AssertTrue(
     IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = true }),
     "Active non-revoked integration API keys should authenticate.");
+var linkedApiUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+var apiKeyPrincipal = IntegrationApiKeyPrincipalFactory.Create(
+    new IntegrationApiKey
+    {
+        Id = Guid.Parse("dddddddd-1111-2222-3333-444444444444"),
+        Name = "Payroll sync",
+        IntegrationKey = "payroll-sync",
+        CreatedById = linkedApiUserId
+    },
+    new[] { IntegrationApiKeyScopes.Authenticate, IntegrationApiKeyScopes.RecordsRead });
+AssertEqual(
+    linkedApiUserId.ToString(),
+    apiKeyPrincipal.FindFirstValue(IntegrationApiKeyClaims.CreatedByUserId),
+    "API key principals should expose the linked created-by user for backend permission checks.");
+AssertTrue(
+    PublicRecordApiAccess.HasScope(apiKeyPrincipal, IntegrationApiKeyScopes.RecordsRead),
+    "Public record API access should require explicit API key scopes.");
+AssertFalse(
+    PublicRecordApiAccess.HasScope(apiKeyPrincipal, IntegrationApiKeyScopes.RecordsCreate),
+    "Public record API access should reject missing API key scopes.");
+var effectiveRecordApiPrincipal = PublicRecordApiAccess.CreateEffectiveUserPrincipal(apiKeyPrincipal);
+AssertEqual(
+    linkedApiUserId.ToString(),
+    effectiveRecordApiPrincipal.FindFirstValue(ClaimTypes.NameIdentifier),
+    "Public record API access should evaluate records through the API key's linked user.");
 AssertEqual("inbound", IntegrationLogDirections.Inbound, "Integration log directions should include inbound.");
 AssertEqual("outbound", IntegrationLogDirections.Outbound, "Integration log directions should include outbound.");
 AssertTrue(IntegrationLogDirections.Supported.Contains(IntegrationLogDirections.Inbound), "Integration log directions should be typed.");
@@ -1695,6 +1722,10 @@ AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogServi
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.GetAsync)), "Integration log service should get one integration attempt.");
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.RecordAsync)), "Integration log service should record sanitized integration attempts.");
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.RequestRetryAsync)), "Integration log service should explicitly mark retry requests.");
+AssertNotNull(typeof(PublicRecordApiService).GetMethod(nameof(PublicRecordApiService.ListRecordsAsync)), "Public record API service should list records through API key authentication.");
+AssertNotNull(typeof(PublicRecordApiService).GetMethod(nameof(PublicRecordApiService.GetRecordAsync)), "Public record API service should read records through API key authentication.");
+AssertNotNull(typeof(PublicRecordApiService).GetMethod(nameof(PublicRecordApiService.CreateRecordAsync)), "Public record API service should create records through API key authentication.");
+AssertEqual("v1", PublicRecordApiVersions.V1, "Public record API contracts should expose an explicit version.");
 AssertTypeAssignable<IPlatformApiModule, IntegrationsModule>();
 AssertTrue(new IntegrationsModule().Id == "app.integrations", "Integrations module should expose a stable module id.");
 var createApiKeyRequest = new CreateIntegrationApiKeyRequest(
@@ -1772,6 +1803,18 @@ var integrationLogDto = new IntegrationLogDto(
     null,
     null);
 AssertEqual(IntegrationRetryStates.Pending, integrationLogDto.RetryState, "Integration log DTOs should expose retry state.");
+var publicCreateRecordRequest = new PublicCreateRecordRequest(new Dictionary<string, object?> { ["email"] = "jane@example.test" });
+AssertEqual("jane@example.test", publicCreateRecordRequest.Values["email"]?.ToString(), "Public record create requests should carry record values.");
+var publicRecordResponse = new PublicRecordResponse(
+    Guid.Parse("cccccccc-1111-2222-3333-444444444444"),
+    Guid.Parse("eeeeeeee-1111-2222-3333-444444444444"),
+    Guid.Parse("dddddddd-1111-2222-3333-444444444444"),
+    "active",
+    new Dictionary<string, object?> { ["email"] = "jane@example.test" },
+    DateTimeOffset.UtcNow,
+    null);
+AssertEqual("active", publicRecordResponse.Status, "Public record responses should expose record status.");
+AssertFalse(publicRecordResponse.Values.ContainsKey("salary"), "Public record responses should omit hidden fields from values.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

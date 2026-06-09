@@ -27,14 +27,23 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] API key authenticated record endpoints exist.
-- [ ] Record create uses existing backend validation.
-- [ ] Record list/read respects record scopes.
-- [ ] Hidden fields are not returned to unauthorized integrations.
-- [ ] Integration/audit logs are written where appropriate.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] API key authenticated record endpoints exist.
+- [x] Record create uses existing backend validation.
+- [x] Record list/read respects record scopes.
+- [x] Hidden fields are not returned to unauthorized integrations.
+- [x] Integration/audit logs are written where appropriate.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added explicit API key scopes `integrations.records.read` and `integrations.records.create`.
+- Added versioned endpoints under `/api/integration/v1` for record list, read, and create.
+- Record API calls require API key authentication and evaluate form permissions, record scopes, and hidden-field rules through the API key's linked `createdById` platform user.
+- Record create reuses `RecordSubmissionService` and backend form schema validation.
+- Successful list/read/create calls write integration logs without storing record values in log metadata. Creates also keep the existing record-created audit log.
+- No database schema migration was needed for this task.
 
 ## Out of Scope
 
