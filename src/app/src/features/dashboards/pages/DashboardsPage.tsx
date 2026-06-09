@@ -18,8 +18,11 @@ import { createDashboard, getDashboard, listDashboards, runDashboardAnalytics, u
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
+  createDashboardPreviewStates,
+  getDashboardAnalyticsWidgetLabel,
   hasRequiredDashboardAnalyticsConfig,
-  toDashboardAnalyticsWidgetType
+  toDashboardAnalyticsWidgetType,
+  type DashboardPreviewState
 } from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
@@ -27,7 +30,6 @@ import {
   dashboardWidgetWidths,
   type ChartMetricType,
   type ChartWidgetConfig,
-  type ChartWidgetPreview as ChartWidgetPreviewData,
   type DashboardAnalyticsResponse,
   type DashboardAnalyticsWidgetType,
   type DashboardDetail,
@@ -59,7 +61,7 @@ export function DashboardsPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
-  const [previews, setPreviews] = useState<Record<string, ChartWidgetPreviewData | DashboardAnalyticsResponse | undefined>>({});
+  const [previewStates, setPreviewStates] = useState<Record<string, DashboardPreviewState | undefined>>({});
   const [dashboardName, setDashboardName] = useState("Operations dashboard");
   const [dashboardDescription, setDashboardDescription] = useState("");
   const [selectedFormId, setSelectedFormId] = useState("");
@@ -189,13 +191,31 @@ export function DashboardsPage() {
   }
 
   async function loadPreviews(nextWidgets: SavedDashboardWidget[]) {
-    const results = await Promise.all(
+    if (nextWidgets.length === 0) {
+      setPreviewStates({});
+      return;
+    }
+
+    setPreviewStates(createDashboardPreviewStates(nextWidgets));
+
+    await Promise.all(
       nextWidgets.map(async (widget) => {
-        const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(widget.sourceFormId, widget.chart));
-        return [widget.id, preview] as const;
+        await refreshWidgetPreview(widget, false);
       })
     );
-    setPreviews(Object.fromEntries(results));
+  }
+
+  async function refreshWidgetPreview(widget: SavedDashboardWidget, setLoadingState = true) {
+    if (setLoadingState) {
+      setPreviewStates((current) => ({ ...current, [widget.id]: { status: "loading" } }));
+    }
+
+    try {
+      const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(widget.sourceFormId, widget.chart));
+      setPreviewStates((current) => ({ ...current, [widget.id]: { status: "ready", preview } }));
+    } catch (caught) {
+      setPreviewStates((current) => ({ ...current, [widget.id]: { status: "error", error: getErrorMessage(caught) } }));
+    }
   }
 
   function buildChartConfig(): ChartWidgetConfig {
@@ -215,7 +235,7 @@ export function DashboardsPage() {
       const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(selectedFormId, chart));
       setWidgets((current) => [...current, widget]);
       setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
-      setPreviews((current) => ({ ...current, [id]: preview }));
+      setPreviewStates((current) => ({ ...current, [id]: { status: "ready", preview } }));
       setNotice("Widget added. Save the dashboard to persist it.");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -225,7 +245,7 @@ export function DashboardsPage() {
   function handleRemoveWidget(widgetId: string) {
     setWidgets((current) => current.filter((widget) => widget.id !== widgetId));
     setLayoutWidgets((current) => current.filter((item) => item.id !== widgetId).map((item, index) => ({ ...item, order: index + 1 })));
-    setPreviews((current) => {
+    setPreviewStates((current) => {
       const next = { ...current };
       delete next[widgetId];
       return next;
@@ -281,7 +301,7 @@ export function DashboardsPage() {
     setDashboardDescription("");
     setWidgets([]);
     setLayoutWidgets([]);
-    setPreviews({});
+    setPreviewStates({});
     setNotice("New dashboard draft started.");
   }
 
@@ -429,19 +449,35 @@ export function DashboardsPage() {
         ) : (
           orderedLayout.map((layout) => {
             const widget = widgets.find((candidate) => candidate.id === layout.id);
-            const preview = previews[layout.id];
+            const previewState = previewStates[layout.id];
 
             if (!widget) return null;
+
+            const analyticsWidgetType = toDashboardAnalyticsWidgetType(widget.chart.widgetType);
+            const statusTone = getPreviewStatusTone(previewState);
 
             return (
               <Card className={getDashboardWidgetGridClass(layout.width)} key={layout.id}>
                 <CardHeader>
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <CardTitle>{widget.title}</CardTitle>
-                      <CardDescription>{toDashboardAnalyticsWidgetType(widget.chart.widgetType)}</CardDescription>
+                    <div className="min-w-0">
+                      <CardTitle className="break-words text-base">{widget.title}</CardTitle>
+                      <CardDescription className="break-words">
+                        {getDashboardAnalyticsWidgetLabel(analyticsWidgetType)} · {getMetricLabel(widget.chart.metric.type)}
+                      </CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Badge tone={statusTone}>{getPreviewStatusLabel(previewState)}</Badge>
+                      {previewState?.status === "ready" && previewState.preview ? <Badge>{formatPreviewCount(previewState.preview)}</Badge> : null}
+                      <Button
+                        aria-label="Refresh widget preview"
+                        disabled={previewState?.status === "loading"}
+                        onClick={() => void refreshWidgetPreview(widget)}
+                        size="icon"
+                        variant="outline"
+                      >
+                        <RefreshCw className={previewState?.status === "loading" ? "size-4 animate-spin" : "size-4"} />
+                      </Button>
                       <Button aria-label="Move widget up" onClick={() => handleMoveWidget(layout.id, -1)} size="icon" variant="outline">
                         <ArrowUp className="size-4" />
                       </Button>
@@ -454,12 +490,8 @@ export function DashboardsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  {preview ? (
-                    <ChartWidgetPreview preview={preview} />
-                  ) : (
-                    <EmptyState title="Preview unavailable" description="Save or refresh this dashboard to render the widget." action={<Button onClick={() => void loadPreviews(widgets)} variant="outline">Refresh preview</Button>} />
-                  )}
+                <CardContent className="min-w-0">
+                  <DashboardWidgetPreviewStateView state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />
                 </CardContent>
               </Card>
             );
@@ -482,4 +514,115 @@ export function DashboardsPage() {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Dashboard request failed.";
+}
+
+function DashboardWidgetPreviewStateView({ state, onRefresh }: { state?: DashboardPreviewState; onRefresh: () => void }) {
+  if (state?.status === "ready" && state.preview) {
+    return <ChartWidgetPreview preview={state.preview} />;
+  }
+
+  if (state?.status === "loading") {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="flex items-center gap-3">
+          <RefreshCw className="size-4 animate-spin text-muted-foreground" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">Loading widget</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">Refreshing analytics from the saved source.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state?.status === "error") {
+    const message = state.error ?? "Dashboard request failed.";
+
+    return (
+      <div className="rounded-lg border border-danger/25 bg-danger-soft p-4">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-danger">{getPreviewErrorTitle(message)}</p>
+            <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{message}</p>
+          </div>
+          <Button onClick={onRefresh} size="sm" variant="outline">
+            <RefreshCw className="size-4" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <EmptyState
+      title="Preview unavailable"
+      description="Refresh this widget to render the saved analytics request."
+      action={
+        <Button onClick={onRefresh} variant="outline">
+          <RefreshCw className="size-4" />
+          Refresh preview
+        </Button>
+      }
+    />
+  );
+}
+
+function getPreviewStatusTone(state?: DashboardPreviewState): "default" | "info" | "success" | "warning" | "danger" {
+  switch (state?.status) {
+    case "ready":
+      return "success";
+    case "loading":
+      return "info";
+    case "error":
+      return "danger";
+    default:
+      return "warning";
+  }
+}
+
+function getPreviewStatusLabel(state?: DashboardPreviewState): string {
+  switch (state?.status) {
+    case "ready":
+      return "Ready";
+    case "loading":
+      return "Loading";
+    case "error":
+      return "Needs review";
+    default:
+      return "Stale";
+  }
+}
+
+function getMetricLabel(metricType: ChartMetricType): string {
+  switch (metricType) {
+    case "count":
+      return "Count";
+    case "sum":
+      return "Sum";
+    case "average":
+      return "Average";
+  }
+}
+
+function formatPreviewCount(preview: DashboardAnalyticsResponse): string {
+  if (preview.widgetType === "table") {
+    return `${preview.rows.length} rows`;
+  }
+
+  return `${preview.totalCount} records`;
+}
+
+function getPreviewErrorTitle(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("permission") || normalized.includes("access") || normalized.includes("denied") || normalized.includes("forbidden")) {
+    return "Permission denied";
+  }
+
+  if (normalized.includes("field") || normalized.includes("schema") || normalized.includes("report") || normalized.includes("source")) {
+    return "Widget source needs review";
+  }
+
+  return "Preview failed";
 }

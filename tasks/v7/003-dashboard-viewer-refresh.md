@@ -28,14 +28,14 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] V7 analytics widgets render in the dashboard viewer.
-- [ ] Existing V2 widgets continue to render.
-- [ ] Empty and error states are clear per widget.
-- [ ] Responsive layouts remain stable on mobile and desktop.
-- [ ] Text does not overlap or overflow controls/widgets.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if viewer behavior changes.
-- [ ] Relevant build/test commands are run.
+- [x] V7 analytics widgets render in the dashboard viewer.
+- [x] Existing V2 widgets continue to render.
+- [x] Empty and error states are clear per widget.
+- [x] Responsive layouts remain stable on mobile and desktop.
+- [x] Text does not overlap or overflow controls/widgets.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if viewer behavior changes.
+- [x] Relevant build/test commands are run.
 
 ## Out of Scope
 

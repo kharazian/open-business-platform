@@ -34,7 +34,7 @@
 - `/workflows` includes a workflow-only XYFlow visual builder over the existing typed draft config, with JSON fallback and no persisted graph layout metadata.
 - `/printing` includes persisted record/report print template management, immutable published versions, safe small logo uploads, browser print/save-as-PDF output, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 
-Next: start V7 task 001 with the advanced dashboard analytics foundation.
+Next: evaluate V7 task 004 for dashboard sharing and default-dashboard behavior after workspace ownership decisions are ready.
 
 ## Product Engine Path
 
@@ -203,6 +203,7 @@ Features:
 - Advanced summary reports
 - Typed dashboard analytics execution implemented in V7 task 001
 - Dashboard widget builder upgrade implemented in V7 task 002
+- Dashboard viewer refresh implemented in V7 task 003 with per-widget refresh, loading, error, permission, and stale-source states
 - Richer charts
 - Advanced dashboard builder
 - Number cards

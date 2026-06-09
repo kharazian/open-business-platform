@@ -61,7 +61,7 @@ V3 is complete for the current task list: groups, departments, department manage
 V4 is complete through task 010: trigger definitions, trigger logs, management APIs, record event dispatch, supported conditions, audit/email/status/assignment starter actions, trigger management UI, `update_field`, manual retry, in-app notifications/inbox/badges/preferences, `create_record`, automatic retry queues, `call_webhook`, user-authored retry policy controls, and scheduled triggers for safe email/webhook actions.
 V5 is complete through task 007: workflow definition persistence, management UI, record workflow state, published starts, direct transitions, approval inbox/notifications, transition action execution, trigger-to-workflow starts, and an optional workflow-only XYFlow visual builder over the typed draft config.
 V6 print template foundation is complete through task 007: persisted record/report templates, permission-protected APIs, validation, audit logs, `/printing` management UI, selected record/report template rendering, browser print/save-as-PDF generation, page setup, repeated table headers, section page-break controls, conditional sections, immutable published template versions, safe small logo uploads, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
-V7 is complete through task 002: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions, and the saved dashboard builder can configure V7 analytics widgets while preserving the existing saved chart config contract.
+V7 is complete through task 003: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions; the saved dashboard builder can configure V7 analytics widgets while preserving the existing saved chart config contract; and the saved dashboard viewer renders those widgets with per-widget loading, retry, empty, permission, and stale-source states.
 Incoming webhook listeners, advanced notification delivery, scheduled workflow starts, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 V6 task 003 is complete for field-based conditional print template sections over already-permission-filtered record/report data.
@@ -71,6 +71,7 @@ V6 task 006 is complete for dependency-light server-side PDF generation from pub
 V6 task 007 is complete for trigger email record PDF attachments from published same-form record print templates.
 V7 task 001 is complete for backend dashboard analytics contracts, validation, permission-checked execution, hidden-field protection, and frontend API helper coverage.
 V7 task 002 is complete for dashboard builder controls over summary, breakdown, trend, and table widgets with V7 analytics previews and compatibility mapping for existing saved dashboard definitions.
+V7 task 003 is complete for saved dashboard viewer rendering of V7 analytics widgets, independent per-widget refresh/error states, and denser responsive preview rendering without adding a chart dependency.
 
 ## 2. Core Product Philosophy
 
@@ -900,7 +901,7 @@ V6 task 007 is complete for PDF email attachments on record-trigger email action
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V7 task 001 for the advanced dashboard analytics foundation.
+Next concrete work should evaluate V7 task 004 for dashboard sharing/default behavior after workspace ownership decisions are ready.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

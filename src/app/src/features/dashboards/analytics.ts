@@ -3,7 +3,9 @@ import type {
   ChartWidgetConfig,
   ChartWidgetType,
   DashboardAnalyticsRequest,
-  DashboardAnalyticsWidgetType
+  DashboardAnalyticsResponse,
+  DashboardAnalyticsWidgetType,
+  SavedDashboardWidget
 } from "./types";
 import type { EntityId } from "../../types/entities";
 
@@ -16,6 +18,12 @@ export type DashboardAnalyticsBuilderConfig = {
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
+};
+
+export type DashboardPreviewState = {
+  status: "loading" | "ready" | "error";
+  preview?: DashboardAnalyticsResponse;
+  error?: string;
 };
 
 export function buildChartConfigFromDashboardAnalytics(config: DashboardAnalyticsBuilderConfig): ChartWidgetConfig {
@@ -66,6 +74,23 @@ export function hasRequiredDashboardAnalyticsConfig(config: DashboardAnalyticsBu
   }
 
   return true;
+}
+
+export function createDashboardPreviewStates(widgets: SavedDashboardWidget[]): Record<string, DashboardPreviewState> {
+  return Object.fromEntries(widgets.map((widget) => [widget.id, { status: "loading" satisfies DashboardPreviewState["status"] }]));
+}
+
+export function getDashboardAnalyticsWidgetLabel(widgetType: DashboardAnalyticsWidgetType): string {
+  switch (widgetType) {
+    case "summary":
+      return "Summary";
+    case "breakdown":
+      return "Breakdown";
+    case "trend":
+      return "Trend";
+    case "table":
+      return "Table";
+  }
 }
 
 export function toChartWidgetType(widgetType: DashboardAnalyticsWidgetType): ChartWidgetType {

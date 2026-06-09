@@ -4,6 +4,8 @@ import * as api from "./api.ts";
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
+  createDashboardPreviewStates,
+  getDashboardAnalyticsWidgetLabel,
   hasRequiredDashboardAnalyticsConfig
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "./layout.ts";
@@ -170,4 +172,51 @@ test("dashboard analytics helpers reject incomplete builder configs", () => {
     }),
     false
   );
+});
+
+test("dashboard viewer helpers create independent preview states", () => {
+  const widgets = [
+    {
+      id: "widget-1",
+      title: "Record count",
+      sourceFormId: "form-1",
+      chart: {
+        widgetType: "number_card",
+        metric: { type: "count", fieldId: null },
+        groupByFieldId: null,
+        dateFieldId: null,
+        columns: [],
+        limit: 10,
+        reportId: null
+      }
+    },
+    {
+      id: "widget-2",
+      title: "Status",
+      sourceFormId: "form-1",
+      chart: {
+        widgetType: "choice_breakdown",
+        metric: { type: "count", fieldId: null },
+        groupByFieldId: "status",
+        dateFieldId: null,
+        columns: [],
+        limit: 10,
+        reportId: null
+      }
+    }
+  ];
+
+  const states = createDashboardPreviewStates(widgets);
+
+  assert.deepEqual(Object.keys(states), ["widget-1", "widget-2"]);
+  assert.equal(states["widget-1"].status, "loading");
+  assert.equal(states["widget-2"].status, "loading");
+  assert.equal(states["widget-1"].error, undefined);
+});
+
+test("dashboard viewer helpers label V7 widget types", () => {
+  assert.equal(getDashboardAnalyticsWidgetLabel("summary"), "Summary");
+  assert.equal(getDashboardAnalyticsWidgetLabel("breakdown"), "Breakdown");
+  assert.equal(getDashboardAnalyticsWidgetLabel("trend"), "Trend");
+  assert.equal(getDashboardAnalyticsWidgetLabel("table"), "Table");
 });

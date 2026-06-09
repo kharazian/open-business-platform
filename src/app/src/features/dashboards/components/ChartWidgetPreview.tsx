@@ -13,9 +13,9 @@ export function ChartWidgetPreview({ preview }: { preview: WidgetPreviewData }) 
     const point = preview.series[0];
 
     return (
-      <div className="rounded-xl border border-border bg-muted/30 p-6">
-        <p className="text-sm font-bold text-muted-foreground">{point?.label ?? "Records"}</p>
-        <p className="mt-3 text-4xl font-bold text-foreground">{formatNumber(point?.value ?? 0)}</p>
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <p className="break-words text-sm font-bold text-muted-foreground">{point?.label ?? "Records"}</p>
+        <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatNumber(point?.value ?? 0)}</p>
       </div>
     );
   }
@@ -31,14 +31,14 @@ function SeriesBars({ points }: { points: WidgetPreviewData["series"] }) {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid max-h-72 gap-3 overflow-y-auto pr-1">
       {points.map((point) => {
         const width = `${Math.max(6, (point.value / maxValue) * 100)}%`;
 
         return (
           <div className="grid gap-2" key={point.key || point.label}>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-bold text-foreground">{point.label}</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
+              <span className="min-w-0 truncate font-bold text-foreground">{point.label}</span>
               <span className="font-semibold text-muted-foreground">{formatNumber(point.value)}</span>
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-muted">
@@ -61,7 +61,9 @@ function ChartTable({ preview }: { preview: WidgetPreviewData }) {
   }));
 
   return preview.rows.length > 0 ? (
-    <Table columns={columns} rows={preview.rows} />
+    <div className="max-h-96 overflow-auto">
+      <Table columns={columns} rows={preview.rows} />
+    </div>
   ) : (
     <EmptyState title="No table rows" description="The selected source did not return records for this table widget." />
   );
