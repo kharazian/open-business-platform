@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import * as api from "./api.ts";
+import {
+  buildChartConfigFromDashboardAnalytics,
+  buildDashboardAnalyticsRequest,
+  hasRequiredDashboardAnalyticsConfig
+} from "./analytics.ts";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "./layout.ts";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
@@ -93,4 +98,76 @@ test("dashboard layout helpers sort widgets and map widths", () => {
   assert.equal(getDashboardWidgetGridClass("medium"), "md:col-span-6");
   assert.equal(getDashboardWidgetGridClass("wide"), "md:col-span-9");
   assert.equal(getDashboardWidgetGridClass("full"), "md:col-span-12");
+});
+
+test("dashboard analytics helpers preserve saved chart compatibility", () => {
+  const chart = buildChartConfigFromDashboardAnalytics({
+    widgetType: "breakdown",
+    metricType: "average",
+    metricFieldId: "salary",
+    groupByFieldId: "status",
+    dateFieldId: "created_at",
+    columns: ["employee_name", "status"],
+    limit: 25,
+    reportId: "report-1"
+  });
+
+  assert.equal(chart.widgetType, "choice_breakdown");
+  assert.deepEqual(chart.metric, { type: "average", fieldId: "salary" });
+  assert.equal(chart.groupByFieldId, "status");
+  assert.equal(chart.dateFieldId, null);
+  assert.deepEqual(chart.columns, []);
+  assert.equal(chart.limit, 25);
+  assert.equal(chart.reportId, "report-1");
+
+  const request = buildDashboardAnalyticsRequest("form-1", chart);
+
+  assert.equal(request.widgetType, "breakdown");
+  assert.deepEqual(request.source, { formId: "form-1", reportId: "report-1" });
+  assert.deepEqual(request.metric, { type: "average", fieldId: "salary" });
+  assert.equal(request.groupByFieldId, "status");
+  assert.equal(request.dateFieldId, null);
+  assert.deepEqual(request.columns, []);
+});
+
+test("dashboard analytics helpers reject incomplete builder configs", () => {
+  assert.equal(
+    hasRequiredDashboardAnalyticsConfig({
+      widgetType: "summary",
+      metricType: "sum",
+      metricFieldId: "",
+      groupByFieldId: "status",
+      dateFieldId: "created_at",
+      columns: ["employee_name"],
+      limit: 10,
+      reportId: null
+    }),
+    false
+  );
+  assert.equal(
+    hasRequiredDashboardAnalyticsConfig({
+      widgetType: "breakdown",
+      metricType: "count",
+      metricFieldId: "",
+      groupByFieldId: "",
+      dateFieldId: "created_at",
+      columns: ["employee_name"],
+      limit: 10,
+      reportId: null
+    }),
+    false
+  );
+  assert.equal(
+    hasRequiredDashboardAnalyticsConfig({
+      widgetType: "table",
+      metricType: "count",
+      metricFieldId: "",
+      groupByFieldId: "status",
+      dateFieldId: "created_at",
+      columns: [],
+      limit: 10,
+      reportId: null
+    }),
+    false
+  );
 });

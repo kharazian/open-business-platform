@@ -202,6 +202,7 @@ Features:
 
 - Advanced summary reports
 - Typed dashboard analytics execution implemented in V7 task 001
+- Dashboard widget builder upgrade implemented in V7 task 002
 - Richer charts
 - Advanced dashboard builder
 - Number cards

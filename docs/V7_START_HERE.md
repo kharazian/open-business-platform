@@ -7,7 +7,8 @@ This packet is the handoff for starting V7: Advanced Dashboards and Analytics.
 - V1 through V6 are complete for the current task lists.
 - V6 task 007 added trigger email record PDF attachments from published print templates.
 - V7 task 001 adds the backend dashboard analytics foundation.
-- The next implementation task after task 001 is `tasks/v7/002-dashboard-widget-builder-upgrade.md`.
+- V7 task 002 upgrades the saved dashboard builder to configure V7 analytics widgets and preview them through the V7 analytics API.
+- The next implementation task after task 002 is `tasks/v7/003-dashboard-viewer-refresh.md`.
 - The working branch used for preparation was `dev`.
 - Docker Compose services were stopped after verification cleanup.
 

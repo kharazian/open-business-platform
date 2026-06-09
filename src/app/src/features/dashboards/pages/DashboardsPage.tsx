@@ -4,6 +4,7 @@ import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/Card";
+import { Checkbox } from "../../../components/ui/Checkbox";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
@@ -13,7 +14,13 @@ import type { FormSummary } from "../../forms/drafts";
 import { getReportableFields } from "../../forms/reportableFields";
 import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
-import { createDashboard, getDashboard, listDashboards, previewChartWidget, updateDashboard } from "../api";
+import { createDashboard, getDashboard, listDashboards, runDashboardAnalytics, updateDashboard } from "../api";
+import {
+  buildChartConfigFromDashboardAnalytics,
+  buildDashboardAnalyticsRequest,
+  hasRequiredDashboardAnalyticsConfig,
+  toDashboardAnalyticsWidgetType
+} from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import {
@@ -21,7 +28,8 @@ import {
   type ChartMetricType,
   type ChartWidgetConfig,
   type ChartWidgetPreview as ChartWidgetPreviewData,
-  type ChartWidgetType,
+  type DashboardAnalyticsResponse,
+  type DashboardAnalyticsWidgetType,
   type DashboardDetail,
   type DashboardSummaryItem,
   type DashboardWidgetWidth,
@@ -29,11 +37,10 @@ import {
   type SavedDashboardWidgetLayout
 } from "../types";
 
-const widgetOptions: Array<{ label: string; value: ChartWidgetType }> = [
-  { label: "Number card", value: "number_card" },
-  { label: "Bar chart", value: "bar_chart" },
-  { label: "Date trend", value: "date_trend" },
-  { label: "Status / choice breakdown", value: "choice_breakdown" },
+const analyticsWidgetOptions: Array<{ label: string; value: DashboardAnalyticsWidgetType }> = [
+  { label: "Summary", value: "summary" },
+  { label: "Breakdown", value: "breakdown" },
+  { label: "Trend", value: "trend" },
   { label: "Table", value: "table" }
 ];
 
@@ -52,17 +59,18 @@ export function DashboardsPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
-  const [previews, setPreviews] = useState<Record<string, ChartWidgetPreviewData | undefined>>({});
+  const [previews, setPreviews] = useState<Record<string, ChartWidgetPreviewData | DashboardAnalyticsResponse | undefined>>({});
   const [dashboardName, setDashboardName] = useState("Operations dashboard");
   const [dashboardDescription, setDashboardDescription] = useState("");
   const [selectedFormId, setSelectedFormId] = useState("");
   const [selectedReportId, setSelectedReportId] = useState("");
   const [widgetTitle, setWidgetTitle] = useState("New widget");
-  const [widgetType, setWidgetType] = useState<ChartWidgetType>("number_card");
+  const [widgetType, setWidgetType] = useState<DashboardAnalyticsWidgetType>("summary");
   const [metricType, setMetricType] = useState<ChartMetricType>("count");
   const [metricFieldId, setMetricFieldId] = useState("");
   const [groupByFieldId, setGroupByFieldId] = useState("status");
   const [dateFieldId, setDateFieldId] = useState("created_at");
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [widgetWidth, setWidgetWidth] = useState<DashboardWidgetWidth>("medium");
   const [widgets, setWidgets] = useState<SavedDashboardWidget[]>([]);
   const [layoutWidgets, setLayoutWidgets] = useState<SavedDashboardWidgetLayout[]>([]);
@@ -105,6 +113,17 @@ export function DashboardsPage() {
   const groupFields = fieldOptions.filter((field) => field.supportsChoiceGrouping);
   const dateFields = fieldOptions.filter((field) => field.type === "date" || field.type === "datetime");
   const orderedLayout = orderDashboardLayoutWidgets(layoutWidgets);
+  const builderConfig = {
+    widgetType,
+    metricType,
+    metricFieldId,
+    groupByFieldId,
+    dateFieldId,
+    columns: selectedColumns,
+    limit: 10,
+    reportId: selectedReportId || null
+  };
+  const canAddWidget = Boolean(selectedFormId && widgetTitle.trim()) && hasRequiredDashboardAnalyticsConfig(builderConfig);
 
   useEffect(() => {
     if (numericFields.length > 0 && !numericFields.some((field) => field.id === metricFieldId)) {
@@ -123,6 +142,18 @@ export function DashboardsPage() {
       setDateFieldId(dateFields[0].id);
     }
   }, [dateFieldId, dateFields]);
+
+  useEffect(() => {
+    if (fieldOptions.length === 0) {
+      setSelectedColumns([]);
+      return;
+    }
+
+    setSelectedColumns((current) => {
+      const validCurrent = current.filter((fieldId) => fieldOptions.some((field) => field.id === fieldId));
+      return validCurrent.length > 0 ? validCurrent : fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id);
+    });
+  }, [fieldOptions]);
 
   async function loadInitialData() {
     setLoading(true);
@@ -160,7 +191,7 @@ export function DashboardsPage() {
   async function loadPreviews(nextWidgets: SavedDashboardWidget[]) {
     const results = await Promise.all(
       nextWidgets.map(async (widget) => {
-        const preview = await previewChartWidget(widget.sourceFormId, widget.chart);
+        const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(widget.sourceFormId, widget.chart));
         return [widget.id, preview] as const;
       })
     );
@@ -168,23 +199,27 @@ export function DashboardsPage() {
   }
 
   function buildChartConfig(): ChartWidgetConfig {
-    return {
-      widgetType,
-      metric: { type: metricType, fieldId: metricType === "count" ? null : metricFieldId || null },
-      groupByFieldId: widgetType === "bar_chart" || widgetType === "choice_breakdown" ? groupByFieldId || null : null,
-      dateFieldId: widgetType === "date_trend" ? dateFieldId || null : null,
-      columns: widgetType === "table" ? fieldOptions.slice(0, 5).map((field) => field.id) : [],
-      limit: 10,
-      reportId: selectedReportId || null
-    };
+    return buildChartConfigFromDashboardAnalytics(builderConfig);
   }
 
-  function handleAddWidget() {
-    if (!selectedFormId || !widgetTitle.trim()) return;
+  async function handleAddWidget() {
+    if (!canAddWidget) return;
+
     const id = `widget-${Date.now()}`;
-    setWidgets((current) => [...current, { id, title: widgetTitle.trim(), sourceFormId: selectedFormId, chart: buildChartConfig() }]);
-    setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
-    setNotice("Widget added. Save the dashboard to persist it.");
+    const chart = buildChartConfig();
+    const widget = { id, title: widgetTitle.trim(), sourceFormId: selectedFormId, chart };
+
+    setError(null);
+
+    try {
+      const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(selectedFormId, chart));
+      setWidgets((current) => [...current, widget]);
+      setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
+      setPreviews((current) => ({ ...current, [id]: preview }));
+      setNotice("Widget added. Save the dashboard to persist it.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    }
   }
 
   function handleRemoveWidget(widgetId: string) {
@@ -310,7 +345,7 @@ export function DashboardsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Widget builder</CardTitle>
-            <CardDescription>Add chart widgets to the saved dashboard layout.</CardDescription>
+            <CardDescription>Add analytics widgets to the saved dashboard layout.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-4 lg:grid-cols-3">
@@ -332,10 +367,10 @@ export function DashboardsPage() {
               <Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} />
             </div>
             <div className="grid gap-4 lg:grid-cols-4">
-              <Select label="Widget" onChange={(event) => setWidgetType(event.target.value as ChartWidgetType)} options={widgetOptions} value={widgetType} />
+              <Select label="Widget" onChange={(event) => setWidgetType(event.target.value as DashboardAnalyticsWidgetType)} options={analyticsWidgetOptions} value={widgetType} />
               <Select label="Metric" onChange={(event) => setMetricType(event.target.value as ChartMetricType)} options={metricOptions} value={metricType} />
               <Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} />
-              <Button disabled={!selectedFormId || !widgetTitle.trim()} onClick={handleAddWidget}>
+              <Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}>
                 <Plus className="size-4" />
                 Add widget
               </Button>
@@ -349,7 +384,7 @@ export function DashboardsPage() {
                 ))}
               </Select>
             ) : null}
-            {widgetType === "bar_chart" || widgetType === "choice_breakdown" ? (
+            {widgetType === "breakdown" ? (
               <Select disabled={groupFields.length === 0} label="Group by" onChange={(event) => setGroupByFieldId(event.target.value)} value={groupByFieldId}>
                 {groupFields.map((field) => (
                   <option key={field.id} value={field.id}>
@@ -358,7 +393,7 @@ export function DashboardsPage() {
                 ))}
               </Select>
             ) : null}
-            {widgetType === "date_trend" ? (
+            {widgetType === "trend" ? (
               <Select disabled={dateFields.length === 0} label="Trend date" onChange={(event) => setDateFieldId(event.target.value)} value={dateFieldId}>
                 {dateFields.map((field) => (
                   <option key={field.id} value={field.id}>
@@ -367,6 +402,21 @@ export function DashboardsPage() {
                 ))}
               </Select>
             ) : null}
+            {widgetType === "table" ? (
+              <div className="grid gap-2">
+                <p className="text-sm font-bold text-muted-foreground">Table columns</p>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {fieldOptions.map((field) => (
+                    <Checkbox
+                      checked={selectedColumns.includes(field.id)}
+                      key={field.id}
+                      label={field.label}
+                      onChange={(event) => handleToggleColumn(field.id, event.target.checked)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </section>
@@ -374,7 +424,7 @@ export function DashboardsPage() {
       <section className="grid gap-4 md:grid-cols-12">
         {orderedLayout.length === 0 ? (
           <div className="md:col-span-12">
-            <EmptyState title="No dashboard widgets" description="Add a widget and save the dashboard." action={<Button onClick={handleAddWidget} variant="outline">Add widget</Button>} />
+            <EmptyState title="No dashboard widgets" description="Add a widget and save the dashboard." action={<Button disabled={!canAddWidget} onClick={() => void handleAddWidget()} variant="outline">Add widget</Button>} />
           </div>
         ) : (
           orderedLayout.map((layout) => {
@@ -389,7 +439,7 @@ export function DashboardsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <CardTitle>{widget.title}</CardTitle>
-                      <CardDescription>{widget.chart.widgetType.replace(/_/g, " ")}</CardDescription>
+                      <CardDescription>{toDashboardAnalyticsWidgetType(widget.chart.widgetType)}</CardDescription>
                     </div>
                     <div className="flex gap-2">
                       <Button aria-label="Move widget up" onClick={() => handleMoveWidget(layout.id, -1)} size="icon" variant="outline">
@@ -418,6 +468,16 @@ export function DashboardsPage() {
       </section>
     </div>
   );
+
+  function handleToggleColumn(fieldId: string, selected: boolean) {
+    setSelectedColumns((current) => {
+      if (selected) {
+        return current.includes(fieldId) ? current : [...current, fieldId];
+      }
+
+      return current.filter((currentFieldId) => currentFieldId !== fieldId);
+    });
+  }
 }
 
 function getErrorMessage(error: unknown): string {

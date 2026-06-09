@@ -64,7 +64,7 @@ V2 dashboards now start with real database-backed workspace summaries, recent au
 
 ### Dashboard Analytics V7
 
-V7 task 001 adds a dashboard-owned analytics execution API for summary, breakdown, trend, and table widgets over one source form and an optional saved list report. The API reuses existing form/report permissions, record scopes, saved report filters, and hidden-field rules. It keeps V2 chart preview and saved dashboard definitions working while giving the next V7 dashboard builder task a richer typed contract.
+V7 task 001 adds a dashboard-owned analytics execution API for summary, breakdown, trend, and table widgets over one source form and an optional saved list report. The API reuses existing form/report permissions, record scopes, saved report filters, and hidden-field rules. V7 task 002 upgrades the saved dashboard builder to configure those analytics widgets and render previews through the V7 analytics API while preserving the existing saved dashboard chart config contract.
 
 ## V1 Printing
 

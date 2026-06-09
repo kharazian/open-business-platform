@@ -29,14 +29,14 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Users can configure V7 summary, breakdown, trend, and table widgets from the dashboard builder.
-- [ ] Widget previews use the V7 analytics API.
-- [ ] Existing V2 saved dashboards still load and render.
-- [ ] Builder controls prevent obvious invalid combinations before submit.
-- [ ] Backend validation remains the source of truth for permissions and hidden fields.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated if contracts or saved config change.
-- [ ] Relevant build/test commands are run.
+- [x] Users can configure V7 summary, breakdown, trend, and table widgets from the dashboard builder.
+- [x] Widget previews use the V7 analytics API.
+- [x] Existing V2 saved dashboards still load and render.
+- [x] Builder controls prevent obvious invalid combinations before submit.
+- [x] Backend validation remains the source of truth for permissions and hidden fields.
+- [x] Tests are added where practical.
+- [x] Documentation is updated if contracts or saved config change.
+- [x] Relevant build/test commands are run.
 
 ## Out of Scope
 

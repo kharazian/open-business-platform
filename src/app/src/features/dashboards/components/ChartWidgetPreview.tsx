@@ -1,13 +1,15 @@
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
-import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData } from "../types";
+import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse } from "../types";
 
-export function ChartWidgetPreview({ preview }: { preview: ChartWidgetPreviewData }) {
+type WidgetPreviewData = ChartWidgetPreviewData | DashboardAnalyticsResponse;
+
+export function ChartWidgetPreview({ preview }: { preview: WidgetPreviewData }) {
   if (preview.widgetType === "table") {
     return <ChartTable preview={preview} />;
   }
 
-  if (preview.widgetType === "number_card") {
+  if (preview.widgetType === "number_card" || preview.widgetType === "summary") {
     const point = preview.series[0];
 
     return (
@@ -21,7 +23,7 @@ export function ChartWidgetPreview({ preview }: { preview: ChartWidgetPreviewDat
   return <SeriesBars points={preview.series} />;
 }
 
-function SeriesBars({ points }: { points: ChartWidgetPreviewData["series"] }) {
+function SeriesBars({ points }: { points: WidgetPreviewData["series"] }) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
 
   if (points.length === 0) {
@@ -49,7 +51,7 @@ function SeriesBars({ points }: { points: ChartWidgetPreviewData["series"] }) {
   );
 }
 
-function ChartTable({ preview }: { preview: ChartWidgetPreviewData }) {
+function ChartTable({ preview }: { preview: WidgetPreviewData }) {
   const columns: Array<TableColumn<ChartTableRow>> = preview.columns.map((column) => ({
     header: column.label,
     render: (row) => {
