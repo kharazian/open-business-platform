@@ -6,6 +6,8 @@ import {
   buildDashboardAnalyticsRequest,
   createDashboardPreviewStates,
   getDashboardAnalyticsWidgetLabel,
+  getDashboardVisibilityLabel,
+  normalizeDashboardSettings,
   hasRequiredDashboardAnalyticsConfig
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "./layout.ts";
@@ -37,6 +39,10 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
     layout: {
       schemaVersion: 1,
       widgets: [{ id: "widget-1", width: "wide", order: 1 }]
+    },
+    settings: {
+      visibility: "workspace",
+      isDefault: true
     }
   };
   const fetcher = async (input, init = {}) => {
@@ -46,21 +52,61 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
       return {
         ok: true,
         json: async () => ({
-          items: [{ id: "dash-1", name: "Operations dashboard", widgetCount: 1, concurrencyStamp: "stamp-1", createdAt: "2026-06-01T12:00:00.000Z" }]
+          items: [
+            {
+              id: "dash-1",
+              name: "Operations dashboard",
+              widgetCount: 1,
+              visibility: "workspace",
+              isDefault: true,
+              concurrencyStamp: "stamp-1",
+              createdAt: "2026-06-01T12:00:00.000Z"
+            }
+          ]
         })
       };
     }
 
     if (input === "/api/dashboards/dash-1" && init.method === "GET") {
-      return { ok: true, json: async () => ({ id: "dash-1", concurrencyStamp: "stamp-1", createdAt: "2026-06-01T12:00:00.000Z", ...request }) };
+      return {
+        ok: true,
+        json: async () => ({
+          id: "dash-1",
+          concurrencyStamp: "stamp-1",
+          createdAt: "2026-06-01T12:00:00.000Z",
+          ...request,
+          visibility: "workspace",
+          isDefault: true
+        })
+      };
     }
 
     if (input === "/api/dashboards" && init.method === "POST") {
-      return { ok: true, json: async () => ({ id: "dash-1", concurrencyStamp: "stamp-1", createdAt: "2026-06-01T12:00:00.000Z", ...request }) };
+      return {
+        ok: true,
+        json: async () => ({
+          id: "dash-1",
+          concurrencyStamp: "stamp-1",
+          createdAt: "2026-06-01T12:00:00.000Z",
+          ...request,
+          visibility: "workspace",
+          isDefault: true
+        })
+      };
     }
 
     if (input === "/api/dashboards/dash-1" && init.method === "PUT") {
-      return { ok: true, json: async () => ({ id: "dash-1", concurrencyStamp: "stamp-2", createdAt: "2026-06-01T12:00:00.000Z", ...request }) };
+      return {
+        ok: true,
+        json: async () => ({
+          id: "dash-1",
+          concurrencyStamp: "stamp-2",
+          createdAt: "2026-06-01T12:00:00.000Z",
+          ...request,
+          visibility: "workspace",
+          isDefault: true
+        })
+      };
     }
 
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
@@ -72,7 +118,11 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
   const updated = await api.updateDashboard("dash-1", { ...request, concurrencyStamp: "stamp-1" }, fetcher);
 
   assert.equal(summaries[0].widgetCount, 1);
+  assert.equal(summaries[0].visibility, "workspace");
+  assert.equal(summaries[0].isDefault, true);
   assert.equal(detail.config.widgets[0].title, "Employees by department");
+  assert.equal(detail.visibility, "workspace");
+  assert.equal(detail.isDefault, true);
   assert.equal(created.id, "dash-1");
   assert.equal(updated.concurrencyStamp, "stamp-2");
   assert.equal(calls[0].input, "/api/dashboards");
@@ -219,4 +269,12 @@ test("dashboard viewer helpers label V7 widget types", () => {
   assert.equal(getDashboardAnalyticsWidgetLabel("breakdown"), "Breakdown");
   assert.equal(getDashboardAnalyticsWidgetLabel("trend"), "Trend");
   assert.equal(getDashboardAnalyticsWidgetLabel("table"), "Table");
+});
+
+test("dashboard settings helpers normalize visibility defaults", () => {
+  assert.deepEqual(normalizeDashboardSettings(null), { visibility: "workspace", isDefault: false });
+  assert.deepEqual(normalizeDashboardSettings({ visibility: "private", isDefault: true }), { visibility: "private", isDefault: false });
+  assert.deepEqual(normalizeDashboardSettings({ visibility: "workspace", isDefault: true }), { visibility: "workspace", isDefault: true });
+  assert.equal(getDashboardVisibilityLabel("workspace"), "Workspace");
+  assert.equal(getDashboardVisibilityLabel("private"), "Private");
 });

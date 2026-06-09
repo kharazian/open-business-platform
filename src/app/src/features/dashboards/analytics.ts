@@ -5,6 +5,8 @@ import type {
   DashboardAnalyticsRequest,
   DashboardAnalyticsResponse,
   DashboardAnalyticsWidgetType,
+  DashboardSettings,
+  DashboardVisibility,
   SavedDashboardWidget
 } from "./types";
 import type { EntityId } from "../../types/entities";
@@ -90,6 +92,24 @@ export function getDashboardAnalyticsWidgetLabel(widgetType: DashboardAnalyticsW
       return "Trend";
     case "table":
       return "Table";
+  }
+}
+
+export function normalizeDashboardSettings(settings?: Partial<DashboardSettings> | null): DashboardSettings {
+  const visibility = settings?.visibility === "private" ? "private" : "workspace";
+
+  return {
+    visibility,
+    isDefault: visibility === "workspace" ? Boolean(settings?.isDefault) : false
+  };
+}
+
+export function getDashboardVisibilityLabel(visibility: DashboardVisibility): string {
+  switch (visibility) {
+    case "workspace":
+      return "Workspace";
+    case "private":
+      return "Private";
   }
 }
 

@@ -360,6 +360,17 @@ Indexes:
 
 The current V2 dashboard definition stores saved dashboard widget config in `config_json` and responsive width/order metadata in `layout_json`. Saved widgets currently reuse chart widget config values. V7 task 001 adds read-only dashboard analytics execution contracts and does not require a dashboard schema migration.
 
+V7 task 004 adds conservative dashboard visibility/default metadata in `extra_properties_json` without a schema migration:
+
+```json
+{
+  "visibility": "workspace",
+  "isDefault": false
+}
+```
+
+Supported visibility values are `workspace` and `private`. Dashboards with missing metadata resolve to `workspace` visibility and `isDefault: false` so existing dashboards remain accessible under the old dashboard menu permission model. Private dashboards are visible to their creator and dashboard managers only. Only workspace-visible dashboards can be saved as the shared default.
+
 ## Permissions
 
 ### permission_rules later

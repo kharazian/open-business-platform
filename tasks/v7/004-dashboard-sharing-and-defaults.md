@@ -29,13 +29,13 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Dashboard defaults are explicit and backend-owned.
-- [ ] Visibility rules are enforced by the API.
-- [ ] Existing dashboards remain accessible under the old permission model or are migrated safely.
-- [ ] Any schema change has a documented migration.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated.
-- [ ] Relevant build/test commands are run.
+- [x] Dashboard defaults are explicit and backend-owned.
+- [x] Visibility rules are enforced by the API.
+- [x] Existing dashboards remain accessible under the old permission model or are migrated safely.
+- [x] Any schema change has a documented migration.
+- [x] Tests are added where practical.
+- [x] Documentation is updated.
+- [x] Relevant build/test commands are run.
 
 ## Out of Scope
 
@@ -44,3 +44,7 @@ Read:
 - External sharing.
 - Tenant-level dashboard policies.
 - Dashboard export or print.
+
+## Notes
+
+- No database schema migration was required; V7 task 004 uses the existing dashboard `extra_properties_json` JSONB column for `visibility` and `isDefault` metadata.

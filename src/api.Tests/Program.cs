@@ -2484,6 +2484,43 @@ var createDashboardRequest = new CreateDashboardRequest(
     dashboardLayout);
 AssertEqual("Operations dashboard", createDashboardRequest.Name, "Create dashboard requests should carry dashboard names.");
 AssertEqual(1, createDashboardRequest.Config.Widgets.Count, "Create dashboard requests should carry widgets.");
+var dashboardOwnerId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
+var dashboardViewerId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
+var existingDashboardWithoutSettings = new DashboardDefinition
+{
+    Id = Guid.Parse("cccccccc-0000-0000-0000-000000000003"),
+    Name = "Existing dashboard",
+    ConfigJson = SerializeHarnessJson(dashboardConfig),
+    LayoutJson = SerializeHarnessJson(dashboardLayout),
+    CreatedById = dashboardOwnerId
+};
+var privateDashboard = new DashboardDefinition
+{
+    Id = Guid.Parse("dddddddd-0000-0000-0000-000000000004"),
+    Name = "Private dashboard",
+    ConfigJson = SerializeHarnessJson(dashboardConfig),
+    LayoutJson = SerializeHarnessJson(dashboardLayout),
+    CreatedById = dashboardOwnerId,
+    ExtraPropertiesJson = SerializeHarnessJson(new DashboardSettingsDefinition(DashboardVisibilityModes.Private, false))
+};
+var legacySettings = DashboardDefinitionAccess.ResolveSettings(existingDashboardWithoutSettings);
+AssertEqual(DashboardVisibilityModes.Workspace, legacySettings.Visibility, "Legacy dashboards without settings should resolve to workspace visibility.");
+AssertFalse(legacySettings.IsDefault, "Legacy dashboards should not become default dashboards implicitly.");
+AssertTrue(
+    DashboardDefinitionAccess.CanView(existingDashboardWithoutSettings, new DashboardAccessContext(dashboardViewerId, CanManageDashboards: false)),
+    "Workspace dashboards should remain visible to dashboard viewers under the old permission model.");
+AssertFalse(
+    DashboardDefinitionAccess.CanView(privateDashboard, new DashboardAccessContext(dashboardViewerId, CanManageDashboards: false)),
+    "Private dashboards should not be visible to unrelated dashboard viewers.");
+AssertTrue(
+    DashboardDefinitionAccess.CanView(privateDashboard, new DashboardAccessContext(dashboardOwnerId, CanManageDashboards: false)),
+    "Private dashboards should remain visible to their creator.");
+AssertTrue(
+    DashboardDefinitionAccess.CanView(privateDashboard, new DashboardAccessContext(dashboardViewerId, CanManageDashboards: true)),
+    "Dashboard managers should retain management visibility over private dashboards.");
+AssertFalse(
+    DashboardDefinitionAccess.ValidateSettings(new DashboardSettingsDefinition(DashboardVisibilityModes.Private, true)).Valid,
+    "Private dashboards should not be allowed to become the shared default dashboard.");
 AssertTypeAssignable<object, DashboardDefinitionService>();
 AssertTypeAssignable<IPlatformApiModule, DashboardsModule>();
 
@@ -2493,6 +2530,11 @@ static void AssertEqual<T>(T expected, T actual, string message)
     {
         throw new InvalidOperationException($"{message} Expected: {expected}. Actual: {actual}.");
     }
+}
+
+static JsonDocument SerializeHarnessJson<T>(T value)
+{
+    return JsonSerializer.SerializeToDocument(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 }
 
 static void AssertSequenceEqual<T>(IReadOnlyCollection<T> expected, IReadOnlyCollection<T> actual, string message)

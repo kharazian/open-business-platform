@@ -11,7 +11,7 @@ Before implementing V7, read `docs/V7_START_HERE.md`, then follow the design and
 1. `001-advanced-dashboard-analytics-foundation.md` - backend analytics contracts and permission-checked summary/trend/breakdown primitives for dashboard widgets.
 2. `002-dashboard-widget-builder-upgrade.md` - frontend controls for richer analytics widgets over the new backend contracts.
 3. `003-dashboard-viewer-refresh.md` - dashboard viewer improvements for dense scanning, refreshed widgets, empty states, and layout polish.
-4. `004-dashboard-sharing-and-defaults.md` - saved dashboard defaults and sharing/visibility rules, after workspace ownership decisions are ready.
+4. `004-dashboard-sharing-and-defaults.md` - saved dashboard defaults and conservative workspace/private visibility rules without full workspace ownership.
 
 ## Scope Rules
 

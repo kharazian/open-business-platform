@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -173,11 +173,11 @@ Response:
 
 `GET /api/dashboards`
 
-Lists saved dashboard definitions. Requires authentication and `menu.dashboard`.
+Lists saved dashboard definitions. Requires authentication and `menu.dashboard`. Workspace-visible dashboards are returned to dashboard viewers. Private dashboards are returned only to their creator or users with dashboard management permission. Default dashboards sort before other visible dashboards.
 
 `GET /api/dashboards/{dashboardId}`
 
-Returns a saved dashboard definition with `config` and `layout`. Requires authentication and `menu.dashboard`.
+Returns a saved dashboard definition with `config`, `layout`, `visibility`, and `isDefault`. Requires authentication and `menu.dashboard` plus the same visibility rules used by the list endpoint.
 
 `POST /api/dashboards`
 
@@ -189,7 +189,20 @@ Updates a saved dashboard definition. Requires authentication and `reports.manag
 
 Dashboard config stores widget definitions, and dashboard layout stores responsive width/order metadata. Supported widths are `small`, `medium`, `wide`, and `full`. Saved widgets reuse chart widget config values and are validated against source forms, source reports, fields, metrics, and widget types before save.
 
-Saved dashboard definitions are persisted in the `dashboards` table added by the `DashboardDefinitions` EF Core migration. Workspace ownership is intentionally deferred to a later workspace module.
+Create and update requests may include optional dashboard settings:
+
+```json
+{
+  "settings": {
+    "visibility": "workspace",
+    "isDefault": false
+  }
+}
+```
+
+Supported visibility values are `workspace` and `private`. Missing settings resolve to `workspace` and `isDefault: false`. Only workspace-visible dashboards can be saved as the shared default. Saving one dashboard as default clears the previous default.
+
+Saved dashboard definitions are persisted in the `dashboards` table added by the `DashboardDefinitions` EF Core migration. V7 task 004 stores conservative visibility/default settings in `extra_properties_json`; it does not add a schema migration. Workspace ownership is intentionally deferred to a later workspace module.
 
 ## Shared V1 Form Schema Contract
 

@@ -20,7 +20,9 @@ import {
   buildDashboardAnalyticsRequest,
   createDashboardPreviewStates,
   getDashboardAnalyticsWidgetLabel,
+  getDashboardVisibilityLabel,
   hasRequiredDashboardAnalyticsConfig,
+  normalizeDashboardSettings,
   toDashboardAnalyticsWidgetType,
   type DashboardPreviewState
 } from "../analytics";
@@ -34,6 +36,7 @@ import {
   type DashboardAnalyticsWidgetType,
   type DashboardDetail,
   type DashboardSummaryItem,
+  type DashboardVisibility,
   type DashboardWidgetWidth,
   type SavedDashboardWidget,
   type SavedDashboardWidgetLayout
@@ -53,6 +56,10 @@ const metricOptions: Array<{ label: string; value: ChartMetricType }> = [
 ];
 
 const widthOptions = dashboardWidgetWidths.map((width) => ({ label: width, value: width }));
+const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = [
+  { label: "Workspace", value: "workspace" },
+  { label: "Private", value: "private" }
+];
 
 export function DashboardsPage() {
   const [dashboards, setDashboards] = useState<DashboardSummaryItem[]>([]);
@@ -64,6 +71,8 @@ export function DashboardsPage() {
   const [previewStates, setPreviewStates] = useState<Record<string, DashboardPreviewState | undefined>>({});
   const [dashboardName, setDashboardName] = useState("Operations dashboard");
   const [dashboardDescription, setDashboardDescription] = useState("");
+  const [dashboardVisibility, setDashboardVisibility] = useState<DashboardVisibility>("workspace");
+  const [dashboardIsDefault, setDashboardIsDefault] = useState(false);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [selectedReportId, setSelectedReportId] = useState("");
   const [widgetTitle, setWidgetTitle] = useState("New widget");
@@ -109,6 +118,12 @@ export function DashboardsPage() {
       })
       .catch((caught) => setError(getErrorMessage(caught)));
   }, [selectedFormId]);
+
+  useEffect(() => {
+    if (dashboardVisibility === "private") {
+      setDashboardIsDefault(false);
+    }
+  }, [dashboardVisibility]);
 
   const fieldOptions = useMemo(() => (formDetail ? getReportableFields(formDetail.draftSchema) : []), [formDetail]);
   const numericFields = fieldOptions.filter((field) => field.supportsAggregation);
@@ -182,6 +197,9 @@ export function DashboardsPage() {
       setDashboardDetail(detail);
       setDashboardName(detail.name);
       setDashboardDescription(detail.description ?? "");
+      const settings = normalizeDashboardSettings({ visibility: detail.visibility, isDefault: detail.isDefault });
+      setDashboardVisibility(settings.visibility);
+      setDashboardIsDefault(settings.isDefault);
       setWidgets(detail.config.widgets);
       setLayoutWidgets(detail.layout.widgets);
       await loadPreviews(detail.config.widgets);
@@ -273,7 +291,8 @@ export function DashboardsPage() {
       name: dashboardName,
       description: dashboardDescription || null,
       config: { schemaVersion: 1 as const, widgets },
-      layout: { schemaVersion: 1 as const, widgets: layoutWidgets }
+      layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
+      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault })
     };
 
     try {
@@ -282,6 +301,9 @@ export function DashboardsPage() {
         : await createDashboard(request);
       setDashboardDetail(saved);
       setSelectedDashboardId(saved.id);
+      const settings = normalizeDashboardSettings({ visibility: saved.visibility, isDefault: saved.isDefault });
+      setDashboardVisibility(settings.visibility);
+      setDashboardIsDefault(settings.isDefault);
       setWidgets(saved.config.widgets);
       setLayoutWidgets(saved.layout.widgets);
       setDashboards(await listDashboards());
@@ -299,6 +321,8 @@ export function DashboardsPage() {
     setDashboardDetail(null);
     setDashboardName("Operations dashboard");
     setDashboardDescription("");
+    setDashboardVisibility("workspace");
+    setDashboardIsDefault(false);
     setWidgets([]);
     setLayoutWidgets([]);
     setPreviewStates({});
@@ -358,7 +382,24 @@ export function DashboardsPage() {
             </Select>
             <Input label="Name" onChange={(event) => setDashboardName(event.target.value)} value={dashboardName} />
             <Input label="Description" onChange={(event) => setDashboardDescription(event.target.value)} value={dashboardDescription} />
-            <Badge>{widgets.length} widgets</Badge>
+            <Select
+              label="Visibility"
+              onChange={(event) => setDashboardVisibility(event.target.value as DashboardVisibility)}
+              options={visibilityOptions}
+              value={dashboardVisibility}
+            />
+            <Checkbox
+              checked={dashboardIsDefault}
+              description="Workspace defaults are selected first for dashboard viewers."
+              disabled={dashboardVisibility === "private"}
+              label="Default dashboard"
+              onChange={(event) => setDashboardIsDefault(event.target.checked)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Badge>{widgets.length} widgets</Badge>
+              <Badge tone={dashboardVisibility === "workspace" ? "info" : "warning"}>{getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
+              {dashboardIsDefault ? <Badge tone="success">Default</Badge> : null}
+            </div>
           </CardContent>
         </Card>
 

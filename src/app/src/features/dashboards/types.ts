@@ -116,8 +116,15 @@ export type DashboardAnalyticsResponse = {
 };
 
 export const dashboardWidgetWidths = ["small", "medium", "wide", "full"] as const;
+export const dashboardVisibilityModes = ["workspace", "private"] as const;
 
 export type DashboardWidgetWidth = (typeof dashboardWidgetWidths)[number];
+export type DashboardVisibility = (typeof dashboardVisibilityModes)[number];
+
+export type DashboardSettings = {
+  visibility: DashboardVisibility;
+  isDefault: boolean;
+};
 
 export type SavedDashboardWidget = {
   id: string;
@@ -147,6 +154,8 @@ export type DashboardSummaryItem = {
   name: string;
   description?: string | null;
   widgetCount: number;
+  visibility: DashboardVisibility;
+  isDefault: boolean;
   concurrencyStamp: string;
   createdAt: string;
   createdById?: EntityId | null;
@@ -164,6 +173,7 @@ export type CreateDashboardRequest = {
   description?: string | null;
   config: SavedDashboardConfig;
   layout: SavedDashboardLayout;
+  settings?: DashboardSettings;
 };
 
 export type UpdateDashboardRequest = CreateDashboardRequest & {

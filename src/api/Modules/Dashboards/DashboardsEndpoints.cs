@@ -22,7 +22,8 @@ public static class DashboardsEndpoints
 
             return await HandleDashboardRequestAsync(async () =>
             {
-                var items = await dashboards.ListAsync(cancellationToken);
+                var accessContext = await BuildAccessContextAsync(permissionService, httpContext, cancellationToken);
+                var items = await dashboards.ListAsync(accessContext, cancellationToken);
                 return Results.Ok(new { items });
             });
         });
@@ -39,7 +40,11 @@ public static class DashboardsEndpoints
                 return Results.Forbid();
             }
 
-            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetAsync(dashboardId, cancellationToken)));
+            return await HandleDashboardRequestAsync(async () =>
+            {
+                var accessContext = await BuildAccessContextAsync(permissionService, httpContext, cancellationToken);
+                return Results.Ok(await dashboards.GetAsync(dashboardId, accessContext, cancellationToken));
+            });
         });
 
         group.MapPost("", async (
@@ -88,6 +93,13 @@ public static class DashboardsEndpoints
     private static async Task<bool> CanManageDashboardsAsync(PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken)
     {
         return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Reports.Manage, cancellationToken);
+    }
+
+    private static async Task<DashboardAccessContext> BuildAccessContextAsync(PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        return new DashboardAccessContext(
+            GetCurrentUserId(httpContext),
+            await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken));
     }
 
     private static async Task<IResult> HandleDashboardRequestAsync(Func<Task<IResult>> action)

@@ -42,20 +42,24 @@ public sealed record CreateDashboardRequest(
     string Name,
     string? Description,
     SavedDashboardConfigDefinition Config,
-    SavedDashboardLayoutDefinition Layout);
+    SavedDashboardLayoutDefinition Layout,
+    DashboardSettingsDefinition? Settings = null);
 
 public sealed record UpdateDashboardRequest(
     string Name,
     string? Description,
     SavedDashboardConfigDefinition Config,
     SavedDashboardLayoutDefinition Layout,
-    string ConcurrencyStamp);
+    string ConcurrencyStamp,
+    DashboardSettingsDefinition? Settings = null);
 
 public sealed record DashboardSummaryDto(
     Guid Id,
     string Name,
     string? Description,
     int WidgetCount,
+    string Visibility,
+    bool IsDefault,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
@@ -68,6 +72,8 @@ public sealed record DashboardDetailDto(
     string? Description,
     SavedDashboardConfigDefinition Config,
     SavedDashboardLayoutDefinition Layout,
+    string Visibility,
+    bool IsDefault,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,

@@ -16,19 +16,23 @@ public sealed class DashboardDefinitionService
         this.dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyCollection<DashboardSummaryDto>> ListAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<DashboardSummaryDto>> ListAsync(DashboardAccessContext accessContext, CancellationToken cancellationToken)
     {
         var dashboards = await dbContext.Dashboards
             .AsNoTracking()
             .Where(dashboard => !dashboard.IsDeleted)
-            .OrderByDescending(dashboard => dashboard.UpdatedAt ?? dashboard.CreatedAt)
-            .ThenBy(dashboard => dashboard.Name)
             .ToArrayAsync(cancellationToken);
 
-        return dashboards.Select(ToSummaryDto).ToArray();
+        return dashboards
+            .Where(dashboard => DashboardDefinitionAccess.CanView(dashboard, accessContext))
+            .OrderByDescending(dashboard => DashboardDefinitionAccess.ResolveSettings(dashboard).IsDefault)
+            .ThenByDescending(dashboard => dashboard.UpdatedAt ?? dashboard.CreatedAt)
+            .ThenBy(dashboard => dashboard.Name)
+            .Select(ToSummaryDto)
+            .ToArray();
     }
 
-    public async Task<DashboardDetailDto> GetAsync(Guid dashboardId, CancellationToken cancellationToken)
+    public async Task<DashboardDetailDto> GetAsync(Guid dashboardId, DashboardAccessContext accessContext, CancellationToken cancellationToken)
     {
         var dashboard = await dbContext.Dashboards
             .AsNoTracking()
@@ -39,12 +43,18 @@ public sealed class DashboardDefinitionService
             throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
         }
 
+        if (!DashboardDefinitionAccess.CanView(dashboard, accessContext))
+        {
+            throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
+        }
+
         return ToDetailDto(dashboard);
     }
 
     public async Task<DashboardDetailDto> CreateAsync(CreateDashboardRequest request, Guid? createdById, CancellationToken cancellationToken)
     {
         var name = NormalizeName(request.Name);
+        var settings = ValidateSettings(request.Settings);
         await ValidateRequestAsync(name, request.Config, request.Layout, cancellationToken);
 
         var dashboard = new DashboardDefinition
@@ -54,10 +64,12 @@ public sealed class DashboardDefinitionService
             Description = NormalizeOptionalText(request.Description),
             ConfigJson = Serialize(request.Config),
             LayoutJson = Serialize(request.Layout),
+            ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(settings),
             CreatedById = createdById
         };
 
         dbContext.Dashboards.Add(dashboard);
+        await ClearDefaultDashboardsIfNeededAsync(dashboard.Id, settings, createdById, cancellationToken);
         AddAudit("Dashboard", dashboard.Id, "dashboard_created", createdById);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -80,13 +92,16 @@ public sealed class DashboardDefinitionService
         }
 
         var name = NormalizeName(request.Name);
+        var settings = request.Settings is null ? DashboardDefinitionAccess.ResolveSettings(dashboard) : ValidateSettings(request.Settings);
         await ValidateRequestAsync(name, request.Config, request.Layout, cancellationToken);
 
         dashboard.Name = name;
         dashboard.Description = NormalizeOptionalText(request.Description);
         dashboard.ConfigJson = Serialize(request.Config);
         dashboard.LayoutJson = Serialize(request.Layout);
+        dashboard.ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(settings);
         dashboard.UpdatedById = updatedById;
+        await ClearDefaultDashboardsIfNeededAsync(dashboard.Id, settings, updatedById, cancellationToken);
         AddAudit("Dashboard", dashboard.Id, "dashboard_updated", updatedById);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -113,6 +128,48 @@ public sealed class DashboardDefinitionService
         if (!validation.Valid)
         {
             throw new DashboardDefinitionException(StatusCodes.Status400BadRequest, "Dashboard config is invalid.", validation.Errors);
+        }
+    }
+
+    private static DashboardSettingsDefinition ValidateSettings(DashboardSettingsDefinition? settings)
+    {
+        var validation = DashboardDefinitionAccess.ValidateSettings(settings);
+
+        if (!validation.Valid)
+        {
+            throw new DashboardDefinitionException(StatusCodes.Status400BadRequest, "Dashboard settings are invalid.", validation.Errors);
+        }
+
+        return DashboardDefinitionAccess.NormalizeSettings(settings);
+    }
+
+    private async Task ClearDefaultDashboardsIfNeededAsync(
+        Guid dashboardId,
+        DashboardSettingsDefinition settings,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
+        if (!settings.IsDefault)
+        {
+            return;
+        }
+
+        var dashboards = await dbContext.Dashboards
+            .Where(dashboard => dashboard.Id != dashboardId && !dashboard.IsDeleted)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var dashboard in dashboards)
+        {
+            var currentSettings = DashboardDefinitionAccess.ResolveSettings(dashboard);
+
+            if (!currentSettings.IsDefault)
+            {
+                continue;
+            }
+
+            dashboard.ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(currentSettings with { IsDefault = false });
+            dashboard.UpdatedById = userId;
+            AddAudit("Dashboard", dashboard.Id, "dashboard_default_cleared", userId);
         }
     }
 
@@ -155,12 +212,15 @@ public sealed class DashboardDefinitionService
     {
         var config = Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson)
             ?? new SavedDashboardConfigDefinition(1, Array.Empty<SavedDashboardWidgetDefinition>());
+        var settings = DashboardDefinitionAccess.ResolveSettings(dashboard);
 
         return new DashboardSummaryDto(
             dashboard.Id,
             dashboard.Name,
             dashboard.Description,
             config.Widgets.Count,
+            settings.Visibility,
+            settings.IsDefault,
             dashboard.ConcurrencyStamp,
             dashboard.CreatedAt,
             dashboard.CreatedById,
@@ -170,12 +230,16 @@ public sealed class DashboardDefinitionService
 
     private static DashboardDetailDto ToDetailDto(DashboardDefinition dashboard)
     {
+        var settings = DashboardDefinitionAccess.ResolveSettings(dashboard);
+
         return new DashboardDetailDto(
             dashboard.Id,
             dashboard.Name,
             dashboard.Description,
             Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new SavedDashboardConfigDefinition(1, Array.Empty<SavedDashboardWidgetDefinition>()),
             Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new SavedDashboardLayoutDefinition(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>()),
+            settings.Visibility,
+            settings.IsDefault,
             dashboard.ConcurrencyStamp,
             dashboard.CreatedAt,
             dashboard.CreatedById,
