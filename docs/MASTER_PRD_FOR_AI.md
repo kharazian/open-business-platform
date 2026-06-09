@@ -73,6 +73,7 @@ V7 task 001 is complete for backend dashboard analytics contracts, validation, p
 V7 task 002 is complete for dashboard builder controls over summary, breakdown, trend, and table widgets with V7 analytics previews and compatibility mapping for existing saved dashboard definitions.
 V7 task 003 is complete for saved dashboard viewer rendering of V7 analytics widgets, independent per-widget refresh/error states, and denser responsive preview rendering without adding a chart dependency.
 V7 task 004 is complete for backend-owned workspace/private dashboard visibility, shared default dashboard metadata, safe legacy dashboard defaults, and dashboard editor controls without a database schema migration.
+V8 preparation is complete for the current handoff: `docs/V8_START_HERE.md` and `tasks/v8/` define the integrations/API task sequence, starting with API keys and integration authentication.
 
 ## 2. Core Product Philosophy
 
@@ -902,7 +903,7 @@ V6 task 007 is complete for PDF email attachments on record-trigger email action
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V8 only after reviewing the integrations/API task packet and confirming the desired first integration slice.
+Next concrete work should start V8 task 001 for API keys and integration authentication.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

@@ -10,7 +10,8 @@ This packet is the handoff for starting V7: Advanced Dashboards and Analytics.
 - V7 task 002 upgraded the saved dashboard builder to configure V7 analytics widgets and preview them through the V7 analytics API.
 - V7 task 003 refreshed the saved dashboard viewer with per-widget analytics loading, retry, empty, permission-denied, and stale-source states.
 - V7 task 004 added conservative backend-enforced workspace/private dashboard visibility and shared default dashboard metadata without a schema migration.
-- V7 is complete for the current task list. The next major version should start from the V8 integrations/API packet after choosing the first conservative integration slice.
+- V7 is complete for the current task list.
+- The V8 integrations/API packet now exists in `docs/V8_START_HERE.md` and `tasks/v8/`; the next implementation task is `tasks/v8/001-api-keys-and-integration-auth.md`.
 - The working branch used for preparation was `dev`.
 - Docker Compose services were stopped after verification cleanup.
 

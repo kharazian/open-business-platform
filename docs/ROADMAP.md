@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -25,7 +25,7 @@
 - Lightweight frontend logic/API tests exist for module registry, form schema/records, forms API/list/builder/submission helpers, auth, users, records, reports, dashboards, printing, and shared UI helpers.
 - `/theme` playground exists for sample-data design review.
 - PostgreSQL and Redis run through Docker Compose.
-- V1-V6 verification has passed with frontend tests/build, backend harness/build, and local API smoke checks.
+- V1-V7 verification has passed with frontend tests/build, backend harness/build, and local API smoke checks where applicable.
 - Backend workflow definition persistence, publishing/versioning, validation, management APIs, permission checks, audit logs, and history foundation exist.
 - `/workflows` frontend management UI exists for form-scoped workflow definition list/create/edit/publish/enable/disable operations over JSON-backed configs.
 - Record workflow start/direct transition execution and current-user approval inbox execution exist.
@@ -34,7 +34,7 @@
 - `/workflows` includes a workflow-only XYFlow visual builder over the existing typed draft config, with JSON fallback and no persisted graph layout metadata.
 - `/printing` includes persisted record/report print template management, immutable published versions, safe small logo uploads, browser print/save-as-PDF output, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 
-Next: review the V8 integrations/API task packet and choose the first conservative integration slice.
+Next: start V8 task 001 with API keys and integration authentication.
 
 ## Product Engine Path
 
