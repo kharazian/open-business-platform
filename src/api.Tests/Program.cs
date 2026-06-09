@@ -12,6 +12,7 @@ using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Dashboard;
 using OpenBusinessPlatform.Api.Modules.Dashboards;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Integrations;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Printing;
 using OpenBusinessPlatform.Api.Modules.Records;
@@ -126,6 +127,7 @@ AssertTable<PrintTemplate>(model, "print_templates");
 AssertTable<PrintTemplateVersion>(model, "print_template_versions");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
+AssertTable<IntegrationApiKey>(model, "integration_api_keys");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -153,6 +155,7 @@ AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, PrintTemplate>();
 AssertTypeAssignable<CreationAuditedEntity<Guid>, PrintTemplateVersion>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationApiKey>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -179,6 +182,7 @@ AssertGuidId<PrintTemplate>(model);
 AssertGuidId<PrintTemplateVersion>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
+AssertGuidId<IntegrationApiKey>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -210,6 +214,7 @@ AssertJsonColumn<WorkflowHistoryEntry>(model, nameof(WorkflowHistoryEntry.Metada
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ConfigJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
+AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ScopesJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -224,6 +229,7 @@ AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ExtraPropert
 AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPropertiesJson));
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraPropertiesJson));
+AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -274,8 +280,25 @@ AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ReportId),
 AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.VersionNumber), "version_number", "Print template versions should store sequential version numbers.");
 AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.PublishedAt), "published_at", "Print template versions should store publish time.");
 AssertColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.PublishedById), "published_by_id", "Print template versions should store publisher metadata.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.Name), "name", "Integration API keys should store a display name.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.IntegrationKey), "integration_key", "Integration API keys should store a stable integration identity.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.KeyPrefix), "key_prefix", "Integration API keys should store a lookup/display prefix.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.KeyHash), "key_hash", "Integration API keys should store only the key hash.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.IsActive), "is_active", "Integration API keys should store active state.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedAt), "last_used_at", "Integration API keys should track last use time.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedIp), "last_used_ip", "Integration API keys should track last use IP metadata.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedUserAgent), "last_used_user_agent", "Integration API keys should track last use user agent metadata.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedAt), "revoked_at", "Integration API keys should track revocation time.");
+AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedById), "revoked_by_id", "Integration API keys should track the revoking user.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
+AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
+AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyHash) }, "Integration API key hashes should be unique.");
+AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IntegrationKey) }, "Integration API keys should be indexed by integration identity.");
+AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IsActive) }, "Integration API keys should be indexed by active state.");
+AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.LastUsedAt) }, "Integration API keys should be indexed by last use time.");
+AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.RevokedAt) }, "Integration API keys should be indexed by revocation time.");
+AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.CreatedById) }, "Integration API keys should be indexed by creator.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
@@ -350,6 +373,26 @@ var resetTokenHash = resetTokenHasher.Hash(rawResetToken);
 AssertNotEqual(rawResetToken, resetTokenHash, "Password reset token hashes should not store the raw token.");
 AssertTrue(resetTokenHasher.Verify(rawResetToken, resetTokenHash), "Password reset token hasher should verify the original token.");
 AssertFalse(resetTokenHasher.Verify($"{rawResetToken}x", resetTokenHash), "Password reset token hasher should reject a different token.");
+
+var apiKeyHasher = new IntegrationApiKeyHasher();
+var apiKeyGenerator = new IntegrationApiKeyGenerator(apiKeyHasher);
+var generatedApiKey = apiKeyGenerator.Generate();
+AssertTrue(generatedApiKey.RawKey.StartsWith(IntegrationApiKeyGenerator.RawKeyPrefix, StringComparison.Ordinal), "Integration API keys should use a recognizable platform prefix.");
+AssertTrue(generatedApiKey.RawKey.Contains('.', StringComparison.Ordinal), "Integration API keys should include a public prefix and private secret segment.");
+AssertNotEqual(generatedApiKey.RawKey, generatedApiKey.KeyHash, "Integration API key hashes should not store the raw key.");
+AssertEqual(generatedApiKey.KeyPrefix, IntegrationApiKeyGenerator.ExtractPrefix(generatedApiKey.RawKey), "Integration API keys should expose a stable lookup prefix.");
+AssertTrue(apiKeyHasher.Verify(generatedApiKey.RawKey, generatedApiKey.KeyHash), "Integration API key hasher should verify the original raw key.");
+AssertFalse(apiKeyHasher.Verify($"{generatedApiKey.RawKey}x", generatedApiKey.KeyHash), "Integration API key hasher should reject a different key.");
+AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.Authenticate), "Integration API key scopes should include conservative authentication scope.");
+AssertFalse(
+    IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = false }),
+    "Inactive integration API keys should not authenticate.");
+AssertFalse(
+    IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = true, RevokedAt = DateTimeOffset.UtcNow }),
+    "Revoked integration API keys should not authenticate.");
+AssertTrue(
+    IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = true }),
+    "Active non-revoked integration API keys should authenticate.");
 
 var retryPolicy = TriggerRetryPolicy.Default;
 AssertEqual(3, retryPolicy.MaxAttempts, "Automatic trigger retries should default to three attempts.");
@@ -1386,6 +1429,7 @@ AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermission
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Users.Manage), "Built-in permissions should include user management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Reports.Manage), "Built-in permissions should include report management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Workflows.Manage), "Built-in permissions should include workflow management.");
+AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Integrations.Manage), "Built-in permissions should include integration API key management.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.View), "Form actions should include view.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Export), "Form actions should include export.");
 AssertTrue(PlatformPermissions.FormActions.Contains(PlatformPermissions.Form.Assign), "Form actions should include assign.");
@@ -1567,6 +1611,39 @@ AssertNotNull(typeof(NotificationPreferencesDto).GetProperty(nameof(Notification
 AssertNotNull(typeof(NotificationPreferencesDto).GetProperty(nameof(NotificationPreferencesDto.ShowUnreadBadge)), "Notification preferences DTO should expose unread badge choice.");
 AssertNotNull(typeof(UpdateNotificationPreferencesRequest).GetProperty(nameof(UpdateNotificationPreferencesRequest.InAppEnabled)), "Notification preference updates should accept in-app choice.");
 AssertNotNull(typeof(UpdateNotificationPreferencesRequest).GetProperty(nameof(UpdateNotificationPreferencesRequest.ShowUnreadBadge)), "Notification preference updates should accept unread badge choice.");
+AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.ListAsync)), "Integration API key service should list keys without exposing raw secrets.");
+AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.CreateAsync)), "Integration API key service should create keys and return the raw key once.");
+AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RevokeAsync)), "Integration API key service should revoke active keys.");
+AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RotateAsync)), "Integration API key service should rotate keys and return the new raw key once.");
+AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.AuthenticateAsync)), "Integration API key service should authenticate raw keys for API requests.");
+AssertTypeAssignable<IPlatformApiModule, IntegrationsModule>();
+AssertTrue(new IntegrationsModule().Id == "app.integrations", "Integrations module should expose a stable module id.");
+var createApiKeyRequest = new CreateIntegrationApiKeyRequest(
+    "Payroll sync",
+    "payroll-sync",
+    new[] { IntegrationApiKeyScopes.Authenticate });
+AssertEqual("payroll-sync", createApiKeyRequest.IntegrationKey, "Create integration API key requests should carry a stable integration identity.");
+AssertTrue(createApiKeyRequest.Scopes!.Contains(IntegrationApiKeyScopes.Authenticate), "Create integration API key requests should carry typed scopes.");
+var apiKeyDto = new IntegrationApiKeyDto(
+    Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+    "Payroll sync",
+    "payroll-sync",
+    "obp_sk_sampleprefix",
+    new[] { IntegrationApiKeyScopes.Authenticate },
+    true,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "api-key-stamp",
+    DateTimeOffset.UtcNow,
+    Guid.Parse("11111111-2222-3333-4444-555555555555"),
+    null,
+    null);
+var createdApiKey = new CreatedIntegrationApiKeyDto(apiKeyDto, generatedApiKey.RawKey);
+AssertEqual(generatedApiKey.RawKey, createdApiKey.RawKey, "Created integration API key DTOs should return the raw key once.");
+AssertEqual("obp_sk_sampleprefix", createdApiKey.ApiKey.KeyPrefix, "Created integration API key DTOs should expose only the display prefix after creation.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

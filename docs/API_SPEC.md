@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -28,6 +28,118 @@ Current response:
   "service": "Open Business Platform API"
 }
 ```
+
+### Integration API keys
+
+Integration API key management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.
+
+The raw API key is returned only by create and rotate responses. List/get/revoke responses include `keyPrefix`, hash-free metadata, scopes, active/revoked state, last-used metadata, and audit timestamps, but never `keyHash` or the raw key.
+
+Supported initial scopes are conservative and typed:
+
+- `integrations.authenticate`
+- `integrations.webhooks.receive`
+
+`GET /api/integrations/api-keys`
+
+Lists integration API keys:
+
+```json
+{
+  "items": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": "Payroll sync",
+      "integrationKey": "payroll-sync",
+      "keyPrefix": "obp_sk_exampleprefix",
+      "scopes": ["integrations.authenticate"],
+      "isActive": true,
+      "lastUsedAt": null,
+      "lastUsedIp": null,
+      "lastUsedUserAgent": null,
+      "revokedAt": null,
+      "revokedById": null,
+      "concurrencyStamp": "stamp",
+      "createdAt": "2026-06-09T20:39:33Z",
+      "createdById": null,
+      "updatedAt": null,
+      "updatedById": null
+    }
+  ]
+}
+```
+
+`GET /api/integrations/api-keys/{apiKeyId}`
+
+Returns one integration API key metadata record or `404`.
+
+`POST /api/integrations/api-keys`
+
+Creates a key for a stable integration identity.
+
+Request:
+
+```json
+{
+  "name": "Payroll sync",
+  "integrationKey": "payroll-sync",
+  "scopes": ["integrations.authenticate"],
+  "isActive": true
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "apiKey": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "name": "Payroll sync",
+    "integrationKey": "payroll-sync",
+    "keyPrefix": "obp_sk_exampleprefix",
+    "scopes": ["integrations.authenticate"],
+    "isActive": true,
+    "lastUsedAt": null,
+    "lastUsedIp": null,
+    "lastUsedUserAgent": null,
+    "revokedAt": null,
+    "revokedById": null,
+    "concurrencyStamp": "stamp",
+    "createdAt": "2026-06-09T20:39:33Z",
+    "createdById": null,
+    "updatedAt": null,
+    "updatedById": null
+  },
+  "rawKey": "obp_sk_exampleprefix.private-secret-segment"
+}
+```
+
+`POST /api/integrations/api-keys/{apiKeyId}/revoke`
+
+Revokes a key. Revoked keys cannot authenticate.
+
+Request:
+
+```json
+{
+  "reason": "No longer used",
+  "concurrencyStamp": "stamp"
+}
+```
+
+`POST /api/integrations/api-keys/{apiKeyId}/rotate`
+
+Replaces the stored prefix/hash for an active, non-revoked key and returns the new raw key once.
+
+Request:
+
+```json
+{
+  "concurrencyStamp": "stamp"
+}
+```
+
+Future integration endpoints can opt into the `IntegrationApiKey` authentication scheme. Requests may pass the key as `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`. A successful API-key authentication updates `lastUsedAt`, `lastUsedIp`, and `lastUsedUserAgent` only when the key is still active and non-revoked.
 
 ### Dashboard summary
 

@@ -4,12 +4,13 @@
 
 Database: PostgreSQL
 
-Status: V6 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, and print template version tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 task 001 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, and integration API key tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
 - `password_reset_tokens`
+- `integration_api_keys`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -93,6 +94,47 @@ Indexes:
 - unique token_hash
 - user_id
 - expires_at
+
+### integration_api_keys
+
+Stores integration authentication keys. Raw API keys are returned only by create/rotate responses; PostgreSQL stores only `key_hash` plus a display/lookup `key_prefix`.
+
+Fields:
+
+- id uuid
+- name
+- integration_key stable normalized integration identity
+- key_prefix
+- key_hash
+- scopes_json JSONB
+- is_active
+- last_used_at nullable
+- last_used_ip nullable
+- last_used_user_agent nullable
+- revoked_at nullable
+- revoked_by_id nullable
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- integration_key
+- unique key_prefix
+- unique key_hash
+- is_active
+- last_used_at
+- revoked_at
+- created_by_id
+- revoked_by_id
+
+Foreign keys:
+
+- created_by_id -> users.id, set null on delete
+- revoked_by_id -> users.id, set null on delete
 
 ### roles
 

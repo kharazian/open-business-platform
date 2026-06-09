@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ using OpenBusinessPlatform.Api.Modules.Dashboard;
 using OpenBusinessPlatform.Api.Modules.Dashboards;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Integrations;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Printing;
 using OpenBusinessPlatform.Api.Modules.Records;
@@ -38,6 +40,8 @@ builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddSingleton<PasswordResetTokenGenerator>();
 builder.Services.AddSingleton<PasswordResetTokenHasher>();
+builder.Services.AddSingleton<IntegrationApiKeyHasher>();
+builder.Services.AddSingleton<IntegrationApiKeyGenerator>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<NotificationQueryService>();
 builder.Services.AddScoped<IdentityManagementService>();
@@ -66,6 +70,7 @@ builder.Services.AddScoped<DashboardSummaryService>();
 builder.Services.AddScoped<ChartAggregationService>();
 builder.Services.AddScoped<DashboardAnalyticsService>();
 builder.Services.AddScoped<DashboardDefinitionService>();
+builder.Services.AddScoped<IntegrationApiKeyService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -97,7 +102,10 @@ builder.Services
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return Task.CompletedTask;
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, IntegrationApiKeyAuthenticationHandler>(
+        IntegrationApiKeyAuthenticationDefaults.AuthenticationScheme,
+        _ => { });
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient("trigger-webhooks");

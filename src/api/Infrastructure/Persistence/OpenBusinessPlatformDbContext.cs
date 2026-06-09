@@ -67,6 +67,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
+    public DbSet<IntegrationApiKey> IntegrationApiKeys => Set<IntegrationApiKey>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -108,6 +110,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigurePrinting(modelBuilder);
         ConfigureNotifications(modelBuilder);
         ConfigureNotificationPreferences(modelBuilder);
+        ConfigureIntegrations(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
     }
 
@@ -810,6 +813,42 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(preference => preference.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureIntegrations(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<IntegrationApiKey>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "integration_api_keys");
+            entity.HasIndex(apiKey => apiKey.IntegrationKey);
+            entity.HasIndex(apiKey => apiKey.KeyPrefix).IsUnique();
+            entity.HasIndex(apiKey => apiKey.KeyHash).IsUnique();
+            entity.HasIndex(apiKey => apiKey.IsActive);
+            entity.HasIndex(apiKey => apiKey.LastUsedAt);
+            entity.HasIndex(apiKey => apiKey.RevokedAt);
+            entity.HasIndex(apiKey => apiKey.CreatedById);
+            entity.Property(apiKey => apiKey.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(apiKey => apiKey.IntegrationKey).HasColumnName("integration_key").HasMaxLength(120).IsRequired();
+            entity.Property(apiKey => apiKey.KeyPrefix).HasColumnName("key_prefix").HasMaxLength(80).IsRequired();
+            entity.Property(apiKey => apiKey.KeyHash).HasColumnName("key_hash").HasMaxLength(128).IsRequired();
+            entity.Property(apiKey => apiKey.ScopesJson).HasColumnName("scopes_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(apiKey => apiKey.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(apiKey => apiKey.LastUsedAt).HasColumnName("last_used_at");
+            entity.Property(apiKey => apiKey.LastUsedIp).HasColumnName("last_used_ip").HasMaxLength(80);
+            entity.Property(apiKey => apiKey.LastUsedUserAgent).HasColumnName("last_used_user_agent").HasMaxLength(500);
+            entity.Property(apiKey => apiKey.RevokedAt).HasColumnName("revoked_at");
+            entity.Property(apiKey => apiKey.RevokedById).HasColumnName("revoked_by_id").HasColumnType("uuid");
+            entity
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(apiKey => apiKey.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(apiKey => apiKey.RevokedBy)
+                .WithMany()
+                .HasForeignKey(apiKey => apiKey.RevokedById)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

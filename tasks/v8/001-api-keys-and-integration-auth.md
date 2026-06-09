@@ -28,15 +28,22 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] API key contracts are typed.
-- [ ] API keys are stored hashed.
-- [ ] Raw key material is only returned once.
-- [ ] Revoked/inactive keys cannot authenticate.
-- [ ] Last-used metadata is updated safely.
-- [ ] Management endpoints require backend permissions.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] API key contracts are typed.
+- [x] API keys are stored hashed.
+- [x] Raw key material is only returned once.
+- [x] Revoked/inactive keys cannot authenticate.
+- [x] Last-used metadata is updated safely.
+- [x] Management endpoints require backend permissions.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added `integration_api_keys` through EF Core migration `20260609203933_IntegrationApiKeys`.
+- Added `integrations.manage` as the backend permission for API key management.
+- Added `IntegrationApiKey` domain/model mapping, typed contracts, conservative scopes, hashing/generation helpers, management service, module endpoints, and `IntegrationApiKey` auth scheme.
+- Current API-key auth plumbing supports `Authorization: Bearer <rawKey>` and `X-OBP-API-Key: <rawKey>` for future integration endpoints. No record/report data endpoints were added in this task.
 
 ## Out of Scope
 
