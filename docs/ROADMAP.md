@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 001 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 002 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -34,8 +34,9 @@
 - `/workflows` includes a workflow-only XYFlow visual builder over the existing typed draft config, with JSON fallback and no persisted graph layout metadata.
 - `/printing` includes persisted record/report print template management, immutable published versions, safe small logo uploads, browser print/save-as-PDF output, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 - Backend integration API key management exists with hashed key storage, conservative typed scopes, `integrations.manage` management endpoints, create/revoke/rotate audit logs, and API-key authentication plumbing.
+- Backend integration log persistence exists with typed directions/types/statuses, sanitized metadata, retry metadata, read endpoints, and auditable explicit retry requests.
 
-Next: start V8 task 002 with integration logs and retry foundation.
+Next: start V8 task 003 with public/internal record API foundation.
 
 ## Product Engine Path
 

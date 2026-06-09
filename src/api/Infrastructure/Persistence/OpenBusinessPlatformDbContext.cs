@@ -69,6 +69,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<IntegrationApiKey> IntegrationApiKeys => Set<IntegrationApiKey>();
 
+    public DbSet<IntegrationLogEntry> IntegrationLogs => Set<IntegrationLogEntry>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -848,6 +850,52 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(apiKey => apiKey.RevokedBy)
                 .WithMany()
                 .HasForeignKey(apiKey => apiKey.RevokedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<IntegrationLogEntry>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "integration_logs");
+            entity.HasIndex(log => log.IntegrationKey);
+            entity.HasIndex(log => log.Direction);
+            entity.HasIndex(log => log.IntegrationType);
+            entity.HasIndex(log => log.Status);
+            entity.HasIndex(log => new { log.SourceType, log.SourceId });
+            entity.HasIndex(log => new { log.TargetEntityType, log.TargetEntityId });
+            entity.HasIndex(log => log.RetryNextAttemptAt);
+            entity.HasIndex(log => log.CreatedAt);
+            entity.Property(log => log.Direction).HasColumnName("direction").HasMaxLength(40).IsRequired();
+            entity.Property(log => log.IntegrationType).HasColumnName("integration_type").HasMaxLength(80).IsRequired();
+            entity.Property(log => log.IntegrationKey).HasColumnName("integration_key").HasMaxLength(120).IsRequired();
+            entity.Property(log => log.SourceType).HasColumnName("source_type").HasMaxLength(80).IsRequired();
+            entity.Property(log => log.SourceId).HasColumnName("source_id").HasColumnType("uuid");
+            entity.Property(log => log.TargetEntityType).HasColumnName("target_entity_type").HasMaxLength(80);
+            entity.Property(log => log.TargetEntityId).HasColumnName("target_entity_id").HasColumnType("uuid");
+            entity.Property(log => log.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(log => log.AttemptCount).HasColumnName("attempt_count").HasDefaultValue(0);
+            entity.Property(log => log.MaxAttempts).HasColumnName("max_attempts").HasDefaultValue(3);
+            entity.Property(log => log.IsRetryable).HasColumnName("is_retryable").HasDefaultValue(false);
+            entity.Property(log => log.RetryNextAttemptAt).HasColumnName("retry_next_attempt_at");
+            entity.Property(log => log.RetryLockedAt).HasColumnName("retry_locked_at");
+            entity.Property(log => log.RetryCompletedAt).HasColumnName("retry_completed_at");
+            entity.Property(log => log.RetryExhaustedAt).HasColumnName("retry_exhausted_at");
+            entity.Property(log => log.RetryRequestedAt).HasColumnName("retry_requested_at");
+            entity.Property(log => log.RetryRequestedById).HasColumnName("retry_requested_by_id").HasColumnType("uuid");
+            entity.Property(log => log.RequestMetadataJson).HasColumnName("request_metadata_json").HasColumnType("jsonb");
+            entity.Property(log => log.ResponseMetadataJson).HasColumnName("response_metadata_json").HasColumnType("jsonb");
+            entity.Property(log => log.ErrorCode).HasColumnName("error_code").HasMaxLength(120);
+            entity.Property(log => log.ErrorMessage).HasColumnName("error_message").HasMaxLength(2000);
+            entity.Property(log => log.StartedAt).HasColumnName("started_at").IsRequired();
+            entity.Property(log => log.CompletedAt).HasColumnName("completed_at");
+            entity
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(log => log.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(log => log.RetryRequestedBy)
+                .WithMany()
+                .HasForeignKey(log => log.RetryRequestedById)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

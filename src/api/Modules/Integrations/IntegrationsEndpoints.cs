@@ -100,6 +100,60 @@ public static class IntegrationsEndpoints
             });
         });
 
+        var logs = endpoints.MapGroup("/api/integrations/logs")
+            .WithTags("Integrations")
+            .RequireAuthorization();
+
+        logs.MapGet("", async (
+            IntegrationLogService integrationLogs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await integrationLogs.ListAsync(cancellationToken) });
+        });
+
+        logs.MapGet("/{logId:guid}", async (
+            Guid logId,
+            IntegrationLogService integrationLogs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var log = await integrationLogs.GetAsync(logId, cancellationToken);
+            return log is null ? Results.NotFound() : Results.Ok(log);
+        });
+
+        logs.MapPost("/{logId:guid}/retry-request", async (
+            Guid logId,
+            RequestIntegrationRetryRequest request,
+            IntegrationLogService integrationLogs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var log = await integrationLogs.RequestRetryAsync(logId, request, GetCurrentUserId(httpContext), cancellationToken);
+                return log is null ? Results.NotFound() : Results.Ok(log);
+            });
+        });
+
         return endpoints;
     }
 

@@ -7,7 +7,7 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 ## Recommended Execution Order
 
 1. `001-api-keys-and-integration-auth.md` - complete; hashed API keys, scoped integration identities, and backend auth plumbing.
-2. `002-integration-logs-and-retry-foundation.md` - shared integration log records, statuses, and retry-safe metadata.
+2. `002-integration-logs-and-retry-foundation.md` - complete; shared integration log records, statuses, sanitized metadata, and retry-safe metadata.
 3. `003-public-record-api-foundation.md` - authenticated public/internal record API endpoints with existing permission and field rules.
 4. `004-incoming-webhook-listeners.md` - named webhook listeners that can create or update records through safe typed mappings.
 5. `005-record-import-jobs.md` - CSV/import job foundation for permitted form records with validation and audit logs.

@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -140,6 +140,95 @@ Request:
 ```
 
 Future integration endpoints can opt into the `IntegrationApiKey` authentication scheme. Requests may pass the key as `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`. A successful API-key authentication updates `lastUsedAt`, `lastUsedIp`, and `lastUsedUserAgent` only when the key is still active and non-revoked.
+
+### Integration logs
+
+Integration log management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.
+
+Integration logs are a shared observability foundation for future inbound and outbound work. They track direction, type, stable integration identity, source, optional target entity, status, attempts, timestamps, sanitized metadata, and retry request metadata. Request and response metadata are intended for headers and operational metadata, not raw payloads; secret-like keys such as authorization headers, API keys, tokens, passwords, and secrets are redacted before persistence.
+
+Supported directions:
+
+- `inbound`
+- `outbound`
+
+Supported initial integration types:
+
+- `api`
+- `webhook`
+- `import`
+- `export`
+
+Supported statuses:
+
+- `pending`
+- `running`
+- `succeeded`
+- `failed`
+- `canceled`
+
+`GET /api/integrations/logs`
+
+Lists the latest integration logs, newest first.
+
+`GET /api/integrations/logs/{logId}`
+
+Returns one integration log or `404`.
+
+Example response:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "direction": "outbound",
+  "integrationType": "webhook",
+  "integrationKey": "payroll-sync",
+  "sourceType": "Trigger",
+  "sourceId": "00000000-0000-0000-0000-000000000000",
+  "targetEntityType": "Record",
+  "targetEntityId": "00000000-0000-0000-0000-000000000000",
+  "status": "failed",
+  "attemptCount": 1,
+  "maxAttempts": 3,
+  "isRetryable": true,
+  "retryNextAttemptAt": "2026-06-09T21:02:28Z",
+  "retryLockedAt": null,
+  "retryCompletedAt": null,
+  "retryExhaustedAt": null,
+  "retryRequestedAt": null,
+  "retryRequestedById": null,
+  "requestMetadata": {
+    "authorization": "[redacted]",
+    "contentType": "application/json"
+  },
+  "responseMetadata": {
+    "statusCode": 500
+  },
+  "errorCode": "remote_500",
+  "errorMessage": "Remote service returned 500.",
+  "startedAt": "2026-06-09T21:01:28Z",
+  "completedAt": "2026-06-09T21:01:30Z",
+  "concurrencyStamp": "stamp",
+  "createdAt": "2026-06-09T21:01:30Z",
+  "createdById": null,
+  "updatedAt": null,
+  "updatedById": null,
+  "retryState": "pending"
+}
+```
+
+`POST /api/integrations/logs/{logId}/retry-request`
+
+Marks a retryable failed log for explicit retry handling and writes an audit log entry. This endpoint does not replay the integration action; future workers/UI can use the metadata to perform visible retry operations.
+
+Request:
+
+```json
+{
+  "concurrencyStamp": "stamp",
+  "retryNextAttemptAt": "2026-06-09T21:05:00Z"
+}
+```
 
 ### Dashboard summary
 

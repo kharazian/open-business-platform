@@ -128,6 +128,7 @@ AssertTable<PrintTemplateVersion>(model, "print_template_versions");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<IntegrationApiKey>(model, "integration_api_keys");
+AssertTable<IntegrationLogEntry>(model, "integration_logs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -156,6 +157,7 @@ AssertTypeAssignable<CreationAuditedEntity<Guid>, PrintTemplateVersion>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationApiKey>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationLogEntry>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -183,6 +185,7 @@ AssertGuidId<PrintTemplateVersion>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<IntegrationApiKey>(model);
+AssertGuidId<IntegrationLogEntry>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -215,6 +218,8 @@ AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ConfigJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ScopesJson));
+AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RequestMetadataJson));
+AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ResponseMetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -230,6 +235,7 @@ AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPrope
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropertiesJson));
+AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -290,6 +296,24 @@ AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedIp), "la
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedUserAgent), "last_used_user_agent", "Integration API keys should track last use user agent metadata.");
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedAt), "revoked_at", "Integration API keys should track revocation time.");
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedById), "revoked_by_id", "Integration API keys should track the revoking user.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.Direction), "direction", "Integration logs should store inbound/outbound direction.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.IntegrationType), "integration_type", "Integration logs should store integration type.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.IntegrationKey), "integration_key", "Integration logs should store stable integration identity.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.SourceType), "source_type", "Integration logs should store source type.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.SourceId), "source_id", "Integration logs should store optional source id.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.TargetEntityType), "target_entity_type", "Integration logs should store target entity type.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.TargetEntityId), "target_entity_id", "Integration logs should store target entity id.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.Status), "status", "Integration logs should store execution status.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.AttemptCount), "attempt_count", "Integration logs should store attempt count.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.MaxAttempts), "max_attempts", "Integration logs should store retry max attempts.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.IsRetryable), "is_retryable", "Integration logs should store whether failure can be retried.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RetryNextAttemptAt), "retry_next_attempt_at", "Integration logs should store next retry metadata.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RetryRequestedAt), "retry_requested_at", "Integration logs should store explicit retry request time.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RetryRequestedById), "retry_requested_by_id", "Integration logs should store explicit retry requester.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ErrorCode), "error_code", "Integration logs should store sanitized error code.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ErrorMessage), "error_message", "Integration logs should store sanitized error message.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.StartedAt), "started_at", "Integration logs should store start time.");
+AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.CompletedAt), "completed_at", "Integration logs should store completion time.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
@@ -299,6 +323,14 @@ AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IsActive)
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.LastUsedAt) }, "Integration API keys should be indexed by last use time.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.RevokedAt) }, "Integration API keys should be indexed by revocation time.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.CreatedById) }, "Integration API keys should be indexed by creator.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.IntegrationKey) }, "Integration logs should be indexed by integration identity.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.Direction) }, "Integration logs should be indexed by direction.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.IntegrationType) }, "Integration logs should be indexed by integration type.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.Status) }, "Integration logs should be indexed by status.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.SourceType), nameof(IntegrationLogEntry.SourceId) }, "Integration logs should be indexed by source.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.TargetEntityType), nameof(IntegrationLogEntry.TargetEntityId) }, "Integration logs should be indexed by target entity.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.RetryNextAttemptAt) }, "Integration logs should be indexed by retry due time.");
+AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.CreatedAt) }, "Integration logs should be indexed by creation time.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
@@ -393,6 +425,49 @@ AssertFalse(
 AssertTrue(
     IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = true }),
     "Active non-revoked integration API keys should authenticate.");
+AssertEqual("inbound", IntegrationLogDirections.Inbound, "Integration log directions should include inbound.");
+AssertEqual("outbound", IntegrationLogDirections.Outbound, "Integration log directions should include outbound.");
+AssertTrue(IntegrationLogDirections.Supported.Contains(IntegrationLogDirections.Inbound), "Integration log directions should be typed.");
+AssertTrue(IntegrationLogTypes.Supported.Contains(IntegrationLogTypes.Webhook), "Integration log types should include webhook integrations.");
+AssertTrue(IntegrationLogStatuses.Supported.Contains(IntegrationLogStatuses.Failed), "Integration log statuses should include failed.");
+var sensitiveMetadata = new Dictionary<string, object?>
+{
+    ["Authorization"] = "Bearer secret",
+    ["x-obp-api-key"] = generatedApiKey.RawKey,
+    ["contentType"] = "application/json",
+    ["nested"] = new Dictionary<string, object?>
+    {
+        ["password"] = "do-not-store",
+        ["safe"] = "visible"
+    }
+};
+var sanitizedMetadata = IntegrationMetadataSanitizer.Sanitize(sensitiveMetadata);
+AssertNotNull(sanitizedMetadata, "Integration log metadata sanitizer should return sanitized metadata.");
+AssertEqual(IntegrationMetadataSanitizer.RedactedValue, sanitizedMetadata!["Authorization"]?.ToString(), "Integration log metadata should redact authorization headers.");
+AssertEqual(IntegrationMetadataSanitizer.RedactedValue, sanitizedMetadata["x-obp-api-key"]?.ToString(), "Integration log metadata should redact API key headers.");
+AssertTrue(
+    sanitizedMetadata["nested"] is IReadOnlyDictionary<string, object?> nestedMetadata
+        && nestedMetadata["password"]?.ToString() == IntegrationMetadataSanitizer.RedactedValue
+        && nestedMetadata["safe"]?.ToString() == "visible",
+    "Integration log metadata redaction should recurse into nested metadata.");
+var integrationRetryPolicy = IntegrationRetryPolicy.Default;
+var integrationRetryNow = DateTimeOffset.Parse("2026-06-09T12:00:00Z");
+var retryableIntegrationLog = new IntegrationLogEntry
+{
+    Status = IntegrationLogStatuses.Failed,
+    IsRetryable = true
+};
+IntegrationRetryScheduler.ScheduleRetry(retryableIntegrationLog, integrationRetryPolicy, integrationRetryNow);
+AssertEqual(0, retryableIntegrationLog.AttemptCount, "Initial integration retry scheduling should not consume an attempt.");
+AssertEqual(integrationRetryPolicy.MaxAttempts, retryableIntegrationLog.MaxAttempts, "Initial integration retry scheduling should store max attempts.");
+AssertEqual(integrationRetryNow.Add(integrationRetryPolicy.Delay), retryableIntegrationLog.RetryNextAttemptAt, "Initial integration retry scheduling should store next attempt time.");
+AssertEqual(IntegrationRetryStates.Pending, IntegrationRetryStateResolver.Resolve(retryableIntegrationLog), "Retryable failed integration logs with next-attempt metadata should resolve pending state.");
+IntegrationRetryScheduler.MarkAttemptFailed(retryableIntegrationLog, integrationRetryPolicy, integrationRetryNow.AddMinutes(1));
+AssertEqual(1, retryableIntegrationLog.AttemptCount, "Failed integration retry attempts should increment attempt count.");
+retryableIntegrationLog.AttemptCount = integrationRetryPolicy.MaxAttempts - 1;
+IntegrationRetryScheduler.MarkAttemptFailed(retryableIntegrationLog, integrationRetryPolicy, integrationRetryNow.AddMinutes(2));
+AssertNotNull(retryableIntegrationLog.RetryExhaustedAt, "Integration retries should mark exhaustion after the final attempt.");
+AssertEqual(IntegrationRetryStates.Exhausted, IntegrationRetryStateResolver.Resolve(retryableIntegrationLog), "Exhausted integration logs should resolve exhausted state.");
 
 var retryPolicy = TriggerRetryPolicy.Default;
 AssertEqual(3, retryPolicy.MaxAttempts, "Automatic trigger retries should default to three attempts.");
@@ -1616,6 +1691,10 @@ AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKe
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RevokeAsync)), "Integration API key service should revoke active keys.");
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RotateAsync)), "Integration API key service should rotate keys and return the new raw key once.");
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.AuthenticateAsync)), "Integration API key service should authenticate raw keys for API requests.");
+AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.ListAsync)), "Integration log service should list observable integration attempts.");
+AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.GetAsync)), "Integration log service should get one integration attempt.");
+AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.RecordAsync)), "Integration log service should record sanitized integration attempts.");
+AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.RequestRetryAsync)), "Integration log service should explicitly mark retry requests.");
 AssertTypeAssignable<IPlatformApiModule, IntegrationsModule>();
 AssertTrue(new IntegrationsModule().Id == "app.integrations", "Integrations module should expose a stable module id.");
 var createApiKeyRequest = new CreateIntegrationApiKeyRequest(
@@ -1644,6 +1723,55 @@ var apiKeyDto = new IntegrationApiKeyDto(
 var createdApiKey = new CreatedIntegrationApiKeyDto(apiKeyDto, generatedApiKey.RawKey);
 AssertEqual(generatedApiKey.RawKey, createdApiKey.RawKey, "Created integration API key DTOs should return the raw key once.");
 AssertEqual("obp_sk_sampleprefix", createdApiKey.ApiKey.KeyPrefix, "Created integration API key DTOs should expose only the display prefix after creation.");
+var recordIntegrationLog = new RecordIntegrationLogRequest(
+    IntegrationLogDirections.Outbound,
+    IntegrationLogTypes.Webhook,
+    "payroll-sync",
+    IntegrationLogStatuses.Failed,
+    "Trigger",
+    Guid.Parse("99999999-1111-2222-3333-444444444444"),
+    "Record",
+    Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444"),
+    AttemptCount: 1,
+    MaxAttempts: 3,
+    IsRetryable: true,
+    RequestMetadata: sensitiveMetadata,
+    ResponseMetadata: new Dictionary<string, object?> { ["statusCode"] = 500 },
+    ErrorCode: "remote_500",
+    ErrorMessage: "Remote service returned 500.");
+AssertEqual(IntegrationLogDirections.Outbound, recordIntegrationLog.Direction, "Record integration log requests should carry typed direction.");
+AssertEqual("payroll-sync", recordIntegrationLog.IntegrationKey, "Record integration log requests should carry integration identity.");
+var integrationLogDto = new IntegrationLogDto(
+    Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444"),
+    IntegrationLogDirections.Outbound,
+    IntegrationLogTypes.Webhook,
+    "payroll-sync",
+    "Trigger",
+    Guid.Parse("99999999-1111-2222-3333-444444444444"),
+    "Record",
+    Guid.Parse("aaaaaaaa-1111-2222-3333-444444444444"),
+    IntegrationLogStatuses.Failed,
+    1,
+    3,
+    true,
+    integrationRetryNow.AddMinutes(1),
+    null,
+    null,
+    null,
+    null,
+    null,
+    new Dictionary<string, object?> { ["authorization"] = IntegrationMetadataSanitizer.RedactedValue },
+    new Dictionary<string, object?> { ["statusCode"] = 500 },
+    "remote_500",
+    "Remote service returned 500.",
+    DateTimeOffset.UtcNow,
+    DateTimeOffset.UtcNow,
+    "integration-log-stamp",
+    DateTimeOffset.UtcNow,
+    null,
+    null,
+    null);
+AssertEqual(IntegrationRetryStates.Pending, integrationLogDto.RetryState, "Integration log DTOs should expose retry state.");
 AssertEqual("success", TriggerExecutionStatuses.Success, "Trigger success logs should use success status.");
 AssertEqual("failed", TriggerExecutionStatuses.Failed, "Trigger failure logs should use failed status.");
 var retrySourceLogId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");

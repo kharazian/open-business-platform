@@ -27,14 +27,21 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Integration log contracts are typed.
-- [ ] Integration log persistence is documented.
-- [ ] Sensitive request/response data is redacted.
-- [ ] Retry metadata supports safe future retry workers/UI.
-- [ ] Manual retry operations are auditable if added.
-- [ ] Tests are added where practical.
-- [ ] Documentation is updated.
-- [ ] Relevant build/test commands are run.
+- [x] Integration log contracts are typed.
+- [x] Integration log persistence is documented.
+- [x] Sensitive request/response data is redacted.
+- [x] Retry metadata supports safe future retry workers/UI.
+- [x] Manual retry operations are auditable if added.
+- [x] Tests are added where practical.
+- [x] Documentation is updated.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added `integration_logs` through EF Core migration `20260609210128_IntegrationLogs`.
+- Added typed directions, integration types, statuses, DTOs, retry states, retry scheduler metadata helpers, and request/response metadata sanitization.
+- Added management endpoints for listing logs, reading one log, and explicitly marking retryable failed logs for retry handling.
+- Manual retry request marking writes an `integration_log_retry_requested` audit log entry. It does not replay integration actions or start a background retry worker.
 
 ## Out of Scope
 

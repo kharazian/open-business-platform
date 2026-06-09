@@ -48,8 +48,8 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Workflows`: current V5 backend workflow definitions, typed validation, list/create/read/update/publish/enable/disable APIs, immutable version publishing, record workflow state/start/direct transition execution, approval-gated transition tasks, current-user approval APIs, approval notifications, and workflow history writes
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API, V2 chart widget preview module, and V7 dashboard analytics execution API
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
-- `src/api/Modules/Integrations`: current V8 API key management module with hashed keys, conservative scopes, backend permission checks, audit logging, and API-key authentication plumbing
-- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, and integration API keys
+- `src/api/Modules/Integrations`: current V8 API key management and integration log module with hashed keys, conservative scopes, backend permission checks, audit logging, API-key authentication plumbing, sanitized integration log metadata, and explicit retry request metadata
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, and integration logs
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
@@ -75,6 +75,7 @@ V7 task 002 is complete for dashboard builder controls over summary, breakdown, 
 V7 task 003 is complete for saved dashboard viewer rendering of V7 analytics widgets, independent per-widget refresh/error states, and denser responsive preview rendering without adding a chart dependency.
 V7 task 004 is complete for backend-owned workspace/private dashboard visibility, shared default dashboard metadata, safe legacy dashboard defaults, and dashboard editor controls without a database schema migration.
 V8 task 001 is complete: integration API key management now stores only hashed key material, returns raw keys only on create/rotate, tracks active/revoked and last-used metadata, adds `integrations.manage`, writes audit logs for create/revoke/rotate, and registers API-key authentication plumbing without exposing record/report data.
+V8 task 002 is complete: integration logs now persist typed inbound/outbound attempt metadata, sanitized request/response metadata, retry state fields, and explicit retry requests with audit logs, without adding background replay.
 
 ## 2. Core Product Philosophy
 
@@ -902,10 +903,11 @@ V6 task 005 is complete for print template logo uploads.
 V6 task 006 is complete for server-side PDF generation.
 V6 task 007 is complete for PDF email attachments on record-trigger email actions.
 V8 task 001 is complete for hashed integration API keys, conservative typed scopes, management endpoints, audit logs, and backend API-key authentication plumbing.
+V8 task 002 is complete for integration log persistence, sanitized metadata, retry metadata, management read endpoints, and auditable explicit retry requests.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V8 task 002 for integration logs and retry foundation.
+Next concrete work should start V8 task 003 for the public/internal record API foundation.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

@@ -4,13 +4,14 @@
 
 Database: PostgreSQL
 
-Status: V8 task 001 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, and integration API key tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 task 002 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, and integration log tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
 - `password_reset_tokens`
 - `integration_api_keys`
+- `integration_logs`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -135,6 +136,61 @@ Foreign keys:
 
 - created_by_id -> users.id, set null on delete
 - revoked_by_id -> users.id, set null on delete
+
+### integration_logs
+
+Stores observable inbound/outbound integration attempts. Metadata columns must store only sanitized request/response metadata, not raw request bodies, secret headers, raw API keys, or hidden field values.
+
+Fields:
+
+- id uuid
+- direction: inbound, outbound
+- integration_type: api, webhook, import, export
+- integration_key stable normalized integration identity
+- source_type
+- source_id nullable
+- target_entity_type nullable
+- target_entity_id nullable
+- status: pending, running, succeeded, failed, canceled
+- attempt_count
+- max_attempts
+- is_retryable
+- retry_next_attempt_at nullable
+- retry_locked_at nullable
+- retry_completed_at nullable
+- retry_exhausted_at nullable
+- retry_requested_at nullable
+- retry_requested_by_id nullable
+- request_metadata_json JSONB nullable
+- response_metadata_json JSONB nullable
+- error_code nullable
+- error_message nullable
+- started_at
+- completed_at nullable
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- integration_key
+- direction
+- integration_type
+- status
+- source_type + source_id
+- target_entity_type + target_entity_id
+- retry_next_attempt_at
+- created_at
+- created_by_id
+- retry_requested_by_id
+
+Foreign keys:
+
+- created_by_id -> users.id, set null on delete
+- retry_requested_by_id -> users.id, set null on delete
 
 ### roles
 

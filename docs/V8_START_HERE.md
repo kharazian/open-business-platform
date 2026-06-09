@@ -7,6 +7,7 @@ This packet is the handoff for V8: Integrations and API.
 - V1 through V7 are complete for the current task lists.
 - V7 task 004 added conservative dashboard visibility/default metadata and closed the current dashboard analytics sequence.
 - V8 task 001 added hashed integration API key management and API-key authentication plumbing before exposing inbound webhooks, imports, exports, or broader public/internal APIs.
+- V8 task 002 added integration log persistence, sanitized metadata, and explicit retry request metadata before adding more integration surfaces.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -30,7 +31,7 @@ V8 connects the platform to external systems without weakening the existing perm
 Implement V8 in this order:
 
 1. API keys and integration auth. Complete.
-2. Integration logs and retry foundation.
+2. Integration logs and retry foundation. Complete.
 3. Public/internal record API foundation.
 4. Incoming webhook listeners.
 5. Record import jobs.
