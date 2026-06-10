@@ -14,7 +14,7 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 006 added external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, hidden-field filtering, audit logs, and outbound export integration logs.
 - V8 task 007 added explicit daily/weekly/monthly scheduled automation contracts with interval/day metadata, tested due-time calculation, safe scheduled-action validation, and schedule run metadata in trigger logs.
 - V8 task 008 added scheduled workflow starts with explicit same-form workflow targets, bounded record selection rules, workflow history/audit writes, and trigger log record results.
-- V8 task 009 added a permission-aware `/integrations` operations UI for API keys, integration logs, and explicit retry requests.
+- V8 task 009 added a permission-aware `/integrations` operations UI for API keys, webhook listeners, import jobs, export jobs, integration logs, and explicit retry requests.
 - V8 finalization notes are in `docs/V8_FINALIZATION.md`.
 - Practical V8 test scenarios are in `docs/V8_PRACTICAL_TESTING.md`.
 - V9 can be postponed; when ready, use `docs/V9_START_HERE.md` and `tasks/v9/README.md`.

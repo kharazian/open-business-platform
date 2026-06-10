@@ -84,6 +84,132 @@ export type IntegrationLogFilters = {
   since?: string;
 };
 
+export type IncomingWebhookListenerAction = "create" | "upsert";
+export type IncomingWebhookListenerAuthMode = "api_key" | "listener_secret";
+
+export type IncomingWebhookFieldMappingDefinition = {
+  sourcePath: string;
+  targetFieldId: string;
+  required?: boolean;
+};
+
+export type IncomingWebhookMappingDefinition = {
+  fieldMappings: IncomingWebhookFieldMappingDefinition[];
+};
+
+export type UpsertIncomingWebhookListenerRequest = {
+  name: string;
+  listenerKey: string;
+  targetFormId: EntityId;
+  action: IncomingWebhookListenerAction;
+  authMode: IncomingWebhookListenerAuthMode;
+  mapping: IncomingWebhookMappingDefinition;
+  isActive: boolean;
+  safeLookupFieldId?: string | null;
+};
+
+export type IncomingWebhookListenerDto = AuditedEntityDto & ConcurrencyStampedDto & {
+  name: string;
+  listenerKey: string;
+  targetFormId: EntityId;
+  action: IncomingWebhookListenerAction;
+  authMode: IncomingWebhookListenerAuthMode;
+  secretPrefix?: string | null;
+  safeLookupFieldId?: string | null;
+  mapping: IncomingWebhookMappingDefinition;
+  isActive: boolean;
+};
+
+export type IncomingWebhookListenerSecretResponse = {
+  listener: IncomingWebhookListenerDto;
+  rawSecret: string;
+};
+
+export type RecordImportJobStatus = "pending" | "running" | "succeeded" | "completed_with_errors" | "failed";
+
+export type RecordImportFieldMappingDefinition = {
+  csvHeader: string;
+  targetFieldId: string;
+};
+
+export type RecordImportMappingDefinition = {
+  fieldMappings: RecordImportFieldMappingDefinition[];
+};
+
+export type CreateRecordImportJobRequest = {
+  formId: EntityId;
+  integrationKey: string;
+  fileName?: string | null;
+  csvContent: string;
+  mapping: RecordImportMappingDefinition;
+};
+
+export type RecordImportJobSummaryDto = {
+  id: EntityId;
+  formId: EntityId;
+  integrationKey: string;
+  fileName?: string | null;
+  status: RecordImportJobStatus;
+  totalRows: number;
+  succeededRows: number;
+  failedRows: number;
+  startedAt: string;
+  completedAt?: string | null;
+  createdAt: string;
+  createdById?: EntityId | null;
+};
+
+export type RecordImportJobDetailDto = RecordImportJobSummaryDto & ConcurrencyStampedDto & {
+  mapping: RecordImportMappingDefinition;
+  rows: Array<{
+    id: EntityId;
+    rowNumber: number;
+    status: "succeeded" | "failed";
+    recordId?: EntityId | null;
+    errors: Array<{ fieldId?: string | null; code: string; message: string }>;
+  }>;
+  updatedAt?: string | null;
+  updatedById?: EntityId | null;
+};
+
+export type ExternalExportJobSourceType = "form_records" | "list_report";
+export type ExternalExportJobFormat = "csv" | "json";
+export type ExternalExportJobStatus = "pending" | "running" | "succeeded" | "failed";
+
+export type CreateExternalExportJobRequest = {
+  sourceType: ExternalExportJobSourceType;
+  format: ExternalExportJobFormat;
+  integrationKey: string;
+  formId?: EntityId | null;
+  reportId?: EntityId | null;
+  search?: string | null;
+};
+
+export type ExternalExportJobSummaryDto = {
+  id: EntityId;
+  sourceType: ExternalExportJobSourceType;
+  format: ExternalExportJobFormat;
+  integrationKey: string;
+  formId?: EntityId | null;
+  reportId?: EntityId | null;
+  status: ExternalExportJobStatus;
+  rowCount: number;
+  artifactFileName?: string | null;
+  artifactContentType?: string | null;
+  artifactSizeBytes: number;
+  startedAt: string;
+  completedAt?: string | null;
+  createdAt: string;
+  createdById?: EntityId | null;
+};
+
+export type ExternalExportJobDetailDto = ExternalExportJobSummaryDto & ConcurrencyStampedDto & {
+  artifactContent?: string | null;
+  artifactMetadata?: unknown;
+  updatedAt?: string | null;
+  updatedById?: EntityId | null;
+};
+
 export const integrationApiKeyScopes: IntegrationApiKeyScope[] = [
   "integrations.authenticate",
   "integrations.records.read",

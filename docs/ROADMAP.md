@@ -41,7 +41,7 @@
 - External export jobs exist for permitted form records and list reports with CSV/JSON artifacts, hidden-field filtering, persisted metadata/content, audit logs, and outbound export integration logs.
 - Scheduled trigger contracts include explicit daily/weekly/monthly interval and day metadata, tested due-time calculation, safe action validation, and due/locked/skipped/success/failure trigger log metadata.
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
-- `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, integration log filtering/detail review, and explicit retry requests.
+- `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
 
 Next: test V8 practically with `docs/V8_PRACTICAL_TESTING.md`. V9 can be postponed; when ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
 

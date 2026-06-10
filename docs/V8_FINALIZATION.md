@@ -33,7 +33,11 @@ Completed V8 work:
 
 - `/integrations` for administrators with `integrations.manage`.
 - API key create/revoke/rotate controls.
+- Webhook listener create/enable/disable/rotate-secret controls.
+- CSV import job creation and status review.
+- External export job creation, status review, and latest artifact preview.
 - Sanitized integration log list, filters, detail review, and retry request action.
+- Scripted practical smoke coverage through `scripts/v8-smoke.sh`.
 
 ## Implemented API Areas
 
@@ -69,6 +73,8 @@ See `docs/DATA_MODEL.md` for table details.
 - No tenant/workspace ownership model.
 - No advanced SSO or enterprise identity policy.
 - No automated retry worker for integrations beyond explicit retry request metadata.
+- No server-side integration log pagination/filtering beyond latest-log retrieval.
+- No protected artifact download endpoint separate from export job detail responses.
 
 ## Verification For Final V8 State
 

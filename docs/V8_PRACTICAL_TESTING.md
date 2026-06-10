@@ -141,6 +141,24 @@ curl -i -b /tmp/obp.cookies \
 
 Refresh `/integrations` and confirm the Logs tab now shows API, import, and export activity.
 
+## Scripted Smoke Path
+
+After the backend is running and migrations are applied, run:
+
+```bash
+bash scripts/v8-smoke.sh
+```
+
+Optional overrides:
+
+```bash
+API_BASE_URL=http://localhost:5080 \
+OBP_EMAIL=admin.demo@company.test \
+OBP_PASSWORD=DemoUser!2026 \
+FORM_ID=10000000-0000-0000-0000-000000000001 \
+bash scripts/v8-smoke.sh
+```
+
 ## Negative Tests Worth Running
 
 - Skip the migration step on an older local volume and confirm V8 endpoints fail; then run the migration step and confirm they recover.
@@ -152,12 +170,8 @@ Refresh `/integrations` and confirm the Logs tab now shows API, import, and expo
 
 ## Good Follow-Up Additions To Ask For
 
-- Add webhook listener management to `/integrations`.
-- Add import/export job creation and detail views to `/integrations`.
-- Add a copy button and temporary masking controls for one-time raw API keys.
 - Add server-side log filters and pagination for large integration log tables.
 - Add downloadable export artifacts through a permission-protected endpoint.
 - Add an explicit integration retry worker for failure classes that are safe to replay.
 - Add a practical seed fixture for webhook/import/export demos.
 - Add Playwright smoke tests for `/integrations`.
-- Add API smoke scripts under `scripts/` for the curl flow above.

@@ -1,11 +1,20 @@
 import type {
   CreateIntegrationApiKeyRequest,
+  CreateExternalExportJobRequest,
+  CreateRecordImportJobRequest,
+  ExternalExportJobDetailDto,
+  ExternalExportJobSummaryDto,
+  IncomingWebhookListenerDto,
+  IncomingWebhookListenerSecretResponse,
   IntegrationApiKeyDto,
   IntegrationApiKeySecretResponse,
   IntegrationLogDto,
   RequestIntegrationLogRetryRequest,
+  RecordImportJobDetailDto,
+  RecordImportJobSummaryDto,
   RevokeIntegrationApiKeyRequest,
-  RotateIntegrationApiKeyRequest
+  RotateIntegrationApiKeyRequest,
+  UpsertIncomingWebhookListenerRequest
 } from "./types";
 
 type ApiFetchResponse = {
@@ -90,6 +99,98 @@ export async function requestIntegrationLogRetry(
 ): Promise<IntegrationLogDto> {
   return requestJson<IntegrationLogDto>(
     `/api/integrations/logs/${encodeURIComponent(logId)}/retry-request`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function listIncomingWebhookListeners(fetcher: IntegrationsFetcher = defaultFetcher): Promise<IncomingWebhookListenerDto[]> {
+  return requestItems<IncomingWebhookListenerDto>("/api/integrations/webhooks", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createIncomingWebhookListener(
+  request: UpsertIncomingWebhookListenerRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<IncomingWebhookListenerSecretResponse> {
+  return requestJson<IncomingWebhookListenerSecretResponse>(
+    "/api/integrations/webhooks",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function updateIncomingWebhookListener(
+  listenerId: string,
+  request: UpsertIncomingWebhookListenerRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<IncomingWebhookListenerDto> {
+  return requestJson<IncomingWebhookListenerDto>(
+    `/api/integrations/webhooks/${encodeURIComponent(listenerId)}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function rotateIncomingWebhookListenerSecret(
+  listenerId: string,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<IncomingWebhookListenerSecretResponse> {
+  return requestJson<IncomingWebhookListenerSecretResponse>(
+    `/api/integrations/webhooks/${encodeURIComponent(listenerId)}/rotate-secret`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" }
+    },
+    fetcher
+  );
+}
+
+export async function listRecordImportJobs(fetcher: IntegrationsFetcher = defaultFetcher): Promise<RecordImportJobSummaryDto[]> {
+  return requestItems<RecordImportJobSummaryDto>("/api/integrations/imports", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createRecordImportJob(
+  request: CreateRecordImportJobRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<RecordImportJobDetailDto> {
+  return requestJson<RecordImportJobDetailDto>(
+    "/api/integrations/imports",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function listExternalExportJobs(fetcher: IntegrationsFetcher = defaultFetcher): Promise<ExternalExportJobSummaryDto[]> {
+  return requestItems<ExternalExportJobSummaryDto>("/api/integrations/exports", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createExternalExportJob(
+  request: CreateExternalExportJobRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<ExternalExportJobDetailDto> {
+  return requestJson<ExternalExportJobDetailDto>(
+    "/api/integrations/exports",
     {
       method: "POST",
       credentials: "include",
