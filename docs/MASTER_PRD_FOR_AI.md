@@ -49,6 +49,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API, V2 chart widget preview module, and V7 dashboard analytics execution API
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
 - `src/api/Modules/Integrations`: current V8 API key management, integration log, public record API, incoming webhook listener, record import, and external export module with hashed keys/secrets, conservative scopes, backend permission checks, audit logging, API-key authentication plumbing, sanitized integration log metadata, explicit retry request metadata, versioned API-key-authenticated record list/read/create endpoints, typed webhook payload mapping into records, CSV import jobs with row-level results, and permission-filtered CSV/JSON export jobs
+- `src/app/src/features/integrations`: current V8 integrations operations UI for API key lifecycle actions, sanitized integration log review, client-side log filters, and explicit retry requests
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, integration logs, incoming webhook listeners, record import jobs, and external export jobs
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
@@ -82,6 +83,7 @@ V8 task 005 is complete: record import jobs now persist CSV import status, expli
 V8 task 006 is complete: external export jobs now persist permission-filtered form-record and list-report CSV/JSON artifacts, job status, artifact metadata, audit logs, and outbound export integration logs without public download links.
 V8 task 007 is complete: scheduled automation now has explicit daily/weekly/monthly interval/day contracts, tested due-time calculation, stricter unsafe scheduled-action validation, and trigger log schedule metadata for due, locked, skipped, success, and failure runs.
 V8 task 008 is complete: scheduled workflow starts now use explicit same-form workflow targets and record selection rules, write workflow history/audit entries, and capture selected record results in trigger logs.
+V8 task 009 is complete: `/integrations` now provides a permission-aware operations UI for API key creation/revocation/rotation, sanitized integration log filtering/detail review, and explicit retry requests.
 
 ## 2. Core Product Philosophy
 
@@ -916,10 +918,11 @@ V8 task 005 is complete for CSV record import jobs with explicit field mappings,
 V8 task 006 is complete for external export jobs over permitted form records and list reports with hidden-field filtering, CSV/JSON artifacts, persisted metadata, audit logs, and integration logs.
 V8 task 007 is complete for explicit scheduled automation contracts, daily/weekly/monthly due-time calculation, safe scheduled action validation, and scheduled trigger log metadata.
 V8 task 008 is complete for scheduled workflow starts with explicit record selection and same-form published workflow validation.
+V8 task 009 is complete for the integration operations UI over API keys, integration logs, and retry requests.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V8 task 009 for the integration operations UI.
+Next concrete work should review and finalize V8 or start the next planned version.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

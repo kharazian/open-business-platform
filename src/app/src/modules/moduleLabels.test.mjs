@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { dashboardModule } from "./dashboard/module.tsx";
+import { integrationsModule } from "./integrations/module.tsx";
 import { notificationsModule } from "./notifications/module.tsx";
 import { printingModule } from "./printing/module.tsx";
 import { reportsModule } from "./reports/module.tsx";
@@ -35,4 +36,10 @@ test("printing module exposes the V6 template workspace", () => {
   assert.equal(printingModule.id, "app.printing");
   assert.ok(printingModule.routes.some((route) => route.path === "/printing" && route.permission === "menu.reports"));
   assert.ok(printingModule.navigation.some((item) => item.path === "/printing" && item.label === "Printing"));
+});
+
+test("integrations module exposes the V8 operations workspace", () => {
+  assert.equal(integrationsModule.id, "app.integrations");
+  assert.ok(integrationsModule.routes.some((route) => route.path === "/integrations" && route.permission === "integrations.manage"));
+  assert.ok(integrationsModule.navigation.some((item) => item.path === "/integrations" && item.label === "Integrations"));
 });

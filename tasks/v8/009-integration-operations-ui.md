@@ -26,14 +26,21 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Integration UI is permission-aware.
-- [ ] API keys can be created/revoked/rotated without showing stored secrets.
-- [ ] Integration logs are filterable and readable.
-- [ ] Retry actions are explicit and auditable.
-- [ ] Empty/error/loading states are clear.
-- [ ] Documentation is updated if routes or commands change.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] Integration UI is permission-aware.
+- [x] API keys can be created/revoked/rotated without showing stored secrets.
+- [x] Integration logs are filterable and readable.
+- [x] Retry actions are explicit and auditable.
+- [x] Empty/error/loading states are clear.
+- [x] Documentation is updated if routes or commands change.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added a permission-protected `/integrations` route registered through the platform module registry.
+- Added frontend integration API helpers for API key list/create/revoke/rotate, log list, and explicit retry request.
+- Added a dense operations page with API key lifecycle controls, one-time raw key display after create/rotate, integration log filters, log detail metadata, and retry buttons only for eligible failed logs.
+- Added focused frontend tests for API helpers, log filtering/retry eligibility, and module registration.
 
 ## Out of Scope
 

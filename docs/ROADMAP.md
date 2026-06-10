@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 008 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 009 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -41,8 +41,9 @@
 - External export jobs exist for permitted form records and list reports with CSV/JSON artifacts, hidden-field filtering, persisted metadata/content, audit logs, and outbound export integration logs.
 - Scheduled trigger contracts include explicit daily/weekly/monthly interval and day metadata, tested due-time calculation, safe action validation, and due/locked/skipped/success/failure trigger log metadata.
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
+- `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, integration log filtering/detail review, and explicit retry requests.
 
-Next: start V8 task 009 with the integration operations UI.
+Next: review and finalize V8 or start the next planned version.
 
 ## Product Engine Path
 
@@ -235,7 +236,8 @@ Features:
 - Import records
 - External exports implemented
 - External API calls from approved action definitions
-- Integration logs
+- Integration logs implemented
+- Integration operations UI implemented
 - Retry failed integrations
 
 ## V9: Enterprise Platform
