@@ -36,11 +36,29 @@ public sealed class TriggerScheduleService
         {
             var schedule = DeserializeSchedule(trigger.ScheduleJson);
             var dueAt = trigger.ScheduleNextRunAt ?? now;
+            var lockedAt = DateTimeOffset.UtcNow;
 
-            await triggerExecution.ExecuteScheduledAsync(trigger, dueAt, cancellationToken);
+            if (schedule is null)
+            {
+                await triggerExecution.SkipScheduledAsync(
+                    trigger,
+                    dueAt,
+                    lockedAt,
+                    "schedule_metadata_unavailable",
+                    cancellationToken);
+                trigger.ScheduleLastRunAt = lockedAt;
+                trigger.ScheduleNextRunAt = null;
+                await dbContext.SaveChangesAsync(cancellationToken);
+                processedCount += 1;
+                continue;
+            }
 
-            trigger.ScheduleLastRunAt = now;
-            trigger.ScheduleNextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, now);
+            var nextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, lockedAt);
+            var log = await triggerExecution.ExecuteScheduledAsync(trigger, dueAt, lockedAt, nextRunAt, cancellationToken);
+            var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+
+            trigger.ScheduleLastRunAt = completedAt;
+            trigger.ScheduleNextRunAt = nextRunAt;
             await dbContext.SaveChangesAsync(cancellationToken);
             processedCount += 1;
         }

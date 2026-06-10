@@ -25,14 +25,22 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Schedule contracts are explicit and documented.
-- [ ] Existing scheduled triggers continue to work.
-- [ ] Due-time calculation is tested.
-- [ ] Scheduled execution logs success and failure clearly.
-- [ ] Unsafe schedule/action combinations are rejected.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] Schedule contracts are explicit and documented.
+- [x] Existing scheduled triggers continue to work.
+- [x] Due-time calculation is tested.
+- [x] Scheduled execution logs success and failure clearly.
+- [x] Unsafe schedule/action combinations are rejected.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Expanded `TriggerScheduleDefinition` with explicit `interval`, weekly `dayOfWeek`, and monthly `dayOfMonth` metadata while preserving legacy `kind`/`timeZone`/`startAt` schedules.
+- Updated due-time calculation for daily, weekly, and monthly schedules, including interval support and monthly day clamping for shorter months.
+- Added scheduled trigger log metadata for due time, lock time, completion time, status, and skipped malformed persisted schedules.
+- Kept scheduled actions limited to safe non-record `send_email` and `call_webhook` actions; record/workflow scheduled work remains out of scope.
+- Updated frontend trigger schedule types and request normalization so UI-created weekly/monthly schedules send explicit metadata.
 
 ## Out of Scope
 

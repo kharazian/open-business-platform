@@ -12,7 +12,7 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 4. `004-incoming-webhook-listeners.md` - complete; named webhook listeners that can create or update records through safe typed mappings.
 5. `005-record-import-jobs.md` - complete; CSV/import job foundation for permitted form records with validation and audit logs.
 6. `006-external-export-jobs.md` - complete; outbound export jobs for permitted report/record data with integration logs.
-7. `007-scheduled-automation-expansion.md` - daily/weekly/monthly schedule contracts beyond the current V4 scheduled trigger slice.
+7. `007-scheduled-automation-expansion.md` - complete; explicit daily/weekly/monthly schedule contracts, tested due-time calculation, safe action validation, and schedule run log metadata.
 8. `008-scheduled-workflow-starts.md` - safe scheduled workflow starts with explicit record selection rules.
 9. `009-integration-operations-ui.md` - admin UI for API keys, integration logs, retries, and webhook/import/export status.
 

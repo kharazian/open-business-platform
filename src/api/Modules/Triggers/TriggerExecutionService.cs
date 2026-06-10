@@ -93,6 +93,8 @@ public sealed class TriggerExecutionService
     public async Task<TriggerExecutionLog> ExecuteScheduledAsync(
         TriggerDefinition trigger,
         DateTimeOffset scheduledAt,
+        DateTimeOffset? lockedAt,
+        DateTimeOffset? nextRunAt,
         CancellationToken cancellationToken)
     {
         if (!TriggerEvents.IsScheduled(trigger.EventName))
@@ -125,7 +127,58 @@ public sealed class TriggerExecutionService
             null,
             scheduledAt);
 
-        return await ExecuteMatchedActionsAsync(trigger, context, null, "Schedule", trigger.Id, cancellationToken);
+        return await ExecuteMatchedActionsAsync(
+            trigger,
+            context,
+            null,
+            "Schedule",
+            trigger.Id,
+            cancellationToken,
+            new TriggerScheduledRunMetadata(scheduledAt, lockedAt ?? DateTimeOffset.UtcNow, NextRunAt: nextRunAt));
+    }
+
+    public async Task<TriggerExecutionLog> SkipScheduledAsync(
+        TriggerDefinition trigger,
+        DateTimeOffset scheduledAt,
+        DateTimeOffset lockedAt,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (!TriggerEvents.IsScheduled(trigger.EventName))
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Only scheduled triggers can be skipped by the schedule worker.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var metadata = new TriggerScheduledRunMetadata(
+            scheduledAt,
+            lockedAt,
+            now,
+            null,
+            TriggerExecutionStatuses.Skipped,
+            reason);
+        var log = new TriggerExecutionLog
+        {
+            Id = Guid.NewGuid(),
+            TriggerId = trigger.Id,
+            FormId = trigger.FormId,
+            EventName = trigger.EventName,
+            EntityType = "Schedule",
+            EntityId = trigger.Id,
+            Status = TriggerExecutionStatuses.Skipped,
+            InputJson = Serialize(new { schedule = metadata }),
+            ResultJson = Serialize(new { schedule = metadata, actions = Array.Empty<IReadOnlyDictionary<string, object?>>() }),
+            ErrorMessage = reason,
+            StartedAt = now,
+            CompletedAt = now,
+            CreatedAt = now
+        };
+
+        dbContext.TriggerLogs.Add(log);
+        AddAudit(trigger.Id, "trigger_schedule_skipped", null, log.Id, null, reason);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return log;
     }
 
     private async Task<TriggerExecutionLog> ExecuteMatchedActionsAsync(
@@ -134,7 +187,8 @@ public sealed class TriggerExecutionService
         Guid? retryOfLogId,
         string entityType,
         Guid entityId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TriggerScheduledRunMetadata? scheduleMetadata = null)
     {
         var now = DateTimeOffset.UtcNow;
         var log = new TriggerExecutionLog
@@ -146,7 +200,7 @@ public sealed class TriggerExecutionService
             EntityType = entityType,
             EntityId = entityId,
             Status = TriggerExecutionStatuses.Success,
-            InputJson = SerializeInput(context, retryOfLogId),
+            InputJson = SerializeInput(context, retryOfLogId, scheduleMetadata),
             StartedAt = now,
             CreatedAt = now
         };
@@ -170,8 +224,11 @@ public sealed class TriggerExecutionService
             }
 
             log.Status = TriggerExecutionStatuses.Success;
-            log.ResultJson = SerializeResult(actionResults, retryOfLogId);
             log.CompletedAt = DateTimeOffset.UtcNow;
+            log.ResultJson = SerializeResult(
+                actionResults,
+                retryOfLogId,
+                CompleteScheduleMetadata(scheduleMetadata, TriggerExecutionStatuses.Success, log.CompletedAt.Value));
             AddAudit(
                 trigger.Id,
                 retryOfLogId is null ? "trigger_executed" : "trigger_retry_executed",
@@ -184,8 +241,11 @@ public sealed class TriggerExecutionService
         {
             log.Status = TriggerExecutionStatuses.Failed;
             log.ErrorMessage = exception.Message;
-            log.ResultJson = SerializeResult(actionResults, retryOfLogId);
             log.CompletedAt = DateTimeOffset.UtcNow;
+            log.ResultJson = SerializeResult(
+                actionResults,
+                retryOfLogId,
+                CompleteScheduleMetadata(scheduleMetadata, TriggerExecutionStatuses.Failed, log.CompletedAt.Value));
 
             var retryPolicy = TriggerRetryPolicy.FromTrigger(trigger);
 
@@ -251,27 +311,63 @@ public sealed class TriggerExecutionService
         }
     }
 
-    private static JsonDocument SerializeInput(TriggerEventContext context, Guid? retryOfLogId)
+    private static JsonDocument SerializeInput(
+        TriggerEventContext context,
+        Guid? retryOfLogId,
+        TriggerScheduledRunMetadata? scheduleMetadata = null)
     {
-        if (retryOfLogId is null)
-        {
-            return Serialize(context);
-        }
-
         var input = JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(context, JsonOptions), JsonOptions)
             ?? new Dictionary<string, object?>();
-        input["retry"] = new TriggerRetryMetadata(retryOfLogId.Value);
+
+        if (retryOfLogId is not null)
+        {
+            input["retry"] = new TriggerRetryMetadata(retryOfLogId.Value);
+        }
+
+        if (scheduleMetadata is not null)
+        {
+            input["schedule"] = scheduleMetadata;
+        }
 
         return Serialize(input);
     }
 
     private static JsonDocument SerializeResult(
         IReadOnlyCollection<IReadOnlyDictionary<string, object?>> actionResults,
-        Guid? retryOfLogId)
+        Guid? retryOfLogId,
+        TriggerScheduledRunMetadata? scheduleMetadata = null)
     {
-        return retryOfLogId is null
-            ? Serialize(new { actions = actionResults })
-            : Serialize(new { retry = new TriggerRetryMetadata(retryOfLogId.Value), actions = actionResults });
+        if (retryOfLogId is null && scheduleMetadata is null)
+        {
+            return Serialize(new { actions = actionResults });
+        }
+
+        if (retryOfLogId is null)
+        {
+            return Serialize(new { schedule = scheduleMetadata, actions = actionResults });
+        }
+
+        if (scheduleMetadata is null)
+        {
+            return Serialize(new { retry = new TriggerRetryMetadata(retryOfLogId.Value), actions = actionResults });
+        }
+
+        return Serialize(new
+        {
+            retry = new TriggerRetryMetadata(retryOfLogId.Value),
+            schedule = scheduleMetadata,
+            actions = actionResults
+        });
+    }
+
+    private static TriggerScheduledRunMetadata? CompleteScheduleMetadata(
+        TriggerScheduledRunMetadata? scheduleMetadata,
+        string status,
+        DateTimeOffset completedAt)
+    {
+        return scheduleMetadata is null
+            ? null
+            : scheduleMetadata with { CompletedAt = completedAt, Status = status };
     }
 
     private static IReadOnlyDictionary<string, object?> BuildFailedActionResult(TriggerActionDefinition action, Exception exception)

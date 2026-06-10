@@ -1155,8 +1155,40 @@ var validWorkflowStartTargets = new[]
 };
 var validTriggerRetryPolicy = new TriggerRetryPolicyDefinition(true, 4, 120);
 var validDailySchedule = new TriggerScheduleDefinition(TriggerScheduleKinds.Daily, "Etc/UTC", DateTimeOffset.Parse("2026-06-04T12:00:00Z"));
+var everyOtherDaySchedule = new TriggerScheduleDefinition(
+    TriggerScheduleKinds.Daily,
+    "Etc/UTC",
+    DateTimeOffset.Parse("2026-06-04T12:00:00Z"),
+    Interval: 2);
+var everyOtherMondaySchedule = new TriggerScheduleDefinition(
+    TriggerScheduleKinds.Weekly,
+    "Etc/UTC",
+    DateTimeOffset.Parse("2026-06-01T09:30:00Z"),
+    Interval: 2,
+    DayOfWeek: 1);
+var monthlyLastDayCandidateSchedule = new TriggerScheduleDefinition(
+    TriggerScheduleKinds.Monthly,
+    "Etc/UTC",
+    DateTimeOffset.Parse("2026-01-31T08:00:00Z"),
+    Interval: 1,
+    DayOfMonth: 31);
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.RecordCreated), "Trigger events should include record.created.");
 AssertTrue(TriggerEvents.Supported.Contains(TriggerEvents.ScheduleDaily), "Trigger events should include schedule.daily.");
+AssertEqual(2, everyOtherDaySchedule.Interval, "Daily schedule contracts should expose a typed interval.");
+AssertEqual(1, everyOtherMondaySchedule.DayOfWeek, "Weekly schedule contracts should expose a typed day of week.");
+AssertEqual(31, monthlyLastDayCandidateSchedule.DayOfMonth, "Monthly schedule contracts should expose a typed day of month.");
+AssertEqual(
+    DateTimeOffset.Parse("2026-06-08T12:00:00Z"),
+    TriggerScheduleCalculator.CalculateNextRun(everyOtherDaySchedule, DateTimeOffset.Parse("2026-06-07T12:00:00Z")),
+    "Daily schedule calculation should honor explicit intervals.");
+AssertEqual(
+    DateTimeOffset.Parse("2026-06-15T09:30:00Z"),
+    TriggerScheduleCalculator.CalculateNextRun(everyOtherMondaySchedule, DateTimeOffset.Parse("2026-06-08T09:30:00Z")),
+    "Weekly schedule calculation should honor explicit intervals and day-of-week contracts.");
+AssertEqual(
+    DateTimeOffset.Parse("2026-02-28T08:00:00Z"),
+    TriggerScheduleCalculator.CalculateNextRun(monthlyLastDayCandidateSchedule, DateTimeOffset.Parse("2026-02-01T00:00:00Z")),
+    "Monthly schedule calculation should clamp explicit day-of-month contracts to shorter months.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
@@ -1304,6 +1336,20 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A scheduled trigger with supported schedule actions should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Weekly digest", null, TriggerEvents.ScheduleWeekly, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, everyOtherMondaySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A scheduled weekly trigger with explicit day-of-week metadata should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Monthly digest", null, TriggerEvents.ScheduleMonthly, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, monthlyLastDayCandidateSchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "A scheduled monthly trigger with explicit day-of-month metadata should pass validation.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -1311,6 +1357,28 @@ AssertFalse(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "Scheduled trigger events should require schedule metadata.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Bad weekly schedule", null, TriggerEvents.ScheduleWeekly, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, everyOtherMondaySchedule with { DayOfWeek = 7 }),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Scheduled weekly triggers should reject out-of-range day-of-week metadata.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Bad monthly schedule", null, TriggerEvents.ScheduleMonthly, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validWebhookActions, true, validTriggerRetryPolicy, monthlyLastDayCandidateSchedule with { DayOfMonth = 0 }),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Scheduled monthly triggers should reject out-of-range day-of-month metadata.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Scheduled record create", null, TriggerEvents.ScheduleDaily, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validCreateRecordActions, true, validTriggerRetryPolicy, validDailySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new[] { new TriggerTargetFormSchema(targetFormId, targetFormVersionId, createRecordTargetSchema) }).Valid,
+    "Scheduled triggers should reject record-context create_record actions.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,

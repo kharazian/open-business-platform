@@ -220,7 +220,10 @@ public static class TriggerDefinitionValidator
         return new TriggerScheduleDefinition(
             Normalize(schedule.Kind),
             string.IsNullOrWhiteSpace(schedule.TimeZone) ? "Etc/UTC" : schedule.TimeZone.Trim(),
-            schedule.StartAt.ToUniversalTime());
+            schedule.StartAt.ToUniversalTime(),
+            schedule.Interval,
+            schedule.DayOfWeek,
+            schedule.DayOfMonth);
     }
 
     private static TriggerValidationResult Validate(
@@ -329,6 +332,25 @@ public static class TriggerDefinitionValidator
         if (string.IsNullOrWhiteSpace(schedule.TimeZone))
         {
             errors.Add(Error("schedule.timeZone", "trigger.schedule.time_zone", "Schedule time zone is required."));
+        }
+
+        if (schedule.Interval is < 1 or > 366)
+        {
+            errors.Add(Error("schedule.interval", "trigger.schedule.interval", "Schedule interval must be between 1 and 366."));
+        }
+
+        if (string.Equals(schedule.Kind, TriggerScheduleKinds.Weekly, StringComparison.Ordinal)
+            && schedule.DayOfWeek is not null
+            && (schedule.DayOfWeek is < 0 or > 6))
+        {
+            errors.Add(Error("schedule.dayOfWeek", "trigger.schedule.day_of_week", "Weekly schedule day of week must be between 0 and 6."));
+        }
+
+        if (string.Equals(schedule.Kind, TriggerScheduleKinds.Monthly, StringComparison.Ordinal)
+            && schedule.DayOfMonth is not null
+            && (schedule.DayOfMonth is < 1 or > 31))
+        {
+            errors.Add(Error("schedule.dayOfMonth", "trigger.schedule.day_of_month", "Monthly schedule day of month must be between 1 and 31."));
         }
 
         if (conditions.Conditions.Count > 0)

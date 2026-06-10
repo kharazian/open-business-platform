@@ -48,7 +48,7 @@ The V4 task 009 reliability slice schedules failed trigger logs for automatic re
 
 The V4 task 005 action slice adds `send_notification`, which persists in-app notifications for selected active users and active group members. V4 task 006 adds the current-user notification inbox UI, unread count API, mark-one-read API, and mark-all-read API. V4 task 007 adds unread badges and current-user preferences; disabled in-app preferences cause trigger-created notifications to skip that user. V4 task 008 adds `create_record`, which creates one target-form record from literal values and source-record field references without recursive trigger dispatch. V4 task 010 adds `call_webhook`, which sends JSON webhook requests and lets non-success responses fail into the existing retry path. Push delivery, websockets, email fallback, and admin notification management remain future notification-module work.
 
-The V4 task 010 schedule slice adds `schedule.once`, `schedule.daily`, `schedule.weekly`, and `schedule.monthly` events plus a hosted due-schedule worker. In V4, scheduled triggers intentionally support only safe non-record actions: `send_email` and `call_webhook`. Record/workflow scheduled work remains future workflow/integration work.
+The V4 task 010 schedule slice adds `schedule.once`, `schedule.daily`, `schedule.weekly`, and `schedule.monthly` events plus a hosted due-schedule worker. V8 task 007 makes daily, weekly, and monthly schedule contracts explicit with `interval`, `dayOfWeek`, and `dayOfMonth` metadata while preserving the original `startAt` behavior. Scheduled triggers intentionally support only safe non-record actions: `send_email` and `call_webhook`. Record/workflow scheduled work remains future workflow/integration work.
 
 V5 task 006 adds a typed `start_workflow` trigger action for current-record trigger events. The action validates an enabled, published, same-form workflow with a current published version. On execution, it starts the workflow only when the record has no active workflow, writes workflow history plus a `record_workflow_started_by_trigger` audit entry, and includes `workflowStartStatus` metadata in trigger logs. Duplicate active workflows are treated as a successful skip with reason `record_already_has_active_workflow`; invalid targets fail the trigger action and can use the existing retry path. To prevent recursive automation loops, trigger-started workflow status changes do not dispatch `status.changed` trigger events in this path.
 
@@ -118,6 +118,10 @@ Recommended fields:
 - Enabled state
 - Schedule type: once, daily, weekly, monthly, or cron-like later
 - Time zone
+- Start timestamp
+- Interval, defaulting to 1
+- Weekly day of week, 0 for Sunday through 6 for Saturday
+- Monthly day of month, 1 through 31, clamped to shorter months at execution calculation time
 - Next run time
 - Last run time
 - Conditions or guard rules
@@ -125,7 +129,7 @@ Recommended fields:
 - Retry policy
 - Owner and permission metadata
 
-The scheduler executes due enabled trigger definitions and writes normal trigger logs. V4 scheduled triggers do not support record conditions or record-dependent actions.
+The scheduler executes due enabled trigger definitions and writes normal trigger logs with schedule metadata for due time, lock time, completion time, final status, next run when available, and skip reason when persisted schedule metadata cannot be used. V4/V8 scheduled triggers do not support record conditions or record-dependent actions.
 
 ## Action Engine
 

@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. V8 task 005 adds CSV record import jobs with explicit field mappings, persisted status, row-level results, existing record validation/permissions, audit logs, and integration logs. V8 task 006 adds external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, protected artifact content, audit logs, and integration logs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. V8 task 005 adds CSV record import jobs with explicit field mappings, persisted status, row-level results, existing record validation/permissions, audit logs, and integration logs. V8 task 006 adds external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, protected artifact content, audit logs, and integration logs. V8 task 007 expands scheduled automation contracts with explicit daily/weekly/monthly interval/day metadata, tested due-time calculation, and scheduled trigger log metadata. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -1903,6 +1903,21 @@ Supported action types are:
 
 Scheduled trigger events require `schedule` metadata and currently support only `send_email` and `call_webhook` actions. Scheduled `send_email` actions cannot attach record PDFs because no current record exists. `start_workflow` requires an event record context and is intentionally not supported for scheduled triggers in this slice.
 
+Schedule metadata shape:
+
+```json
+{
+  "kind": "weekly",
+  "timeZone": "Etc/UTC",
+  "startAt": "2026-06-01T09:30:00Z",
+  "interval": 2,
+  "dayOfWeek": 1,
+  "dayOfMonth": null
+}
+```
+
+`interval` defaults to `1` and must be between `1` and `366`. Weekly `dayOfWeek` is optional and uses `0` for Sunday through `6` for Saturday. Monthly `dayOfMonth` is optional, must be `1` through `31`, and clamps to the last valid day in shorter months when calculating the next due time. Existing schedules that only contain `kind`, `timeZone`, and `startAt` remain valid.
+
 `start_workflow` action payload:
 
 ```json
@@ -2028,6 +2043,8 @@ Failed first-attempt trigger executions are scheduled through the trigger's conf
 - `autoRetryNextAttemptAt`
 
 The hosted retry worker replays due failed logs through the trigger's current action list, matching manual retry semantics. Disabled triggers or triggers with automatic retries disabled are not retried automatically; their pending failed logs surface `disabled`. Retries stop once `autoRetryAttemptCount` reaches `autoRetryMaxAttempts`.
+
+Scheduled trigger logs use `entityType = "Schedule"` and include `schedule` metadata in `input` and `result` JSON. The metadata records due time, lock time, completion time, final status, and skip reason when a persisted due schedule cannot be processed. Action failures still write `failed` logs and use the normal trigger retry policy.
 
 ### Retry failed trigger log
 

@@ -19,32 +19,65 @@ public static class TriggerScheduleCalculator
         return schedule.Kind switch
         {
             TriggerScheduleKinds.Once => null,
-            TriggerScheduleKinds.Daily => AdvanceDaily(next, now),
-            TriggerScheduleKinds.Weekly => AdvanceWeekly(next, now),
-            TriggerScheduleKinds.Monthly => AdvanceMonthly(next, now),
+            TriggerScheduleKinds.Daily => AdvanceDaily(next, now, schedule.Interval),
+            TriggerScheduleKinds.Weekly => AdvanceWeekly(next, now, schedule.Interval, schedule.DayOfWeek),
+            TriggerScheduleKinds.Monthly => AdvanceMonthly(next, now, schedule.Interval, schedule.DayOfMonth),
             _ => null
         };
     }
 
-    private static DateTimeOffset AdvanceDaily(DateTimeOffset next, DateTimeOffset now)
+    private static DateTimeOffset AdvanceDaily(DateTimeOffset next, DateTimeOffset now, int scheduleInterval)
     {
-        var days = Math.Max(1, (int)Math.Floor((now - next).TotalDays) + 1);
+        var interval = Math.Max(1, scheduleInterval);
+        var days = Math.Max(interval, ((int)Math.Floor((now - next).TotalDays / interval) + 1) * interval);
         return next.AddDays(days);
     }
 
-    private static DateTimeOffset AdvanceWeekly(DateTimeOffset next, DateTimeOffset now)
+    private static DateTimeOffset AdvanceWeekly(DateTimeOffset next, DateTimeOffset now, int scheduleInterval, int? dayOfWeek)
     {
-        var weeks = Math.Max(1, (int)Math.Floor((now - next).TotalDays / 7) + 1);
-        return next.AddDays(weeks * 7);
-    }
+        var interval = Math.Max(1, scheduleInterval);
+        var firstRun = dayOfWeek is null
+            ? next
+            : next.AddDays(((dayOfWeek.Value - (int)next.DayOfWeek) + 7) % 7);
 
-    private static DateTimeOffset AdvanceMonthly(DateTimeOffset next, DateTimeOffset now)
-    {
-        while (next <= now)
+        if (firstRun > now)
         {
-            next = next.AddMonths(1);
+            return firstRun;
         }
 
-        return next;
+        var weeks = Math.Max(interval, ((int)Math.Floor((now - firstRun).TotalDays / (7 * interval)) + 1) * interval);
+        return firstRun.AddDays(weeks * 7);
+    }
+
+    private static DateTimeOffset AdvanceMonthly(DateTimeOffset next, DateTimeOffset now, int scheduleInterval, int? dayOfMonth)
+    {
+        var interval = Math.Max(1, scheduleInterval);
+        var months = 0;
+        var candidate = BuildMonthlyCandidate(next, months, dayOfMonth);
+
+        while (candidate <= now)
+        {
+            months += interval;
+            candidate = BuildMonthlyCandidate(next, months, dayOfMonth);
+        }
+
+        return candidate;
+    }
+
+    private static DateTimeOffset BuildMonthlyCandidate(DateTimeOffset start, int monthsToAdd, int? dayOfMonth)
+    {
+        var monthStart = new DateTimeOffset(start.Year, start.Month, 1, start.Hour, start.Minute, start.Second, start.Offset)
+            .AddTicks(start.Ticks % TimeSpan.TicksPerSecond)
+            .AddMonths(monthsToAdd);
+        var day = Math.Min(dayOfMonth ?? start.Day, DateTime.DaysInMonth(monthStart.Year, monthStart.Month));
+
+        return new DateTimeOffset(
+            monthStart.Year,
+            monthStart.Month,
+            day,
+            start.Hour,
+            start.Minute,
+            start.Second,
+            start.Offset).AddTicks(start.Ticks % TimeSpan.TicksPerSecond);
     }
 }

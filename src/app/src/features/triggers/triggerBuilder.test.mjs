@@ -201,8 +201,30 @@ test("trigger builder validates schedule, retry policy, and webhook action requi
   });
 
   assert.deepEqual(request.retryPolicy, { isEnabled: true, maxAttempts: 4, delaySeconds: 120 });
-  assert.deepEqual(request.schedule, { kind: "daily", timeZone: "Etc/UTC", startAt: "2026-06-04T12:00:00.000Z" });
+  assert.deepEqual(request.schedule, { kind: "daily", timeZone: "Etc/UTC", startAt: "2026-06-04T12:00:00.000Z", interval: 1 });
   assert.equal(request.actions[0].type, "call_webhook");
+
+  const weeklyRequest = buildTriggerRequest({
+    ...draft,
+    eventName: "schedule.weekly",
+    conditions: [],
+    schedule: { kind: "weekly", timeZone: "Etc/UTC", startAt: "2026-06-01T09:30:00.000Z", interval: 2 },
+    actions: [{ clientId: "webhook-1", id: "webhook-1", type: "call_webhook", webhookUrl: "https://hooks.example.test/weekly", webhookMethod: "POST" }]
+  });
+
+  assert.deepEqual(weeklyRequest.schedule, { kind: "weekly", timeZone: "Etc/UTC", startAt: "2026-06-01T09:30:00.000Z", interval: 2, dayOfWeek: 1 });
+
+  const invalidWeekly = validateTriggerDraft({
+    ...draft,
+    eventName: "schedule.weekly",
+    conditions: [],
+    schedule: { kind: "weekly", timeZone: "Etc/UTC", startAt: "2026-06-01T09:30:00.000Z", interval: 0, dayOfWeek: 7 },
+    actions: [{ clientId: "webhook-1", id: "webhook-1", type: "call_webhook", webhookUrl: "https://hooks.example.test/weekly", webhookMethod: "POST" }]
+  });
+
+  assert.equal(invalidWeekly.valid, false);
+  assert.equal(invalidWeekly.errors.some((error) => error.path === "schedule.interval"), true);
+  assert.equal(invalidWeekly.errors.some((error) => error.path === "schedule.dayOfWeek"), true);
 });
 
 test("trigger builder validates update field action requirements", () => {

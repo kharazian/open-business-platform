@@ -152,7 +152,18 @@ public sealed record TriggerRetryPolicyDefinition(
 public sealed record TriggerScheduleDefinition(
     string Kind,
     string TimeZone,
-    DateTimeOffset StartAt);
+    DateTimeOffset StartAt,
+    int Interval = 1,
+    int? DayOfWeek = null,
+    int? DayOfMonth = null);
+
+public sealed record TriggerScheduledRunMetadata(
+    DateTimeOffset DueAt,
+    DateTimeOffset LockedAt,
+    DateTimeOffset? CompletedAt = null,
+    DateTimeOffset? NextRunAt = null,
+    string? Status = null,
+    string? SkipReason = null);
 
 public sealed record TriggerConditionDefinition(
     string Type,

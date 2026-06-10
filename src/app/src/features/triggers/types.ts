@@ -52,6 +52,9 @@ export type TriggerScheduleDefinition = {
   kind: TriggerScheduleKind;
   timeZone: string;
   startAt: string;
+  interval?: number;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
 };
 
 export type TriggerConditionDefinition = {

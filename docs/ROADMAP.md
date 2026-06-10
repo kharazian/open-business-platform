@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 006 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 007 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -39,8 +39,9 @@
 - Named incoming webhook listeners exist with persisted typed mappings, hashed listener secrets, API-key or listener-secret authentication, create/safe-lookup upsert record execution, backend permission checks, and inbound integration logs.
 - CSV record import jobs exist with explicit field mappings, persisted status, row-level success/failure results, existing record validation/permissions, audit logs, and inbound import integration logs.
 - External export jobs exist for permitted form records and list reports with CSV/JSON artifacts, hidden-field filtering, persisted metadata/content, audit logs, and outbound export integration logs.
+- Scheduled trigger contracts include explicit daily/weekly/monthly interval and day metadata, tested due-time calculation, safe action validation, and due/locked/skipped/success/failure trigger log metadata.
 
-Next: start V8 task 007 with scheduled automation expansion.
+Next: start V8 task 008 with scheduled workflow starts.
 
 ## Product Engine Path
 
@@ -227,8 +228,8 @@ Features:
 - API keys implemented
 - Incoming webhook listeners implemented
 - Record import jobs implemented
-- Scheduled triggers
-- Daily/weekly/monthly trigger definitions
+- Scheduled triggers implemented
+- Daily/weekly/monthly trigger definitions implemented
 - Scheduled workflow starts
 - Import records
 - External exports implemented

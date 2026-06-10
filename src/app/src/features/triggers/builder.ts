@@ -128,11 +128,58 @@ export function createDefaultTriggerSchedule(eventName: TriggerEventName): Trigg
     return null;
   }
 
-  return {
+  const startAt = new Date();
+  const schedule: TriggerScheduleDefinition = {
     kind,
     timeZone: "Etc/UTC",
-    startAt: new Date().toISOString()
+    startAt: startAt.toISOString(),
+    interval: 1
   };
+
+  if (kind === "weekly") {
+    schedule.dayOfWeek = startAt.getUTCDay();
+  }
+
+  if (kind === "monthly") {
+    schedule.dayOfMonth = startAt.getUTCDate();
+  }
+
+  return schedule;
+}
+
+function normalizeTriggerSchedule(schedule: TriggerScheduleDefinition): TriggerScheduleDefinition {
+  const normalized: TriggerScheduleDefinition = {
+    kind: schedule.kind,
+    timeZone: schedule.timeZone,
+    startAt: schedule.startAt,
+    interval: schedule.interval ?? 1
+  };
+
+  if (schedule.kind === "weekly") {
+    normalized.dayOfWeek = schedule.dayOfWeek ?? new Date(schedule.startAt).getUTCDay();
+  }
+
+  if (schedule.kind === "monthly") {
+    normalized.dayOfMonth = schedule.dayOfMonth ?? new Date(schedule.startAt).getUTCDate();
+  }
+
+  return normalized;
+}
+
+function validateScheduleDefinition(schedule: TriggerScheduleDefinition, errors: TriggerValidationError[]) {
+  const interval = schedule.interval ?? 1;
+
+  if (interval < 1 || interval > 366) {
+    errors.push(error("schedule.interval", "trigger.schedule.interval", "Enter a schedule interval between 1 and 366."));
+  }
+
+  if (schedule.kind === "weekly" && schedule.dayOfWeek != null && (schedule.dayOfWeek < 0 || schedule.dayOfWeek > 6)) {
+    errors.push(error("schedule.dayOfWeek", "trigger.schedule.day_of_week", "Enter a weekly day from 0 to 6."));
+  }
+
+  if (schedule.kind === "monthly" && schedule.dayOfMonth != null && (schedule.dayOfMonth < 1 || schedule.dayOfMonth > 31)) {
+    errors.push(error("schedule.dayOfMonth", "trigger.schedule.day_of_month", "Enter a monthly day from 1 to 31."));
+  }
 }
 
 export function createEmptyTriggerDraft(formName = "Form"): TriggerDraft {
@@ -225,7 +272,7 @@ export function buildTriggerRequest(draft: TriggerDraft): CreateTriggerRequest {
     actions: draft.actions.map(buildAction),
     isEnabled: draft.isEnabled,
     retryPolicy: normalizeRetryPolicy(draft.retryPolicy),
-    schedule: isScheduledTriggerEvent(draft.eventName) ? draft.schedule : null
+    schedule: isScheduledTriggerEvent(draft.eventName) && draft.schedule ? normalizeTriggerSchedule(draft.schedule) : null
   };
 }
 
@@ -255,6 +302,8 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
       errors.push(error("schedule", "trigger.schedule.required", "Enter schedule metadata."));
     } else if (draft.schedule.kind !== scheduleKindFromEvent(draft.eventName)) {
       errors.push(error("schedule.kind", "trigger.schedule.event_kind", "Schedule kind must match the selected event."));
+    } else {
+      validateScheduleDefinition(draft.schedule, errors);
     }
 
     if (draft.conditions.length > 0) {
