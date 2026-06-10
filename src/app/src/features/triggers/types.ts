@@ -30,7 +30,8 @@ export const triggerActionTypes = [
   "send_notification",
   "create_record",
   "call_webhook",
-  "start_workflow"
+  "start_workflow",
+  "scheduled_start_workflow"
 ] as const;
 export const triggerExecutionStatuses = ["success", "failed", "skipped"] as const;
 export const triggerScheduleKinds = ["once", "daily", "weekly", "monthly"] as const;
@@ -55,6 +56,14 @@ export type TriggerScheduleDefinition = {
   interval?: number;
   dayOfWeek?: number | null;
   dayOfMonth?: number | null;
+};
+
+export type TriggerScheduledWorkflowRecordSelectionDefinition = {
+  mode: "all_records_without_active_workflow" | "status_equals" | "field_equals";
+  status?: string | null;
+  fieldId?: string | null;
+  value?: FormRecordValue;
+  maxRecords: number;
 };
 
 export type TriggerConditionDefinition = {
@@ -95,6 +104,7 @@ export type TriggerActionDefinition = {
   webhookBody?: unknown;
   workflowDefinitionId?: EntityId | null;
   printTemplateId?: EntityId | null;
+  recordSelection?: TriggerScheduledWorkflowRecordSelectionDefinition | null;
 };
 
 export type TriggerActionValueDefinition = {

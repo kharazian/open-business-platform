@@ -47,6 +47,7 @@ public sealed class TriggerActionRegistry
             TriggerActionTypes.CreateRecord => await ExecuteCreateRecordAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.CallWebhook => await ExecuteCallWebhookAsync(action, context, triggerId, triggerLogId, cancellationToken),
             TriggerActionTypes.StartWorkflow => await ExecuteStartWorkflowAsync(action, context, triggerId, triggerLogId, cancellationToken),
+            TriggerActionTypes.ScheduledStartWorkflow => await ExecuteScheduledStartWorkflowAsync(action, context, triggerId, triggerLogId, cancellationToken),
             _ => throw new InvalidOperationException($"Trigger action type '{action.Type}' is not supported.")
         };
     }
@@ -415,6 +416,110 @@ public sealed class TriggerActionRegistry
             ("dispatchStatusChanged", false));
     }
 
+    private async Task<IReadOnlyDictionary<string, object?>> ExecuteScheduledStartWorkflowAsync(
+        TriggerActionDefinition action,
+        TriggerEventContext context,
+        Guid triggerId,
+        Guid? triggerLogId,
+        CancellationToken cancellationToken)
+    {
+        if (!TriggerEvents.IsScheduled(context.EventName))
+        {
+            throw new InvalidOperationException("Scheduled workflow start actions require a scheduled trigger context.");
+        }
+
+        if (action.WorkflowDefinitionId is null || action.WorkflowDefinitionId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Scheduled workflow start action workflow definition id is required.");
+        }
+
+        if (action.RecordSelection is null)
+        {
+            throw new InvalidOperationException("Scheduled workflow start action record selection is required.");
+        }
+
+        var workflow = await dbContext.Workflows
+            .Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == action.WorkflowDefinitionId.Value && !candidate.IsDeleted, cancellationToken)
+            ?? throw new InvalidOperationException("Workflow target was not found.");
+
+        if (workflow.FormId != context.FormId)
+        {
+            throw new InvalidOperationException("Workflow target belongs to a different form.");
+        }
+
+        if (!workflow.IsEnabled)
+        {
+            throw new InvalidOperationException("Workflow target is disabled.");
+        }
+
+        if (!string.Equals(workflow.Status, WorkflowDefinitionStatuses.Published, StringComparison.Ordinal)
+            || workflow.CurrentVersionId is null
+            || workflow.CurrentVersion is null)
+        {
+            throw new InvalidOperationException("Workflow target has no current published version.");
+        }
+
+        var version = workflow.CurrentVersion;
+        var config = WorkflowDefinitionValidator.NormalizeConfig(
+            version.ConfigJson.RootElement.Deserialize<WorkflowDefinitionConfig>(JsonOptions));
+        var initialState = config.States.FirstOrDefault(state => string.Equals(state.Key, config.InitialStateKey, StringComparison.Ordinal));
+
+        if (initialState is null)
+        {
+            throw new InvalidOperationException("Workflow target initial state was not found.");
+        }
+
+        var selection = action.RecordSelection;
+        var maxRecords = Math.Clamp(selection.MaxRecords, 1, 500);
+        var candidateRecords = await dbContext.Records
+            .Where(record =>
+                record.FormId == context.FormId
+                && !record.IsDeleted
+                && record.WorkflowDefinitionId == null
+                && record.WorkflowDefinitionVersionId == null
+                && (record.WorkflowStateKey == null || record.WorkflowStateKey == string.Empty))
+            .OrderBy(record => record.CreatedAt)
+            .ThenBy(record => record.Id)
+            .ToArrayAsync(cancellationToken);
+        var selectedRecords = candidateRecords
+            .Where(record => MatchesScheduledWorkflowSelection(record, selection))
+            .Take(maxRecords)
+            .ToArray();
+        var recordResults = new List<IReadOnlyDictionary<string, object?>>();
+
+        foreach (var record in selectedRecords)
+        {
+            var previousStatus = record.Status;
+            record.WorkflowDefinitionId = workflow.Id;
+            record.WorkflowDefinitionVersionId = version.Id;
+            record.WorkflowStateKey = config.InitialStateKey;
+            record.Status = config.InitialStateKey;
+            record.UpdatedById = context.ActorUserId;
+
+            AddWorkflowStartedHistory(record, workflow, version, config.InitialStateKey, context, triggerId, triggerLogId, action.Id);
+            AddWorkflowStartedAudit(record, previousStatus, context, triggerId, triggerLogId, action.Id);
+
+            recordResults.Add(new Dictionary<string, object?>
+            {
+                ["recordId"] = record.Id,
+                ["workflowStartStatus"] = TriggerWorkflowStartResultStatuses.Started,
+                ["previousStatus"] = previousStatus,
+                ["stateKey"] = config.InitialStateKey
+            });
+        }
+
+        return Result(
+            action,
+            ("workflowStartStatus", TriggerWorkflowStartResultStatuses.Started),
+            ("workflowDefinitionId", workflow.Id),
+            ("workflowDefinitionVersionId", version.Id),
+            ("selectionMode", selection.Mode),
+            ("selectedRecordCount", selectedRecords.Length),
+            ("maxRecords", maxRecords),
+            ("records", recordResults));
+    }
+
     private async Task<NotificationRecipientResolution> ResolveNotificationRecipientsAsync(
         TriggerActionDefinition action,
         CancellationToken cancellationToken)
@@ -477,6 +582,50 @@ public sealed class TriggerActionRegistry
         return activeRecipientIds
             .Except(disabledInAppUserIds)
             .ToArray();
+    }
+
+    private static bool MatchesScheduledWorkflowSelection(
+        FormRecord record,
+        TriggerScheduledWorkflowRecordSelectionDefinition selection)
+    {
+        if (string.Equals(selection.Mode, TriggerScheduledWorkflowRecordSelectionModes.AllRecordsWithoutActiveWorkflow, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.Equals(selection.Mode, TriggerScheduledWorkflowRecordSelectionModes.StatusEquals, StringComparison.Ordinal))
+        {
+            return string.Equals(record.Status, selection.Status, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (string.Equals(selection.Mode, TriggerScheduledWorkflowRecordSelectionModes.FieldEquals, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(selection.FieldId))
+            {
+                return false;
+            }
+
+            var values = DeserializeValues(record.ValuesJson);
+            return values.TryGetValue(selection.FieldId, out var actualValue)
+                && ScheduledSelectionValuesEqual(actualValue, selection.Value);
+        }
+
+        return false;
+    }
+
+    private static bool ScheduledSelectionValuesEqual(object? actualValue, object? expectedValue)
+    {
+        if (actualValue is JsonElement jsonElement)
+        {
+            actualValue = jsonElement.ValueKind == JsonValueKind.String
+                ? jsonElement.GetString()
+                : JsonSerializer.Deserialize<object?>(jsonElement.GetRawText(), JsonOptions);
+        }
+
+        return string.Equals(
+            Convert.ToString(actualValue, System.Globalization.CultureInfo.InvariantCulture),
+            Convert.ToString(expectedValue, System.Globalization.CultureInfo.InvariantCulture),
+            StringComparison.Ordinal);
     }
 
     private static bool ShouldSkipNotificationInsertion(int activeRecipientCount, int enabledRecipientCount)

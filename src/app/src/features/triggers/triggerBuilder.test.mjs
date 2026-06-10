@@ -324,6 +324,46 @@ test("trigger builder validates and serializes workflow start actions", () => {
   });
 
   assert.equal(mapped.actions[0].workflowDefinitionId, "workflow-1");
+
+  const scheduledAction = createTriggerActionDraft("scheduled_start_workflow", 43);
+
+  assert.equal(scheduledAction.type, "scheduled_start_workflow");
+  assert.equal(scheduledAction.workflowDefinitionId, "");
+  assert.deepEqual(scheduledAction.recordSelection, {
+    mode: "all_records_without_active_workflow",
+    maxRecords: 100
+  });
+
+  const invalidScheduled = validateTriggerDraft({
+    ...draft,
+    eventName: "record.created",
+    actions: [{ clientId: "scheduled-workflow-1", id: "scheduled-workflow-1", type: "scheduled_start_workflow", workflowDefinitionId: "workflow-1" }]
+  });
+
+  assert.equal(invalidScheduled.valid, false);
+  assert.equal(invalidScheduled.errors.some((error) => error.path === "actions[0].type"), true);
+  assert.equal(invalidScheduled.errors.some((error) => error.path === "actions[0].recordSelection"), true);
+
+  const scheduledRequest = buildTriggerRequest({
+    ...draft,
+    eventName: "schedule.daily",
+    schedule: { kind: "daily", timeZone: "Etc/UTC", startAt: "2026-06-04T12:00:00.000Z" },
+    conditions: [],
+    actions: [{
+      clientId: "scheduled-workflow-1",
+      id: "scheduled-workflow-1",
+      type: "scheduled_start_workflow",
+      workflowDefinitionId: "workflow-1",
+      recordSelection: { mode: "status_equals", status: "submitted", maxRecords: 25 }
+    }]
+  });
+
+  assert.deepEqual(scheduledRequest.actions[0], {
+    id: "scheduled-workflow-1",
+    type: "scheduled_start_workflow",
+    workflowDefinitionId: "workflow-1",
+    recordSelection: { mode: "status_equals", status: "submitted", maxRecords: 25 }
+  });
 });
 
 test("trigger builder formats labels, statuses, and JSON details", () => {

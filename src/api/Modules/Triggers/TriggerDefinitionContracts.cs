@@ -74,6 +74,7 @@ public static class TriggerActionTypes
     public const string CreateRecord = "create_record";
     public const string CallWebhook = "call_webhook";
     public const string StartWorkflow = "start_workflow";
+    public const string ScheduledStartWorkflow = "scheduled_start_workflow";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -85,13 +86,15 @@ public static class TriggerActionTypes
         SendNotification,
         CreateRecord,
         CallWebhook,
-        StartWorkflow
+        StartWorkflow,
+        ScheduledStartWorkflow
     };
 
     public static IReadOnlySet<string> ScheduledSupported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
         SendEmail,
-        CallWebhook
+        CallWebhook,
+        ScheduledStartWorkflow
     };
 }
 
@@ -140,6 +143,20 @@ public static class TriggerWorkflowStartResultStatuses
 public static class TriggerWorkflowStartSkipReasons
 {
     public const string RecordAlreadyHasActiveWorkflow = "record_already_has_active_workflow";
+}
+
+public static class TriggerScheduledWorkflowRecordSelectionModes
+{
+    public const string AllRecordsWithoutActiveWorkflow = "all_records_without_active_workflow";
+    public const string StatusEquals = "status_equals";
+    public const string FieldEquals = "field_equals";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        AllRecordsWithoutActiveWorkflow,
+        StatusEquals,
+        FieldEquals
+    };
 }
 
 public sealed record TriggerRetryMetadata(Guid SourceLogId);
@@ -200,7 +217,8 @@ public sealed record TriggerActionDefinition(
     IReadOnlyDictionary<string, string>? WebhookHeaders = null,
     object? WebhookBody = null,
     Guid? WorkflowDefinitionId = null,
-    Guid? PrintTemplateId = null);
+    Guid? PrintTemplateId = null,
+    TriggerScheduledWorkflowRecordSelectionDefinition? RecordSelection = null);
 
 public sealed record TriggerActionValueDefinition(
     object? Literal = null,
@@ -217,6 +235,13 @@ public sealed record TriggerWorkflowStartTarget(
     bool IsEnabled,
     string Status,
     Guid? CurrentVersionId);
+
+public sealed record TriggerScheduledWorkflowRecordSelectionDefinition(
+    string Mode,
+    string? Status = null,
+    string? FieldId = null,
+    object? Value = null,
+    int MaxRecords = 100);
 
 public sealed record TriggerPrintTemplateTarget(
     Guid PrintTemplateId,

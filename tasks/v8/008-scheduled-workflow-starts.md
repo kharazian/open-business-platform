@@ -25,14 +25,22 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Scheduled workflow start contracts are typed.
-- [ ] Only eligible published workflows can be started.
-- [ ] Record selection rules are explicit and validated.
-- [ ] Workflow history is written.
-- [ ] Trigger/integration logs capture run results.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] Scheduled workflow start contracts are typed.
+- [x] Only eligible published workflows can be started.
+- [x] Record selection rules are explicit and validated.
+- [x] Workflow history is written.
+- [x] Trigger/integration logs capture run results.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added `scheduled_start_workflow` as a scheduled-only trigger action separate from current-record `start_workflow`.
+- Added explicit record selection metadata with supported modes: all records without active workflow, status equals, and field equals.
+- Reused same-form enabled/published workflow validation with current version checks.
+- Runtime execution skips records with active workflow state, starts the workflow on selected same-form records, writes workflow history/audit entries, and records per-record results in trigger logs.
+- Updated frontend trigger builder types/helpers for the new action contract without adding a full scheduler UI.
 
 ## Out of Scope
 

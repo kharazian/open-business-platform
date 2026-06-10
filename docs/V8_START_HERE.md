@@ -13,6 +13,7 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 005 added CSV record import jobs with explicit field mappings, persisted job/row status, row-level validation results, audit logs, and inbound import integration logs.
 - V8 task 006 added external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, hidden-field filtering, audit logs, and outbound export integration logs.
 - V8 task 007 added explicit daily/weekly/monthly scheduled automation contracts with interval/day metadata, tested due-time calculation, safe scheduled-action validation, and schedule run metadata in trigger logs.
+- V8 task 008 added scheduled workflow starts with explicit same-form workflow targets, bounded record selection rules, workflow history/audit writes, and trigger log record results.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -42,7 +43,7 @@ Implement V8 in this order:
 5. Record import jobs. Complete.
 6. External export jobs. Complete.
 7. Scheduled automation expansion. Complete.
-8. Scheduled workflow starts.
+8. Scheduled workflow starts. Complete.
 9. Integration operations UI.
 
 ## Scope Boundaries

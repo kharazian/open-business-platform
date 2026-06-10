@@ -1144,6 +1144,17 @@ var validStartWorkflowActions = new[]
         TriggerActionTypes.StartWorkflow,
         WorkflowDefinitionId: workflowStartDefinitionId)
 };
+var validScheduledWorkflowStartActions = new[]
+{
+    new TriggerActionDefinition(
+        "scheduled-workflow-1",
+        TriggerActionTypes.ScheduledStartWorkflow,
+        WorkflowDefinitionId: workflowStartDefinitionId,
+        RecordSelection: new TriggerScheduledWorkflowRecordSelectionDefinition(
+            TriggerScheduledWorkflowRecordSelectionModes.StatusEquals,
+            Status: "submitted",
+            MaxRecords: 50))
+};
 var validWorkflowStartTargets = new[]
 {
     new TriggerWorkflowStartTarget(
@@ -1196,7 +1207,9 @@ AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.SendNotifica
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CreateRecord), "Trigger actions should include create_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.CallWebhook), "Trigger actions should include call_webhook.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.StartWorkflow), "Trigger actions should include start_workflow.");
+AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.ScheduledStartWorkflow), "Trigger actions should include scheduled_start_workflow.");
 AssertFalse(TriggerActionTypes.ScheduledSupported.Contains(TriggerActionTypes.StartWorkflow), "Scheduled triggers should not support record-context workflow starts.");
+AssertTrue(TriggerActionTypes.ScheduledSupported.Contains(TriggerActionTypes.ScheduledStartWorkflow), "Scheduled triggers should support explicit scheduled workflow starts.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -1336,6 +1349,36 @@ AssertTrue(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "A scheduled trigger with supported schedule actions should pass validation.");
+AssertTrue(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Start scheduled workflows", null, TriggerEvents.ScheduleDaily, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), validScheduledWorkflowStartActions, true, validTriggerRetryPolicy, validDailySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        validWorkflowStartTargets,
+        sourceTriggerFormId).Valid,
+    "A scheduled workflow start with explicit record selection and an eligible workflow should pass validation.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Ambiguous scheduled workflow", null, TriggerEvents.ScheduleDaily, new TriggerConditionGroupDefinition(TriggerConditionModes.All, Array.Empty<TriggerConditionDefinition>()), new[] { validScheduledWorkflowStartActions[0] with { RecordSelection = null } }, true, validTriggerRetryPolicy, validDailySchedule),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        validWorkflowStartTargets,
+        sourceTriggerFormId).Valid,
+    "Scheduled workflow starts should require explicit record selection.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest("Wrong event scheduled workflow", null, TriggerEvents.RecordCreated, validTriggerConditions, validScheduledWorkflowStartActions, true, validTriggerRetryPolicy, null),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        Array.Empty<TriggerTargetFormSchema>(),
+        validWorkflowStartTargets,
+        sourceTriggerFormId).Valid,
+    "Scheduled workflow start actions should be rejected on record-context trigger events.");
 AssertTrue(
     TriggerDefinitionValidator.Validate(
         demoSchema,
@@ -1947,6 +1990,9 @@ AssertNotNull(typeof(TriggerActionRegistry).GetMethod(nameof(TriggerActionRegist
 AssertNotNull(
     typeof(TriggerActionRegistry).GetMethod("ExecuteStartWorkflowAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance),
     "Trigger action registry should execute workflow-start trigger actions.");
+AssertNotNull(
+    typeof(TriggerActionRegistry).GetMethod("ExecuteScheduledStartWorkflowAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance),
+    "Trigger action registry should execute explicit scheduled workflow-start actions.");
 AssertNotNull(
     typeof(TriggerExecutionService).GetMethod("BuildFailedActionResult", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static),
     "Trigger execution service should include failed action metadata in trigger log results.");

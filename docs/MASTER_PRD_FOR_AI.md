@@ -63,7 +63,7 @@ V4 is complete through task 010: trigger definitions, trigger logs, management A
 V5 is complete through task 007: workflow definition persistence, management UI, record workflow state, published starts, direct transitions, approval inbox/notifications, transition action execution, trigger-to-workflow starts, and an optional workflow-only XYFlow visual builder over the typed draft config.
 V6 print template foundation is complete through task 007: persisted record/report templates, permission-protected APIs, validation, audit logs, `/printing` management UI, selected record/report template rendering, browser print/save-as-PDF generation, page setup, repeated table headers, section page-break controls, conditional sections, immutable published template versions, safe small logo uploads, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 V7 is complete through task 004: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions; the saved dashboard builder can configure V7 analytics widgets while preserving the existing saved chart config contract; the saved dashboard viewer renders those widgets with per-widget loading, retry, empty, permission, and stale-source states; and conservative dashboard visibility/default settings are backend-enforced through existing dashboard JSONB metadata without adding workspace ownership.
-Advanced notification delivery, scheduled workflow starts, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Advanced notification delivery, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 V6 task 003 is complete for field-based conditional print template sections over already-permission-filtered record/report data.
 V6 task 004 is complete for immutable published print template versions, publish/history APIs, builder publish controls, and latest-published rendering for selected record/report templates.
@@ -81,6 +81,7 @@ V8 task 004 is complete: named incoming webhook listeners now persist typed mapp
 V8 task 005 is complete: record import jobs now persist CSV import status, explicit field mappings, row-level success/failure results, sanitized validation errors, audit logs, and inbound import integration logs while reusing existing record creation validation and permissions.
 V8 task 006 is complete: external export jobs now persist permission-filtered form-record and list-report CSV/JSON artifacts, job status, artifact metadata, audit logs, and outbound export integration logs without public download links.
 V8 task 007 is complete: scheduled automation now has explicit daily/weekly/monthly interval/day contracts, tested due-time calculation, stricter unsafe scheduled-action validation, and trigger log schedule metadata for due, locked, skipped, success, and failure runs.
+V8 task 008 is complete: scheduled workflow starts now use explicit same-form workflow targets and record selection rules, write workflow history/audit entries, and capture selected record results in trigger logs.
 
 ## 2. Core Product Philosophy
 
@@ -914,10 +915,11 @@ V8 task 004 is complete for incoming webhook listener persistence, typed field m
 V8 task 005 is complete for CSV record import jobs with explicit field mappings, persisted status, row-level results, audit logs, integration logs, and existing record validation/permissions.
 V8 task 006 is complete for external export jobs over permitted form records and list reports with hidden-field filtering, CSV/JSON artifacts, persisted metadata, audit logs, and integration logs.
 V8 task 007 is complete for explicit scheduled automation contracts, daily/weekly/monthly due-time calculation, safe scheduled action validation, and scheduled trigger log metadata.
+V8 task 008 is complete for scheduled workflow starts with explicit record selection and same-form published workflow validation.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V8 task 008 for scheduled workflow starts.
+Next concrete work should start V8 task 009 for the integration operations UI.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

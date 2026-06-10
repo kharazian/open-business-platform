@@ -277,7 +277,9 @@ public sealed class TriggerDefinitionService
         CancellationToken cancellationToken)
     {
         var workflowIds = TriggerDefinitionValidator.NormalizeActions(actions)
-            .Where(action => string.Equals(action.Type, TriggerActionTypes.StartWorkflow, StringComparison.Ordinal))
+            .Where(action =>
+                string.Equals(action.Type, TriggerActionTypes.StartWorkflow, StringComparison.Ordinal)
+                || string.Equals(action.Type, TriggerActionTypes.ScheduledStartWorkflow, StringComparison.Ordinal))
             .Select(action => action.WorkflowDefinitionId)
             .Where(id => id is not null && id != Guid.Empty)
             .Select(id => id!.Value)

@@ -195,7 +195,8 @@ public static class TriggerDefinitionValidator
                 WebhookMethod = NormalizeWebhookMethod(action.WebhookMethod),
                 WebhookHeaders = NormalizeWebhookHeaders(action.WebhookHeaders),
                 WebhookBody = NormalizeActionValue(action.WebhookBody),
-                PrintTemplateId = NormalizeNullableId(action.PrintTemplateId)
+                PrintTemplateId = NormalizeNullableId(action.PrintTemplateId),
+                RecordSelection = NormalizeRecordSelection(action.RecordSelection)
             })
             .ToArray();
     }
@@ -270,7 +271,7 @@ public static class TriggerDefinitionValidator
         ValidateRetryPolicy(normalizedRetryPolicy, errors);
         ValidateSchedule(normalizedEventName, normalizedSchedule, normalizedConditions, normalizedActions, errors);
         ValidateConditions(normalizedConditions, fieldIds, errors);
-        ValidateActions(normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, printTemplateTargets, sourceFormId, errors);
+        ValidateActions(normalizedEventName, normalizedActions, sourceFieldsById, activeUserIds, activeGroupIds, targetForms, workflowStartTargets, printTemplateTargets, sourceFormId, errors);
 
         return new TriggerValidationResult(errors);
     }
@@ -440,6 +441,7 @@ public static class TriggerDefinitionValidator
     }
 
     private static void ValidateActions(
+        string eventName,
         IReadOnlyList<TriggerActionDefinition> actions,
         IReadOnlyDictionary<string, FormFieldDefinition> sourceFieldsById,
         IReadOnlyCollection<Guid> activeUserIds,
@@ -539,8 +541,27 @@ public static class TriggerDefinitionValidator
                 case TriggerActionTypes.StartWorkflow:
                     ValidateStartWorkflowAction(action, workflowStartTargets, sourceFormId, path, errors);
                     break;
+                case TriggerActionTypes.ScheduledStartWorkflow:
+                    ValidateScheduledStartWorkflowAction(action, workflowStartTargets, sourceFieldsById, sourceFormId, TriggerEvents.IsScheduled(eventName), path, errors);
+                    break;
             }
         }
+    }
+
+    private static TriggerScheduledWorkflowRecordSelectionDefinition? NormalizeRecordSelection(
+        TriggerScheduledWorkflowRecordSelectionDefinition? selection)
+    {
+        if (selection is null)
+        {
+            return null;
+        }
+
+        return new TriggerScheduledWorkflowRecordSelectionDefinition(
+            Normalize(selection.Mode),
+            NormalizeOptional(selection.Status),
+            NormalizeOptional(selection.FieldId),
+            NormalizeActionValue(selection.Value),
+            selection.MaxRecords);
     }
 
     private static void ValidateStartWorkflowAction(
@@ -579,6 +600,57 @@ public static class TriggerDefinitionValidator
             || workflow.CurrentVersionId == Guid.Empty)
         {
             errors.Add(Error($"{path}.workflowDefinitionId", "trigger.action.workflow_published", "Workflow target must be published with a current version."));
+        }
+    }
+
+    private static void ValidateScheduledStartWorkflowAction(
+        TriggerActionDefinition action,
+        IReadOnlyCollection<TriggerWorkflowStartTarget> workflowStartTargets,
+        IReadOnlyDictionary<string, FormFieldDefinition> sourceFieldsById,
+        Guid? sourceFormId,
+        bool scheduledEvent,
+        string path,
+        List<TriggerValidationError> errors)
+    {
+        if (!scheduledEvent)
+        {
+            errors.Add(Error($"{path}.type", "trigger.action.scheduled_workflow_event", "Scheduled workflow start actions require a scheduled trigger event."));
+        }
+
+        ValidateStartWorkflowAction(action, workflowStartTargets, sourceFormId, path, errors);
+
+        if (action.RecordSelection is null)
+        {
+            errors.Add(Error($"{path}.recordSelection", "trigger.action.record_selection_required", "Scheduled workflow starts require explicit record selection."));
+            return;
+        }
+
+        var selection = action.RecordSelection;
+
+        if (!TriggerScheduledWorkflowRecordSelectionModes.Supported.Contains(selection.Mode))
+        {
+            errors.Add(Error($"{path}.recordSelection.mode", "trigger.action.record_selection_mode", "Scheduled workflow record selection mode is not supported."));
+        }
+
+        if (selection.MaxRecords is < 1 or > 500)
+        {
+            errors.Add(Error($"{path}.recordSelection.maxRecords", "trigger.action.record_selection_max", "Scheduled workflow record selection must process between 1 and 500 records."));
+        }
+
+        if (string.Equals(selection.Mode, TriggerScheduledWorkflowRecordSelectionModes.StatusEquals, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(selection.Status))
+        {
+            errors.Add(Error($"{path}.recordSelection.status", "trigger.action.record_selection_status", "Status-based scheduled workflow selection requires a status."));
+        }
+
+        if (string.Equals(selection.Mode, TriggerScheduledWorkflowRecordSelectionModes.FieldEquals, StringComparison.Ordinal))
+        {
+            ValidateKnownField(selection.FieldId, sourceFieldsById.Keys.ToHashSet(StringComparer.Ordinal), $"{path}.recordSelection.fieldId", errors);
+
+            if (selection.Value is null)
+            {
+                errors.Add(Error($"{path}.recordSelection.value", "trigger.action.record_selection_value", "Field-based scheduled workflow selection requires a value."));
+            }
         }
     }
 

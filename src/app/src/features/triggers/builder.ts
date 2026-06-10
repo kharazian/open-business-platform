@@ -15,6 +15,7 @@ import {
   type TriggerExecutionStatus,
   type TriggerRetryPolicyDefinition,
   type TriggerScheduleDefinition,
+  type TriggerScheduledWorkflowRecordSelectionDefinition,
   type TriggerValidationError
 } from "./types";
 
@@ -61,6 +62,7 @@ export type TriggerActionDraft = {
   webhookHeadersText?: string;
   workflowDefinitionId?: EntityId;
   printTemplateId?: EntityId;
+  recordSelection?: TriggerScheduledWorkflowRecordSelectionDefinition;
 };
 
 export type TriggerDraft = {
@@ -112,7 +114,8 @@ export const triggerActionOptions: Array<{ label: string; value: TriggerActionTy
   { label: "Send notification", value: "send_notification" },
   { label: "Create record", value: "create_record" },
   { label: "Call webhook", value: "call_webhook" },
-  { label: "Start workflow", value: "start_workflow" }
+  { label: "Start workflow", value: "start_workflow" },
+  { label: "Scheduled start workflow", value: "scheduled_start_workflow" }
 ];
 
 export const defaultTriggerRetryPolicy: TriggerRetryPolicyDefinition = {
@@ -231,7 +234,10 @@ export function createTriggerActionDraft(type: TriggerActionType = "write_audit_
     webhookMethod: "POST",
     webhookHeadersText: type === "call_webhook" ? "{}" : "",
     workflowDefinitionId: "",
-    printTemplateId: ""
+    printTemplateId: "",
+    recordSelection: type === "scheduled_start_workflow"
+      ? { mode: "all_records_without_active_workflow", maxRecords: 100 }
+      : undefined
   };
 }
 
@@ -441,8 +447,27 @@ export function validateTriggerDraft(draft: TriggerDraft): TriggerDraftValidatio
       errors.push(error(`${path}.workflowDefinitionId`, "trigger.action.workflow_required", "Choose the workflow to start."));
     }
 
-    if (isScheduledTriggerEvent(draft.eventName) && action.type !== "send_email" && action.type !== "call_webhook") {
-      errors.push(error(`${path}.type`, "trigger.schedule.action_type", "Scheduled triggers support email and webhook actions."));
+    if (action.type === "scheduled_start_workflow") {
+      if (!isScheduledTriggerEvent(draft.eventName)) {
+        errors.push(error(`${path}.type`, "trigger.action.scheduled_workflow_event", "Scheduled workflow starts require a scheduled trigger event."));
+      }
+
+      if (!action.workflowDefinitionId) {
+        errors.push(error(`${path}.workflowDefinitionId`, "trigger.action.workflow_required", "Choose the workflow to start."));
+      }
+
+      if (!action.recordSelection) {
+        errors.push(error(`${path}.recordSelection`, "trigger.action.record_selection_required", "Choose which records the schedule can start."));
+      } else if (action.recordSelection.maxRecords < 1 || action.recordSelection.maxRecords > 500) {
+        errors.push(error(`${path}.recordSelection.maxRecords`, "trigger.action.record_selection_max", "Enter 1 to 500 records."));
+      }
+    }
+
+    if (isScheduledTriggerEvent(draft.eventName)
+      && action.type !== "send_email"
+      && action.type !== "call_webhook"
+      && action.type !== "scheduled_start_workflow") {
+      errors.push(error(`${path}.type`, "trigger.schedule.action_type", "Scheduled triggers support email, webhook, and explicit workflow-start actions."));
     }
 
     if (isScheduledTriggerEvent(draft.eventName) && action.printTemplateId) {
@@ -558,7 +583,8 @@ function createActionDraftFromDefinition(action: TriggerActionDefinition, index:
     webhookMethod: action.webhookMethod ?? "POST",
     webhookHeadersText: formatWebhookHeadersText(action.webhookHeaders),
     workflowDefinitionId: action.workflowDefinitionId ?? "",
-    printTemplateId: action.printTemplateId ?? ""
+    printTemplateId: action.printTemplateId ?? "",
+    recordSelection: action.recordSelection ?? undefined
   };
 }
 
@@ -643,6 +669,14 @@ function buildAction(action: TriggerActionDraft): TriggerActionDefinition {
 
   if (action.type === "start_workflow") {
     return { ...base, workflowDefinitionId: action.workflowDefinitionId || null };
+  }
+
+  if (action.type === "scheduled_start_workflow") {
+    return {
+      ...base,
+      workflowDefinitionId: action.workflowDefinitionId || null,
+      recordSelection: action.recordSelection ?? null
+    };
   }
 
   return {
