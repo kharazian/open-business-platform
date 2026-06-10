@@ -27,14 +27,25 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Import job contracts are typed.
-- [ ] CSV import supports explicit field mapping.
-- [ ] Record validation is reused.
-- [ ] Failed rows are reported safely.
-- [ ] Import status is persisted and queryable.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] Import job contracts are typed.
+- [x] CSV import supports explicit field mapping.
+- [x] Record validation is reused.
+- [x] Failed rows are reported safely.
+- [x] Import status is persisted and queryable.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added `record_import_jobs` and `record_import_job_rows` through EF Core migration `20260610133807_RecordImportJobs`.
+- Added typed import job contracts for statuses, row statuses, explicit CSV-header-to-target-field mappings, job summaries/details, row results, and validation results.
+- Added a dependency-light CSV parser for the first slice, including quoted value support.
+- Management/query endpoints live under `/api/integrations/imports` and require cookie auth plus `integrations.manage`; the service also checks existing form submit permission before creating records.
+- Job creation validates CSV headers and target field mappings before processing rows.
+- Each row is submitted through the existing `RecordSubmissionService`, preserving form versioning, record validation, audit logs, and trigger dispatch.
+- Row-level failures persist sanitized validation errors without storing raw CSV payloads or hidden field values.
+- Completed imports write inbound `import` integration logs with row counts and operational metadata.
 
 ## Out of Scope
 

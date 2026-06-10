@@ -73,6 +73,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<IncomingWebhookListener> IncomingWebhookListeners => Set<IncomingWebhookListener>();
 
+    public DbSet<RecordImportJob> RecordImportJobs => Set<RecordImportJob>();
+
+    public DbSet<RecordImportJobRow> RecordImportJobRows => Set<RecordImportJobRow>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -928,6 +932,59 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(listener => listener.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<RecordImportJob>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "record_import_jobs");
+            entity.HasIndex(job => job.FormId);
+            entity.HasIndex(job => job.Status);
+            entity.HasIndex(job => job.CreatedAt);
+            entity.Property(job => job.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(job => job.IntegrationKey).HasColumnName("integration_key").HasMaxLength(120).IsRequired();
+            entity.Property(job => job.FileName).HasColumnName("file_name").HasMaxLength(260);
+            entity.Property(job => job.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(job => job.TotalRows).HasColumnName("total_rows").HasDefaultValue(0);
+            entity.Property(job => job.SucceededRows).HasColumnName("succeeded_rows").HasDefaultValue(0);
+            entity.Property(job => job.FailedRows).HasColumnName("failed_rows").HasDefaultValue(0);
+            entity.Property(job => job.StartedAt).HasColumnName("started_at").IsRequired();
+            entity.Property(job => job.CompletedAt).HasColumnName("completed_at");
+            entity.Property(job => job.MappingJson).HasColumnName("mapping_json").HasColumnType("jsonb").IsRequired();
+            entity
+                .HasOne(job => job.Form)
+                .WithMany()
+                .HasForeignKey(job => job.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(job => job.CreatedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<RecordImportJobRow>(entity =>
+        {
+            entity.ToTable("record_import_job_rows");
+            entity.HasKey(row => row.Id);
+            entity.HasIndex(row => row.ImportJobId);
+            entity.HasIndex(row => row.Status);
+            entity.HasIndex(row => new { row.ImportJobId, row.RowNumber }).IsUnique();
+            entity.Property(row => row.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(row => row.ImportJobId).HasColumnName("import_job_id").HasColumnType("uuid").IsRequired();
+            entity.Property(row => row.RowNumber).HasColumnName("row_number").IsRequired();
+            entity.Property(row => row.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(row => row.RecordId).HasColumnName("record_id").HasColumnType("uuid");
+            entity.Property(row => row.ErrorsJson).HasColumnName("errors_json").HasColumnType("jsonb");
+            entity
+                .HasOne(row => row.ImportJob)
+                .WithMany(job => job.Rows)
+                .HasForeignKey(row => row.ImportJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(row => row.Record)
+                .WithMany()
+                .HasForeignKey(row => row.RecordId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

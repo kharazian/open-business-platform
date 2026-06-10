@@ -10,7 +10,7 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 2. `002-integration-logs-and-retry-foundation.md` - complete; shared integration log records, statuses, sanitized metadata, and retry-safe metadata.
 3. `003-public-record-api-foundation.md` - complete; authenticated public/internal record API endpoints with existing permission and field rules.
 4. `004-incoming-webhook-listeners.md` - complete; named webhook listeners that can create or update records through safe typed mappings.
-5. `005-record-import-jobs.md` - CSV/import job foundation for permitted form records with validation and audit logs.
+5. `005-record-import-jobs.md` - complete; CSV/import job foundation for permitted form records with validation and audit logs.
 6. `006-external-export-jobs.md` - outbound export jobs for permitted report/record data with integration logs.
 7. `007-scheduled-automation-expansion.md` - daily/weekly/monthly schedule contracts beyond the current V4 scheduled trigger slice.
 8. `008-scheduled-workflow-starts.md` - safe scheduled workflow starts with explicit record selection rules.

@@ -130,6 +130,8 @@ AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<IntegrationApiKey>(model, "integration_api_keys");
 AssertTable<IntegrationLogEntry>(model, "integration_logs");
 AssertTable<IncomingWebhookListener>(model, "incoming_webhook_listeners");
+AssertTable<RecordImportJob>(model, "record_import_jobs");
+AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -160,6 +162,8 @@ AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationApiKey>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationLogEntry>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IncomingWebhookListener>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, RecordImportJob>();
+AssertTypeAssignable<Entity<Guid>, RecordImportJobRow>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -189,6 +193,8 @@ AssertGuidId<NotificationPreference>(model);
 AssertGuidId<IntegrationApiKey>(model);
 AssertGuidId<IntegrationLogEntry>(model);
 AssertGuidId<IncomingWebhookListener>(model);
+AssertGuidId<RecordImportJob>(model);
+AssertGuidId<RecordImportJobRow>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -224,6 +230,8 @@ AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ScopesJson))
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RequestMetadataJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ResponseMetadataJson));
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.MappingJson));
+AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.MappingJson));
+AssertJsonColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.ErrorsJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -241,6 +249,7 @@ AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraP
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ExtraPropertiesJson));
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.ExtraPropertiesJson));
+AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -328,12 +337,26 @@ AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.Secr
 AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.SecretHash), "secret_hash", "Incoming webhook listener secrets should store only a hash.");
 AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.SafeLookupFieldId), "safe_lookup_field_id", "Incoming webhook listener upserts should require an explicit safe lookup field.");
 AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.IsActive), "is_active", "Incoming webhook listeners should store active state.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.FormId), "form_id", "Record import jobs should target one form.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.IntegrationKey), "integration_key", "Record import jobs should store the integration identity.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.FileName), "file_name", "Record import jobs should store a safe file name.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.Status), "status", "Record import jobs should store status.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.TotalRows), "total_rows", "Record import jobs should store total row count.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.SucceededRows), "succeeded_rows", "Record import jobs should store succeeded row count.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.FailedRows), "failed_rows", "Record import jobs should store failed row count.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.StartedAt), "started_at", "Record import jobs should store start time.");
+AssertColumn<RecordImportJob>(model, nameof(RecordImportJob.CompletedAt), "completed_at", "Record import jobs should store completion time.");
+AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.ImportJobId), "import_job_id", "Record import job rows should link to the import job.");
+AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.RowNumber), "row_number", "Record import job rows should store source row number.");
+AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.Status), "status", "Record import job rows should store row status.");
+AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.RecordId), "record_id", "Record import job rows should link successful records.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyHash) }, "Integration API key hashes should be unique.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.ListenerKey) }, "Incoming webhook listener route keys should be unique.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.SecretPrefix) }, "Incoming webhook listener secret prefixes should be unique for lookup.");
+AssertUniqueIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.ImportJobId), nameof(RecordImportJobRow.RowNumber) }, "Record import job rows should be unique per source row.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IntegrationKey) }, "Integration API keys should be indexed by integration identity.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IsActive) }, "Integration API keys should be indexed by active state.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.LastUsedAt) }, "Integration API keys should be indexed by last use time.");
@@ -349,6 +372,11 @@ AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.Retry
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.CreatedAt) }, "Integration logs should be indexed by creation time.");
 AssertIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.TargetFormId) }, "Incoming webhook listeners should be indexed by target form.");
 AssertIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.IsActive) }, "Incoming webhook listeners should be indexed by active state.");
+AssertIndex<RecordImportJob>(model, new[] { nameof(RecordImportJob.FormId) }, "Record import jobs should be indexed by target form.");
+AssertIndex<RecordImportJob>(model, new[] { nameof(RecordImportJob.Status) }, "Record import jobs should be indexed by status.");
+AssertIndex<RecordImportJob>(model, new[] { nameof(RecordImportJob.CreatedAt) }, "Record import jobs should be indexed by creation time.");
+AssertIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.ImportJobId) }, "Record import job rows should be indexed by import job.");
+AssertIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.Status) }, "Record import job rows should be indexed by status.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
@@ -553,6 +581,44 @@ AssertEqual("jane@example.test", mappedWebhookValues["email"]?.ToString(), "Inco
 AssertEqual("HR", mappedWebhookValues["department"]?.ToString(), "Incoming webhook mapping should include only configured target values.");
 AssertFalse(mappedWebhookValues.ContainsKey("ignored"), "Incoming webhook mapping should not persist unmapped payload fields.");
 AssertNotNull(typeof(IncomingWebhookExecutionService).GetMethod(nameof(IncomingWebhookExecutionService.ReceiveAsync)), "Incoming webhook execution service should expose receive handling.");
+AssertTrue(RecordImportJobStatuses.Supported.Contains(RecordImportJobStatuses.Pending), "Record import jobs should expose a pending status.");
+AssertTrue(RecordImportJobStatuses.Supported.Contains(RecordImportJobStatuses.CompletedWithErrors), "Record import jobs should expose a completed_with_errors status.");
+AssertTrue(RecordImportJobRowStatuses.Supported.Contains(RecordImportJobRowStatuses.Succeeded), "Record import job rows should expose a succeeded status.");
+AssertTrue(RecordImportJobRowStatuses.Supported.Contains(RecordImportJobRowStatuses.Failed), "Record import job rows should expose a failed status.");
+var importMapping = new RecordImportMappingDefinition(new[]
+{
+    new RecordImportFieldMappingDefinition("Email Address", "email"),
+    new RecordImportFieldMappingDefinition("Department", "department")
+});
+var validImportRequest = new CreateRecordImportJobRequest(
+    webhookTargetFormId,
+    "hr-import",
+    "employees.csv",
+    "Email Address,Department\n\"jane@example.test\",HR\n\"sam@example.test\",\"Finance\"\n",
+    importMapping);
+var importRows = RecordImportCsvParser.Parse(validImportRequest.CsvContent);
+AssertSequenceEqual(
+    new[] { "Email Address", "Department" },
+    importRows.Headers.ToArray(),
+    "Record import CSV parser should expose headers in source order.");
+AssertEqual("sam@example.test", importRows.Rows[1].Values["Email Address"], "Record import CSV parser should support quoted values.");
+AssertTrue(
+    RecordImportJobValidator.Validate(validImportRequest, webhookTargetSchema, importRows).Valid,
+    "Record import validation should accept explicit CSV header to target field mappings.");
+AssertFalse(
+    RecordImportJobValidator.Validate(
+        validImportRequest with { Mapping = new RecordImportMappingDefinition(new[] { new RecordImportFieldMappingDefinition("Missing", "email") }) },
+        webhookTargetSchema,
+        importRows).Valid,
+    "Record import validation should reject mappings from missing CSV headers.");
+AssertFalse(
+    RecordImportJobValidator.Validate(
+        validImportRequest with { Mapping = new RecordImportMappingDefinition(new[] { new RecordImportFieldMappingDefinition("Email Address", "missing") }) },
+        webhookTargetSchema,
+        importRows).Valid,
+    "Record import validation should reject mappings to missing target fields.");
+AssertNotNull(typeof(RecordImportJobService).GetMethod(nameof(RecordImportJobService.CreateAsync)), "Record import job service should expose create handling.");
+AssertNotNull(typeof(RecordImportJobService).GetMethod(nameof(RecordImportJobService.GetAsync)), "Record import job service should expose query handling.");
 var sensitiveMetadata = new Dictionary<string, object?>
 {
     ["Authorization"] = "Bearer secret",

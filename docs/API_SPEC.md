@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. V8 task 005 adds CSV record import jobs with explicit field mappings, persisted status, row-level results, existing record validation/permissions, audit logs, and integration logs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -366,6 +366,92 @@ Response:
   "integrationLogId": "00000000-0000-0000-0000-000000000000"
 }
 ```
+
+### Record import jobs
+
+Record import job management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`. Creating an import also requires the current user to have submit access to the target form.
+
+This first slice supports CSV text only. Imports require explicit mappings from CSV headers to target form field IDs. Each row is submitted through the existing record creation service, so form versioning, backend validation, record audit logs, and trigger dispatch still apply. Row failures persist validation errors, not raw CSV values.
+
+Supported job statuses:
+
+- `pending`
+- `running`
+- `succeeded`
+- `completed_with_errors`
+- `failed`
+
+Supported row statuses:
+
+- `succeeded`
+- `failed`
+
+`GET /api/integrations/imports`
+
+Lists recent record import jobs.
+
+`GET /api/integrations/imports/{importJobId}`
+
+Returns one import job with row-level results or `404`.
+
+`POST /api/integrations/imports`
+
+Creates and runs a CSV import job synchronously for the first foundation slice.
+
+Request:
+
+```json
+{
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "integrationKey": "hr-import",
+  "fileName": "employees.csv",
+  "csvContent": "Email Address,Department\njane@example.test,HR\nsam@example.test,Finance\n",
+  "mapping": {
+    "fieldMappings": [
+      { "csvHeader": "Email Address", "targetFieldId": "email" },
+      { "csvHeader": "Department", "targetFieldId": "department" }
+    ]
+  }
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "integrationKey": "hr-import",
+  "fileName": "employees.csv",
+  "status": "succeeded",
+  "totalRows": 2,
+  "succeededRows": 2,
+  "failedRows": 0,
+  "mapping": {
+    "fieldMappings": [
+      { "csvHeader": "Email Address", "targetFieldId": "email" }
+    ]
+  },
+  "rows": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "rowNumber": 2,
+      "status": "succeeded",
+      "recordId": "00000000-0000-0000-0000-000000000000",
+      "errors": []
+    }
+  ],
+  "startedAt": "2026-06-10T13:38:07Z",
+  "completedAt": "2026-06-10T13:38:08Z",
+  "concurrencyStamp": "stamp",
+  "createdAt": "2026-06-10T13:38:07Z",
+  "createdById": "00000000-0000-0000-0000-000000000000",
+  "updatedAt": "2026-06-10T13:38:08Z",
+  "updatedById": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+Completed imports write inbound `import` integration logs with source `RecordImportJob`, row counts, status, and safe operational metadata.
 
 ### Dashboard summary
 

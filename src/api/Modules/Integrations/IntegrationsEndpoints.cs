@@ -248,6 +248,59 @@ public static class IntegrationsEndpoints
             });
         });
 
+        var imports = endpoints.MapGroup("/api/integrations/imports")
+            .WithTags("Integrations")
+            .RequireAuthorization();
+
+        imports.MapGet("", async (
+            RecordImportJobService importJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await importJobs.ListAsync(cancellationToken) });
+        });
+
+        imports.MapGet("/{importJobId:guid}", async (
+            Guid importJobId,
+            RecordImportJobService importJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var job = await importJobs.GetAsync(importJobId, cancellationToken);
+            return job is null ? Results.NotFound() : Results.Ok(job);
+        });
+
+        imports.MapPost("", async (
+            CreateRecordImportJobRequest request,
+            RecordImportJobService importJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var job = await importJobs.CreateAsync(httpContext.User, request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Created($"/api/integrations/imports/{job.Id}", job);
+            });
+        });
+
         var publicRecords = endpoints.MapGroup($"/api/integration/{PublicRecordApiVersions.V1}")
             .WithTags("Integration Records")
             .RequireAuthorization(new AuthorizeAttribute
@@ -359,6 +412,10 @@ public static class IntegrationsEndpoints
             return Results.Json(new RecordErrorResponse(exception.Message, exception.Errors), statusCode: exception.StatusCode);
         }
         catch (IncomingWebhookException exception)
+        {
+            return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (RecordImportException exception)
         {
             return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
         }

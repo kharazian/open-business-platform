@@ -10,6 +10,7 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 002 added integration log persistence, sanitized metadata, and explicit retry request metadata before adding more integration surfaces.
 - V8 task 003 added versioned API-key-authenticated record list/read/create endpoints that reuse existing backend permissions and field rules.
 - V8 task 004 added named incoming webhook listeners with hashed listener secrets, API-key or listener-secret authentication, typed payload mappings, create/safe-lookup upsert record execution, and inbound integration logs.
+- V8 task 005 added CSV record import jobs with explicit field mappings, persisted job/row status, row-level validation results, audit logs, and inbound import integration logs.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -36,7 +37,7 @@ Implement V8 in this order:
 2. Integration logs and retry foundation. Complete.
 3. Public/internal record API foundation. Complete.
 4. Incoming webhook listeners. Complete.
-5. Record import jobs.
+5. Record import jobs. Complete.
 6. External export jobs.
 7. Scheduled automation expansion.
 8. Scheduled workflow starts.

@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 task 004 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, and incoming webhook listener tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 task 005 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, and record import job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -13,6 +13,7 @@ The current migrations include:
 - `integration_api_keys`
 - `integration_logs`
 - `incoming_webhook_listeners`
+- `record_import_jobs`, `record_import_job_rows`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -229,6 +230,67 @@ Foreign keys:
 
 - target_form_id -> forms.id, restrict delete
 - created_by_id -> users.id, set null on delete
+
+### record_import_jobs
+
+Stores CSV record import job metadata. Jobs target exactly one form and keep explicit CSV-header-to-target-field mappings in JSONB. Raw CSV content is not persisted; row-level results store only status, created record IDs, and sanitized validation errors.
+
+Fields:
+
+- id uuid
+- form_id
+- integration_key stable normalized integration identity
+- file_name nullable safe display name
+- status: pending, running, succeeded, completed_with_errors, failed
+- total_rows
+- succeeded_rows
+- failed_rows
+- started_at
+- completed_at nullable
+- mapping_json JSONB
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- form_id
+- status
+- created_at
+- created_by_id
+
+Foreign keys:
+
+- form_id -> forms.id, restrict delete
+- created_by_id -> users.id, set null on delete
+
+### record_import_job_rows
+
+Stores per-row import outcomes for queryable import diagnostics.
+
+Fields:
+
+- id uuid
+- import_job_id
+- row_number source CSV row number
+- status: succeeded, failed
+- record_id nullable
+- errors_json JSONB nullable
+
+Indexes:
+
+- import_job_id
+- status
+- unique import_job_id + row_number
+- record_id
+
+Foreign keys:
+
+- import_job_id -> record_import_jobs.id, cascade delete
+- record_id -> records.id, set null on delete
 
 ### roles
 

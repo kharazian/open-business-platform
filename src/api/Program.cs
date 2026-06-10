@@ -77,6 +77,7 @@ builder.Services.AddScoped<IntegrationLogService>();
 builder.Services.AddScoped<PublicRecordApiService>();
 builder.Services.AddScoped<IncomingWebhookListenerService>();
 builder.Services.AddScoped<IncomingWebhookExecutionService>();
+builder.Services.AddScoped<RecordImportJobService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
