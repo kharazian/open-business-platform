@@ -42,6 +42,8 @@ builder.Services.AddSingleton<PasswordResetTokenGenerator>();
 builder.Services.AddSingleton<PasswordResetTokenHasher>();
 builder.Services.AddSingleton<IntegrationApiKeyHasher>();
 builder.Services.AddSingleton<IntegrationApiKeyGenerator>();
+builder.Services.AddSingleton<IncomingWebhookListenerSecretHasher>();
+builder.Services.AddSingleton<IncomingWebhookListenerSecretGenerator>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<NotificationQueryService>();
 builder.Services.AddScoped<IdentityManagementService>();
@@ -73,6 +75,8 @@ builder.Services.AddScoped<DashboardDefinitionService>();
 builder.Services.AddScoped<IntegrationApiKeyService>();
 builder.Services.AddScoped<IntegrationLogService>();
 builder.Services.AddScoped<PublicRecordApiService>();
+builder.Services.AddScoped<IncomingWebhookListenerService>();
+builder.Services.AddScoped<IncomingWebhookExecutionService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

@@ -9,6 +9,7 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 001 added hashed integration API key management and API-key authentication plumbing before exposing inbound webhooks, imports, exports, or broader public/internal APIs.
 - V8 task 002 added integration log persistence, sanitized metadata, and explicit retry request metadata before adding more integration surfaces.
 - V8 task 003 added versioned API-key-authenticated record list/read/create endpoints that reuse existing backend permissions and field rules.
+- V8 task 004 added named incoming webhook listeners with hashed listener secrets, API-key or listener-secret authentication, typed payload mappings, create/safe-lookup upsert record execution, and inbound integration logs.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -34,7 +35,7 @@ Implement V8 in this order:
 1. API keys and integration auth. Complete.
 2. Integration logs and retry foundation. Complete.
 3. Public/internal record API foundation. Complete.
-4. Incoming webhook listeners.
+4. Incoming webhook listeners. Complete.
 5. Record import jobs.
 6. External export jobs.
 7. Scheduled automation expansion.

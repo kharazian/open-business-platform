@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 task 002 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, and integration log tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 task 004 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, and incoming webhook listener tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -12,6 +12,7 @@ The current migrations include:
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`
+- `incoming_webhook_listeners`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -191,6 +192,43 @@ Foreign keys:
 
 - created_by_id -> users.id, set null on delete
 - retry_requested_by_id -> users.id, set null on delete
+
+### incoming_webhook_listeners
+
+Stores named inbound webhook listener configurations. Listener mappings are typed JSONB definitions that map inbound payload source paths to fields on exactly one target form. Raw listener secrets are returned only on create/rotate; PostgreSQL stores only `secret_hash` plus a display/lookup `secret_prefix`.
+
+Fields:
+
+- id uuid
+- name
+- listener_key stable route key
+- target_form_id
+- action: create, upsert
+- auth_mode: api_key, listener_secret
+- secret_prefix nullable
+- secret_hash nullable
+- safe_lookup_field_id nullable
+- mapping_json JSONB
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- unique listener_key
+- unique secret_prefix
+- target_form_id
+- is_active
+- created_by_id
+
+Foreign keys:
+
+- target_form_id -> forms.id, restrict delete
+- created_by_id -> users.id, set null on delete
 
 ### roles
 

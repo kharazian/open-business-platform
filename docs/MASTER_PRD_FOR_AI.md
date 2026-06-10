@@ -48,8 +48,8 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Workflows`: current V5 backend workflow definitions, typed validation, list/create/read/update/publish/enable/disable APIs, immutable version publishing, record workflow state/start/direct transition execution, approval-gated transition tasks, current-user approval APIs, approval notifications, and workflow history writes
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API, V2 chart widget preview module, and V7 dashboard analytics execution API
 - `src/api/Modules/Dashboards`: current V2 saved dashboard definition API with config/layout validation, permission checks, and audit logging
-- `src/api/Modules/Integrations`: current V8 API key management, integration log, and public record API module with hashed keys, conservative scopes, backend permission checks, audit logging, API-key authentication plumbing, sanitized integration log metadata, explicit retry request metadata, and versioned API-key-authenticated record list/read/create endpoints
-- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, and integration logs
+- `src/api/Modules/Integrations`: current V8 API key management, integration log, public record API, and incoming webhook listener module with hashed keys/secrets, conservative scopes, backend permission checks, audit logging, API-key authentication plumbing, sanitized integration log metadata, explicit retry request metadata, versioned API-key-authenticated record list/read/create endpoints, and typed webhook payload mapping into records
+- `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, integration logs, and incoming webhook listeners
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
@@ -63,7 +63,7 @@ V4 is complete through task 010: trigger definitions, trigger logs, management A
 V5 is complete through task 007: workflow definition persistence, management UI, record workflow state, published starts, direct transitions, approval inbox/notifications, transition action execution, trigger-to-workflow starts, and an optional workflow-only XYFlow visual builder over the typed draft config.
 V6 print template foundation is complete through task 007: persisted record/report templates, permission-protected APIs, validation, audit logs, `/printing` management UI, selected record/report template rendering, browser print/save-as-PDF generation, page setup, repeated table headers, section page-break controls, conditional sections, immutable published template versions, safe small logo uploads, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 V7 is complete through task 004: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions; the saved dashboard builder can configure V7 analytics widgets while preserving the existing saved chart config contract; the saved dashboard viewer renders those widgets with per-widget loading, retry, empty, permission, and stale-source states; and conservative dashboard visibility/default settings are backend-enforced through existing dashboard JSONB metadata without adding workspace ownership.
-Incoming webhook listeners, advanced notification delivery, scheduled workflow starts, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Record import jobs, advanced notification delivery, scheduled workflow starts, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
 
 V6 task 003 is complete for field-based conditional print template sections over already-permission-filtered record/report data.
 V6 task 004 is complete for immutable published print template versions, publish/history APIs, builder publish controls, and latest-published rendering for selected record/report templates.
@@ -77,6 +77,7 @@ V7 task 004 is complete for backend-owned workspace/private dashboard visibility
 V8 task 001 is complete: integration API key management now stores only hashed key material, returns raw keys only on create/rotate, tracks active/revoked and last-used metadata, adds `integrations.manage`, writes audit logs for create/revoke/rotate, and registers API-key authentication plumbing without exposing record/report data.
 V8 task 002 is complete: integration logs now persist typed inbound/outbound attempt metadata, sanitized request/response metadata, retry state fields, and explicit retry requests with audit logs, without adding background replay.
 V8 task 003 is complete: versioned API-key-authenticated record list/read/create endpoints now reuse linked-user form permissions, V3 record scopes, backend record validation, hidden-field filtering, record audit logs, and integration logs.
+V8 task 004 is complete: named incoming webhook listeners now persist typed mappings, store listener secrets only as hashes, authenticate inbound calls through API keys or listener secrets, create records through existing validation/permissions, support conservative safe-lookup upserts, and log every inbound attempt.
 
 ## 2. Core Product Philosophy
 
@@ -906,10 +907,11 @@ V6 task 007 is complete for PDF email attachments on record-trigger email action
 V8 task 001 is complete for hashed integration API keys, conservative typed scopes, management endpoints, audit logs, and backend API-key authentication plumbing.
 V8 task 002 is complete for integration log persistence, sanitized metadata, retry metadata, management read endpoints, and auditable explicit retry requests.
 V8 task 003 is complete for the public/internal record API foundation.
+V8 task 004 is complete for incoming webhook listener persistence, typed field mappings, listener secret hashing, authenticated receive endpoints, record create/upsert execution, and integration logs.
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should start V8 task 004 for incoming webhook listeners.
+Next concrete work should start V8 task 005 for record import jobs.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

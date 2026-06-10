@@ -129,6 +129,7 @@ AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<IntegrationApiKey>(model, "integration_api_keys");
 AssertTable<IntegrationLogEntry>(model, "integration_logs");
+AssertTable<IncomingWebhookListener>(model, "incoming_webhook_listeners");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -158,6 +159,7 @@ AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationApiKey>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationLogEntry>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, IncomingWebhookListener>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -186,6 +188,7 @@ AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<IntegrationApiKey>(model);
 AssertGuidId<IntegrationLogEntry>(model);
+AssertGuidId<IncomingWebhookListener>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -220,6 +223,7 @@ AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ScopesJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RequestMetadataJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ResponseMetadataJson));
+AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.MappingJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -236,6 +240,7 @@ AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson)
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ExtraPropertiesJson));
+AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -314,10 +319,21 @@ AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ErrorCode), 
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ErrorMessage), "error_message", "Integration logs should store sanitized error message.");
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.StartedAt), "started_at", "Integration logs should store start time.");
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.CompletedAt), "completed_at", "Integration logs should store completion time.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.Name), "name", "Incoming webhook listeners should store a display name.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.ListenerKey), "listener_key", "Incoming webhook listeners should expose a stable route key.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.TargetFormId), "target_form_id", "Incoming webhook listeners should target one form.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.Action), "action", "Incoming webhook listeners should store create/upsert action.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.AuthMode), "auth_mode", "Incoming webhook listeners should store the authentication mode.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.SecretPrefix), "secret_prefix", "Incoming webhook listener secrets should store a lookup/display prefix.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.SecretHash), "secret_hash", "Incoming webhook listener secrets should store only a hash.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.SafeLookupFieldId), "safe_lookup_field_id", "Incoming webhook listener upserts should require an explicit safe lookup field.");
+AssertColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.IsActive), "is_active", "Incoming webhook listeners should store active state.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyHash) }, "Integration API key hashes should be unique.");
+AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.ListenerKey) }, "Incoming webhook listener route keys should be unique.");
+AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.SecretPrefix) }, "Incoming webhook listener secret prefixes should be unique for lookup.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IntegrationKey) }, "Integration API keys should be indexed by integration identity.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IsActive) }, "Integration API keys should be indexed by active state.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.LastUsedAt) }, "Integration API keys should be indexed by last use time.");
@@ -331,6 +347,8 @@ AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.Sourc
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.TargetEntityType), nameof(IntegrationLogEntry.TargetEntityId) }, "Integration logs should be indexed by target entity.");
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.RetryNextAttemptAt) }, "Integration logs should be indexed by retry due time.");
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.CreatedAt) }, "Integration logs should be indexed by creation time.");
+AssertIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.TargetFormId) }, "Incoming webhook listeners should be indexed by target form.");
+AssertIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.IsActive) }, "Incoming webhook listeners should be indexed by active state.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
@@ -457,6 +475,84 @@ AssertEqual("outbound", IntegrationLogDirections.Outbound, "Integration log dire
 AssertTrue(IntegrationLogDirections.Supported.Contains(IntegrationLogDirections.Inbound), "Integration log directions should be typed.");
 AssertTrue(IntegrationLogTypes.Supported.Contains(IntegrationLogTypes.Webhook), "Integration log types should include webhook integrations.");
 AssertTrue(IntegrationLogStatuses.Supported.Contains(IntegrationLogStatuses.Failed), "Integration log statuses should include failed.");
+AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.WebhooksReceive), "Integration API key scopes should include explicit incoming webhook receive scope.");
+AssertTrue(IncomingWebhookListenerAuthModes.Supported.Contains(IncomingWebhookListenerAuthModes.ApiKey), "Incoming webhook listeners should support API key authentication.");
+AssertTrue(IncomingWebhookListenerAuthModes.Supported.Contains(IncomingWebhookListenerAuthModes.ListenerSecret), "Incoming webhook listeners should support listener secret authentication.");
+AssertTrue(IncomingWebhookListenerActions.Supported.Contains(IncomingWebhookListenerActions.Create), "Incoming webhook listeners should support record creation.");
+AssertTrue(IncomingWebhookListenerActions.Supported.Contains(IncomingWebhookListenerActions.Upsert), "Incoming webhook listeners should support conservative upsert.");
+var listenerSecretHasher = new IncomingWebhookListenerSecretHasher();
+var listenerSecretGenerator = new IncomingWebhookListenerSecretGenerator(listenerSecretHasher);
+var generatedListenerSecret = listenerSecretGenerator.Generate();
+AssertTrue(generatedListenerSecret.RawSecret.StartsWith(IncomingWebhookListenerSecretGenerator.RawSecretPrefix, StringComparison.Ordinal), "Incoming webhook listener secrets should use a recognizable platform prefix.");
+AssertNotEqual(generatedListenerSecret.RawSecret, generatedListenerSecret.SecretHash, "Incoming webhook listener secret hashes should not store the raw secret.");
+AssertTrue(listenerSecretHasher.Verify(generatedListenerSecret.RawSecret, generatedListenerSecret.SecretHash), "Incoming webhook listener secret hasher should verify the original raw secret.");
+AssertFalse(listenerSecretHasher.Verify($"{generatedListenerSecret.RawSecret}x", generatedListenerSecret.SecretHash), "Incoming webhook listener secret hasher should reject a different secret.");
+var validWebhookMapping = new IncomingWebhookMappingDefinition(new[]
+{
+    new IncomingWebhookFieldMappingDefinition("person.email", "email", Required: true),
+    new IncomingWebhookFieldMappingDefinition("department", "department", Required: true)
+});
+var webhookTargetFormId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+var webhookTargetSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("email", FormFieldTypes.Email, "Email", Required: true),
+        new FormFieldDefinition("department", FormFieldTypes.Select, "Department", Required: true, Options: new[]
+        {
+            new FormFieldOptionDefinition("hr", "Human Resources", "HR"),
+            new FormFieldOptionDefinition("finance", "Finance", "Finance")
+        })
+    },
+    new FormLayoutDefinition(Array.Empty<FormLayoutPageDefinition>()));
+AssertTrue(
+    IncomingWebhookListenerValidator.Validate(
+        new UpsertIncomingWebhookListenerRequest(
+            "HR intake",
+            "hr-intake",
+            webhookTargetFormId,
+            IncomingWebhookListenerActions.Create,
+            IncomingWebhookListenerAuthModes.ApiKey,
+            validWebhookMapping,
+            IsActive: true),
+        webhookTargetSchema).Valid,
+    "Incoming webhook listener validation should accept mapped create listeners for one target form.");
+AssertFalse(
+    IncomingWebhookListenerValidator.Validate(
+        new UpsertIncomingWebhookListenerRequest(
+            "Bad mapping",
+            "bad-mapping",
+            webhookTargetFormId,
+            IncomingWebhookListenerActions.Create,
+            IncomingWebhookListenerAuthModes.ApiKey,
+            new IncomingWebhookMappingDefinition(new[] { new IncomingWebhookFieldMappingDefinition("email", "missing") }),
+            IsActive: true),
+        webhookTargetSchema).Valid,
+    "Incoming webhook listener validation should reject mappings to missing target fields.");
+AssertFalse(
+    IncomingWebhookListenerValidator.Validate(
+        new UpsertIncomingWebhookListenerRequest(
+            "Unsafe upsert",
+            "unsafe-upsert",
+            webhookTargetFormId,
+            IncomingWebhookListenerActions.Upsert,
+            IncomingWebhookListenerAuthModes.ApiKey,
+            validWebhookMapping,
+            IsActive: true),
+        webhookTargetSchema).Valid,
+    "Incoming webhook listener validation should reject upsert without an explicit safe lookup field.");
+var mappedWebhookValues = IncomingWebhookPayloadMapper.MapValues(
+    validWebhookMapping,
+    new Dictionary<string, object?>
+    {
+        ["person"] = new Dictionary<string, object?> { ["email"] = "jane@example.test" },
+        ["department"] = "HR",
+        ["ignored"] = "not persisted"
+    });
+AssertEqual("jane@example.test", mappedWebhookValues["email"]?.ToString(), "Incoming webhook mapping should read nested payload paths.");
+AssertEqual("HR", mappedWebhookValues["department"]?.ToString(), "Incoming webhook mapping should include only configured target values.");
+AssertFalse(mappedWebhookValues.ContainsKey("ignored"), "Incoming webhook mapping should not persist unmapped payload fields.");
+AssertNotNull(typeof(IncomingWebhookExecutionService).GetMethod(nameof(IncomingWebhookExecutionService.ReceiveAsync)), "Incoming webhook execution service should expose receive handling.");
 var sensitiveMetadata = new Dictionary<string, object?>
 {
     ["Authorization"] = "Bearer secret",

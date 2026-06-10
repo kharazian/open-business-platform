@@ -71,6 +71,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<IntegrationLogEntry> IntegrationLogs => Set<IntegrationLogEntry>();
 
+    public DbSet<IncomingWebhookListener> IncomingWebhookListeners => Set<IncomingWebhookListener>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -896,6 +898,36 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(log => log.RetryRequestedBy)
                 .WithMany()
                 .HasForeignKey(log => log.RetryRequestedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<IncomingWebhookListener>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "incoming_webhook_listeners");
+            entity.HasIndex(listener => listener.ListenerKey).IsUnique();
+            entity.HasIndex(listener => listener.SecretPrefix).IsUnique();
+            entity.HasIndex(listener => listener.TargetFormId);
+            entity.HasIndex(listener => listener.IsActive);
+            entity.HasIndex(listener => listener.CreatedById);
+            entity.Property(listener => listener.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(listener => listener.ListenerKey).HasColumnName("listener_key").HasMaxLength(120).IsRequired();
+            entity.Property(listener => listener.TargetFormId).HasColumnName("target_form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(listener => listener.Action).HasColumnName("action").HasMaxLength(40).IsRequired();
+            entity.Property(listener => listener.AuthMode).HasColumnName("auth_mode").HasMaxLength(40).IsRequired();
+            entity.Property(listener => listener.SecretPrefix).HasColumnName("secret_prefix").HasMaxLength(80);
+            entity.Property(listener => listener.SecretHash).HasColumnName("secret_hash").HasMaxLength(128);
+            entity.Property(listener => listener.SafeLookupFieldId).HasColumnName("safe_lookup_field_id").HasMaxLength(120);
+            entity.Property(listener => listener.MappingJson).HasColumnName("mapping_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(listener => listener.IsActive).HasColumnName("is_active").HasDefaultValue(false);
+            entity
+                .HasOne(listener => listener.TargetForm)
+                .WithMany()
+                .HasForeignKey(listener => listener.TargetFormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(listener => listener.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }
