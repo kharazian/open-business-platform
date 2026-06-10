@@ -84,6 +84,7 @@ V8 task 006 is complete: external export jobs now persist permission-filtered fo
 V8 task 007 is complete: scheduled automation now has explicit daily/weekly/monthly interval/day contracts, tested due-time calculation, stricter unsafe scheduled-action validation, and trigger log schedule metadata for due, locked, skipped, success, and failure runs.
 V8 task 008 is complete: scheduled workflow starts now use explicit same-form workflow targets and record selection rules, write workflow history/audit entries, and capture selected record results in trigger logs.
 V8 task 009 is complete: `/integrations` now provides a permission-aware operations UI for API key creation/revocation/rotation, sanitized integration log filtering/detail review, and explicit retry requests.
+V8 finalization is documented in `docs/V8_FINALIZATION.md`; V9 can be postponed and starts from `docs/V9_START_HERE.md` and `tasks/v9/README.md` when needed.
 
 ## 2. Core Product Philosophy
 

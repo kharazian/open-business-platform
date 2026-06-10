@@ -15,6 +15,8 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 007 added explicit daily/weekly/monthly scheduled automation contracts with interval/day metadata, tested due-time calculation, safe scheduled-action validation, and schedule run metadata in trigger logs.
 - V8 task 008 added scheduled workflow starts with explicit same-form workflow targets, bounded record selection rules, workflow history/audit writes, and trigger log record results.
 - V8 task 009 added a permission-aware `/integrations` operations UI for API keys, integration logs, and explicit retry requests.
+- V8 finalization notes are in `docs/V8_FINALIZATION.md`.
+- V9 can be postponed; when ready, use `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -29,7 +31,8 @@ This packet is the handoff for V8: Integrations and API.
 8. `tasks/v5/006-trigger-to-workflow-starts.md`
 9. `tasks/v7/README.md`
 10. `tasks/v8/README.md`
-11. The selected `tasks/v8/*.md` task file.
+11. `docs/V8_FINALIZATION.md`
+12. The selected `tasks/v8/*.md` task file.
 
 ## V8 Direction
 

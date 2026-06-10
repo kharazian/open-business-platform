@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Task 009 Complete
+## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, integration log filtering/detail review, and explicit retry requests.
 
-Next: review and finalize V8 or start the next planned version.
+Next: V9 can be postponed. When ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
 
 ## Product Engine Path
 

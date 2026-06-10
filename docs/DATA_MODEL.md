@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 task 008 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
