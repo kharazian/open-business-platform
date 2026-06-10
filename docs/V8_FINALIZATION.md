@@ -41,10 +41,10 @@ Completed V8 work:
 - `/api/integrations/logs`
 - `/api/integration/v1/forms/{formId}/records`
 - `/api/integration/v1/records/{recordId}`
-- `/api/integrations/webhooks/listeners`
-- `/api/integrations/webhooks/{listenerKey}`
-- `/api/integrations/import-jobs`
-- `/api/integrations/export-jobs`
+- `/api/integrations/webhooks`
+- `/api/integration/v1/webhooks/{listenerKey}`
+- `/api/integrations/imports`
+- `/api/integrations/exports`
 
 See `docs/API_SPEC.md` for endpoint details.
 
@@ -90,4 +90,4 @@ git diff --check
 
 ## Next
 
-V9 can be postponed. When ready, use `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
+Use `docs/V8_PRACTICAL_TESTING.md` for hands-on validation. V9 can be postponed. When ready, use `docs/V9_START_HERE.md` and `tasks/v9/README.md`.

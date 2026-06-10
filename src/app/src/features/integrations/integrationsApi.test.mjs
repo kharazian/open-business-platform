@@ -14,7 +14,7 @@ test("integrations API client manages API keys and retry requests", async () => 
 
     if (input === "/api/integrations/api-keys/key-1/revoke") return { ok: true, json: async () => ({ id: "key-1", revokedAt: "2026-06-10T12:00:00Z" }) };
     if (input === "/api/integrations/api-keys/key-1/rotate") return { ok: true, json: async () => ({ apiKey: { id: "key-1" }, rawKey: "obp_sk_new.secret" }) };
-    if (input === "/api/integrations/logs/log-1/retry") return { ok: true, json: async () => ({ id: "log-1", retryRequestedAt: "2026-06-10T12:00:00Z" }) };
+    if (input === "/api/integrations/logs/log-1/retry-request") return { ok: true, json: async () => ({ id: "log-1", retryRequestedAt: "2026-06-10T12:00:00Z" }) };
 
     return { ok: true, json: async () => ({ apiKey: { id: "key-new", keyPrefix: "obp_sk_prefix" }, rawKey: "obp_sk_prefix.secret" }) };
   };
@@ -34,7 +34,7 @@ test("integrations API client manages API keys and retry requests", async () => 
   assert.equal(calls[1].init.method, "POST");
   assert.equal(calls[2].input, "/api/integrations/api-keys/key-1/revoke");
   assert.equal(calls[3].input, "/api/integrations/api-keys/key-1/rotate");
-  assert.equal(calls[4].input, "/api/integrations/logs/log-1/retry");
+  assert.equal(calls[4].input, "/api/integrations/logs/log-1/retry-request");
 });
 
 test("integration operations filter logs and identify retryable failures", () => {

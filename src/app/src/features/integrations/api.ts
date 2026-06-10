@@ -89,7 +89,7 @@ export async function requestIntegrationLogRetry(
   fetcher: IntegrationsFetcher = defaultFetcher
 ): Promise<IntegrationLogDto> {
   return requestJson<IntegrationLogDto>(
-    `/api/integrations/logs/${encodeURIComponent(logId)}/retry`,
+    `/api/integrations/logs/${encodeURIComponent(logId)}/retry-request`,
     {
       method: "POST",
       credentials: "include",

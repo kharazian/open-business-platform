@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, integration log filtering/detail review, and explicit retry requests.
 
-Next: V9 can be postponed. When ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
+Next: test V8 practically with `docs/V8_PRACTICAL_TESTING.md`. V9 can be postponed; when ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
 
 ## Product Engine Path
 
