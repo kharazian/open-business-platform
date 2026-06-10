@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 task 005 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, and record import job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 task 006 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -14,6 +14,7 @@ The current migrations include:
 - `integration_logs`
 - `incoming_webhook_listeners`
 - `record_import_jobs`, `record_import_job_rows`
+- `external_export_jobs`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -291,6 +292,50 @@ Foreign keys:
 
 - import_job_id -> record_import_jobs.id, cascade delete
 - record_id -> records.id, set null on delete
+
+### external_export_jobs
+
+Stores outbound export jobs for permission-filtered form record or saved list report data. The first slice stores protected artifact content directly on the job detail and does not create public download links.
+
+Fields:
+
+- id uuid
+- source_type: form_records, list_report
+- format: csv, json
+- integration_key stable normalized integration identity
+- form_id nullable
+- report_id nullable
+- status: pending, running, succeeded, failed
+- row_count
+- artifact_file_name nullable
+- artifact_content_type nullable
+- artifact_size_bytes
+- artifact_content nullable
+- started_at
+- completed_at nullable
+- request_json JSONB
+- artifact_metadata_json JSONB nullable
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- source_type
+- status
+- form_id
+- report_id
+- created_at
+- created_by_id
+
+Foreign keys:
+
+- form_id -> forms.id, set null on delete
+- report_id -> reports.id, set null on delete
+- created_by_id -> users.id, set null on delete
 
 ### roles
 

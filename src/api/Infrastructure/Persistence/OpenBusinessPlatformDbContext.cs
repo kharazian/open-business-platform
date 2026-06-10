@@ -77,6 +77,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<RecordImportJobRow> RecordImportJobRows => Set<RecordImportJobRow>();
 
+    public DbSet<ExternalExportJob> ExternalExportJobs => Set<ExternalExportJob>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -985,6 +987,46 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(row => row.Record)
                 .WithMany()
                 .HasForeignKey(row => row.RecordId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ExternalExportJob>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "external_export_jobs");
+            entity.HasIndex(job => job.SourceType);
+            entity.HasIndex(job => job.Status);
+            entity.HasIndex(job => job.FormId);
+            entity.HasIndex(job => job.ReportId);
+            entity.HasIndex(job => job.CreatedAt);
+            entity.Property(job => job.SourceType).HasColumnName("source_type").HasMaxLength(40).IsRequired();
+            entity.Property(job => job.Format).HasColumnName("format").HasMaxLength(40).IsRequired();
+            entity.Property(job => job.IntegrationKey).HasColumnName("integration_key").HasMaxLength(120).IsRequired();
+            entity.Property(job => job.FormId).HasColumnName("form_id").HasColumnType("uuid");
+            entity.Property(job => job.ReportId).HasColumnName("report_id").HasColumnType("uuid");
+            entity.Property(job => job.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(job => job.RowCount).HasColumnName("row_count").HasDefaultValue(0);
+            entity.Property(job => job.ArtifactFileName).HasColumnName("artifact_file_name").HasMaxLength(260);
+            entity.Property(job => job.ArtifactContentType).HasColumnName("artifact_content_type").HasMaxLength(120);
+            entity.Property(job => job.ArtifactSizeBytes).HasColumnName("artifact_size_bytes").HasDefaultValue(0L);
+            entity.Property(job => job.ArtifactContent).HasColumnName("artifact_content");
+            entity.Property(job => job.StartedAt).HasColumnName("started_at").IsRequired();
+            entity.Property(job => job.CompletedAt).HasColumnName("completed_at");
+            entity.Property(job => job.RequestJson).HasColumnName("request_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(job => job.ArtifactMetadataJson).HasColumnName("artifact_metadata_json").HasColumnType("jsonb");
+            entity
+                .HasOne(job => job.Form)
+                .WithMany()
+                .HasForeignKey(job => job.FormId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne(job => job.Report)
+                .WithMany()
+                .HasForeignKey(job => job.ReportId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(job => job.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

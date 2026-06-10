@@ -132,6 +132,7 @@ AssertTable<IntegrationLogEntry>(model, "integration_logs");
 AssertTable<IncomingWebhookListener>(model, "incoming_webhook_listeners");
 AssertTable<RecordImportJob>(model, "record_import_jobs");
 AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
+AssertTable<ExternalExportJob>(model, "external_export_jobs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
@@ -164,6 +165,7 @@ AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationLogEntry>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IncomingWebhookListener>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, RecordImportJob>();
 AssertTypeAssignable<Entity<Guid>, RecordImportJobRow>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, ExternalExportJob>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -195,6 +197,7 @@ AssertGuidId<IntegrationLogEntry>(model);
 AssertGuidId<IncomingWebhookListener>(model);
 AssertGuidId<RecordImportJob>(model);
 AssertGuidId<RecordImportJobRow>(model);
+AssertGuidId<ExternalExportJob>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
@@ -232,6 +235,8 @@ AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.Response
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.MappingJson));
 AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.MappingJson));
 AssertJsonColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.ErrorsJson));
+AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.RequestJson));
+AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactMetadataJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));
@@ -250,6 +255,7 @@ AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropert
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ExtraPropertiesJson));
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.ExtraPropertiesJson));
 AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.ExtraPropertiesJson));
+AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ExtraPropertiesJson));
 
 AssertColumn<User>(model, nameof(User.PasswordHash), "password_hash", "Users should store a password hash column.");
 AssertColumn<User>(model, nameof(User.PasswordUpdatedAt), "password_updated_at", "Users should store password update metadata.");
@@ -350,6 +356,19 @@ AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.ImportJobId), 
 AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.RowNumber), "row_number", "Record import job rows should store source row number.");
 AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.Status), "status", "Record import job rows should store row status.");
 AssertColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.RecordId), "record_id", "Record import job rows should link successful records.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.SourceType), "source_type", "External export jobs should store source type.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.Format), "format", "External export jobs should store output format.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.IntegrationKey), "integration_key", "External export jobs should store integration identity.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.FormId), "form_id", "External export jobs should store optional form scope.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ReportId), "report_id", "External export jobs should store optional report scope.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.Status), "status", "External export jobs should store status.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.RowCount), "row_count", "External export jobs should store exported row count.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactFileName), "artifact_file_name", "External export jobs should store artifact file name.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactContentType), "artifact_content_type", "External export jobs should store artifact content type.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactSizeBytes), "artifact_size_bytes", "External export jobs should store artifact size.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactContent), "artifact_content", "External export jobs should store protected artifact content.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.StartedAt), "started_at", "External export jobs should store start time.");
+AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.CompletedAt), "completed_at", "External export jobs should store completion time.");
 
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
@@ -377,6 +396,11 @@ AssertIndex<RecordImportJob>(model, new[] { nameof(RecordImportJob.Status) }, "R
 AssertIndex<RecordImportJob>(model, new[] { nameof(RecordImportJob.CreatedAt) }, "Record import jobs should be indexed by creation time.");
 AssertIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.ImportJobId) }, "Record import job rows should be indexed by import job.");
 AssertIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.Status) }, "Record import job rows should be indexed by status.");
+AssertIndex<ExternalExportJob>(model, new[] { nameof(ExternalExportJob.SourceType) }, "External export jobs should be indexed by source type.");
+AssertIndex<ExternalExportJob>(model, new[] { nameof(ExternalExportJob.Status) }, "External export jobs should be indexed by status.");
+AssertIndex<ExternalExportJob>(model, new[] { nameof(ExternalExportJob.FormId) }, "External export jobs should be indexed by form.");
+AssertIndex<ExternalExportJob>(model, new[] { nameof(ExternalExportJob.ReportId) }, "External export jobs should be indexed by report.");
+AssertIndex<ExternalExportJob>(model, new[] { nameof(ExternalExportJob.CreatedAt) }, "External export jobs should be indexed by creation time.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.UserId) }, "Password reset tokens should be indexed by user.");
 AssertIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.ExpiresAt) }, "Password reset tokens should be indexed by expiry.");
 AssertIndex<FormRecord>(model, new[] { nameof(FormRecord.FormId) }, "Records should be indexed by form.");
@@ -619,6 +643,45 @@ AssertFalse(
     "Record import validation should reject mappings to missing target fields.");
 AssertNotNull(typeof(RecordImportJobService).GetMethod(nameof(RecordImportJobService.CreateAsync)), "Record import job service should expose create handling.");
 AssertNotNull(typeof(RecordImportJobService).GetMethod(nameof(RecordImportJobService.GetAsync)), "Record import job service should expose query handling.");
+AssertTrue(ExternalExportJobSourceTypes.Supported.Contains(ExternalExportJobSourceTypes.FormRecords), "External export jobs should support form record sources.");
+AssertTrue(ExternalExportJobSourceTypes.Supported.Contains(ExternalExportJobSourceTypes.ListReport), "External export jobs should support list report sources.");
+AssertTrue(ExternalExportJobFormats.Supported.Contains(ExternalExportJobFormats.Csv), "External export jobs should support CSV output.");
+AssertTrue(ExternalExportJobFormats.Supported.Contains(ExternalExportJobFormats.Json), "External export jobs should support JSON output.");
+AssertTrue(ExternalExportJobStatuses.Supported.Contains(ExternalExportJobStatuses.Succeeded), "External export jobs should expose succeeded status.");
+var exportReport = new ListReportExecutionDto(
+    Guid.Parse("eeeeeeee-0000-0000-0000-000000000001"),
+    webhookTargetFormId,
+    "Employee export",
+    "Employees",
+    1,
+    2,
+    1,
+    new[]
+    {
+        new ListReportExecutionColumnDto("email", "Email", FormFieldTypes.Email, "field", null)
+    },
+    new[]
+    {
+        new ListReportExecutionRowDto(
+            Guid.Parse("eeeeeeee-0000-0000-0000-000000000002"),
+            "active",
+            new Dictionary<string, ListReportExecutionCellDto>
+            {
+                ["email"] = new("jane@example.test", "jane@example.test"),
+                ["hidden_salary"] = new("90000", "90000")
+            },
+            DateTimeOffset.Parse("2026-06-10T13:45:00Z"))
+    });
+var csvArtifact = ExternalExportArtifactBuilder.Build(ExternalExportJobFormats.Csv, exportReport);
+AssertEqual("text/csv; charset=utf-8", csvArtifact.ContentType, "External CSV export artifacts should expose a CSV content type.");
+AssertTrue(csvArtifact.Content.Contains("jane@example.test", StringComparison.Ordinal), "External CSV export artifacts should include visible values.");
+AssertFalse(csvArtifact.Content.Contains("90000", StringComparison.Ordinal), "External CSV export artifacts should exclude cells without visible columns.");
+var jsonArtifact = ExternalExportArtifactBuilder.Build(ExternalExportJobFormats.Json, exportReport);
+AssertEqual("application/json; charset=utf-8", jsonArtifact.ContentType, "External JSON export artifacts should expose a JSON content type.");
+AssertTrue(jsonArtifact.Content.Contains("\"email\"", StringComparison.Ordinal), "External JSON export artifacts should include visible fields.");
+AssertFalse(jsonArtifact.Content.Contains("hidden_salary", StringComparison.Ordinal), "External JSON export artifacts should exclude cells without visible columns.");
+AssertNotNull(typeof(ExternalExportJobService).GetMethod(nameof(ExternalExportJobService.CreateAsync)), "External export job service should expose create handling.");
+AssertNotNull(typeof(ExternalExportJobService).GetMethod(nameof(ExternalExportJobService.GetAsync)), "External export job service should expose query handling.");
 var sensitiveMetadata = new Dictionary<string, object?>
 {
     ["Authorization"] = "Bearer secret",

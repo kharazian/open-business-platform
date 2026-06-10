@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Records;
+using OpenBusinessPlatform.Api.Modules.Reports;
 
 namespace OpenBusinessPlatform.Api.Modules.Integrations;
 
@@ -301,6 +302,59 @@ public static class IntegrationsEndpoints
             });
         });
 
+        var exports = endpoints.MapGroup("/api/integrations/exports")
+            .WithTags("Integrations")
+            .RequireAuthorization();
+
+        exports.MapGet("", async (
+            ExternalExportJobService exportJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await exportJobs.ListAsync(cancellationToken) });
+        });
+
+        exports.MapGet("/{exportJobId:guid}", async (
+            Guid exportJobId,
+            ExternalExportJobService exportJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var job = await exportJobs.GetAsync(exportJobId, cancellationToken);
+            return job is null ? Results.NotFound() : Results.Ok(job);
+        });
+
+        exports.MapPost("", async (
+            CreateExternalExportJobRequest request,
+            ExternalExportJobService exportJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var job = await exportJobs.CreateAsync(httpContext.User, request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Created($"/api/integrations/exports/{job.Id}", job);
+            });
+        });
+
         var publicRecords = endpoints.MapGroup($"/api/integration/{PublicRecordApiVersions.V1}")
             .WithTags("Integration Records")
             .RequireAuthorization(new AuthorizeAttribute
@@ -416,6 +470,14 @@ public static class IntegrationsEndpoints
             return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
         }
         catch (RecordImportException exception)
+        {
+            return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (ExternalExportException exception)
+        {
+            return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (ReportManagementException exception)
         {
             return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
         }

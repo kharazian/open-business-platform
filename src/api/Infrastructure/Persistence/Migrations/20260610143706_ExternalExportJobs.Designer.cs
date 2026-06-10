@@ -3,6 +3,7 @@ using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OpenBusinessPlatformDbContext))]
-    partial class OpenBusinessPlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610143706_ExternalExportJobs")]
+    partial class ExternalExportJobs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. V8 task 005 adds CSV record import jobs with explicit field mappings, persisted status, row-level results, existing record validation/permissions, audit logs, and integration logs. Add later product APIs task by task as modules are implemented.
+Status: evolving beyond V1. The V1 API baseline exposes health, development API explorer, cookie auth, dashboard summary, users, roles, role permissions, forms, published form rendering, record submission, record list/detail, record edit/delete, and per-form access management. V2 adds saved list report definition endpoints, runnable report execution, CSV export, real dashboard summary data, chart widget previews, and saved dashboard definitions. V3 adds groups, department management, scoped form permissions, report permissions, field rules, record assignment, and record status actions. V4 adds trigger APIs, in-app notification creation, current-user notification inbox/read-state APIs, current-user notification preferences, related-record creation trigger actions, automatic failed-log retry queues, webhook call actions, user-authored retry policies, and scheduled trigger runs for safe actions. V5 adds backend workflow definition management, publish/version contracts, workflow history foundation tables, record workflow start/direct transition APIs, current-user workflow approval inbox APIs, transition action execution, and trigger-to-workflow start actions. V7 adds dashboard analytics execution for summary, breakdown, trend, and table widgets plus conservative saved dashboard visibility/default settings. V8 task 001 adds hashed integration API key management and API-key authentication plumbing without exposing record/report data. V8 task 002 adds integration log persistence, sanitized metadata, and explicit retry request metadata without background replay. V8 task 003 adds versioned API-key-authenticated record list/read/create endpoints that reuse existing form permissions, record scopes, validation, hidden-field filtering, audit logs, and integration logs. V8 task 004 adds incoming webhook listener management and receive endpoints with typed mappings, hashed listener secrets, backend permission checks, safe record create/upsert execution, and integration logs. V8 task 005 adds CSV record import jobs with explicit field mappings, persisted status, row-level results, existing record validation/permissions, audit logs, and integration logs. V8 task 006 adds external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, protected artifact content, audit logs, and integration logs. Add later product APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -452,6 +452,100 @@ Response: `201 Created`
 ```
 
 Completed imports write inbound `import` integration logs with source `RecordImportJob`, row counts, status, and safe operational metadata.
+
+### External export jobs
+
+External export job management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`. Creating an export also requires export access to the target form/report.
+
+Exports support permission-filtered form records or saved list reports. Existing form permissions, report permissions, V3 record scopes, and hidden-field filtering are reused. Artifacts are stored as protected job content and metadata; no public download links are generated.
+
+Supported source types:
+
+- `form_records`
+- `list_report`
+
+Supported formats:
+
+- `csv`
+- `json`
+
+Supported statuses:
+
+- `pending`
+- `running`
+- `succeeded`
+- `failed`
+
+`GET /api/integrations/exports`
+
+Lists recent export jobs.
+
+`GET /api/integrations/exports/{exportJobId}`
+
+Returns one export job, including protected artifact content, or `404`.
+
+`POST /api/integrations/exports`
+
+Creates and runs an export job synchronously for the first foundation slice.
+
+Form record export request:
+
+```json
+{
+  "sourceType": "form_records",
+  "format": "csv",
+  "integrationKey": "warehouse-export",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "search": "finance"
+}
+```
+
+List report export request:
+
+```json
+{
+  "sourceType": "list_report",
+  "format": "json",
+  "integrationKey": "warehouse-export",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "reportId": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+Response: `201 Created`
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "sourceType": "list_report",
+  "format": "json",
+  "integrationKey": "warehouse-export",
+  "formId": "00000000-0000-0000-0000-000000000000",
+  "reportId": "00000000-0000-0000-0000-000000000000",
+  "status": "succeeded",
+  "rowCount": 10,
+  "artifactFileName": "employee-export.json",
+  "artifactContentType": "application/json; charset=utf-8",
+  "artifactSizeBytes": 2048,
+  "artifactContent": "{...}",
+  "artifactMetadata": {
+    "fileName": "employee-export.json",
+    "contentType": "application/json; charset=utf-8",
+    "sizeBytes": 2048,
+    "totalCount": 10,
+    "columnCount": 4
+  },
+  "startedAt": "2026-06-10T14:37:06Z",
+  "completedAt": "2026-06-10T14:37:07Z",
+  "concurrencyStamp": "stamp",
+  "createdAt": "2026-06-10T14:37:06Z",
+  "createdById": "00000000-0000-0000-0000-000000000000",
+  "updatedAt": "2026-06-10T14:37:07Z",
+  "updatedById": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+Completed exports write outbound `export` integration logs with source `ExternalExportJob`, row counts, artifact metadata, and safe request metadata.
 
 ### Dashboard summary
 

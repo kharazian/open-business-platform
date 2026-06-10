@@ -11,6 +11,7 @@ This packet is the handoff for V8: Integrations and API.
 - V8 task 003 added versioned API-key-authenticated record list/read/create endpoints that reuse existing backend permissions and field rules.
 - V8 task 004 added named incoming webhook listeners with hashed listener secrets, API-key or listener-secret authentication, typed payload mappings, create/safe-lookup upsert record execution, and inbound integration logs.
 - V8 task 005 added CSV record import jobs with explicit field mappings, persisted job/row status, row-level validation results, audit logs, and inbound import integration logs.
+- V8 task 006 added external export jobs for permission-filtered form records and list reports with CSV/JSON artifacts, hidden-field filtering, audit logs, and outbound export integration logs.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order
@@ -38,7 +39,7 @@ Implement V8 in this order:
 3. Public/internal record API foundation. Complete.
 4. Incoming webhook listeners. Complete.
 5. Record import jobs. Complete.
-6. External export jobs.
+6. External export jobs. Complete.
 7. Scheduled automation expansion.
 8. Scheduled workflow starts.
 9. Integration operations UI.

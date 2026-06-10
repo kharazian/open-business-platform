@@ -132,6 +132,22 @@ public sealed class ReportManagementService
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
+        var report = await ExportListReportDataAsync(principal, formId, reportId, search, permissionService, cancellationToken);
+
+        AddAudit("Report", reportId, "report_exported", exportedById);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ListReportCsvExporter.Export(report);
+    }
+
+    public async Task<ListReportExecutionDto> ExportListReportDataAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        Guid reportId,
+        string? search,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
         var executionContext = await LoadReportExecutionContextAsync(
             principal,
             formId,
@@ -139,7 +155,8 @@ public sealed class ReportManagementService
             GetRecordAccessActionForReportOperation(isCsvExport: true),
             permissionService,
             cancellationToken);
-        var report = ListReportExecutionEngine.ExecuteAll(
+
+        return ListReportExecutionEngine.ExecuteAll(
             executionContext.Report.Id,
             executionContext.Report.FormId,
             executionContext.Report.Name,
@@ -148,11 +165,6 @@ public sealed class ReportManagementService
             executionContext.Schema,
             executionContext.Records,
             search);
-
-        AddAudit("Report", reportId, "report_exported", exportedById);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return ListReportCsvExporter.Export(report);
     }
 
     private async Task<ListReportExecutionContext> LoadReportExecutionContextAsync(

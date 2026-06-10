@@ -78,6 +78,7 @@ builder.Services.AddScoped<PublicRecordApiService>();
 builder.Services.AddScoped<IncomingWebhookListenerService>();
 builder.Services.AddScoped<IncomingWebhookExecutionService>();
 builder.Services.AddScoped<RecordImportJobService>();
+builder.Services.AddScoped<ExternalExportJobService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

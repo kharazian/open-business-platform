@@ -27,14 +27,24 @@ Read:
 
 ## Acceptance Criteria
 
-- [ ] Export job contracts are typed.
-- [ ] Exports respect report/form/field/record permissions.
-- [ ] Export output excludes hidden fields.
-- [ ] Job status is persisted and queryable.
-- [ ] Integration/audit logs are written.
-- [ ] Documentation is updated.
-- [ ] Tests are added where practical.
-- [ ] Relevant build/test commands are run.
+- [x] Export job contracts are typed.
+- [x] Exports respect report/form/field/record permissions.
+- [x] Export output excludes hidden fields.
+- [x] Job status is persisted and queryable.
+- [x] Integration/audit logs are written.
+- [x] Documentation is updated.
+- [x] Tests are added where practical.
+- [x] Relevant build/test commands are run.
+
+## Implementation Notes
+
+- Added `external_export_jobs` through EF Core migration `20260610143706_ExternalExportJobs`.
+- Added typed export job contracts for source types, formats, statuses, artifact metadata, summaries, and details.
+- Added protected `/api/integrations/exports` list/get/create endpoints requiring cookie auth plus `integrations.manage`.
+- Form record exports require form `export` access and apply existing record-scope and hidden-field filtering.
+- List report exports require report `export` access and reuse report export execution with form/report/record/hidden-field filtering.
+- CSV and JSON artifacts are generated without public download links; job detail returns protected artifact content and metadata.
+- Export jobs write audit entries and outbound `export` integration logs.
 
 ## Out of Scope
 
