@@ -16,7 +16,7 @@ Completed V8 work:
 6. External export jobs for permission-filtered form records and list reports.
 7. Daily/weekly/monthly scheduled automation contracts.
 8. Scheduled workflow starts over safe same-form record selections.
-9. Permission-aware `/integrations` operations UI for API keys, logs, and retry requests.
+9. Permission-aware `/integrations` operations UI for API keys, webhook listeners, import jobs, export jobs, logs, and retry requests.
 
 ## Security And Architecture Checks
 

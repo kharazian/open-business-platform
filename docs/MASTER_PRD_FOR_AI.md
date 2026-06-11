@@ -923,7 +923,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work should review and finalize V8 or start the next planned version.
+Next concrete work is V9 planning/implementation when the enterprise platform sequence is ready.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 
