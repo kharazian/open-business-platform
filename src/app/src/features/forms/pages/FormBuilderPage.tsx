@@ -391,6 +391,11 @@ export function FormBuilderPage() {
     setNotice(null);
   }
 
+  function handleUpdateFieldLayoutWidth(fieldId: string, width: LayoutWidthValue) {
+    setSchema((currentSchema) => updateFieldLayoutWidth(currentSchema, fieldId, width));
+    setNotice(null);
+  }
+
   function handleRequestDeleteField(field: FormField) {
     setDeleteConfirmation({ type: "field", fieldId: field.id, label: field.label });
     setNotice(null);
@@ -426,11 +431,6 @@ export function FormBuilderPage() {
     }
 
     setDeleteConfirmation(null);
-    setNotice(null);
-  }
-
-  function handleUpdateFieldLayoutWidth(fieldId: string, width: LayoutWidthValue) {
-    setSchema((currentSchema) => updateFieldLayoutWidth(currentSchema, fieldId, width));
     setNotice(null);
   }
 
@@ -1381,36 +1381,36 @@ function FieldCanvasCard({
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-bold text-foreground">{field.label}</p>
+            <div className="flex min-w-0 items-start gap-2">
+              <FieldIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="min-w-0 break-words font-bold text-foreground">{field.label}</p>
+            </div>
             {field.required ? <Badge variant="warning">Required</Badge> : null}
           </div>
           {field.helpText ? <p className="mt-1 text-sm text-muted-foreground">{field.helpText}</p> : null}
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
-          <Badge className="gap-1" variant="default">
-            <FieldIcon className="size-3" />
-            {fieldTypeLabels[field.type]}
-          </Badge>
-          <Badge>{getLayoutWidthLabel(column)}</Badge>
-          <FieldCardIconButton disabled={!canMoveUp} label="Move field up" onClick={() => onMoveField(field.id, "up")}>
-            <ArrowUp className="size-4" />
-          </FieldCardIconButton>
-          <FieldCardIconButton disabled={!canMoveDown} label="Move field down" onClick={() => onMoveField(field.id, "down")}>
-            <ArrowDown className="size-4" />
-          </FieldCardIconButton>
-          <FieldCardIconButton
-            label="Select parent layout"
-            onClick={() => {
-              setParentMenuOpen((isOpen) => !isOpen);
-              onSelect({ type: "field", id: field.id });
-            }}
-          >
-            <MoreVertical className="size-4" />
-          </FieldCardIconButton>
-          <DeleteIconButton label="Delete field" onClick={() => onRequestDelete(field)} />
-        </div>
+        {selected ? (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <FieldCardIconButton disabled={!canMoveUp} label="Move field up" onClick={() => onMoveField(field.id, "up")}>
+              <ArrowUp className="size-4" />
+            </FieldCardIconButton>
+            <FieldCardIconButton disabled={!canMoveDown} label="Move field down" onClick={() => onMoveField(field.id, "down")}>
+              <ArrowDown className="size-4" />
+            </FieldCardIconButton>
+            <FieldCardIconButton
+              label="Select parent layout"
+              onClick={() => {
+                setParentMenuOpen((isOpen) => !isOpen);
+                onSelect({ type: "field", id: field.id });
+              }}
+            >
+              <MoreVertical className="size-4" />
+            </FieldCardIconButton>
+            <DeleteIconButton label="Delete field" onClick={() => onRequestDelete(field)} />
+          </div>
+        ) : null}
       </div>
-      {parentMenuOpen ? (
+      {selected && parentMenuOpen ? (
         <div
           className="absolute right-3 top-14 z-20 grid min-w-40 gap-1 rounded-lg border border-border bg-card p-1 text-sm font-bold shadow-lifted"
           onClick={(event) => event.stopPropagation()}
@@ -2085,10 +2085,6 @@ function getColumnSpanClass(column: FormLayoutColumn): string {
     tabletSpanClasses[column.span.tablet] ?? tabletSpanClasses[12],
     desktopSpanClasses[column.span.desktop] ?? desktopSpanClasses[12]
   );
-}
-
-function getLayoutWidthLabel(column: FormLayoutColumn): string {
-  return layoutWidthOptions.find((option) => option.span.desktop === column.span.desktop)?.label ?? "Custom width";
 }
 
 function preventSubmit(event: FormEvent<HTMLFormElement>) {

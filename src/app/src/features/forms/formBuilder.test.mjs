@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import {
   addFieldToSchema,
@@ -127,11 +128,18 @@ test("form builder preview layout uses the full viewport", () => {
 });
 
 test("form builder workspace layout gives sidebars and canvas independent scroll", () => {
+  assert.equal(formBuilderWorkspaceClassName.includes("min-h-0"), true);
   assert.equal(formBuilderWorkspaceClassName.includes("xl:grid-cols-[18rem_minmax(0,1fr)_24rem]"), true);
+  assert.equal(formBuilderSidebarClassName.includes("min-h-0"), true);
   assert.equal(formBuilderSidebarClassName.includes("xl:sticky"), true);
+  assert.equal(formBuilderSidebarClassName.includes("xl:max-h-[calc(100dvh-14rem)]"), true);
+  assert.equal(formBuilderSidebarClassName.includes("calc(100dvh-8rem)"), false);
   assert.equal(formBuilderSidebarClassName.includes("xl:overflow-y-auto"), true);
   assert.equal(formBuilderSidebarClassName.includes("xl:overscroll-contain"), true);
   assert.equal(formBuilderSidebarClassName.includes("[scrollbar-width:thin]"), true);
+  assert.equal(formBuilderCanvasScrollClassName.includes("min-h-0"), true);
+  assert.equal(formBuilderCanvasScrollClassName.includes("xl:max-h-[calc(100dvh-14rem)]"), true);
+  assert.equal(formBuilderCanvasScrollClassName.includes("calc(100dvh-8rem)"), false);
   assert.equal(formBuilderCanvasScrollClassName.includes("xl:overflow-y-auto"), true);
   assert.equal(formBuilderCanvasScrollClassName.includes("xl:overscroll-contain"), true);
   assert.equal(draftDetailsModalPanelClassName.includes("max-w-xl"), true);
@@ -161,4 +169,24 @@ test("form builder field cards expose parent layout selection actions", () => {
     { type: "row", id: "row-1" },
     { type: "section", id: "section-1" }
   ]);
+});
+
+test("form builder field cards do not render a layout width badge", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("<Badge>{getLayoutWidthLabel(column)}</Badge>"), false);
+});
+
+test("form builder field cards show the type icon beside the label instead of a type badge", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes('<Badge className="gap-1" variant="default">'), false);
+  assert.equal(source.includes('<FieldIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />'), true);
+});
+
+test("form builder field card action icons render only when the field is selected", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(/{selected \? \(\s*<div className="flex shrink-0 flex-wrap justify-end gap-2">/.test(source), true);
+  assert.equal(source.includes("{selected && parentMenuOpen ? ("), true);
 });
