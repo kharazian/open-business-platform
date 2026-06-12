@@ -75,6 +75,7 @@ import {
 import type { LayoutWidthValue } from "../builder";
 import { formPreviewContentClassName, formPreviewPanelClassName } from "../builderPreview";
 import {
+  createFieldParentSelectionItems,
   draftDetailsModalPanelClassName,
   formBuilderCanvasScrollClassName,
   formBuilderSoftDangerButtonClassName,
@@ -1057,6 +1058,8 @@ function BuilderCanvas({
                                           onMoveField={onMoveField}
                                           onSelect={(selection) => onSelect(selection)}
                                           onRequestDelete={onRequestDeleteField}
+                                          rowId={row.id}
+                                          sectionId={section.id}
                                           selected={selected?.type === "field" && selected.id === field.id}
                                         />
                                       </DroppableFieldSlot>
@@ -1336,6 +1339,8 @@ function FieldCanvasCard({
   onMoveField,
   onRequestDelete,
   onSelect,
+  rowId,
+  sectionId,
   selected
 }: {
   column: FormLayoutColumn;
@@ -1343,12 +1348,16 @@ function FieldCanvasCard({
   onMoveField: (fieldId: string, direction: "up" | "down") => void;
   onRequestDelete: (field: FormField) => void;
   onSelect: (selection: DesignerSelection) => void;
+  rowId: string;
+  sectionId: string;
   selected: boolean;
 }) {
   const FieldIcon = fieldTypeIcons[field.type];
   const fieldIndex = column.fields.indexOf(field.id);
   const canMoveUp = fieldIndex > 0;
   const canMoveDown = fieldIndex >= 0 && fieldIndex < column.fields.length - 1;
+  const parentSelectionItems = createFieldParentSelectionItems({ columnId: column.id, rowId, sectionId });
+  const [parentMenuOpen, setParentMenuOpen] = useState(false);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `field-${field.id}`,
     data: { kind: "existing_field", fieldId: field.id, label: field.label } satisfies DesignerDragData
@@ -1357,7 +1366,7 @@ function FieldCanvasCard({
   return (
     <div
       className={cn(
-        "w-full rounded-xl border bg-card/90 p-4 text-left transition",
+        "relative w-full rounded-xl border bg-card/90 p-4 text-left transition",
         selected ? "border-primary shadow-lifted ring-4 ring-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/50",
         isDragging ? "opacity-60" : ""
       )}
@@ -1389,9 +1398,41 @@ function FieldCanvasCard({
           <FieldCardIconButton disabled={!canMoveDown} label="Move field down" onClick={() => onMoveField(field.id, "down")}>
             <ArrowDown className="size-4" />
           </FieldCardIconButton>
+          <FieldCardIconButton
+            label="Select parent layout"
+            onClick={() => {
+              setParentMenuOpen((isOpen) => !isOpen);
+              onSelect({ type: "field", id: field.id });
+            }}
+          >
+            <MoreVertical className="size-4" />
+          </FieldCardIconButton>
           <DeleteIconButton label="Delete field" onClick={() => onRequestDelete(field)} />
         </div>
       </div>
+      {parentMenuOpen ? (
+        <div
+          className="absolute right-3 top-14 z-20 grid min-w-40 gap-1 rounded-lg border border-border bg-card p-1 text-sm font-bold shadow-lifted"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          role="menu"
+        >
+          {parentSelectionItems.map((item) => (
+            <button
+              className="rounded-md px-3 py-2 text-left text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              key={`${item.selection.type}-${item.selection.id}`}
+              onClick={() => {
+                onSelect(item.selection);
+                setParentMenuOpen(false);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <FieldPreview field={field} />
     </div>
   );

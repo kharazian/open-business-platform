@@ -15,6 +15,7 @@ import {
 } from "./builder.ts";
 import { formPreviewContentClassName, formPreviewPanelClassName } from "./builderPreview.ts";
 import {
+  createFieldParentSelectionItems,
   draftDetailsModalPanelClassName,
   formBuilderCanvasScrollClassName,
   formBuilderSoftDangerButtonClassName,
@@ -145,4 +146,19 @@ test("form builder destructive actions use a softer danger treatment", () => {
   assert.equal(formBuilderSoftDangerButtonClassName.includes("text-danger"), true);
   assert.equal(formBuilderSoftDangerButtonClassName.includes("border-danger/25"), true);
   assert.equal(formBuilderSoftDangerButtonClassName.includes("bg-danger text-white"), false);
+});
+
+test("form builder field cards expose parent layout selection actions", () => {
+  const items = createFieldParentSelectionItems({
+    columnId: "column-1",
+    rowId: "row-1",
+    sectionId: "section-1"
+  });
+
+  assert.deepEqual(items.map((item) => item.label), ["Select column", "Select row", "Select section"]);
+  assert.deepEqual(items.map((item) => item.selection), [
+    { type: "column", id: "column-1" },
+    { type: "row", id: "row-1" },
+    { type: "section", id: "section-1" }
+  ]);
 });
