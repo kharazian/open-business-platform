@@ -14,6 +14,12 @@ import {
   updateFieldLayoutWidth
 } from "./builder.ts";
 import { formPreviewContentClassName, formPreviewPanelClassName } from "./builderPreview.ts";
+import {
+  draftDetailsModalPanelClassName,
+  formBuilderCanvasScrollClassName,
+  formBuilderSidebarClassName,
+  formBuilderWorkspaceClassName
+} from "./builderWorkspace.ts";
 
 test("form builder helpers manage field lifecycle, layout widths, and local drafts", () => {
   const emptySchema = createEmptyFormBuilderSchema();
@@ -115,4 +121,15 @@ test("form builder preview layout uses the full viewport", () => {
   assert.equal(formPreviewPanelClassName.includes("max-h-[90vh]"), false);
   assert.equal(formPreviewContentClassName.includes("100dvh"), true);
   assert.equal(formPreviewContentClassName.includes("overflow-y-auto"), true);
+});
+
+test("form builder workspace layout gives sidebars and canvas independent scroll", () => {
+  assert.equal(formBuilderWorkspaceClassName.includes("xl:grid-cols-[18rem_minmax(0,1fr)_24rem]"), true);
+  assert.equal(formBuilderSidebarClassName.includes("xl:sticky"), true);
+  assert.equal(formBuilderSidebarClassName.includes("xl:overflow-y-auto"), true);
+  assert.equal(formBuilderSidebarClassName.includes("xl:overscroll-contain"), true);
+  assert.equal(formBuilderSidebarClassName.includes("[scrollbar-width:thin]"), true);
+  assert.equal(formBuilderCanvasScrollClassName.includes("xl:overflow-y-auto"), true);
+  assert.equal(formBuilderCanvasScrollClassName.includes("xl:overscroll-contain"), true);
+  assert.equal(draftDetailsModalPanelClassName.includes("max-w-xl"), true);
 });

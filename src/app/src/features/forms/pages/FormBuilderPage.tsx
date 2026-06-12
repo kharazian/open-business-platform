@@ -26,6 +26,7 @@ import {
   Mail,
   Minus,
   Monitor,
+  MoreVertical,
   Phone,
   Plus,
   Rocket,
@@ -71,6 +72,12 @@ import {
 } from "../builder";
 import type { LayoutWidthValue } from "../builder";
 import { formPreviewContentClassName, formPreviewPanelClassName } from "../builderPreview";
+import {
+  draftDetailsModalPanelClassName,
+  formBuilderCanvasScrollClassName,
+  formBuilderSidebarClassName,
+  formBuilderWorkspaceClassName
+} from "../builderWorkspace";
 import { FormRenderer } from "../components/FormRenderer";
 import {
   addColumnNearColumn,
@@ -216,6 +223,7 @@ export function FormBuilderPage() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [draftDetailsOpen, setDraftDetailsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSize, setPreviewSize] = useState<FormPreviewSize>("desktop");
   const [previewValues, setPreviewValues] = useState<FormRecordValues>(() => createInitialRecordValues(schema));
@@ -590,6 +598,15 @@ export function FormBuilderPage() {
               <Eye className="size-4" />
               Preview
             </Button>
+            <Button
+              aria-label="Edit draft details"
+              onClick={() => setDraftDetailsOpen(true)}
+              size="icon"
+              title="Edit draft details"
+              variant="outline"
+            >
+              <MoreVertical className="size-4" />
+            </Button>
             <Button disabled={savingDraft || publishing} onClick={handleSaveDraft}>
               <Save className="size-4" />
               {savingDraft ? "Saving..." : "Save draft"}
@@ -610,52 +627,66 @@ export function FormBuilderPage() {
       ) : null}
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} onDragStart={handleDragStart} sensors={sensors}>
-        <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_24rem]">
-          <div className="grid gap-4 self-start">
-            <DraftMetadataSettings
-              description={formDescription}
-              disabled={loadingForm || savingDraft || publishing}
-              name={formName}
-              nameError={formNameError}
-              onDescriptionChange={handleFormDescriptionChange}
-              onNameChange={handleFormNameChange}
-            />
+        <div className={formBuilderWorkspaceClassName}>
+          <aside className={formBuilderSidebarClassName}>
             <FieldPalette onAddField={handleAddField} />
             <LayoutBlockPalette onAddLayoutBlock={handleAddLayoutBlock} />
-          </div>
-          <BuilderCanvas
-            schema={schema}
-            selected={selection}
-            onAddColumn={handleAddColumn}
-            onBalanceRowColumns={handleBalanceRowColumns}
-            onDeleteEmptyColumn={handleDeleteEmptyColumn}
-            onMoveColumn={handleMoveColumn}
-            onResizeColumn={handleResizeColumn}
-            onSelect={setSelection}
-          />
-          <BuilderSettings
-            columnContext={selectedColumnContext}
-            field={selectedField}
-            layoutWidth={selectedFieldLayoutWidth}
-            rowContext={selectedRowContext}
-            sectionContext={selectedSectionContext}
-            selection={selection}
-            onAddRow={handleAddRow}
-            onAddColumn={handleAddColumn}
-            onBalanceRowColumns={handleBalanceRowColumns}
-            onChangeColumnSpan={handleUpdateColumnSpan}
-            onChangeField={handleUpdateField}
-            onChangeFieldLayoutWidth={handleUpdateFieldLayoutWidth}
-            onChangeSection={handleUpdateSectionDetails}
-            onDeleteEmptyColumn={handleDeleteEmptyColumn}
-            onDeleteEmptyRow={handleDeleteEmptyRow}
-            onDeleteEmptySection={handleDeleteEmptySection}
-            onDeleteField={handleDeleteField}
-            onMoveColumn={handleMoveColumn}
-          />
+          </aside>
+          <main className={formBuilderCanvasScrollClassName}>
+            <BuilderCanvas
+              schema={schema}
+              selected={selection}
+              onAddColumn={handleAddColumn}
+              onBalanceRowColumns={handleBalanceRowColumns}
+              onDeleteEmptyColumn={handleDeleteEmptyColumn}
+              onMoveColumn={handleMoveColumn}
+              onResizeColumn={handleResizeColumn}
+              onSelect={setSelection}
+            />
+          </main>
+          <aside className={formBuilderSidebarClassName}>
+            <BuilderSettings
+              columnContext={selectedColumnContext}
+              field={selectedField}
+              layoutWidth={selectedFieldLayoutWidth}
+              rowContext={selectedRowContext}
+              sectionContext={selectedSectionContext}
+              selection={selection}
+              onAddRow={handleAddRow}
+              onAddColumn={handleAddColumn}
+              onBalanceRowColumns={handleBalanceRowColumns}
+              onChangeColumnSpan={handleUpdateColumnSpan}
+              onChangeField={handleUpdateField}
+              onChangeFieldLayoutWidth={handleUpdateFieldLayoutWidth}
+              onChangeSection={handleUpdateSectionDetails}
+              onDeleteEmptyColumn={handleDeleteEmptyColumn}
+              onDeleteEmptyRow={handleDeleteEmptyRow}
+              onDeleteEmptySection={handleDeleteEmptySection}
+              onDeleteField={handleDeleteField}
+              onMoveColumn={handleMoveColumn}
+            />
+          </aside>
         </div>
         <DragOverlay>{activeDrag ? <DragOverlayCard label={activeDrag.label} /> : null}</DragOverlay>
       </DndContext>
+
+      <Modal
+        description="Update the form name and description for this draft."
+        footer={<Button onClick={() => setDraftDetailsOpen(false)}>Done</Button>}
+        onClose={() => setDraftDetailsOpen(false)}
+        open={draftDetailsOpen}
+        panelClassName={draftDetailsModalPanelClassName}
+        title="Draft details"
+      >
+        <DraftMetadataSettings
+          description={formDescription}
+          disabled={loadingForm || savingDraft || publishing}
+          name={formName}
+          nameError={formNameError}
+          onDescriptionChange={handleFormDescriptionChange}
+          onNameChange={handleFormNameChange}
+        />
+      </Modal>
 
       <Modal
         description="Render the current local draft with the shared V1 form renderer."
@@ -714,29 +745,21 @@ function DraftMetadataSettings({
   onNameChange: (value: string) => void;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Draft details</CardTitle>
-        <CardDescription>Name and description.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="grid gap-4" onSubmit={preventSubmit}>
-          <Input
-            disabled={disabled}
-            error={nameError}
-            label="Form name"
-            onChange={(event) => onNameChange(event.target.value)}
-            value={name}
-          />
-          <Textarea
-            disabled={disabled}
-            label="Description"
-            onChange={(event) => onDescriptionChange(event.target.value)}
-            value={description}
-          />
-        </form>
-      </CardContent>
-    </Card>
+    <form className="grid gap-4" onSubmit={preventSubmit}>
+      <Input
+        disabled={disabled}
+        error={nameError}
+        label="Form name"
+        onChange={(event) => onNameChange(event.target.value)}
+        value={name}
+      />
+      <Textarea
+        disabled={disabled}
+        label="Description"
+        onChange={(event) => onDescriptionChange(event.target.value)}
+        value={description}
+      />
+    </form>
   );
 }
 
