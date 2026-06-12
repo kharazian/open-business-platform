@@ -65,6 +65,26 @@ test("designer helpers move existing fields without duplicates", () => {
   assert.equal(placedFieldIds.filter((fieldId) => fieldId === "email").length, 1);
 });
 
+test("designer helpers preserve target slot order when reordering fields in the same column", () => {
+  const first = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const second = addFieldToSchema(first, "email").schema;
+  const third = addFieldToSchema(second, "number").schema;
+  const targetColumnId = third.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withEmailInTargetColumn = moveFieldToTarget(third, "email", { type: "column", columnId: targetColumnId, index: 1 });
+  const withAllFieldsInTargetColumn = moveFieldToTarget(withEmailInTargetColumn, "number", {
+    type: "column",
+    columnId: targetColumnId,
+    index: 2
+  });
+
+  const moved = moveFieldToTarget(withAllFieldsInTargetColumn, "text", { type: "column", columnId: targetColumnId, index: 2 });
+  const targetColumn = moved.layout.pages[0].sections[0].rows
+    .flatMap((row) => row.columns)
+    .find((column) => column.id === targetColumnId);
+
+  assert.deepEqual(targetColumn?.fields, ["email", "text", "number"]);
+});
+
 test("designer helpers update custom column spans", () => {
   const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
   const columnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;

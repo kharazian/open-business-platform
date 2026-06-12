@@ -1,5 +1,35 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, Monitor, Plus, Rocket, Save, Settings2, Smartphone, Tablet, Trash2 } from "lucide-react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  ArrowLeft,
+  Eye,
+  GripVertical,
+  LayoutPanelLeft,
+  Monitor,
+  Plus,
+  Rocket,
+  Rows3,
+  Save,
+  Settings2,
+  Smartphone,
+  SquareSplitHorizontal,
+  SquareStack,
+  Tablet,
+  Trash2
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -31,6 +61,14 @@ import {
 } from "../builder";
 import type { LayoutWidthValue } from "../builder";
 import { FormRenderer } from "../components/FormRenderer";
+import {
+  addLayoutBlockToSchema,
+  createDesignerWarningMessages,
+  insertNewFieldAtTarget,
+  moveFieldToTarget,
+  type DesignerDropTarget,
+  type LayoutBlockDrop
+} from "../designer";
 import { createInitialRecordValues, type FormPreviewSize } from "../renderer";
 import {
   formFieldTypes,
@@ -38,6 +76,7 @@ import {
   type FormFieldOption,
   type FormFieldType,
   type FormLayoutColumn,
+  type FormLayoutRow,
   type FormRecordValue,
   type FormRecordValues,
   type ValidationError,
@@ -77,6 +116,33 @@ const desktopSpanClasses: Record<number, string> = {
   12: "xl:col-span-12"
 };
 
+type DesignerDragData =
+  | { kind: "new_field"; fieldType: FormFieldType; label: string }
+  | { kind: "existing_field"; fieldId: string; label: string }
+  | { kind: "layout_block"; template: LayoutBlockTemplate; label: string };
+
+type LayoutBlockTemplate = { kind: "section" } | { kind: "row"; spans: number[] };
+
+type DesignerDropData = {
+  kind: "canvas_target";
+  fieldTarget: DesignerDropTarget;
+  sectionId: string;
+  rowId?: string;
+};
+
+type DesignerSelection =
+  | { type: "field"; id: string }
+  | { type: "section"; id: string }
+  | { type: "row"; id: string }
+  | { type: "column"; id: string };
+
+const layoutBlocks = [
+  { icon: SquareStack, label: "Section", template: { kind: "section" } },
+  { icon: LayoutPanelLeft, label: "One column", template: { kind: "row", spans: [12] } },
+  { icon: SquareSplitHorizontal, label: "Two columns", template: { kind: "row", spans: [6, 6] } },
+  { icon: Rows3, label: "Three columns", template: { kind: "row", spans: [4, 4, 4] } }
+] as const satisfies ReadonlyArray<{ icon: typeof SquareStack; label: string; template: LayoutBlockTemplate }>;
+
 export function FormBuilderPage() {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
@@ -84,7 +150,10 @@ export function FormBuilderPage() {
   const [schema, setSchema] = useState<FormSchema>(() =>
     formId ? loadFormBuilderDraft(formId) : createEmptyFormBuilderSchema()
   );
-  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(() => schema.fields[0]?.id ?? null);
+  const [selection, setSelection] = useState<DesignerSelection | null>(() =>
+    schema.fields[0] ? { type: "field", id: schema.fields[0].id } : null
+  );
+  const [activeDrag, setActiveDrag] = useState<DesignerDragData | null>(null);
   const [formName, setFormName] = useState("Form draft");
   const [formDescription, setFormDescription] = useState("");
   const [formNameError, setFormNameError] = useState<string | undefined>();
@@ -99,6 +168,10 @@ export function FormBuilderPage() {
   const [previewValues, setPreviewValues] = useState<FormRecordValues>(() => createInitialRecordValues(schema));
   const [previewErrors, setPreviewErrors] = useState<ValidationError[]>([]);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor)
+  );
 
   useEffect(() => {
     if (!formId) return;
@@ -107,7 +180,26 @@ export function FormBuilderPage() {
   }, [formId]);
 
   useEffect(() => {
-    setSelectedFieldId((current) => (current && schema.fields.some((field) => field.id === current) ? current : schema.fields[0]?.id ?? null));
+    setSelection((current) => {
+      if (current?.type === "field" && schema.fields.some((field) => field.id === current.id)) return current;
+      if (current?.type === "section" && schema.layout.pages.some((page) => page.sections.some((section) => section.id === current.id))) return current;
+      if (
+        current?.type === "row" &&
+        schema.layout.pages.some((page) => page.sections.some((section) => section.rows.some((row) => row.id === current.id)))
+      ) {
+        return current;
+      }
+      if (
+        current?.type === "column" &&
+        schema.layout.pages.some((page) =>
+          page.sections.some((section) => section.rows.some((row) => row.columns.some((column) => column.id === current.id)))
+        )
+      ) {
+        return current;
+      }
+
+      return schema.fields[0] ? { type: "field", id: schema.fields[0].id } : null;
+    });
   }, [schema]);
 
   useEffect(() => {
@@ -143,6 +235,7 @@ export function FormBuilderPage() {
     };
   }, [resolvedFormId]);
 
+  const selectedFieldId = selection?.type === "field" ? selection.id : null;
   const selectedField = useMemo(
     () => schema.fields.find((field) => field.id === selectedFieldId) ?? null,
     [schema.fields, selectedFieldId]
@@ -152,7 +245,60 @@ export function FormBuilderPage() {
   function handleAddField(type: FormFieldType) {
     const result = addFieldToSchema(schema, type);
     setSchema(result.schema);
-    setSelectedFieldId(result.field.id);
+    setSelection({ type: "field", id: result.field.id });
+    setNotice(null);
+  }
+
+  function handleAddLayoutBlock(template: LayoutBlockTemplate) {
+    const firstSectionId = schema.layout.pages[0]?.sections[0]?.id;
+    if (!firstSectionId) return;
+
+    const block: LayoutBlockDrop =
+      template.kind === "section"
+        ? { kind: "section", sectionId: firstSectionId, position: "after" }
+        : { kind: "row", sectionId: firstSectionId, position: "end", spans: template.spans };
+    setSchema((currentSchema) => addLayoutBlockToSchema(currentSchema, block));
+    setNotice(null);
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as DesignerDragData | undefined;
+    setActiveDrag(data ?? null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const dragData = event.active.data.current as DesignerDragData | undefined;
+    const dropData = event.over?.data.current as DesignerDropData | undefined;
+    setActiveDrag(null);
+
+    if (!dragData || !dropData) return;
+
+    if (dragData.kind === "layout_block") {
+      const block: LayoutBlockDrop =
+        dragData.template.kind === "section"
+          ? { kind: "section", sectionId: dropData.sectionId, position: "after" }
+          : {
+              kind: "row",
+              sectionId: dropData.sectionId,
+              rowId: dropData.rowId,
+              position: dropData.rowId ? "after" : "end",
+              spans: dragData.template.spans
+            };
+      setSchema((currentSchema) => addLayoutBlockToSchema(currentSchema, block));
+      setNotice(null);
+      return;
+    }
+
+    if (dragData.kind === "new_field") {
+      const result = insertNewFieldAtTarget(schema, dragData.fieldType, dropData.fieldTarget);
+      setSchema(result.schema);
+      setSelection({ type: "field", id: result.field.id });
+      setNotice(null);
+      return;
+    }
+
+    setSchema((currentSchema) => moveFieldToTarget(currentSchema, dragData.fieldId, dropData.fieldTarget));
+    setSelection({ type: "field", id: dragData.fieldId });
     setNotice(null);
   }
 
@@ -325,27 +471,31 @@ export function FormBuilderPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[17rem_minmax(0,1fr)_24rem]">
-        <div className="grid gap-4 self-start">
-          <DraftMetadataSettings
-            description={formDescription}
-            disabled={loadingForm || savingDraft || publishing}
-            name={formName}
-            nameError={formNameError}
-            onDescriptionChange={handleFormDescriptionChange}
-            onNameChange={handleFormNameChange}
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd} onDragStart={handleDragStart} sensors={sensors}>
+        <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_24rem]">
+          <div className="grid gap-4 self-start">
+            <DraftMetadataSettings
+              description={formDescription}
+              disabled={loadingForm || savingDraft || publishing}
+              name={formName}
+              nameError={formNameError}
+              onDescriptionChange={handleFormDescriptionChange}
+              onNameChange={handleFormNameChange}
+            />
+            <FieldPalette onAddField={handleAddField} />
+            <LayoutBlockPalette onAddLayoutBlock={handleAddLayoutBlock} />
+          </div>
+          <BuilderCanvas schema={schema} selected={selection} onSelect={setSelection} />
+          <FieldSettings
+            field={selectedField}
+            layoutWidth={selectedFieldLayoutWidth}
+            onChange={handleUpdateField}
+            onChangeLayoutWidth={handleUpdateFieldLayoutWidth}
+            onDelete={handleDeleteField}
           />
-          <FieldPalette onAddField={handleAddField} />
         </div>
-        <BuilderCanvas schema={schema} selectedFieldId={selectedFieldId} onSelectField={setSelectedFieldId} />
-        <FieldSettings
-          field={selectedField}
-          layoutWidth={selectedFieldLayoutWidth}
-          onChange={handleUpdateField}
-          onChangeLayoutWidth={handleUpdateFieldLayoutWidth}
-          onDelete={handleDeleteField}
-        />
-      </div>
+        <DragOverlay>{activeDrag ? <DragOverlayCard label={activeDrag.label} /> : null}</DragOverlay>
+      </DndContext>
 
       <Modal
         description="Render the current local draft with the shared V1 form renderer."
@@ -474,34 +624,106 @@ function FieldPalette({ onAddField }: { onAddField: (type: FormFieldType) => voi
       </CardHeader>
       <CardContent className="grid gap-2">
         {fieldTypeOptions.map((fieldType) => (
-          <button
-            className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card/80 px-3 py-2 text-left transition hover:border-primary/50 hover:bg-muted"
-            key={fieldType.value}
-            type="button"
-            onClick={() => onAddField(fieldType.value)}
-          >
-            <span>
-              <span className="block text-sm font-bold text-foreground">{fieldType.label}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{fieldTypeDescriptions[fieldType.value]}</span>
-            </span>
-            <Plus className="size-4 shrink-0 text-muted-foreground" />
-          </button>
+          <DraggableFieldPaletteItem fieldType={fieldType} key={fieldType.value} onAddField={onAddField} />
         ))}
       </CardContent>
     </Card>
   );
 }
 
+function DraggableFieldPaletteItem({
+  fieldType,
+  onAddField
+}: {
+  fieldType: { label: string; value: FormFieldType };
+  onAddField: (type: FormFieldType) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `palette-field-${fieldType.value}`,
+    data: { kind: "new_field", fieldType: fieldType.value, label: fieldType.label } satisfies DesignerDragData
+  });
+
+  return (
+    <button
+      className={cn(
+        "flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card/80 px-3 py-2 text-left transition hover:border-primary/50 hover:bg-muted",
+        isDragging ? "opacity-60" : ""
+      )}
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      type="button"
+      onClick={() => onAddField(fieldType.value)}
+      {...listeners}
+      {...attributes}
+    >
+      <span>
+        <span className="block text-sm font-bold text-foreground">{fieldType.label}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{fieldTypeDescriptions[fieldType.value]}</span>
+      </span>
+      <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
+function LayoutBlockPalette({ onAddLayoutBlock }: { onAddLayoutBlock: (template: LayoutBlockTemplate) => void }) {
+  return (
+    <Card className="self-start">
+      <CardHeader>
+        <CardTitle>Layout</CardTitle>
+        <CardDescription>Drop structured blocks onto the canvas.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        {layoutBlocks.map((item) => (
+          <DraggableLayoutBlock item={item} key={item.label} onAddLayoutBlock={onAddLayoutBlock} />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DraggableLayoutBlock({
+  item,
+  onAddLayoutBlock
+}: {
+  item: (typeof layoutBlocks)[number];
+  onAddLayoutBlock: (template: LayoutBlockTemplate) => void;
+}) {
+  const Icon = item.icon;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `layout-${item.label}`,
+    data: { kind: "layout_block", template: item.template, label: item.label } satisfies DesignerDragData
+  });
+
+  return (
+    <button
+      className={cn(
+        "flex min-h-11 items-center gap-3 rounded-xl border border-border bg-card/80 px-3 py-2 text-left text-sm font-bold transition hover:border-primary/50 hover:bg-muted",
+        isDragging ? "opacity-60" : ""
+      )}
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
+      type="button"
+      onClick={() => onAddLayoutBlock(item.template)}
+      {...listeners}
+      {...attributes}
+    >
+      <Icon className="size-4 text-muted-foreground" />
+      {item.label}
+    </button>
+  );
+}
+
 function BuilderCanvas({
   schema,
-  selectedFieldId,
-  onSelectField
+  selected,
+  onSelect
 }: {
   schema: FormSchema;
-  selectedFieldId: string | null;
-  onSelectField: (fieldId: string) => void;
+  selected: DesignerSelection | null;
+  onSelect: (selection: DesignerSelection) => void;
 }) {
   const fieldsById = new Map(schema.fields.map((field) => [field.id, field]));
+  const warnings = createDesignerWarningMessages(schema);
 
   return (
     <Card className="min-h-[36rem]">
@@ -515,19 +737,37 @@ function BuilderCanvas({
         </div>
       </CardHeader>
       <CardContent>
-        {schema.fields.length > 0 ? (
-          <div className="space-y-5">
-            {schema.layout.pages.map((page) => (
-              <div className="space-y-5" key={page.id}>
-                {page.sections.map((section) => (
-                  <section className="rounded-xl border border-border bg-muted/20 p-4" key={section.id}>
-                    <div className="mb-4">
-                      <h2 className="text-sm font-black uppercase tracking-normal text-foreground">{section.title ?? "Section"}</h2>
-                      {section.description ? <p className="mt-1 text-sm text-muted-foreground">{section.description}</p> : null}
-                    </div>
-                    <div className="space-y-3">
-                      {section.rows.map((row) => (
-                        <div className="grid gap-3 md:grid-cols-12" key={row.id}>
+        <div className="space-y-5">
+          {warnings.length > 0 ? (
+            <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm font-semibold text-warning">
+              {warnings[0]}
+            </div>
+          ) : null}
+          {schema.layout.pages.map((page) => (
+            <div className="space-y-5" key={page.id}>
+              {page.sections.map((section) => (
+                <section
+                  className={cn(
+                    "rounded-xl border bg-muted/20 p-4 transition",
+                    selected?.type === "section" && selected.id === section.id ? "border-primary ring-4 ring-primary/10" : "border-border"
+                  )}
+                  key={section.id}
+                  onClick={() => onSelect({ type: "section", id: section.id })}
+                >
+                  <div className="mb-4">
+                    <h2 className="text-sm font-black uppercase tracking-normal text-foreground">{section.title ?? "Section"}</h2>
+                    {section.description ? <p className="mt-1 text-sm text-muted-foreground">{section.description}</p> : null}
+                  </div>
+                  <DroppableSectionBody sectionId={section.id}>
+                    {section.rows.length > 0 ? (
+                      section.rows.map((row) => (
+                        <DroppableRow
+                          key={row.id}
+                          onSelect={onSelect}
+                          row={row}
+                          sectionId={section.id}
+                          selected={selected?.type === "row" && selected.id === row.id}
+                        >
                           {row.columns.map((column) => {
                             const columnFields = column.fields
                               .map((fieldId) => fieldsById.get(fieldId))
@@ -535,55 +775,217 @@ function BuilderCanvas({
 
                             return (
                               <div className={cn("min-w-0", getColumnSpanClass(column))} key={column.id}>
-                                <div className="grid gap-3">
-                                  {columnFields.map((field) => (
-                                    <FieldCanvasCard
-                                      column={column}
-                                      field={field}
-                                      key={field.id}
-                                      onSelectField={onSelectField}
-                                      selected={selectedFieldId === field.id}
-                                    />
-                                  ))}
-                                </div>
+                                <DroppableColumn
+                                  column={column}
+                                  onSelect={onSelect}
+                                  rowId={row.id}
+                                  sectionId={section.id}
+                                  selected={selected?.type === "column" && selected.id === column.id}
+                                >
+                                  <div className="grid gap-3">
+                                    {columnFields.map((field, fieldIndex) => (
+                                      <DroppableFieldSlot
+                                        column={column}
+                                        fieldIndex={fieldIndex}
+                                        key={field.id}
+                                        rowId={row.id}
+                                        sectionId={section.id}
+                                      >
+                                        <FieldCanvasCard
+                                          column={column}
+                                          field={field}
+                                          onSelect={(selection) => onSelect(selection)}
+                                          selected={selected?.type === "field" && selected.id === field.id}
+                                        />
+                                      </DroppableFieldSlot>
+                                    ))}
+                                  </div>
+                                </DroppableColumn>
                               </div>
                             );
                           })}
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="No fields" description="Add a field from the palette to start this draft." />
-        )}
+                        </DroppableRow>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border bg-card/60 p-6 text-center text-sm font-semibold text-muted-foreground">
+                        Drop a field or layout block here.
+                      </div>
+                    )}
+                  </DroppableSectionBody>
+                </section>
+              ))}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DroppableSectionBody({ sectionId, children }: { sectionId: string; children: ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `section-drop-${sectionId}`,
+    data: {
+      kind: "canvas_target",
+      sectionId,
+      fieldTarget: { type: "section", sectionId }
+    } satisfies DesignerDropData
+  });
+
+  return (
+    <div ref={setNodeRef} className={cn("space-y-3 rounded-lg transition", isOver ? "bg-primary/5 ring-2 ring-primary/30" : "")}>
+      {children}
+    </div>
+  );
+}
+
+function DroppableRow({
+  row,
+  sectionId,
+  selected,
+  onSelect,
+  children
+}: {
+  row: FormLayoutRow;
+  sectionId: string;
+  selected: boolean;
+  onSelect: (selection: DesignerSelection) => void;
+  children: ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `row-drop-${row.id}`,
+    data: {
+      kind: "canvas_target",
+      sectionId,
+      rowId: row.id,
+      fieldTarget: { type: "row", rowId: row.id, index: row.columns.length }
+    } satisfies DesignerDropData
+  });
+
+  return (
+    <div
+      className={cn(
+        "grid gap-3 rounded-xl transition md:grid-cols-12",
+        selected ? "ring-2 ring-primary/30" : "",
+        isOver ? "bg-primary/5 ring-2 ring-primary/30" : ""
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect({ type: "row", id: row.id });
+      }}
+      ref={setNodeRef}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableColumn({
+  column,
+  rowId,
+  sectionId,
+  selected,
+  onSelect,
+  children
+}: {
+  column: FormLayoutColumn;
+  rowId: string;
+  sectionId: string;
+  selected: boolean;
+  onSelect: (selection: DesignerSelection) => void;
+  children: ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `column-drop-${column.id}`,
+    data: {
+      kind: "canvas_target",
+      sectionId,
+      rowId,
+      fieldTarget: { type: "column", columnId: column.id, index: column.fields.length }
+    } satisfies DesignerDropData
+  });
+
+  return (
+    <div
+      className={cn(
+        "min-h-16 rounded-xl border border-dashed p-2 transition",
+        selected ? "border-primary ring-2 ring-primary/20" : "border-border/80",
+        isOver ? "border-primary bg-primary/5" : ""
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect({ type: "column", id: column.id });
+      }}
+      ref={setNodeRef}
+    >
+      {children}
+      {column.fields.length === 0 ? <p className="px-2 py-4 text-center text-xs font-semibold text-muted-foreground">Drop field</p> : null}
+    </div>
+  );
+}
+
+function DroppableFieldSlot({
+  column,
+  rowId,
+  sectionId,
+  fieldIndex,
+  children
+}: {
+  column: FormLayoutColumn;
+  rowId: string;
+  sectionId: string;
+  fieldIndex: number;
+  children: ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `field-slot-${column.id}-${fieldIndex}`,
+    data: {
+      kind: "canvas_target",
+      sectionId,
+      rowId,
+      fieldTarget: { type: "column", columnId: column.id, index: fieldIndex }
+    } satisfies DesignerDropData
+  });
+
+  return (
+    <div className={cn("rounded-xl transition", isOver ? "ring-2 ring-primary/40 ring-offset-2 ring-offset-background" : "")} ref={setNodeRef}>
+      {children}
+    </div>
   );
 }
 
 function FieldCanvasCard({
   column,
   field,
-  onSelectField,
+  onSelect,
   selected
 }: {
   column: FormLayoutColumn;
   field: FormField;
-  onSelectField: (fieldId: string) => void;
+  onSelect: (selection: DesignerSelection) => void;
   selected: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `field-${field.id}`,
+    data: { kind: "existing_field", fieldId: field.id, label: field.label } satisfies DesignerDragData
+  });
+
   return (
     <button
       className={cn(
         "w-full rounded-xl border bg-card/90 p-4 text-left transition",
-        selected ? "border-primary shadow-lifted ring-4 ring-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/50"
+        selected ? "border-primary shadow-lifted ring-4 ring-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/50",
+        isDragging ? "opacity-60" : ""
       )}
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform) }}
       type="button"
-      onClick={() => onSelectField(field.id)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect({ type: "field", id: field.id });
+      }}
+      {...listeners}
+      {...attributes}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
@@ -643,6 +1045,14 @@ function FieldPreview({ field }: { field: FormField }) {
   }
 
   return <input className={controlClass} disabled placeholder={field.placeholder} type={getInputType(field.type)} />;
+}
+
+function DragOverlayCard({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-primary bg-card px-4 py-3 text-sm font-bold text-foreground shadow-lifted">
+      {label}
+    </div>
+  );
 }
 
 function FieldSettings({

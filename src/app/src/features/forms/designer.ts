@@ -83,6 +83,7 @@ export function moveFieldToTarget(schema: FormSchema, fieldId: string, target: D
     return schema;
   }
 
+  const sourceLocation = findFieldLocation(schema.layout, fieldId);
   const withoutField = removeFieldReferences(schema, fieldId);
   const layoutIds = collectLayoutIds(withoutField.layout);
 
@@ -112,7 +113,7 @@ export function moveFieldToTarget(schema: FormSchema, fieldId: string, target: D
     layout: mapColumns(withoutField.layout, (column) => {
       if (column.id !== target.columnId) return column;
       const fields = [...column.fields];
-      fields.splice(clampIndex(target.index, fields.length), 0, fieldId);
+      fields.splice(clampIndex(getAdjustedColumnTargetIndex(sourceLocation, target), fields.length), 0, fieldId);
       return { ...column, fields };
     })
   };
@@ -236,6 +237,37 @@ function targetExists(layout: FormLayout, target: DesignerDropTarget): boolean {
       });
     })
   );
+}
+
+type FieldLocation = {
+  columnId: string;
+  index: number;
+};
+
+function findFieldLocation(layout: FormLayout, fieldId: string): FieldLocation | null {
+  for (const page of layout.pages) {
+    for (const section of page.sections) {
+      for (const row of section.rows) {
+        for (const column of row.columns) {
+          const index = column.fields.indexOf(fieldId);
+
+          if (index >= 0) {
+            return { columnId: column.id, index };
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function getAdjustedColumnTargetIndex(sourceLocation: FieldLocation | null, target: Extract<DesignerDropTarget, { type: "column" }>): number {
+  if (sourceLocation?.columnId === target.columnId && sourceLocation.index < target.index) {
+    return target.index - 1;
+  }
+
+  return target.index;
 }
 
 function mapSections(layout: FormLayout, mapper: (section: FormLayoutSection) => FormLayoutSection): FormLayout {
