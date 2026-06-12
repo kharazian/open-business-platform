@@ -12,6 +12,7 @@ import {
   getColumnSpanClass,
   getFieldErrorsById,
   getLayoutFields,
+  getRenderableRows,
   type FormPreviewSize
 } from "../renderer";
 import type { FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
@@ -87,7 +88,7 @@ export function FormRenderer({
               ) : null}
 
               <div className="grid gap-4">
-                {section.rows.map((row) => (
+                {getRenderableRows(section).map((row) => (
                   <div className="grid grid-cols-12 gap-4" key={row.id}>
                     {row.columns.map((column) => (
                       <div className={cn("min-w-0", getColumnSpanClass(column, previewSize))} key={column.id}>

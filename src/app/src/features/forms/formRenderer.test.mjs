@@ -5,7 +5,8 @@ import {
   createInitialRecordValues,
   getColumnSpanClass,
   getFieldErrorsById,
-  getLayoutFields
+  getLayoutFields,
+  getRenderableRows
 } from "./renderer.ts";
 
 test("form renderer helpers initialize, coerce, map errors, and build span classes", () => {
@@ -75,6 +76,26 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
       (field) => field.id
     ),
     ["name", "amount"]
+  );
+
+  assert.deepEqual(
+    getRenderableRows({
+      id: "section_with_empty_cells",
+      rows: [
+        { id: "empty_row", columns: [{ id: "empty_col", span: { mobile: 12, tablet: 12, desktop: 12 }, fields: [] }] },
+        {
+          id: "mixed_row",
+          columns: [
+            { id: "empty_side", span: { mobile: 12, tablet: 6, desktop: 6 }, fields: [] },
+            { id: "filled_side", span: { mobile: 12, tablet: 6, desktop: 6 }, fields: ["name"] }
+          ]
+        }
+      ]
+    }).map((row) => ({
+      id: row.id,
+      columns: row.columns.map((column) => column.id)
+    })),
+    [{ id: "mixed_row", columns: ["filled_side"] }]
   );
 
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "mobile"), "col-span-12");

@@ -1,4 +1,13 @@
-import type { FormField, FormLayoutColumn, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "./types";
+import type {
+  FormField,
+  FormLayoutColumn,
+  FormLayoutRow,
+  FormLayoutSection,
+  FormRecordValue,
+  FormRecordValues,
+  FormSchema,
+  ValidationError
+} from "./types";
 
 export type FormPreviewSize = "responsive" | "mobile" | "tablet" | "desktop";
 
@@ -87,6 +96,15 @@ export function getFieldErrorsById(errors: ValidationError[] = []): Record<strin
 
 export function getLayoutFields(column: FormLayoutColumn, fieldsById: Map<string, FormField>): FormField[] {
   return column.fields.map((fieldId) => fieldsById.get(fieldId)).filter((field): field is FormField => Boolean(field));
+}
+
+export function getRenderableRows(section: FormLayoutSection): FormLayoutRow[] {
+  return section.rows
+    .map((row) => ({
+      ...row,
+      columns: row.columns.filter((column) => column.fields.length > 0)
+    }))
+    .filter((row) => row.columns.length > 0);
 }
 
 export function getColumnSpanClass(column: FormLayoutColumn, previewSize: FormPreviewSize = "responsive"): string {
