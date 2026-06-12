@@ -130,6 +130,51 @@ export function updateColumnSpan(schema: FormSchema, columnId: string, span: Res
   };
 }
 
+export function updateSectionDetails(
+  schema: FormSchema,
+  sectionId: string,
+  patch: Pick<FormLayoutSection, "title" | "description">
+): FormSchema {
+  return {
+    ...schema,
+    layout: mapSections(schema.layout, (section) =>
+      section.id === sectionId
+        ? {
+            ...section,
+            title: normalizeOptionalText(patch.title, section.title),
+            description: normalizeOptionalText(patch.description, section.description)
+          }
+        : section
+    )
+  };
+}
+
+export function deleteLayoutRowIfEmpty(schema: FormSchema, rowId: string): FormSchema {
+  return {
+    ...schema,
+    layout: mapSections(schema.layout, (section) => ({
+      ...section,
+      rows: section.rows.filter((row) => row.id !== rowId || !isLayoutRowEmpty(row))
+    }))
+  };
+}
+
+export function deleteLayoutSectionIfEmpty(schema: FormSchema, sectionId: string): FormSchema {
+  return {
+    ...schema,
+    layout: {
+      pages: schema.layout.pages.map((page) => {
+        if (page.sections.length <= 1) return page;
+
+        return {
+          ...page,
+          sections: page.sections.filter((section) => section.id !== sectionId || !isLayoutSectionEmpty(section))
+        };
+      })
+    }
+  };
+}
+
 export function removeEmptyLayoutContainers(schema: FormSchema): FormSchema {
   return {
     ...schema,
@@ -260,6 +305,21 @@ function findFieldLocation(layout: FormLayout, fieldId: string): FieldLocation |
   }
 
   return null;
+}
+
+export function isLayoutSectionEmpty(section: FormLayoutSection): boolean {
+  return section.rows.every(isLayoutRowEmpty);
+}
+
+export function isLayoutRowEmpty(row: FormLayoutRow): boolean {
+  return row.columns.every((column) => column.fields.length === 0);
+}
+
+function normalizeOptionalText(nextValue: string | undefined, currentValue: string | undefined): string | undefined {
+  if (nextValue === undefined) return currentValue;
+
+  const trimmedValue = nextValue.trim();
+  return trimmedValue.length > 0 ? trimmedValue : undefined;
 }
 
 function getAdjustedColumnTargetIndex(sourceLocation: FieldLocation | null, target: Extract<DesignerDropTarget, { type: "column" }>): number {

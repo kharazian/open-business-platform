@@ -3,10 +3,13 @@ import { test } from "vitest";
 import {
   addLayoutBlockToSchema,
   createDesignerWarningMessages,
+  deleteLayoutRowIfEmpty,
+  deleteLayoutSectionIfEmpty,
   getFieldDropTargets,
   insertNewFieldAtTarget,
   moveFieldToTarget,
   removeEmptyLayoutContainers,
+  updateSectionDetails,
   updateColumnSpan
 } from "./designer.ts";
 import { addFieldToSchema, createEmptyFormBuilderSchema } from "./builder.ts";
@@ -95,6 +98,39 @@ test("designer helpers update custom column spans", () => {
     tablet: 5,
     desktop: 12
   });
+});
+
+test("designer helpers update section details without changing layout contents", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+
+  const updated = updateSectionDetails(schema, "section_1", {
+    title: "  Employee intake  ",
+    description: "  Used by HR before onboarding.  "
+  });
+  const clearedDescription = updateSectionDetails(updated, "section_1", { description: "   " });
+
+  assert.equal(updated.layout.pages[0].sections[0].title, "Employee intake");
+  assert.equal(updated.layout.pages[0].sections[0].description, "Used by HR before onboarding.");
+  assert.deepEqual(updated.layout.pages[0].sections[0].rows, schema.layout.pages[0].sections[0].rows);
+  assert.equal(clearedDescription.layout.pages[0].sections[0].description, undefined);
+});
+
+test("designer helpers only delete empty layout rows and sections", () => {
+  const withField = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const populatedRowId = withField.layout.pages[0].sections[0].rows[0].id;
+  const withEmptyRow = addLayoutBlockToSchema(withField, { kind: "row", sectionId: "section_1", position: "end", spans: [6, 6] });
+  const emptyRowId = withEmptyRow.layout.pages[0].sections[0].rows[1].id;
+  const withSecondSection = addLayoutBlockToSchema(withEmptyRow, { kind: "section", sectionId: "section_1", position: "after" });
+
+  const afterPopulatedRowDelete = deleteLayoutRowIfEmpty(withSecondSection, populatedRowId);
+  const afterEmptyRowDelete = deleteLayoutRowIfEmpty(withSecondSection, emptyRowId);
+  const afterEmptySectionDelete = deleteLayoutSectionIfEmpty(withSecondSection, "section_2");
+  const afterLastSectionDelete = deleteLayoutSectionIfEmpty(createEmptyFormBuilderSchema(), "section_1");
+
+  assert.deepEqual(afterPopulatedRowDelete, withSecondSection);
+  assert.equal(afterEmptyRowDelete.layout.pages[0].sections[0].rows.some((row) => row.id === emptyRowId), false);
+  assert.equal(afterEmptySectionDelete.layout.pages[0].sections.some((section) => section.id === "section_2"), false);
+  assert.deepEqual(afterLastSectionDelete, createEmptyFormBuilderSchema());
 });
 
 test("designer helpers report layout warnings and remove empty containers", () => {

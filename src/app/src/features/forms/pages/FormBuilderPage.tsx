@@ -64,8 +64,14 @@ import { FormRenderer } from "../components/FormRenderer";
 import {
   addLayoutBlockToSchema,
   createDesignerWarningMessages,
+  deleteLayoutRowIfEmpty,
+  deleteLayoutSectionIfEmpty,
   insertNewFieldAtTarget,
+  isLayoutRowEmpty,
+  isLayoutSectionEmpty,
   moveFieldToTarget,
+  updateColumnSpan,
+  updateSectionDetails,
   type DesignerDropTarget,
   type LayoutBlockDrop
 } from "../designer";
@@ -77,6 +83,7 @@ import {
   type FormFieldType,
   type FormLayoutColumn,
   type FormLayoutRow,
+  type FormLayoutSection,
   type FormRecordValue,
   type FormRecordValues,
   type ValidationError,
@@ -87,6 +94,10 @@ import { getFormStatusLabel, type FormStatus } from "../drafts";
 
 const fieldTypeOptions = formFieldTypes.map((type) => ({ label: fieldTypeLabels[type], value: type }));
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
+const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
+  const span = index + 1;
+  return { label: `${span} / 12`, value: String(span) };
+});
 const tabletSpanClasses: Record<number, string> = {
   1: "md:col-span-1",
   2: "md:col-span-2",
@@ -135,6 +146,20 @@ type DesignerSelection =
   | { type: "section"; id: string }
   | { type: "row"; id: string }
   | { type: "column"; id: string };
+
+type SectionContext = {
+  pageSectionCount: number;
+  section: FormLayoutSection;
+};
+
+type RowContext = {
+  section: FormLayoutSection;
+  row: FormLayoutRow;
+};
+
+type ColumnContext = RowContext & {
+  column: FormLayoutColumn;
+};
 
 const layoutBlocks = [
   { icon: SquareStack, label: "Section", template: { kind: "section" } },
@@ -241,6 +266,18 @@ export function FormBuilderPage() {
     [schema.fields, selectedFieldId]
   );
   const selectedFieldLayoutWidth = selectedField ? getFieldLayoutWidth(schema, selectedField.id) : null;
+  const selectedSectionContext = useMemo(
+    () => (selection?.type === "section" ? findSectionContext(schema, selection.id) : null),
+    [schema, selection]
+  );
+  const selectedRowContext = useMemo(
+    () => (selection?.type === "row" ? findRowContext(schema, selection.id) : null),
+    [schema, selection]
+  );
+  const selectedColumnContext = useMemo(
+    () => (selection?.type === "column" ? findColumnContext(schema, selection.id) : null),
+    [schema, selection]
+  );
 
   function handleAddField(type: FormFieldType) {
     const result = addFieldToSchema(schema, type);
@@ -316,6 +353,39 @@ export function FormBuilderPage() {
 
   function handleUpdateFieldLayoutWidth(fieldId: string, width: LayoutWidthValue) {
     setSchema((currentSchema) => updateFieldLayoutWidth(currentSchema, fieldId, width));
+    setNotice(null);
+  }
+
+  function handleUpdateSectionDetails(sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) {
+    setSchema((currentSchema) => updateSectionDetails(currentSchema, sectionId, patch));
+    setNotice(null);
+  }
+
+  function handleUpdateColumnSpan(columnId: string, span: FormLayoutColumn["span"]) {
+    setSchema((currentSchema) => updateColumnSpan(currentSchema, columnId, span));
+    setNotice(null);
+  }
+
+  function handleAddRow(sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) {
+    setSchema((currentSchema) =>
+      addLayoutBlockToSchema(currentSchema, {
+        kind: "row",
+        sectionId,
+        rowId,
+        position,
+        spans: [12]
+      })
+    );
+    setNotice(null);
+  }
+
+  function handleDeleteEmptyRow(rowId: string) {
+    setSchema((currentSchema) => deleteLayoutRowIfEmpty(currentSchema, rowId));
+    setNotice(null);
+  }
+
+  function handleDeleteEmptySection(sectionId: string) {
+    setSchema((currentSchema) => deleteLayoutSectionIfEmpty(currentSchema, sectionId));
     setNotice(null);
   }
 
@@ -486,12 +556,21 @@ export function FormBuilderPage() {
             <LayoutBlockPalette onAddLayoutBlock={handleAddLayoutBlock} />
           </div>
           <BuilderCanvas schema={schema} selected={selection} onSelect={setSelection} />
-          <FieldSettings
+          <BuilderSettings
+            columnContext={selectedColumnContext}
             field={selectedField}
             layoutWidth={selectedFieldLayoutWidth}
-            onChange={handleUpdateField}
-            onChangeLayoutWidth={handleUpdateFieldLayoutWidth}
-            onDelete={handleDeleteField}
+            rowContext={selectedRowContext}
+            sectionContext={selectedSectionContext}
+            selection={selection}
+            onAddRow={handleAddRow}
+            onChangeColumnSpan={handleUpdateColumnSpan}
+            onChangeField={handleUpdateField}
+            onChangeFieldLayoutWidth={handleUpdateFieldLayoutWidth}
+            onChangeSection={handleUpdateSectionDetails}
+            onDeleteEmptyRow={handleDeleteEmptyRow}
+            onDeleteEmptySection={handleDeleteEmptySection}
+            onDeleteField={handleDeleteField}
           />
         </div>
         <DragOverlay>{activeDrag ? <DragOverlayCard label={activeDrag.label} /> : null}</DragOverlay>
@@ -1055,6 +1134,224 @@ function DragOverlayCard({ label }: { label: string }) {
   );
 }
 
+function BuilderSettings({
+  selection,
+  field,
+  sectionContext,
+  rowContext,
+  columnContext,
+  layoutWidth,
+  onAddRow,
+  onChangeColumnSpan,
+  onChangeField,
+  onChangeFieldLayoutWidth,
+  onChangeSection,
+  onDeleteEmptyRow,
+  onDeleteEmptySection,
+  onDeleteField
+}: {
+  selection: DesignerSelection | null;
+  field: FormField | null;
+  sectionContext: SectionContext | null;
+  rowContext: RowContext | null;
+  columnContext: ColumnContext | null;
+  layoutWidth: LayoutWidthValue | null;
+  onAddRow: (sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) => void;
+  onChangeColumnSpan: (columnId: string, span: FormLayoutColumn["span"]) => void;
+  onChangeField: (field: FormField) => void;
+  onChangeFieldLayoutWidth: (fieldId: string, width: LayoutWidthValue) => void;
+  onChangeSection: (sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) => void;
+  onDeleteEmptyRow: (rowId: string) => void;
+  onDeleteEmptySection: (sectionId: string) => void;
+  onDeleteField: () => void;
+}) {
+  if (selection?.type === "section" && sectionContext) {
+    return (
+      <SectionSettings
+        context={sectionContext}
+        onAddRow={onAddRow}
+        onChange={onChangeSection}
+        onDeleteEmptySection={onDeleteEmptySection}
+      />
+    );
+  }
+
+  if (selection?.type === "row" && rowContext) {
+    return <RowSettings context={rowContext} onAddRow={onAddRow} onDeleteEmptyRow={onDeleteEmptyRow} />;
+  }
+
+  if (selection?.type === "column" && columnContext) {
+    return <ColumnSettings context={columnContext} onChangeSpan={onChangeColumnSpan} />;
+  }
+
+  return (
+    <FieldSettings
+      field={field}
+      layoutWidth={layoutWidth}
+      onChange={onChangeField}
+      onChangeLayoutWidth={onChangeFieldLayoutWidth}
+      onDelete={onDeleteField}
+    />
+  );
+}
+
+function SectionSettings({
+  context,
+  onAddRow,
+  onChange,
+  onDeleteEmptySection
+}: {
+  context: SectionContext;
+  onAddRow: (sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) => void;
+  onChange: (sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) => void;
+  onDeleteEmptySection: (sectionId: string) => void;
+}) {
+  const { section, pageSectionCount } = context;
+  const canDelete = pageSectionCount > 1 && isLayoutSectionEmpty(section);
+
+  return (
+    <Card className="self-start">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>Section settings</CardTitle>
+            <CardDescription>{section.title ?? "Untitled section"}</CardDescription>
+          </div>
+          <Settings2 className="size-5 text-muted-foreground" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={preventSubmit}>
+          <Input label="Title" onChange={(event) => onChange(section.id, { title: event.target.value })} value={section.title ?? ""} />
+          <Textarea
+            label="Description"
+            onChange={(event) => onChange(section.id, { description: event.target.value })}
+            value={section.description ?? ""}
+          />
+          <Button onClick={() => onAddRow(section.id, undefined, "end")} variant="outline">
+            <Plus className="size-4" />
+            Add row
+          </Button>
+          <div className="grid gap-2">
+            <Button disabled={!canDelete} onClick={() => onDeleteEmptySection(section.id)} variant="danger">
+              <Trash2 className="size-4" />
+              Delete empty section
+            </Button>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Sections can be removed only when they contain no fields and another section remains.
+            </p>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RowSettings({
+  context,
+  onAddRow,
+  onDeleteEmptyRow
+}: {
+  context: RowContext;
+  onAddRow: (sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) => void;
+  onDeleteEmptyRow: (rowId: string) => void;
+}) {
+  const { section, row } = context;
+  const canDelete = isLayoutRowEmpty(row);
+
+  return (
+    <Card className="self-start">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>Row settings</CardTitle>
+            <CardDescription>{row.columns.length} columns</CardDescription>
+          </div>
+          <Settings2 className="size-5 text-muted-foreground" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={preventSubmit}>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => onAddRow(section.id, row.id, "before")} variant="outline">
+              <Plus className="size-4" />
+              Row above
+            </Button>
+            <Button onClick={() => onAddRow(section.id, row.id, "after")} variant="outline">
+              <Plus className="size-4" />
+              Row below
+            </Button>
+          </div>
+          <div className="grid gap-2">
+            <Button disabled={!canDelete} onClick={() => onDeleteEmptyRow(row.id)} variant="danger">
+              <Trash2 className="size-4" />
+              Delete empty row
+            </Button>
+            <p className="text-xs font-semibold text-muted-foreground">Rows can be removed only when every column is empty.</p>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ColumnSettings({
+  context,
+  onChangeSpan
+}: {
+  context: ColumnContext;
+  onChangeSpan: (columnId: string, span: FormLayoutColumn["span"]) => void;
+}) {
+  const { column, row } = context;
+
+  function patchSpan(patch: Partial<FormLayoutColumn["span"]>) {
+    onChangeSpan(column.id, { ...column.span, ...patch, mobile: 12 });
+  }
+
+  return (
+    <Card className="self-start">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>Column settings</CardTitle>
+            <CardDescription>
+              Column {row.columns.findIndex((candidate) => candidate.id === column.id) + 1} of {row.columns.length}
+            </CardDescription>
+          </div>
+          <Settings2 className="size-5 text-muted-foreground" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={preventSubmit}>
+          <div className="grid grid-cols-2 gap-2">
+            {layoutWidthOptions.map((option) => (
+              <Button key={option.value} onClick={() => onChangeSpan(column.id, option.span)} size="sm" variant="outline">
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <Select
+            help="Mobile remains full width for readable forms."
+            label="Tablet span"
+            onChange={(event) => patchSpan({ tablet: Number(event.target.value) })}
+            options={spanSelectOptions}
+            value={String(column.span.tablet)}
+          />
+          <Select
+            label="Desktop span"
+            onChange={(event) => patchSpan({ desktop: Number(event.target.value) })}
+            options={spanSelectOptions}
+            value={String(column.span.desktop)}
+          />
+          <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+            Current span: mobile 12 / tablet {column.span.tablet} / desktop {column.span.desktop}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FieldSettings({
   field,
   layoutWidth,
@@ -1220,6 +1517,48 @@ function OptionsEditor({ field, onChange }: { field: FormField; onChange: (optio
       ))}
     </div>
   );
+}
+
+function findSectionContext(schema: FormSchema, sectionId: string): SectionContext | null {
+  for (const page of schema.layout.pages) {
+    const section = page.sections.find((candidate) => candidate.id === sectionId);
+
+    if (section) {
+      return { pageSectionCount: page.sections.length, section };
+    }
+  }
+
+  return null;
+}
+
+function findRowContext(schema: FormSchema, rowId: string): RowContext | null {
+  for (const page of schema.layout.pages) {
+    for (const section of page.sections) {
+      const row = section.rows.find((candidate) => candidate.id === rowId);
+
+      if (row) {
+        return { section, row };
+      }
+    }
+  }
+
+  return null;
+}
+
+function findColumnContext(schema: FormSchema, columnId: string): ColumnContext | null {
+  for (const page of schema.layout.pages) {
+    for (const section of page.sections) {
+      for (const row of section.rows) {
+        const column = row.columns.find((candidate) => candidate.id === columnId);
+
+        if (column) {
+          return { section, row, column };
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 function getInputType(type: FormFieldType): string {
