@@ -8,8 +8,10 @@ import {
   deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
   deleteLayoutSectionIfEmpty,
+  deleteSectionFromSchema,
   getColumnActionState,
   getFieldDropTargets,
+  getSectionFieldIds,
   insertNewFieldAtTarget,
   moveColumn,
   moveFieldToTarget,
@@ -240,6 +242,24 @@ test("designer helpers only delete empty layout rows and sections", () => {
   assert.equal(afterEmptyRowDelete.layout.pages[0].sections[0].rows.some((row) => row.id === emptyRowId), false);
   assert.equal(afterEmptySectionDelete.layout.pages[0].sections.some((section) => section.id === "section_2"), false);
   assert.deepEqual(afterLastSectionDelete, createEmptyFormBuilderSchema());
+});
+
+test("designer helpers delete populated sections with their fields while preserving the last section", () => {
+  const withText = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const withSecondSection = addLayoutBlockToSchema(withText, { kind: "section", sectionId: "section_1", position: "after" });
+  const withEmail = insertNewFieldAtTarget(withSecondSection, "email", { type: "section", sectionId: "section_2" }).schema;
+
+  const firstSection = withEmail.layout.pages[0].sections[0];
+  const afterDelete = deleteSectionFromSchema(withEmail, "section_1");
+
+  assert.deepEqual(getSectionFieldIds(firstSection), ["text"]);
+  assert.deepEqual(afterDelete.fields.map((field) => field.id), ["email"]);
+  assert.deepEqual(afterDelete.layout.pages[0].sections.map((section) => section.id), ["section_2"]);
+  assert.equal(
+    afterDelete.layout.pages[0].sections[0].rows.some((row) => row.columns.some((column) => column.fields.includes("text"))),
+    false
+  );
+  assert.deepEqual(deleteSectionFromSchema(withText, "section_1"), withText);
 });
 
 test("designer helpers report layout warnings and remove empty containers", () => {

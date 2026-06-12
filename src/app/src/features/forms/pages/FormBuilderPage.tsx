@@ -86,11 +86,11 @@ import {
   createDesignerWarningMessages,
   deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
-  deleteLayoutSectionIfEmpty,
+  deleteSectionFromSchema,
   getColumnActionState,
+  getSectionFieldIds,
   insertNewFieldAtTarget,
   isLayoutRowEmpty,
-  isLayoutSectionEmpty,
   moveColumn,
   moveFieldToTarget,
   resizeColumnSpan,
@@ -196,6 +196,10 @@ type ColumnContext = RowContext & {
   column: FormLayoutColumn;
 };
 
+type DeleteConfirmation =
+  | { type: "field"; fieldId: string; label: string }
+  | { type: "section"; sectionId: string; title: string; fieldCount: number };
+
 const layoutBlocks = [
   { icon: SquareStack, label: "Section", template: { kind: "section" } },
   { icon: LayoutPanelLeft, label: "One column", template: { kind: "row", spans: [12] } },
@@ -223,6 +227,7 @@ export function FormBuilderPage() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
   const [draftDetailsOpen, setDraftDetailsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSize, setPreviewSize] = useState<FormPreviewSize>("desktop");
@@ -380,10 +385,41 @@ export function FormBuilderPage() {
     setNotice(null);
   }
 
-  function handleDeleteField() {
-    if (!selectedField) return;
+  function handleRequestDeleteField(field: FormField) {
+    setDeleteConfirmation({ type: "field", fieldId: field.id, label: field.label });
+    setNotice(null);
+  }
 
-    setSchema((currentSchema) => deleteFieldFromSchema(currentSchema, selectedField.id));
+  function handleRequestDeleteSection(section: FormLayoutSection, pageSectionCount: number) {
+    if (pageSectionCount <= 1) {
+      setNotice("The last section cannot be deleted.");
+      return;
+    }
+
+    setDeleteConfirmation({
+      type: "section",
+      sectionId: section.id,
+      title: section.title ?? "Untitled section",
+      fieldCount: getSectionFieldIds(section).length
+    });
+    setNotice(null);
+  }
+
+  function handleConfirmDelete() {
+    if (!deleteConfirmation) return;
+
+    if (deleteConfirmation.type === "field") {
+      setSchema((currentSchema) => deleteFieldFromSchema(currentSchema, deleteConfirmation.fieldId));
+
+      if (selection?.type === "field" && selection.id === deleteConfirmation.fieldId) {
+        setSelection(null);
+      }
+    } else {
+      setSchema((currentSchema) => deleteSectionFromSchema(currentSchema, deleteConfirmation.sectionId));
+      setSelection(null);
+    }
+
+    setDeleteConfirmation(null);
     setNotice(null);
   }
 
@@ -457,11 +493,6 @@ export function FormBuilderPage() {
 
   function handleDeleteEmptyRow(rowId: string) {
     setSchema((currentSchema) => deleteLayoutRowIfEmpty(currentSchema, rowId));
-    setNotice(null);
-  }
-
-  function handleDeleteEmptySection(sectionId: string) {
-    setSchema((currentSchema) => deleteLayoutSectionIfEmpty(currentSchema, sectionId));
     setNotice(null);
   }
 
@@ -640,6 +671,8 @@ export function FormBuilderPage() {
               onBalanceRowColumns={handleBalanceRowColumns}
               onDeleteEmptyColumn={handleDeleteEmptyColumn}
               onMoveColumn={handleMoveColumn}
+              onRequestDeleteField={handleRequestDeleteField}
+              onRequestDeleteSection={handleRequestDeleteSection}
               onResizeColumn={handleResizeColumn}
               onSelect={setSelection}
             />
@@ -661,14 +694,20 @@ export function FormBuilderPage() {
               onChangeSection={handleUpdateSectionDetails}
               onDeleteEmptyColumn={handleDeleteEmptyColumn}
               onDeleteEmptyRow={handleDeleteEmptyRow}
-              onDeleteEmptySection={handleDeleteEmptySection}
-              onDeleteField={handleDeleteField}
               onMoveColumn={handleMoveColumn}
+              onRequestDeleteField={handleRequestDeleteField}
+              onRequestDeleteSection={handleRequestDeleteSection}
             />
           </aside>
         </div>
         <DragOverlay>{activeDrag ? <DragOverlayCard label={activeDrag.label} /> : null}</DragOverlay>
       </DndContext>
+
+      <DeleteConfirmationModal
+        confirmation={deleteConfirmation}
+        onCancel={() => setDeleteConfirmation(null)}
+        onConfirm={handleConfirmDelete}
+      />
 
       <Modal
         description="Update the form name and description for this draft."
@@ -901,6 +940,8 @@ function BuilderCanvas({
   onBalanceRowColumns,
   onDeleteEmptyColumn,
   onMoveColumn,
+  onRequestDeleteField,
+  onRequestDeleteSection,
   onResizeColumn,
   onSelect
 }: {
@@ -910,6 +951,8 @@ function BuilderCanvas({
   onBalanceRowColumns: (rowId: string) => void;
   onDeleteEmptyColumn: (columnId: string) => void;
   onMoveColumn: (columnId: string, direction: "left" | "right") => void;
+  onRequestDeleteField: (field: FormField) => void;
+  onRequestDeleteSection: (section: FormLayoutSection, pageSectionCount: number) => void;
   onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
   onSelect: (selection: DesignerSelection) => void;
 }) {
@@ -945,9 +988,16 @@ function BuilderCanvas({
                   key={section.id}
                   onClick={() => onSelect({ type: "section", id: section.id })}
                 >
-                  <div className="mb-4">
-                    <h2 className="text-sm font-black uppercase tracking-normal text-foreground">{section.title ?? "Section"}</h2>
-                    {section.description ? <p className="mt-1 text-sm text-muted-foreground">{section.description}</p> : null}
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-black uppercase tracking-normal text-foreground">{section.title ?? "Section"}</h2>
+                      {section.description ? <p className="mt-1 text-sm text-muted-foreground">{section.description}</p> : null}
+                    </div>
+                    <DeleteIconButton
+                      disabled={page.sections.length <= 1}
+                      label="Delete section"
+                      onClick={() => onRequestDeleteSection(section, page.sections.length)}
+                    />
                   </div>
                   <DroppableSectionBody sectionId={section.id}>
                     {section.rows.length > 0 ? (
@@ -991,6 +1041,7 @@ function BuilderCanvas({
                                           column={column}
                                           field={field}
                                           onSelect={(selection) => onSelect(selection)}
+                                          onRequestDelete={onRequestDeleteField}
                                           selected={selected?.type === "field" && selected.id === field.id}
                                         />
                                       </DroppableFieldSlot>
@@ -1209,6 +1260,34 @@ function ColumnToolbarButton({
   );
 }
 
+function DeleteIconButton({
+  disabled,
+  label,
+  onClick
+}: {
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      aria-label={label}
+      className="size-8 shrink-0 rounded-lg"
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      size="icon"
+      title={label}
+      variant={disabled ? "ghost" : "danger"}
+    >
+      <Trash2 className="size-4" />
+    </Button>
+  );
+}
+
 function DroppableFieldSlot({
   column,
   rowId,
@@ -1242,11 +1321,13 @@ function DroppableFieldSlot({
 function FieldCanvasCard({
   column,
   field,
+  onRequestDelete,
   onSelect,
   selected
 }: {
   column: FormLayoutColumn;
   field: FormField;
+  onRequestDelete: (field: FormField) => void;
   onSelect: (selection: DesignerSelection) => void;
   selected: boolean;
 }) {
@@ -1257,14 +1338,13 @@ function FieldCanvasCard({
   });
 
   return (
-    <button
+    <div
       className={cn(
         "w-full rounded-xl border bg-card/90 p-4 text-left transition",
         selected ? "border-primary shadow-lifted ring-4 ring-primary/10" : "border-border hover:border-primary/40 hover:bg-muted/50",
         isDragging ? "opacity-60" : ""
       )}
       ref={setNodeRef}
-      type="button"
       onClick={(event) => {
         event.stopPropagation();
         onSelect({ type: "field", id: field.id });
@@ -1273,7 +1353,7 @@ function FieldCanvasCard({
       {...attributes}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-foreground">{field.label}</p>
             {field.required ? <Badge variant="warning">Required</Badge> : null}
@@ -1286,10 +1366,11 @@ function FieldCanvasCard({
             {fieldTypeLabels[field.type]}
           </Badge>
           <Badge>{getLayoutWidthLabel(column)}</Badge>
+          <DeleteIconButton label="Delete field" onClick={() => onRequestDelete(field)} />
         </div>
       </div>
       <FieldPreview field={field} />
-    </button>
+    </div>
   );
 }
 
@@ -1343,6 +1424,58 @@ function DragOverlayCard({ label }: { label: string }) {
   );
 }
 
+function DeleteConfirmationModal({
+  confirmation,
+  onCancel,
+  onConfirm
+}: {
+  confirmation: DeleteConfirmation | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const isSection = confirmation?.type === "section";
+  const title = isSection ? "Delete section" : "Delete field";
+  const description = isSection
+    ? "This removes the section from the draft and deletes every field inside it."
+    : "This removes the field from the draft and from the form layout.";
+
+  return (
+    <Modal
+      description={description}
+      footer={
+        <>
+          <Button onClick={onCancel} variant="outline">
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} variant="danger">
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
+        </>
+      }
+      onClose={onCancel}
+      open={Boolean(confirmation)}
+      panelClassName="max-w-xl"
+      title={title}
+    >
+      {confirmation?.type === "field" ? (
+        <p className="text-sm font-semibold text-muted-foreground">
+          Field: <span className="text-foreground">{confirmation.label}</span>
+        </p>
+      ) : confirmation?.type === "section" ? (
+        <div className="grid gap-2 text-sm font-semibold text-muted-foreground">
+          <p>
+            Section: <span className="text-foreground">{confirmation.title}</span>
+          </p>
+          <p>
+            Fields that will be deleted: <span className="text-foreground">{confirmation.fieldCount}</span>
+          </p>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
 function BuilderSettings({
   selection,
   field,
@@ -1359,9 +1492,9 @@ function BuilderSettings({
   onChangeSection,
   onDeleteEmptyColumn,
   onDeleteEmptyRow,
-  onDeleteEmptySection,
-  onDeleteField,
-  onMoveColumn
+  onMoveColumn,
+  onRequestDeleteField,
+  onRequestDeleteSection
 }: {
   selection: DesignerSelection | null;
   field: FormField | null;
@@ -1378,9 +1511,9 @@ function BuilderSettings({
   onChangeSection: (sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) => void;
   onDeleteEmptyColumn: (columnId: string) => void;
   onDeleteEmptyRow: (rowId: string) => void;
-  onDeleteEmptySection: (sectionId: string) => void;
-  onDeleteField: () => void;
   onMoveColumn: (columnId: string, direction: "left" | "right") => void;
+  onRequestDeleteField: (field: FormField) => void;
+  onRequestDeleteSection: (section: FormLayoutSection, pageSectionCount: number) => void;
 }) {
   if (selection?.type === "section" && sectionContext) {
     return (
@@ -1388,7 +1521,7 @@ function BuilderSettings({
         context={sectionContext}
         onAddRow={onAddRow}
         onChange={onChangeSection}
-        onDeleteEmptySection={onDeleteEmptySection}
+        onRequestDelete={onRequestDeleteSection}
       />
     );
   }
@@ -1416,7 +1549,7 @@ function BuilderSettings({
       layoutWidth={layoutWidth}
       onChange={onChangeField}
       onChangeLayoutWidth={onChangeFieldLayoutWidth}
-      onDelete={onDeleteField}
+      onRequestDelete={onRequestDeleteField}
     />
   );
 }
@@ -1425,15 +1558,15 @@ function SectionSettings({
   context,
   onAddRow,
   onChange,
-  onDeleteEmptySection
+  onRequestDelete
 }: {
   context: SectionContext;
   onAddRow: (sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) => void;
   onChange: (sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) => void;
-  onDeleteEmptySection: (sectionId: string) => void;
+  onRequestDelete: (section: FormLayoutSection, pageSectionCount: number) => void;
 }) {
   const { section, pageSectionCount } = context;
-  const canDelete = pageSectionCount > 1 && isLayoutSectionEmpty(section);
+  const canDelete = pageSectionCount > 1;
 
   return (
     <Card className="self-start">
@@ -1459,12 +1592,12 @@ function SectionSettings({
             Add row
           </Button>
           <div className="grid gap-2">
-            <Button disabled={!canDelete} onClick={() => onDeleteEmptySection(section.id)} variant="danger">
+            <Button disabled={!canDelete} onClick={() => onRequestDelete(section, pageSectionCount)} variant="danger">
               <Trash2 className="size-4" />
-              Delete empty section
+              Delete section
             </Button>
             <p className="text-xs font-semibold text-muted-foreground">
-              Sections can be removed only when they contain no fields and another section remains.
+              Deleting a section also deletes its fields after confirmation. The last section is protected.
             </p>
           </div>
         </form>
@@ -1626,13 +1759,13 @@ function FieldSettings({
   layoutWidth,
   onChange,
   onChangeLayoutWidth,
-  onDelete
+  onRequestDelete
 }: {
   field: FormField | null;
   layoutWidth: LayoutWidthValue | null;
   onChange: (field: FormField) => void;
   onChangeLayoutWidth: (fieldId: string, width: LayoutWidthValue) => void;
-  onDelete: () => void;
+  onRequestDelete: (field: FormField) => void;
 }) {
   if (!field) {
     return (
@@ -1695,7 +1828,7 @@ function FieldSettings({
           />
           <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} />
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
-          <Button onClick={onDelete} variant="danger">
+          <Button onClick={() => onRequestDelete(field)} variant="danger">
             <Trash2 className="size-4" />
             Delete field
           </Button>

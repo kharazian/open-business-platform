@@ -295,6 +295,33 @@ export function deleteLayoutSectionIfEmpty(schema: FormSchema, sectionId: string
   };
 }
 
+export function deleteSectionFromSchema(schema: FormSchema, sectionId: string): FormSchema {
+  for (const page of schema.layout.pages) {
+    const section = page.sections.find((candidate) => candidate.id === sectionId);
+    if (!section || page.sections.length <= 1) continue;
+
+    const fieldIdsToDelete = new Set(getSectionFieldIds(section));
+
+    return {
+      ...schema,
+      fields: schema.fields.filter((field) => !fieldIdsToDelete.has(field.id)),
+      layout: {
+        pages: schema.layout.pages.map((candidatePage) =>
+          candidatePage.id === page.id
+            ? { ...candidatePage, sections: candidatePage.sections.filter((candidate) => candidate.id !== sectionId) }
+            : candidatePage
+        )
+      }
+    };
+  }
+
+  return schema;
+}
+
+export function getSectionFieldIds(section: FormLayoutSection): string[] {
+  return section.rows.flatMap((row) => row.columns.flatMap((column) => column.fields));
+}
+
 export function removeEmptyLayoutContainers(schema: FormSchema): FormSchema {
   return {
     ...schema,
