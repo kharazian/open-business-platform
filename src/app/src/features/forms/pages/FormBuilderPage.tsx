@@ -14,8 +14,10 @@ import {
 } from "@dnd-kit/core";
 import {
   AlignLeft,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   CalendarDays,
   CheckSquare,
   CircleDot,
@@ -75,6 +77,8 @@ import { formPreviewContentClassName, formPreviewPanelClassName } from "../build
 import {
   draftDetailsModalPanelClassName,
   formBuilderCanvasScrollClassName,
+  formBuilderSoftDangerButtonClassName,
+  formBuilderSoftDangerIconButtonClassName,
   formBuilderSidebarClassName,
   formBuilderWorkspaceClassName
 } from "../builderWorkspace";
@@ -92,6 +96,7 @@ import {
   insertNewFieldAtTarget,
   isLayoutRowEmpty,
   moveColumn,
+  moveFieldWithinColumn,
   moveFieldToTarget,
   resizeColumnSpan,
   updateColumnSpan,
@@ -461,6 +466,12 @@ export function FormBuilderPage() {
     setNotice(null);
   }
 
+  function handleMoveField(fieldId: string, direction: "up" | "down") {
+    setSchema((currentSchema) => moveFieldWithinColumn(currentSchema, fieldId, direction));
+    setSelection({ type: "field", id: fieldId });
+    setNotice(null);
+  }
+
   function handleDeleteEmptyColumn(columnId: string) {
     const fallbackRowId =
       selectedColumnContext?.column.id === columnId ? selectedColumnContext.row.id : findColumnContext(schema, columnId)?.row.id;
@@ -671,6 +682,7 @@ export function FormBuilderPage() {
               onBalanceRowColumns={handleBalanceRowColumns}
               onDeleteEmptyColumn={handleDeleteEmptyColumn}
               onMoveColumn={handleMoveColumn}
+              onMoveField={handleMoveField}
               onRequestDeleteField={handleRequestDeleteField}
               onRequestDeleteSection={handleRequestDeleteSection}
               onResizeColumn={handleResizeColumn}
@@ -940,6 +952,7 @@ function BuilderCanvas({
   onBalanceRowColumns,
   onDeleteEmptyColumn,
   onMoveColumn,
+  onMoveField,
   onRequestDeleteField,
   onRequestDeleteSection,
   onResizeColumn,
@@ -951,6 +964,7 @@ function BuilderCanvas({
   onBalanceRowColumns: (rowId: string) => void;
   onDeleteEmptyColumn: (columnId: string) => void;
   onMoveColumn: (columnId: string, direction: "left" | "right") => void;
+  onMoveField: (fieldId: string, direction: "up" | "down") => void;
   onRequestDeleteField: (field: FormField) => void;
   onRequestDeleteSection: (section: FormLayoutSection, pageSectionCount: number) => void;
   onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
@@ -1040,6 +1054,7 @@ function BuilderCanvas({
                                         <FieldCanvasCard
                                           column={column}
                                           field={field}
+                                          onMoveField={onMoveField}
                                           onSelect={(selection) => onSelect(selection)}
                                           onRequestDelete={onRequestDeleteField}
                                           selected={selected?.type === "field" && selected.id === field.id}
@@ -1213,14 +1228,11 @@ function DroppableColumn({
           >
             <SquareSplitHorizontal className="size-4" />
           </ColumnToolbarButton>
-          <ColumnToolbarButton
+          <DeleteIconButton
             disabled={!actionState.canDelete}
             label="Delete empty column"
             onClick={() => onDeleteEmptyColumn(column.id)}
-            variant={actionState.canDelete ? "danger" : "ghost"}
-          >
-            <Trash2 className="size-4" />
-          </ColumnToolbarButton>
+          />
         </div>
       ) : null}
       {children}
@@ -1272,7 +1284,7 @@ function DeleteIconButton({
   return (
     <Button
       aria-label={label}
-      className="size-8 shrink-0 rounded-lg"
+      className={formBuilderSoftDangerIconButtonClassName}
       disabled={disabled}
       onClick={(event) => {
         event.stopPropagation();
@@ -1281,7 +1293,7 @@ function DeleteIconButton({
       onPointerDown={(event) => event.stopPropagation()}
       size="icon"
       title={label}
-      variant={disabled ? "ghost" : "danger"}
+      variant="outline"
     >
       <Trash2 className="size-4" />
     </Button>
@@ -1321,17 +1333,22 @@ function DroppableFieldSlot({
 function FieldCanvasCard({
   column,
   field,
+  onMoveField,
   onRequestDelete,
   onSelect,
   selected
 }: {
   column: FormLayoutColumn;
   field: FormField;
+  onMoveField: (fieldId: string, direction: "up" | "down") => void;
   onRequestDelete: (field: FormField) => void;
   onSelect: (selection: DesignerSelection) => void;
   selected: boolean;
 }) {
   const FieldIcon = fieldTypeIcons[field.type];
+  const fieldIndex = column.fields.indexOf(field.id);
+  const canMoveUp = fieldIndex > 0;
+  const canMoveDown = fieldIndex >= 0 && fieldIndex < column.fields.length - 1;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `field-${field.id}`,
     data: { kind: "existing_field", fieldId: field.id, label: field.label } satisfies DesignerDragData
@@ -1366,11 +1383,47 @@ function FieldCanvasCard({
             {fieldTypeLabels[field.type]}
           </Badge>
           <Badge>{getLayoutWidthLabel(column)}</Badge>
+          <FieldCardIconButton disabled={!canMoveUp} label="Move field up" onClick={() => onMoveField(field.id, "up")}>
+            <ArrowUp className="size-4" />
+          </FieldCardIconButton>
+          <FieldCardIconButton disabled={!canMoveDown} label="Move field down" onClick={() => onMoveField(field.id, "down")}>
+            <ArrowDown className="size-4" />
+          </FieldCardIconButton>
           <DeleteIconButton label="Delete field" onClick={() => onRequestDelete(field)} />
         </div>
       </div>
       <FieldPreview field={field} />
     </div>
+  );
+}
+
+function FieldCardIconButton({
+  children,
+  disabled,
+  label,
+  onClick
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      aria-label={label}
+      className="size-8 shrink-0 rounded-lg"
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      size="icon"
+      title={label}
+      variant="outline"
+    >
+      {children}
+    </Button>
   );
 }
 
@@ -1447,7 +1500,7 @@ function DeleteConfirmationModal({
           <Button onClick={onCancel} variant="outline">
             Cancel
           </Button>
-          <Button onClick={onConfirm} variant="danger">
+          <Button className={formBuilderSoftDangerButtonClassName} onClick={onConfirm} variant="outline">
             <Trash2 className="size-4" />
             Delete
           </Button>
@@ -1592,7 +1645,12 @@ function SectionSettings({
             Add row
           </Button>
           <div className="grid gap-2">
-            <Button disabled={!canDelete} onClick={() => onRequestDelete(section, pageSectionCount)} variant="danger">
+            <Button
+              className={formBuilderSoftDangerButtonClassName}
+              disabled={!canDelete}
+              onClick={() => onRequestDelete(section, pageSectionCount)}
+              variant="outline"
+            >
               <Trash2 className="size-4" />
               Delete section
             </Button>
@@ -1642,7 +1700,12 @@ function RowSettings({
             </Button>
           </div>
           <div className="grid gap-2">
-            <Button disabled={!canDelete} onClick={() => onDeleteEmptyRow(row.id)} variant="danger">
+            <Button
+              className={formBuilderSoftDangerButtonClassName}
+              disabled={!canDelete}
+              onClick={() => onDeleteEmptyRow(row.id)}
+              variant="outline"
+            >
               <Trash2 className="size-4" />
               Delete empty row
             </Button>
@@ -1742,7 +1805,12 @@ function ColumnSettings({
             Current span: mobile 12 / tablet {column.span.tablet} / desktop {column.span.desktop}
           </div>
           <div className="grid gap-2">
-            <Button disabled={!canDelete} onClick={() => onDeleteEmptyColumn(column.id)} variant="danger">
+            <Button
+              className={formBuilderSoftDangerButtonClassName}
+              disabled={!canDelete}
+              onClick={() => onDeleteEmptyColumn(column.id)}
+              variant="outline"
+            >
               <Trash2 className="size-4" />
               Delete empty column
             </Button>
@@ -1828,7 +1896,7 @@ function FieldSettings({
           />
           <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} />
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
-          <Button onClick={() => onRequestDelete(field)} variant="danger">
+          <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
           </Button>

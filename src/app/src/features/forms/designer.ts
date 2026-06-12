@@ -206,6 +206,26 @@ export function moveColumn(schema: FormSchema, columnId: string, direction: "lef
   };
 }
 
+export function moveFieldWithinColumn(schema: FormSchema, fieldId: string, direction: "up" | "down"): FormSchema {
+  let moved = false;
+  const layout = mapColumns(schema.layout, (column) => {
+    const sourceIndex = column.fields.indexOf(fieldId);
+    if (sourceIndex < 0) return column;
+
+    const targetIndex = direction === "up" ? sourceIndex - 1 : sourceIndex + 1;
+    if (targetIndex < 0 || targetIndex >= column.fields.length) return column;
+
+    const fields = [...column.fields];
+    const [fieldToMove] = fields.splice(sourceIndex, 1);
+    fields.splice(targetIndex, 0, fieldToMove);
+    moved = true;
+
+    return { ...column, fields };
+  });
+
+  return moved ? { ...schema, layout } : schema;
+}
+
 export function getColumnActionState(row: FormLayoutRow, columnId: string): ColumnActionState {
   const columnIndex = row.columns.findIndex((column) => column.id === columnId);
   const column = columnIndex >= 0 ? row.columns[columnIndex] : null;

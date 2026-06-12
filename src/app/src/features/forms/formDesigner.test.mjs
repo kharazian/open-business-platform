@@ -14,6 +14,7 @@ import {
   getSectionFieldIds,
   insertNewFieldAtTarget,
   moveColumn,
+  moveFieldWithinColumn,
   moveFieldToTarget,
   removeEmptyLayoutContainers,
   resizeColumnSpan,
@@ -94,6 +95,27 @@ test("designer helpers preserve target slot order when reordering fields in the 
     .find((column) => column.id === targetColumnId);
 
   assert.deepEqual(targetColumn?.fields, ["email", "text", "number"]);
+});
+
+test("designer helpers move fields up and down inside the current column", () => {
+  const first = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const second = addFieldToSchema(first, "email").schema;
+  const third = addFieldToSchema(second, "number").schema;
+  const targetColumnId = third.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withEmailInTargetColumn = moveFieldToTarget(third, "email", { type: "column", columnId: targetColumnId, index: 1 });
+  const withAllFieldsInTargetColumn = moveFieldToTarget(withEmailInTargetColumn, "number", {
+    type: "column",
+    columnId: targetColumnId,
+    index: 2
+  });
+
+  const movedUp = moveFieldWithinColumn(withAllFieldsInTargetColumn, "number", "up");
+  const movedDown = moveFieldWithinColumn(movedUp, "number", "down");
+
+  assert.deepEqual(movedUp.layout.pages[0].sections[0].rows[0].columns[0].fields, ["text", "number", "email"]);
+  assert.deepEqual(movedDown.layout.pages[0].sections[0].rows[0].columns[0].fields, ["text", "email", "number"]);
+  assert.deepEqual(moveFieldWithinColumn(movedDown, "text", "up"), movedDown);
+  assert.deepEqual(moveFieldWithinColumn(movedDown, "number", "down"), movedDown);
 });
 
 test("designer helpers update custom column spans", () => {

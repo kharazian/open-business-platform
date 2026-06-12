@@ -17,6 +17,8 @@ import { formPreviewContentClassName, formPreviewPanelClassName } from "./builde
 import {
   draftDetailsModalPanelClassName,
   formBuilderCanvasScrollClassName,
+  formBuilderSoftDangerButtonClassName,
+  formBuilderSoftDangerIconButtonClassName,
   formBuilderSidebarClassName,
   formBuilderWorkspaceClassName
 } from "./builderWorkspace.ts";
@@ -132,4 +134,15 @@ test("form builder workspace layout gives sidebars and canvas independent scroll
   assert.equal(formBuilderCanvasScrollClassName.includes("xl:overflow-y-auto"), true);
   assert.equal(formBuilderCanvasScrollClassName.includes("xl:overscroll-contain"), true);
   assert.equal(draftDetailsModalPanelClassName.includes("max-w-xl"), true);
+});
+
+test("form builder destructive actions use a softer danger treatment", () => {
+  assert.equal(formBuilderSoftDangerIconButtonClassName.includes("bg-danger-soft"), true);
+  assert.equal(formBuilderSoftDangerIconButtonClassName.includes("text-danger"), true);
+  assert.equal(formBuilderSoftDangerIconButtonClassName.includes("border-danger/25"), true);
+  assert.equal(formBuilderSoftDangerIconButtonClassName.includes("bg-danger text-white"), false);
+  assert.equal(formBuilderSoftDangerButtonClassName.includes("bg-danger-soft"), true);
+  assert.equal(formBuilderSoftDangerButtonClassName.includes("text-danger"), true);
+  assert.equal(formBuilderSoftDangerButtonClassName.includes("border-danger/25"), true);
+  assert.equal(formBuilderSoftDangerButtonClassName.includes("bg-danger text-white"), false);
 });
