@@ -28,6 +28,11 @@ export type InsertFieldResult = {
   field: FormField;
 };
 
+export type AddColumnResult = {
+  schema: FormSchema;
+  column: FormLayoutColumn | null;
+};
+
 const defaultSectionTitle = "New section";
 
 export function addLayoutBlockToSchema(schema: FormSchema, block: LayoutBlockDrop): FormSchema {
@@ -127,6 +132,82 @@ export function updateColumnSpan(schema: FormSchema, columnId: string, span: Res
         ? { ...column, span: { mobile: 12, tablet: clampSpan(span.tablet), desktop: clampSpan(span.desktop) } }
         : column
     )
+  };
+}
+
+export function addColumnNearColumn(schema: FormSchema, columnId: string, position: "before" | "after"): AddColumnResult {
+  const layoutIds = collectLayoutIds(schema.layout);
+  let addedColumn: FormLayoutColumn | null = null;
+
+  const layout = mapRows(schema.layout, (row) => {
+    const targetIndex = row.columns.findIndex((column) => column.id === columnId);
+    if (targetIndex < 0) return row;
+
+    const targetColumn = row.columns[targetIndex];
+    const splitSpan = splitResponsiveSpan(targetColumn.span);
+    const nextColumns = [...row.columns];
+    const insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+
+    addedColumn = createColumnFromSpan(splitSpan.addedSpan, layoutIds, []);
+    nextColumns[targetIndex] = { ...targetColumn, span: splitSpan.sourceSpan };
+    nextColumns.splice(insertIndex, 0, addedColumn);
+
+    return { ...row, columns: nextColumns };
+  });
+
+  return {
+    column: addedColumn,
+    schema: addedColumn ? { ...schema, layout } : schema
+  };
+}
+
+export function moveColumn(schema: FormSchema, columnId: string, direction: "left" | "right"): FormSchema {
+  return {
+    ...schema,
+    layout: mapRows(schema.layout, (row) => {
+      const sourceIndex = row.columns.findIndex((column) => column.id === columnId);
+      if (sourceIndex < 0) return row;
+
+      const targetIndex = direction === "left" ? sourceIndex - 1 : sourceIndex + 1;
+      if (targetIndex < 0 || targetIndex >= row.columns.length) return row;
+
+      const columns = [...row.columns];
+      const [column] = columns.splice(sourceIndex, 1);
+      columns.splice(targetIndex, 0, column);
+      return { ...row, columns };
+    })
+  };
+}
+
+export function deleteColumnIfEmpty(schema: FormSchema, columnId: string): FormSchema {
+  return {
+    ...schema,
+    layout: mapRows(schema.layout, (row) => {
+      const targetColumn = row.columns.find((column) => column.id === columnId);
+      if (!targetColumn || targetColumn.fields.length > 0 || row.columns.length <= 1) return row;
+
+      return { ...row, columns: row.columns.filter((column) => column.id !== columnId) };
+    })
+  };
+}
+
+export function balanceRowColumns(schema: FormSchema, rowId: string): FormSchema {
+  return {
+    ...schema,
+    layout: mapRows(schema.layout, (row) => {
+      if (row.id !== rowId) return row;
+
+      const balancedSpan = getBalancedColumnSpan(row.columns.length);
+      if (!balancedSpan) return row;
+
+      return {
+        ...row,
+        columns: row.columns.map((column) => ({
+          ...column,
+          span: { mobile: 12, tablet: balancedSpan, desktop: balancedSpan }
+        }))
+      };
+    })
   };
 }
 
@@ -264,6 +345,14 @@ function createColumn(span: number, layoutIds: LayoutIds, fields: string[] = [])
   };
 }
 
+function createColumnFromSpan(span: ResponsiveSpan, layoutIds: LayoutIds, fields: string[] = []): FormLayoutColumn {
+  return {
+    id: createUniqueId("col", layoutIds.columnIds),
+    span: { mobile: 12, tablet: clampSpan(span.tablet), desktop: clampSpan(span.desktop) },
+    fields
+  };
+}
+
 function removeFieldReferences(schema: FormSchema, fieldId: string): FormSchema {
   return {
     ...schema,
@@ -320,6 +409,35 @@ function normalizeOptionalText(nextValue: string | undefined, currentValue: stri
 
   const trimmedValue = nextValue.trim();
   return trimmedValue.length > 0 ? trimmedValue : undefined;
+}
+
+function splitResponsiveSpan(span: ResponsiveSpan): { sourceSpan: ResponsiveSpan; addedSpan: ResponsiveSpan } {
+  const tabletSplit = splitSpan(span.tablet);
+  const desktopSplit = splitSpan(span.desktop);
+
+  return {
+    sourceSpan: { mobile: 12, tablet: tabletSplit.source, desktop: desktopSplit.source },
+    addedSpan: { mobile: 12, tablet: tabletSplit.added, desktop: desktopSplit.added }
+  };
+}
+
+function splitSpan(value: number): { source: number; added: number } {
+  const span = clampSpan(value);
+
+  if (span <= 1) {
+    return { source: 1, added: 12 };
+  }
+
+  const source = Math.floor(span / 2);
+  return { source, added: span - source };
+}
+
+function getBalancedColumnSpan(columnCount: number): number | null {
+  if (columnCount === 1) return 12;
+  if (columnCount === 2) return 6;
+  if (columnCount === 3) return 4;
+  if (columnCount === 4) return 3;
+  return null;
 }
 
 function getAdjustedColumnTargetIndex(sourceLocation: FieldLocation | null, target: Extract<DesignerDropTarget, { type: "column" }>): number {

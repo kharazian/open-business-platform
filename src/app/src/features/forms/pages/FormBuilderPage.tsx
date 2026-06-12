@@ -15,6 +15,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
+  ArrowRight,
   Eye,
   GripVertical,
   LayoutPanelLeft,
@@ -62,13 +63,17 @@ import {
 import type { LayoutWidthValue } from "../builder";
 import { FormRenderer } from "../components/FormRenderer";
 import {
+  addColumnNearColumn,
   addLayoutBlockToSchema,
+  balanceRowColumns,
   createDesignerWarningMessages,
+  deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
   deleteLayoutSectionIfEmpty,
   insertNewFieldAtTarget,
   isLayoutRowEmpty,
   isLayoutSectionEmpty,
+  moveColumn,
   moveFieldToTarget,
   updateColumnSpan,
   updateSectionDetails,
@@ -366,6 +371,39 @@ export function FormBuilderPage() {
     setNotice(null);
   }
 
+  function handleAddColumn(columnId: string, position: "before" | "after") {
+    const result = addColumnNearColumn(schema, columnId, position);
+    setSchema(result.schema);
+
+    if (result.column) {
+      setSelection({ type: "column", id: result.column.id });
+    }
+
+    setNotice(null);
+  }
+
+  function handleMoveColumn(columnId: string, direction: "left" | "right") {
+    setSchema((currentSchema) => moveColumn(currentSchema, columnId, direction));
+    setSelection({ type: "column", id: columnId });
+    setNotice(null);
+  }
+
+  function handleDeleteEmptyColumn(columnId: string) {
+    const fallbackRowId = selectedColumnContext?.row.id;
+    setSchema((currentSchema) => deleteColumnIfEmpty(currentSchema, columnId));
+
+    if (fallbackRowId) {
+      setSelection({ type: "row", id: fallbackRowId });
+    }
+
+    setNotice(null);
+  }
+
+  function handleBalanceRowColumns(rowId: string) {
+    setSchema((currentSchema) => balanceRowColumns(currentSchema, rowId));
+    setNotice(null);
+  }
+
   function handleAddRow(sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) {
     setSchema((currentSchema) =>
       addLayoutBlockToSchema(currentSchema, {
@@ -564,13 +602,17 @@ export function FormBuilderPage() {
             sectionContext={selectedSectionContext}
             selection={selection}
             onAddRow={handleAddRow}
+            onAddColumn={handleAddColumn}
+            onBalanceRowColumns={handleBalanceRowColumns}
             onChangeColumnSpan={handleUpdateColumnSpan}
             onChangeField={handleUpdateField}
             onChangeFieldLayoutWidth={handleUpdateFieldLayoutWidth}
             onChangeSection={handleUpdateSectionDetails}
+            onDeleteEmptyColumn={handleDeleteEmptyColumn}
             onDeleteEmptyRow={handleDeleteEmptyRow}
             onDeleteEmptySection={handleDeleteEmptySection}
             onDeleteField={handleDeleteField}
+            onMoveColumn={handleMoveColumn}
           />
         </div>
         <DragOverlay>{activeDrag ? <DragOverlayCard label={activeDrag.label} /> : null}</DragOverlay>
@@ -1141,14 +1183,18 @@ function BuilderSettings({
   rowContext,
   columnContext,
   layoutWidth,
+  onAddColumn,
   onAddRow,
+  onBalanceRowColumns,
   onChangeColumnSpan,
   onChangeField,
   onChangeFieldLayoutWidth,
   onChangeSection,
+  onDeleteEmptyColumn,
   onDeleteEmptyRow,
   onDeleteEmptySection,
-  onDeleteField
+  onDeleteField,
+  onMoveColumn
 }: {
   selection: DesignerSelection | null;
   field: FormField | null;
@@ -1156,14 +1202,18 @@ function BuilderSettings({
   rowContext: RowContext | null;
   columnContext: ColumnContext | null;
   layoutWidth: LayoutWidthValue | null;
+  onAddColumn: (columnId: string, position: "before" | "after") => void;
   onAddRow: (sectionId: string, rowId: string | undefined, position: LayoutBlockDrop["position"]) => void;
+  onBalanceRowColumns: (rowId: string) => void;
   onChangeColumnSpan: (columnId: string, span: FormLayoutColumn["span"]) => void;
   onChangeField: (field: FormField) => void;
   onChangeFieldLayoutWidth: (fieldId: string, width: LayoutWidthValue) => void;
   onChangeSection: (sectionId: string, patch: Pick<FormLayoutSection, "title" | "description">) => void;
+  onDeleteEmptyColumn: (columnId: string) => void;
   onDeleteEmptyRow: (rowId: string) => void;
   onDeleteEmptySection: (sectionId: string) => void;
   onDeleteField: () => void;
+  onMoveColumn: (columnId: string, direction: "left" | "right") => void;
 }) {
   if (selection?.type === "section" && sectionContext) {
     return (
@@ -1181,7 +1231,16 @@ function BuilderSettings({
   }
 
   if (selection?.type === "column" && columnContext) {
-    return <ColumnSettings context={columnContext} onChangeSpan={onChangeColumnSpan} />;
+    return (
+      <ColumnSettings
+        context={columnContext}
+        onAddColumn={onAddColumn}
+        onBalanceRowColumns={onBalanceRowColumns}
+        onChangeSpan={onChangeColumnSpan}
+        onDeleteEmptyColumn={onDeleteEmptyColumn}
+        onMoveColumn={onMoveColumn}
+      />
+    );
   }
 
   return (
@@ -1297,12 +1356,25 @@ function RowSettings({
 
 function ColumnSettings({
   context,
-  onChangeSpan
+  onAddColumn,
+  onBalanceRowColumns,
+  onChangeSpan,
+  onDeleteEmptyColumn,
+  onMoveColumn
 }: {
   context: ColumnContext;
+  onAddColumn: (columnId: string, position: "before" | "after") => void;
+  onBalanceRowColumns: (rowId: string) => void;
   onChangeSpan: (columnId: string, span: FormLayoutColumn["span"]) => void;
+  onDeleteEmptyColumn: (columnId: string) => void;
+  onMoveColumn: (columnId: string, direction: "left" | "right") => void;
 }) {
   const { column, row } = context;
+  const columnIndex = row.columns.findIndex((candidate) => candidate.id === column.id);
+  const canMoveLeft = columnIndex > 0;
+  const canMoveRight = columnIndex >= 0 && columnIndex < row.columns.length - 1;
+  const canDelete = row.columns.length > 1 && column.fields.length === 0;
+  const canBalance = row.columns.length >= 1 && row.columns.length <= 4;
 
   function patchSpan(patch: Partial<FormLayoutColumn["span"]>) {
     onChangeSpan(column.id, { ...column.span, ...patch, mobile: 12 });
@@ -1315,7 +1387,7 @@ function ColumnSettings({
           <div>
             <CardTitle>Column settings</CardTitle>
             <CardDescription>
-              Column {row.columns.findIndex((candidate) => candidate.id === column.id) + 1} of {row.columns.length}
+              Column {columnIndex + 1} of {row.columns.length}
             </CardDescription>
           </div>
           <Settings2 className="size-5 text-muted-foreground" />
@@ -1324,12 +1396,35 @@ function ColumnSettings({
       <CardContent>
         <form className="grid gap-4" onSubmit={preventSubmit}>
           <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => onAddColumn(column.id, "before")} size="sm" variant="outline">
+              <Plus className="size-4" />
+              Add left
+            </Button>
+            <Button onClick={() => onAddColumn(column.id, "after")} size="sm" variant="outline">
+              <Plus className="size-4" />
+              Add right
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button disabled={!canMoveLeft} onClick={() => onMoveColumn(column.id, "left")} size="sm" variant="outline">
+              <ArrowLeft className="size-4" />
+              Move left
+            </Button>
+            <Button disabled={!canMoveRight} onClick={() => onMoveColumn(column.id, "right")} size="sm" variant="outline">
+              <ArrowRight className="size-4" />
+              Move right
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             {layoutWidthOptions.map((option) => (
               <Button key={option.value} onClick={() => onChangeSpan(column.id, option.span)} size="sm" variant="outline">
                 {option.label}
               </Button>
             ))}
           </div>
+          <Button disabled={!canBalance} onClick={() => onBalanceRowColumns(row.id)} variant="outline">
+            Balance row columns
+          </Button>
           <Select
             help="Mobile remains full width for readable forms."
             label="Tablet span"
@@ -1345,6 +1440,13 @@ function ColumnSettings({
           />
           <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
             Current span: mobile 12 / tablet {column.span.tablet} / desktop {column.span.desktop}
+          </div>
+          <div className="grid gap-2">
+            <Button disabled={!canDelete} onClick={() => onDeleteEmptyColumn(column.id)} variant="danger">
+              <Trash2 className="size-4" />
+              Delete empty column
+            </Button>
+            <p className="text-xs font-semibold text-muted-foreground">Columns can be removed only when empty and another column remains.</p>
           </div>
         </form>
       </CardContent>

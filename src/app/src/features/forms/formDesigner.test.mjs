@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
+  addColumnNearColumn,
   addLayoutBlockToSchema,
+  balanceRowColumns,
   createDesignerWarningMessages,
+  deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
   deleteLayoutSectionIfEmpty,
   getFieldDropTargets,
   insertNewFieldAtTarget,
+  moveColumn,
   moveFieldToTarget,
   removeEmptyLayoutContainers,
   updateSectionDetails,
@@ -98,6 +102,70 @@ test("designer helpers update custom column spans", () => {
     tablet: 5,
     desktop: 12
   });
+});
+
+test("designer helpers add columns beside selected columns without dropping fields", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const sourceColumnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
+
+  const result = addColumnNearColumn(schema, sourceColumnId, "after");
+  const row = result.schema.layout.pages[0].sections[0].rows[0];
+
+  assert.equal(result.column?.id, "col_1");
+  assert.deepEqual(row.columns.map((column) => column.id), [sourceColumnId, "col_1"]);
+  assert.deepEqual(row.columns.map((column) => column.span.desktop), [6, 6]);
+  assert.deepEqual(row.columns.map((column) => column.fields), [["text"], []]);
+});
+
+test("designer helpers move columns left and right while preserving fields", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const sourceColumnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withColumn = addColumnNearColumn(schema, sourceColumnId, "after").schema;
+
+  const movedRight = moveColumn(withColumn, sourceColumnId, "right");
+  const movedLeft = moveColumn(movedRight, sourceColumnId, "left");
+
+  assert.deepEqual(movedRight.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields), [[], ["text"]]);
+  assert.deepEqual(movedLeft.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields), [["text"], []]);
+  assert.deepEqual(moveColumn(movedLeft, sourceColumnId, "left"), movedLeft);
+});
+
+test("designer helpers delete only empty columns and keep at least one column", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const sourceColumnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withColumn = addColumnNearColumn(schema, sourceColumnId, "after").schema;
+  const emptyColumnId = withColumn.layout.pages[0].sections[0].rows[0].columns[1].id;
+  const emptyRowSchema = addLayoutBlockToSchema(createEmptyFormBuilderSchema(), {
+    kind: "row",
+    sectionId: "section_1",
+    position: "end",
+    spans: [12]
+  });
+  const onlyColumnId = emptyRowSchema.layout.pages[0].sections[0].rows[0].columns[0].id;
+
+  const afterPopulatedDelete = deleteColumnIfEmpty(withColumn, sourceColumnId);
+  const afterEmptyDelete = deleteColumnIfEmpty(withColumn, emptyColumnId);
+  const afterOnlyColumnDelete = deleteColumnIfEmpty(emptyRowSchema, onlyColumnId);
+
+  assert.deepEqual(afterPopulatedDelete, withColumn);
+  assert.deepEqual(afterEmptyDelete.layout.pages[0].sections[0].rows[0].columns.map((column) => column.id), [sourceColumnId]);
+  assert.deepEqual(afterOnlyColumnDelete, emptyRowSchema);
+});
+
+test("designer helpers balance row columns up to four columns", () => {
+  const schema = addLayoutBlockToSchema(createEmptyFormBuilderSchema(), {
+    kind: "row",
+    sectionId: "section_1",
+    position: "end",
+    spans: [12, 12, 12, 12]
+  });
+  const rowId = schema.layout.pages[0].sections[0].rows[0].id;
+
+  const balanced = balanceRowColumns(schema, rowId);
+
+  assert.deepEqual(balanced.layout.pages[0].sections[0].rows[0].columns.map((column) => column.span.mobile), [12, 12, 12, 12]);
+  assert.deepEqual(balanced.layout.pages[0].sections[0].rows[0].columns.map((column) => column.span.tablet), [3, 3, 3, 3]);
+  assert.deepEqual(balanced.layout.pages[0].sections[0].rows[0].columns.map((column) => column.span.desktop), [3, 3, 3, 3]);
 });
 
 test("designer helpers update section details without changing layout contents", () => {
