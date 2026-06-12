@@ -13,6 +13,7 @@ import {
   updateFieldInSchema,
   updateFieldLayoutWidth
 } from "./builder.ts";
+import { formPreviewContentClassName, formPreviewPanelClassName } from "./builderPreview.ts";
 
 test("form builder helpers manage field lifecycle, layout widths, and local drafts", () => {
   const emptySchema = createEmptyFormBuilderSchema();
@@ -104,4 +105,14 @@ test("form builder helpers manage field lifecycle, layout widths, and local draf
 
   storage.setItem(createFormBuilderDraftStorageKey("form-broken"), "{not json");
   assert.deepEqual(loadFormBuilderDraft("form-broken", storage), createEmptyFormBuilderSchema());
+});
+
+test("form builder preview layout uses the full viewport", () => {
+  assert.equal(formPreviewPanelClassName.includes("100dvh"), true);
+  assert.equal(formPreviewPanelClassName.includes("100vw"), true);
+  assert.equal(formPreviewPanelClassName.includes("!max-w-[calc(100vw-2rem)]"), true);
+  assert.equal(formPreviewPanelClassName.includes("max-w-6xl"), false);
+  assert.equal(formPreviewPanelClassName.includes("max-h-[90vh]"), false);
+  assert.equal(formPreviewContentClassName.includes("100dvh"), true);
+  assert.equal(formPreviewContentClassName.includes("overflow-y-auto"), true);
 });

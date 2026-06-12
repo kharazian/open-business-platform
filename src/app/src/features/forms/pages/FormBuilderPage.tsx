@@ -70,6 +70,7 @@ import {
   updateFieldInSchema
 } from "../builder";
 import type { LayoutWidthValue } from "../builder";
+import { formPreviewContentClassName, formPreviewPanelClassName } from "../builderPreview";
 import { FormRenderer } from "../components/FormRenderer";
 import {
   addColumnNearColumn,
@@ -660,10 +661,10 @@ export function FormBuilderPage() {
         description="Render the current local draft with the shared V1 form renderer."
         onClose={() => setPreviewOpen(false)}
         open={previewOpen}
-        panelClassName="max-h-[90vh] max-w-6xl overflow-hidden"
+        panelClassName={formPreviewPanelClassName}
         title={`${formName} preview`}
       >
-        <div className="grid max-h-[70vh] gap-4 overflow-y-auto pr-1">
+        <div className={formPreviewContentClassName}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FormPreviewSizeSelector onChange={setPreviewSize} value={previewSize} />
             <Badge>{schema.fields.length} fields</Badge>
