@@ -13,6 +13,7 @@ import {
   moveColumn,
   moveFieldToTarget,
   removeEmptyLayoutContainers,
+  resizeColumnSpan,
   updateSectionDetails,
   updateColumnSpan
 } from "./designer.ts";
@@ -100,6 +101,24 @@ test("designer helpers update custom column spans", () => {
   assert.deepEqual(updated.layout.pages[0].sections[0].rows[0].columns[0].span, {
     mobile: 12,
     tablet: 5,
+    desktop: 12
+  });
+});
+
+test("designer helpers resize columns one step while keeping mobile full width", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const columnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const narrowed = resizeColumnSpan(schema, columnId, "shrink");
+  const widened = resizeColumnSpan(narrowed, columnId, "grow");
+
+  assert.deepEqual(narrowed.layout.pages[0].sections[0].rows[0].columns[0].span, {
+    mobile: 12,
+    tablet: 11,
+    desktop: 11
+  });
+  assert.deepEqual(widened.layout.pages[0].sections[0].rows[0].columns[0].span, {
+    mobile: 12,
+    tablet: 12,
     desktop: 12
   });
 });

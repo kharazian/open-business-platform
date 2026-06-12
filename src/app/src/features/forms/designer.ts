@@ -135,6 +135,26 @@ export function updateColumnSpan(schema: FormSchema, columnId: string, span: Res
   };
 }
 
+export function resizeColumnSpan(schema: FormSchema, columnId: string, direction: "grow" | "shrink"): FormSchema {
+  const delta = direction === "grow" ? 1 : -1;
+
+  return {
+    ...schema,
+    layout: mapColumns(schema.layout, (column) =>
+      column.id === columnId
+        ? {
+            ...column,
+            span: {
+              mobile: 12,
+              tablet: clampSpan(column.span.tablet + delta),
+              desktop: clampSpan(column.span.desktop + delta)
+            }
+          }
+        : column
+    )
+  };
+}
+
 export function addColumnNearColumn(schema: FormSchema, columnId: string, position: "before" | "after"): AddColumnResult {
   const layoutIds = collectLayoutIds(schema.layout);
   let addedColumn: FormLayoutColumn | null = null;

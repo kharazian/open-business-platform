@@ -12,14 +12,21 @@ import {
   type DragEndEvent,
   type DragStartEvent
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import {
+  AlignLeft,
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
+  CheckSquare,
+  CircleDot,
   Eye,
-  GripVertical,
+  Hash,
   LayoutPanelLeft,
+  List,
+  Mail,
+  Minus,
   Monitor,
+  Phone,
   Plus,
   Rocket,
   Rows3,
@@ -29,6 +36,8 @@ import {
   SquareSplitHorizontal,
   SquareStack,
   Tablet,
+  Type,
+  type LucideIcon,
   Trash2
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -75,6 +84,7 @@ import {
   isLayoutSectionEmpty,
   moveColumn,
   moveFieldToTarget,
+  resizeColumnSpan,
   updateColumnSpan,
   updateSectionDetails,
   type DesignerDropTarget,
@@ -98,6 +108,17 @@ import { validateRecordValues } from "../validation";
 import { getFormStatusLabel, type FormStatus } from "../drafts";
 
 const fieldTypeOptions = formFieldTypes.map((type) => ({ label: fieldTypeLabels[type], value: type }));
+const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
+  text: Type,
+  textarea: AlignLeft,
+  number: Hash,
+  email: Mail,
+  phone: Phone,
+  date: CalendarDays,
+  select: List,
+  checkbox: CheckSquare,
+  radio: CircleDot
+};
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
   const span = index + 1;
@@ -199,7 +220,7 @@ export function FormBuilderPage() {
   const [previewErrors, setPreviewErrors] = useState<ValidationError[]>([]);
   const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 1 } }),
     useSensor(KeyboardSensor)
   );
 
@@ -368,6 +389,12 @@ export function FormBuilderPage() {
 
   function handleUpdateColumnSpan(columnId: string, span: FormLayoutColumn["span"]) {
     setSchema((currentSchema) => updateColumnSpan(currentSchema, columnId, span));
+    setNotice(null);
+  }
+
+  function handleResizeColumn(columnId: string, direction: "grow" | "shrink") {
+    setSchema((currentSchema) => resizeColumnSpan(currentSchema, columnId, direction));
+    setSelection({ type: "column", id: columnId });
     setNotice(null);
   }
 
@@ -593,7 +620,7 @@ export function FormBuilderPage() {
             <FieldPalette onAddField={handleAddField} />
             <LayoutBlockPalette onAddLayoutBlock={handleAddLayoutBlock} />
           </div>
-          <BuilderCanvas schema={schema} selected={selection} onSelect={setSelection} />
+          <BuilderCanvas schema={schema} selected={selection} onResizeColumn={handleResizeColumn} onSelect={setSelection} />
           <BuilderSettings
             columnContext={selectedColumnContext}
             field={selectedField}
@@ -743,7 +770,7 @@ function FieldPalette({ onAddField }: { onAddField: (type: FormFieldType) => voi
         <CardTitle>Fields</CardTitle>
         <CardDescription>V1 field palette.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-2">
+      <CardContent className="grid grid-cols-3 gap-2">
         {fieldTypeOptions.map((fieldType) => (
           <DraggableFieldPaletteItem fieldType={fieldType} key={fieldType.value} onAddField={onAddField} />
         ))}
@@ -759,29 +786,28 @@ function DraggableFieldPaletteItem({
   fieldType: { label: string; value: FormFieldType };
   onAddField: (type: FormFieldType) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const Icon = fieldTypeIcons[fieldType.value];
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-field-${fieldType.value}`,
     data: { kind: "new_field", fieldType: fieldType.value, label: fieldType.label } satisfies DesignerDragData
   });
 
   return (
     <button
+      aria-label={`Add ${fieldType.label} field`}
       className={cn(
-        "flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card/80 px-3 py-2 text-left transition hover:border-primary/50 hover:bg-muted",
-        isDragging ? "opacity-60" : ""
+        "grid min-h-20 place-items-center gap-1 rounded-xl border border-border bg-card/80 px-2 py-3 text-center transition hover:border-primary/50 hover:bg-muted",
+        isDragging ? "opacity-40" : ""
       )}
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
+      title={fieldTypeDescriptions[fieldType.value]}
       type="button"
       onClick={() => onAddField(fieldType.value)}
       {...listeners}
       {...attributes}
     >
-      <span>
-        <span className="block text-sm font-bold text-foreground">{fieldType.label}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{fieldTypeDescriptions[fieldType.value]}</span>
-      </span>
-      <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+      <Icon className="size-5 text-muted-foreground" />
+      <span className="text-xs font-bold text-foreground">{fieldType.label}</span>
     </button>
   );
 }
@@ -810,7 +836,7 @@ function DraggableLayoutBlock({
   onAddLayoutBlock: (template: LayoutBlockTemplate) => void;
 }) {
   const Icon = item.icon;
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `layout-${item.label}`,
     data: { kind: "layout_block", template: item.template, label: item.label } satisfies DesignerDragData
   });
@@ -822,7 +848,6 @@ function DraggableLayoutBlock({
         isDragging ? "opacity-60" : ""
       )}
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
       type="button"
       onClick={() => onAddLayoutBlock(item.template)}
       {...listeners}
@@ -837,10 +862,12 @@ function DraggableLayoutBlock({
 function BuilderCanvas({
   schema,
   selected,
+  onResizeColumn,
   onSelect
 }: {
   schema: FormSchema;
   selected: DesignerSelection | null;
+  onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
   onSelect: (selection: DesignerSelection) => void;
 }) {
   const fieldsById = new Map(schema.fields.map((field) => [field.id, field]));
@@ -898,6 +925,7 @@ function BuilderCanvas({
                               <div className={cn("min-w-0", getColumnSpanClass(column))} key={column.id}>
                                 <DroppableColumn
                                   column={column}
+                                  onResizeColumn={onResizeColumn}
                                   onSelect={onSelect}
                                   rowId={row.id}
                                   sectionId={section.id}
@@ -1006,6 +1034,7 @@ function DroppableColumn({
   rowId,
   sectionId,
   selected,
+  onResizeColumn,
   onSelect,
   children
 }: {
@@ -1013,6 +1042,7 @@ function DroppableColumn({
   rowId: string;
   sectionId: string;
   selected: boolean;
+  onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
   onSelect: (selection: DesignerSelection) => void;
   children: ReactNode;
 }) {
@@ -1029,7 +1059,8 @@ function DroppableColumn({
   return (
     <div
       className={cn(
-        "min-h-16 rounded-xl border border-dashed p-2 transition",
+        "relative min-h-16 rounded-xl border border-dashed p-2 transition",
+        selected ? "pt-12" : "",
         selected ? "border-primary ring-2 ring-primary/20" : "border-border/80",
         isOver ? "border-primary bg-primary/5" : ""
       )}
@@ -1039,6 +1070,36 @@ function DroppableColumn({
       }}
       ref={setNodeRef}
     >
+      {selected ? (
+        <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg border border-border bg-card/95 p-1 shadow-soft">
+          <Button
+            aria-label="Shrink column"
+            className="size-8"
+            onClick={(event) => {
+              event.stopPropagation();
+              onResizeColumn(column.id, "shrink");
+            }}
+            size="icon"
+            title="Shrink column"
+            variant="ghost"
+          >
+            <Minus className="size-4" />
+          </Button>
+          <Button
+            aria-label="Grow column"
+            className="size-8"
+            onClick={(event) => {
+              event.stopPropagation();
+              onResizeColumn(column.id, "grow");
+            }}
+            size="icon"
+            title="Grow column"
+            variant="ghost"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+      ) : null}
       {children}
       {column.fields.length === 0 ? <p className="px-2 py-4 text-center text-xs font-semibold text-muted-foreground">Drop field</p> : null}
     </div>
@@ -1086,7 +1147,8 @@ function FieldCanvasCard({
   onSelect: (selection: DesignerSelection) => void;
   selected: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const FieldIcon = fieldTypeIcons[field.type];
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `field-${field.id}`,
     data: { kind: "existing_field", fieldId: field.id, label: field.label } satisfies DesignerDragData
   });
@@ -1099,7 +1161,6 @@ function FieldCanvasCard({
         isDragging ? "opacity-60" : ""
       )}
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform) }}
       type="button"
       onClick={(event) => {
         event.stopPropagation();
@@ -1117,7 +1178,10 @@ function FieldCanvasCard({
           {field.helpText ? <p className="mt-1 text-sm text-muted-foreground">{field.helpText}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
-          <Badge variant="default">{fieldTypeLabels[field.type]}</Badge>
+          <Badge className="gap-1" variant="default">
+            <FieldIcon className="size-3" />
+            {fieldTypeLabels[field.type]}
+          </Badge>
           <Badge>{getLayoutWidthLabel(column)}</Badge>
         </div>
       </div>
