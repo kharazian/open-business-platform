@@ -33,6 +33,13 @@ export type AddColumnResult = {
   column: FormLayoutColumn | null;
 };
 
+export type ColumnActionState = {
+  canBalance: boolean;
+  canDelete: boolean;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+};
+
 const defaultSectionTitle = "New section";
 
 export function addLayoutBlockToSchema(schema: FormSchema, block: LayoutBlockDrop): FormSchema {
@@ -196,6 +203,18 @@ export function moveColumn(schema: FormSchema, columnId: string, direction: "lef
       columns.splice(targetIndex, 0, column);
       return { ...row, columns };
     })
+  };
+}
+
+export function getColumnActionState(row: FormLayoutRow, columnId: string): ColumnActionState {
+  const columnIndex = row.columns.findIndex((column) => column.id === columnId);
+  const column = columnIndex >= 0 ? row.columns[columnIndex] : null;
+
+  return {
+    canBalance: row.columns.length >= 1 && row.columns.length <= 4,
+    canDelete: Boolean(column && row.columns.length > 1 && column.fields.length === 0),
+    canMoveLeft: columnIndex > 0,
+    canMoveRight: columnIndex >= 0 && columnIndex < row.columns.length - 1
   };
 }
 

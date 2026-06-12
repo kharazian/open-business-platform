@@ -79,6 +79,7 @@ import {
   deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
   deleteLayoutSectionIfEmpty,
+  getColumnActionState,
   insertNewFieldAtTarget,
   isLayoutRowEmpty,
   isLayoutSectionEmpty,
@@ -416,7 +417,8 @@ export function FormBuilderPage() {
   }
 
   function handleDeleteEmptyColumn(columnId: string) {
-    const fallbackRowId = selectedColumnContext?.row.id;
+    const fallbackRowId =
+      selectedColumnContext?.column.id === columnId ? selectedColumnContext.row.id : findColumnContext(schema, columnId)?.row.id;
     setSchema((currentSchema) => deleteColumnIfEmpty(currentSchema, columnId));
 
     if (fallbackRowId) {
@@ -620,7 +622,16 @@ export function FormBuilderPage() {
             <FieldPalette onAddField={handleAddField} />
             <LayoutBlockPalette onAddLayoutBlock={handleAddLayoutBlock} />
           </div>
-          <BuilderCanvas schema={schema} selected={selection} onResizeColumn={handleResizeColumn} onSelect={setSelection} />
+          <BuilderCanvas
+            schema={schema}
+            selected={selection}
+            onAddColumn={handleAddColumn}
+            onBalanceRowColumns={handleBalanceRowColumns}
+            onDeleteEmptyColumn={handleDeleteEmptyColumn}
+            onMoveColumn={handleMoveColumn}
+            onResizeColumn={handleResizeColumn}
+            onSelect={setSelection}
+          />
           <BuilderSettings
             columnContext={selectedColumnContext}
             field={selectedField}
@@ -862,11 +873,19 @@ function DraggableLayoutBlock({
 function BuilderCanvas({
   schema,
   selected,
+  onAddColumn,
+  onBalanceRowColumns,
+  onDeleteEmptyColumn,
+  onMoveColumn,
   onResizeColumn,
   onSelect
 }: {
   schema: FormSchema;
   selected: DesignerSelection | null;
+  onAddColumn: (columnId: string, position: "before" | "after") => void;
+  onBalanceRowColumns: (rowId: string) => void;
+  onDeleteEmptyColumn: (columnId: string) => void;
+  onMoveColumn: (columnId: string, direction: "left" | "right") => void;
   onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
   onSelect: (selection: DesignerSelection) => void;
 }) {
@@ -925,9 +944,13 @@ function BuilderCanvas({
                               <div className={cn("min-w-0", getColumnSpanClass(column))} key={column.id}>
                                 <DroppableColumn
                                   column={column}
+                                  row={row}
+                                  onAddColumn={onAddColumn}
+                                  onBalanceRowColumns={onBalanceRowColumns}
+                                  onDeleteEmptyColumn={onDeleteEmptyColumn}
+                                  onMoveColumn={onMoveColumn}
                                   onResizeColumn={onResizeColumn}
                                   onSelect={onSelect}
-                                  rowId={row.id}
                                   sectionId={section.id}
                                   selected={selected?.type === "column" && selected.id === column.id}
                                 >
@@ -1031,27 +1054,36 @@ function DroppableRow({
 
 function DroppableColumn({
   column,
-  rowId,
+  row,
   sectionId,
   selected,
+  onAddColumn,
+  onBalanceRowColumns,
+  onDeleteEmptyColumn,
+  onMoveColumn,
   onResizeColumn,
   onSelect,
   children
 }: {
   column: FormLayoutColumn;
-  rowId: string;
+  row: FormLayoutRow;
   sectionId: string;
   selected: boolean;
+  onAddColumn: (columnId: string, position: "before" | "after") => void;
+  onBalanceRowColumns: (rowId: string) => void;
+  onDeleteEmptyColumn: (columnId: string) => void;
+  onMoveColumn: (columnId: string, direction: "left" | "right") => void;
   onResizeColumn: (columnId: string, direction: "grow" | "shrink") => void;
   onSelect: (selection: DesignerSelection) => void;
   children: ReactNode;
 }) {
+  const actionState = getColumnActionState(row, column.id);
   const { isOver, setNodeRef } = useDroppable({
     id: `column-drop-${column.id}`,
     data: {
       kind: "canvas_target",
       sectionId,
-      rowId,
+      rowId: row.id,
       fieldTarget: { type: "column", columnId: column.id, index: column.fields.length }
     } satisfies DesignerDropData
   });
@@ -1059,8 +1091,7 @@ function DroppableColumn({
   return (
     <div
       className={cn(
-        "relative min-h-16 rounded-xl border border-dashed p-2 transition",
-        selected ? "pt-12" : "",
+        "min-h-16 rounded-xl border border-dashed p-2 transition",
         selected ? "border-primary ring-2 ring-primary/20" : "border-border/80",
         isOver ? "border-primary bg-primary/5" : ""
       )}
@@ -1071,38 +1102,86 @@ function DroppableColumn({
       ref={setNodeRef}
     >
       {selected ? (
-        <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg border border-border bg-card/95 p-1 shadow-soft">
-          <Button
-            aria-label="Shrink column"
-            className="size-8"
-            onClick={(event) => {
-              event.stopPropagation();
-              onResizeColumn(column.id, "shrink");
-            }}
-            size="icon"
-            title="Shrink column"
-            variant="ghost"
-          >
+        <div className="mb-2 flex flex-wrap justify-end gap-1 rounded-lg border border-border bg-card/95 p-1 shadow-soft">
+          <ColumnToolbarButton label="Shrink column" onClick={() => onResizeColumn(column.id, "shrink")}>
             <Minus className="size-4" />
-          </Button>
-          <Button
-            aria-label="Grow column"
-            className="size-8"
-            onClick={(event) => {
-              event.stopPropagation();
-              onResizeColumn(column.id, "grow");
-            }}
-            size="icon"
-            title="Grow column"
-            variant="ghost"
-          >
+          </ColumnToolbarButton>
+          <ColumnToolbarButton label="Grow column" onClick={() => onResizeColumn(column.id, "grow")}>
             <Plus className="size-4" />
-          </Button>
+          </ColumnToolbarButton>
+          <ColumnToolbarButton label="Add column left" onClick={() => onAddColumn(column.id, "before")}>
+            <Plus className="size-3" />
+            <ArrowLeft className="size-3" />
+          </ColumnToolbarButton>
+          <ColumnToolbarButton label="Add column right" onClick={() => onAddColumn(column.id, "after")}>
+            <Plus className="size-3" />
+            <ArrowRight className="size-3" />
+          </ColumnToolbarButton>
+          <ColumnToolbarButton
+            disabled={!actionState.canMoveLeft}
+            label="Move column left"
+            onClick={() => onMoveColumn(column.id, "left")}
+          >
+            <ArrowLeft className="size-4" />
+          </ColumnToolbarButton>
+          <ColumnToolbarButton
+            disabled={!actionState.canMoveRight}
+            label="Move column right"
+            onClick={() => onMoveColumn(column.id, "right")}
+          >
+            <ArrowRight className="size-4" />
+          </ColumnToolbarButton>
+          <ColumnToolbarButton
+            disabled={!actionState.canBalance}
+            label="Balance row columns"
+            onClick={() => onBalanceRowColumns(row.id)}
+          >
+            <SquareSplitHorizontal className="size-4" />
+          </ColumnToolbarButton>
+          <ColumnToolbarButton
+            disabled={!actionState.canDelete}
+            label="Delete empty column"
+            onClick={() => onDeleteEmptyColumn(column.id)}
+            variant={actionState.canDelete ? "danger" : "ghost"}
+          >
+            <Trash2 className="size-4" />
+          </ColumnToolbarButton>
         </div>
       ) : null}
       {children}
       {column.fields.length === 0 ? <p className="px-2 py-4 text-center text-xs font-semibold text-muted-foreground">Drop field</p> : null}
     </div>
+  );
+}
+
+function ColumnToolbarButton({
+  children,
+  disabled,
+  label,
+  onClick,
+  variant = "ghost"
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+  variant?: "ghost" | "danger";
+}) {
+  return (
+    <Button
+      aria-label={label}
+      className="size-8 gap-0 rounded-lg"
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      size="icon"
+      title={label}
+      variant={variant}
+    >
+      {children}
+    </Button>
   );
 }
 

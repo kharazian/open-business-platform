@@ -8,6 +8,7 @@ import {
   deleteColumnIfEmpty,
   deleteLayoutRowIfEmpty,
   deleteLayoutSectionIfEmpty,
+  getColumnActionState,
   getFieldDropTargets,
   insertNewFieldAtTarget,
   moveColumn,
@@ -147,6 +148,27 @@ test("designer helpers move columns left and right while preserving fields", () 
   assert.deepEqual(movedRight.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields), [[], ["text"]]);
   assert.deepEqual(movedLeft.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields), [["text"], []]);
   assert.deepEqual(moveColumn(movedLeft, sourceColumnId, "left"), movedLeft);
+});
+
+test("designer helpers report available column actions", () => {
+  const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const sourceColumnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withColumn = addColumnNearColumn(schema, sourceColumnId, "after").schema;
+  const row = withColumn.layout.pages[0].sections[0].rows[0];
+  const emptyColumnId = row.columns[1].id;
+
+  assert.deepEqual(getColumnActionState(row, sourceColumnId), {
+    canBalance: true,
+    canDelete: false,
+    canMoveLeft: false,
+    canMoveRight: true
+  });
+  assert.deepEqual(getColumnActionState(row, emptyColumnId), {
+    canBalance: true,
+    canDelete: true,
+    canMoveLeft: true,
+    canMoveRight: false
+  });
 });
 
 test("designer helpers delete only empty columns and keep at least one column", () => {
