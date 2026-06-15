@@ -190,3 +190,13 @@ test("form builder field card action icons render only when the field is selecte
   assert.equal(/{selected \? \(\s*<div className="flex shrink-0 flex-wrap justify-end gap-2">/.test(source), true);
   assert.equal(source.includes("{selected && parentMenuOpen ? ("), true);
 });
+
+test("form builder section delete controls require an empty section", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes('setNotice("Only empty sections can be deleted. Move or delete fields first.");'), true);
+  assert.equal(source.includes("const canDelete = pageSectionCount > 1 && isLayoutSectionEmpty(section);"), true);
+  assert.equal(source.includes("disabled={page.sections.length <= 1 || !isLayoutSectionEmpty(section)}"), true);
+  assert.equal(source.includes("This removes the empty section from the draft."), true);
+  assert.equal(source.includes("deletes every field inside it"), false);
+});

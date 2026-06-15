@@ -95,6 +95,7 @@ import {
   getColumnActionState,
   getSectionFieldIds,
   insertNewFieldAtTarget,
+  isLayoutSectionEmpty,
   isLayoutRowEmpty,
   moveColumn,
   moveFieldWithinColumn,
@@ -407,6 +408,11 @@ export function FormBuilderPage() {
       return;
     }
 
+    if (!isLayoutSectionEmpty(section)) {
+      setNotice("Only empty sections can be deleted. Move or delete fields first.");
+      return;
+    }
+
     setDeleteConfirmation({
       type: "section",
       sectionId: section.id,
@@ -474,12 +480,20 @@ export function FormBuilderPage() {
   }
 
   function handleDeleteEmptyColumn(columnId: string) {
-    const fallbackRowId =
-      selectedColumnContext?.column.id === columnId ? selectedColumnContext.row.id : findColumnContext(schema, columnId)?.row.id;
+    const context = selectedColumnContext?.column.id === columnId ? selectedColumnContext : findColumnContext(schema, columnId);
+    const fallbackSelection: DesignerSelection | null =
+      context && context.column.fields.length === 0
+        ? context.row.columns.length > 1
+          ? { type: "row", id: context.row.id }
+          : { type: "section", id: context.section.id }
+        : context
+          ? { type: "column", id: context.column.id }
+          : null;
+
     setSchema((currentSchema) => deleteColumnIfEmpty(currentSchema, columnId));
 
-    if (fallbackRowId) {
-      setSelection({ type: "row", id: fallbackRowId });
+    if (fallbackSelection) {
+      setSelection(fallbackSelection);
     }
 
     setNotice(null);
@@ -504,7 +518,13 @@ export function FormBuilderPage() {
   }
 
   function handleDeleteEmptyRow(rowId: string) {
+    const context = selectedRowContext?.row.id === rowId ? selectedRowContext : findRowContext(schema, rowId);
     setSchema((currentSchema) => deleteLayoutRowIfEmpty(currentSchema, rowId));
+
+    if (context && isLayoutRowEmpty(context.row)) {
+      setSelection({ type: "section", id: context.section.id });
+    }
+
     setNotice(null);
   }
 
@@ -1009,7 +1029,7 @@ function BuilderCanvas({
                       {section.description ? <p className="mt-1 text-sm text-muted-foreground">{section.description}</p> : null}
                     </div>
                     <DeleteIconButton
-                      disabled={page.sections.length <= 1}
+                      disabled={page.sections.length <= 1 || !isLayoutSectionEmpty(section)}
                       label="Delete section"
                       onClick={() => onRequestDeleteSection(section, page.sections.length)}
                     />
@@ -1530,7 +1550,7 @@ function DeleteConfirmationModal({
   const isSection = confirmation?.type === "section";
   const title = isSection ? "Delete section" : "Delete field";
   const description = isSection
-    ? "This removes the section from the draft and deletes every field inside it."
+    ? "This removes the empty section from the draft."
     : "This removes the field from the draft and from the form layout.";
 
   return (
@@ -1660,7 +1680,7 @@ function SectionSettings({
   onRequestDelete: (section: FormLayoutSection, pageSectionCount: number) => void;
 }) {
   const { section, pageSectionCount } = context;
-  const canDelete = pageSectionCount > 1;
+  const canDelete = pageSectionCount > 1 && isLayoutSectionEmpty(section);
 
   return (
     <Card className="self-start">
@@ -1696,7 +1716,7 @@ function SectionSettings({
               Delete section
             </Button>
             <p className="text-xs font-semibold text-muted-foreground">
-              Deleting a section also deletes its fields after confirmation. The last section is protected.
+              Sections can be removed only when empty. The last section is protected.
             </p>
           </div>
         </form>
@@ -1775,10 +1795,7 @@ function ColumnSettings({
 }) {
   const { column, row } = context;
   const columnIndex = row.columns.findIndex((candidate) => candidate.id === column.id);
-  const canMoveLeft = columnIndex > 0;
-  const canMoveRight = columnIndex >= 0 && columnIndex < row.columns.length - 1;
-  const canDelete = row.columns.length > 1 && column.fields.length === 0;
-  const canBalance = row.columns.length >= 1 && row.columns.length <= 4;
+  const actionState = getColumnActionState(row, column.id);
 
   function patchSpan(patch: Partial<FormLayoutColumn["span"]>) {
     onChangeSpan(column.id, { ...column.span, ...patch, mobile: 12 });
@@ -1810,11 +1827,11 @@ function ColumnSettings({
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Button disabled={!canMoveLeft} onClick={() => onMoveColumn(column.id, "left")} size="sm" variant="outline">
+            <Button disabled={!actionState.canMoveLeft} onClick={() => onMoveColumn(column.id, "left")} size="sm" variant="outline">
               <ArrowLeft className="size-4" />
               Move left
             </Button>
-            <Button disabled={!canMoveRight} onClick={() => onMoveColumn(column.id, "right")} size="sm" variant="outline">
+            <Button disabled={!actionState.canMoveRight} onClick={() => onMoveColumn(column.id, "right")} size="sm" variant="outline">
               <ArrowRight className="size-4" />
               Move right
             </Button>
@@ -1826,7 +1843,7 @@ function ColumnSettings({
               </Button>
             ))}
           </div>
-          <Button disabled={!canBalance} onClick={() => onBalanceRowColumns(row.id)} variant="outline">
+          <Button disabled={!actionState.canBalance} onClick={() => onBalanceRowColumns(row.id)} variant="outline">
             Balance row columns
           </Button>
           <Select
@@ -1848,14 +1865,16 @@ function ColumnSettings({
           <div className="grid gap-2">
             <Button
               className={formBuilderSoftDangerButtonClassName}
-              disabled={!canDelete}
+              disabled={!actionState.canDelete}
               onClick={() => onDeleteEmptyColumn(column.id)}
               variant="outline"
             >
               <Trash2 className="size-4" />
               Delete empty column
             </Button>
-            <p className="text-xs font-semibold text-muted-foreground">Columns can be removed only when empty and another column remains.</p>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Columns can be removed only when empty. Deleting the last empty column removes its row.
+            </p>
           </div>
         </form>
       </CardContent>

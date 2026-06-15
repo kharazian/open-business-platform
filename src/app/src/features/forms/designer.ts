@@ -232,7 +232,7 @@ export function getColumnActionState(row: FormLayoutRow, columnId: string): Colu
 
   return {
     canBalance: row.columns.length >= 1 && row.columns.length <= 4,
-    canDelete: Boolean(column && row.columns.length > 1 && column.fields.length === 0),
+    canDelete: Boolean(column && column.fields.length === 0),
     canMoveLeft: columnIndex > 0,
     canMoveRight: columnIndex >= 0 && columnIndex < row.columns.length - 1
   };
@@ -241,12 +241,16 @@ export function getColumnActionState(row: FormLayoutRow, columnId: string): Colu
 export function deleteColumnIfEmpty(schema: FormSchema, columnId: string): FormSchema {
   return {
     ...schema,
-    layout: mapRows(schema.layout, (row) => {
-      const targetColumn = row.columns.find((column) => column.id === columnId);
-      if (!targetColumn || targetColumn.fields.length > 0 || row.columns.length <= 1) return row;
+    layout: mapSections(schema.layout, (section) => ({
+      ...section,
+      rows: section.rows.flatMap((row) => {
+        const targetColumn = row.columns.find((column) => column.id === columnId);
+        if (!targetColumn || targetColumn.fields.length > 0) return [row];
 
-      return { ...row, columns: row.columns.filter((column) => column.id !== columnId) };
-    })
+        const nextColumns = row.columns.filter((column) => column.id !== columnId);
+        return nextColumns.length > 0 ? [{ ...row, columns: nextColumns }] : [];
+      })
+    }))
   };
 }
 
@@ -318,13 +322,10 @@ export function deleteLayoutSectionIfEmpty(schema: FormSchema, sectionId: string
 export function deleteSectionFromSchema(schema: FormSchema, sectionId: string): FormSchema {
   for (const page of schema.layout.pages) {
     const section = page.sections.find((candidate) => candidate.id === sectionId);
-    if (!section || page.sections.length <= 1) continue;
-
-    const fieldIdsToDelete = new Set(getSectionFieldIds(section));
+    if (!section || page.sections.length <= 1 || !isLayoutSectionEmpty(section)) continue;
 
     return {
       ...schema,
-      fields: schema.fields.filter((field) => !fieldIdsToDelete.has(field.id)),
       layout: {
         pages: schema.layout.pages.map((candidatePage) =>
           candidatePage.id === page.id

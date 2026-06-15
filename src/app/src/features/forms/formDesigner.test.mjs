@@ -180,6 +180,13 @@ test("designer helpers report available column actions", () => {
   const withColumn = addColumnNearColumn(schema, sourceColumnId, "after").schema;
   const row = withColumn.layout.pages[0].sections[0].rows[0];
   const emptyColumnId = row.columns[1].id;
+  const emptyRowSchema = addLayoutBlockToSchema(createEmptyFormBuilderSchema(), {
+    kind: "row",
+    sectionId: "section_1",
+    position: "end",
+    spans: [12]
+  });
+  const onlyEmptyColumnId = emptyRowSchema.layout.pages[0].sections[0].rows[0].columns[0].id;
 
   assert.deepEqual(getColumnActionState(row, sourceColumnId), {
     canBalance: true,
@@ -193,9 +200,15 @@ test("designer helpers report available column actions", () => {
     canMoveLeft: true,
     canMoveRight: false
   });
+  assert.deepEqual(getColumnActionState(emptyRowSchema.layout.pages[0].sections[0].rows[0], onlyEmptyColumnId), {
+    canBalance: true,
+    canDelete: true,
+    canMoveLeft: false,
+    canMoveRight: false
+  });
 });
 
-test("designer helpers delete only empty columns and keep at least one column", () => {
+test("designer helpers delete only empty columns and remove the row when the last column is empty", () => {
   const schema = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
   const sourceColumnId = schema.layout.pages[0].sections[0].rows[0].columns[0].id;
   const withColumn = addColumnNearColumn(schema, sourceColumnId, "after").schema;
@@ -214,7 +227,7 @@ test("designer helpers delete only empty columns and keep at least one column", 
 
   assert.deepEqual(afterPopulatedDelete, withColumn);
   assert.deepEqual(afterEmptyDelete.layout.pages[0].sections[0].rows[0].columns.map((column) => column.id), [sourceColumnId]);
-  assert.deepEqual(afterOnlyColumnDelete, emptyRowSchema);
+  assert.deepEqual(afterOnlyColumnDelete.layout.pages[0].sections[0].rows, []);
 });
 
 test("designer helpers balance row columns up to four columns", () => {
@@ -266,21 +279,35 @@ test("designer helpers only delete empty layout rows and sections", () => {
   assert.deepEqual(afterLastSectionDelete, createEmptyFormBuilderSchema());
 });
 
-test("designer helpers delete populated sections with their fields while preserving the last section", () => {
+test("designer helpers do not delete rows that contain fields in multiple columns", () => {
+  const withText = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
+  const sourceColumnId = withText.layout.pages[0].sections[0].rows[0].columns[0].id;
+  const withEmptyColumn = addColumnNearColumn(withText, sourceColumnId, "after").schema;
+  const targetColumnId = withEmptyColumn.layout.pages[0].sections[0].rows[0].columns[1].id;
+  const withEmail = addFieldToSchema(withEmptyColumn, "email").schema;
+  const combinedRow = moveFieldToTarget(withEmail, "email", { type: "column", columnId: targetColumnId, index: 0 });
+  const rowId = combinedRow.layout.pages[0].sections[0].rows[0].id;
+
+  assert.deepEqual(
+    combinedRow.layout.pages[0].sections[0].rows[0].columns.map((column) => column.fields),
+    [["text"], ["email"]]
+  );
+  assert.deepEqual(deleteLayoutRowIfEmpty(combinedRow, rowId), combinedRow);
+});
+
+test("designer helpers do not delete populated sections and preserve the last section", () => {
   const withText = addFieldToSchema(createEmptyFormBuilderSchema(), "text").schema;
   const withSecondSection = addLayoutBlockToSchema(withText, { kind: "section", sectionId: "section_1", position: "after" });
   const withEmail = insertNewFieldAtTarget(withSecondSection, "email", { type: "section", sectionId: "section_2" }).schema;
 
   const firstSection = withEmail.layout.pages[0].sections[0];
   const afterDelete = deleteSectionFromSchema(withEmail, "section_1");
+  const afterEmptyDelete = deleteSectionFromSchema(withSecondSection, "section_2");
 
   assert.deepEqual(getSectionFieldIds(firstSection), ["text"]);
-  assert.deepEqual(afterDelete.fields.map((field) => field.id), ["email"]);
-  assert.deepEqual(afterDelete.layout.pages[0].sections.map((section) => section.id), ["section_2"]);
-  assert.equal(
-    afterDelete.layout.pages[0].sections[0].rows.some((row) => row.columns.some((column) => column.fields.includes("text"))),
-    false
-  );
+  assert.deepEqual(afterDelete, withEmail);
+  assert.deepEqual(afterEmptyDelete.layout.pages[0].sections.map((section) => section.id), ["section_1"]);
+  assert.deepEqual(afterEmptyDelete.fields.map((field) => field.id), ["text"]);
   assert.deepEqual(deleteSectionFromSchema(withText, "section_1"), withText);
 });
 
