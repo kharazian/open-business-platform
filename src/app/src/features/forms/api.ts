@@ -97,6 +97,18 @@ export type PagedResult<T> = {
   items: T[];
 };
 
+export type RecordLookupOption = {
+  recordId: string;
+  label: string;
+  description?: string | null;
+};
+
+export type ListLookupOptionsOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+};
+
 export class FormsApiError extends Error {
   readonly errors: ValidationError[];
 
@@ -202,6 +214,27 @@ export async function listRecords(
 
   return requestJson<PagedResult<FormRecordListItem>>(
     `/api/forms/${encodeURIComponent(formId)}/records?${searchParams.toString()}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listLookupOptions(
+  formId: string,
+  fieldId: string,
+  options: ListLookupOptionsOptions = {},
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<PagedResult<RecordLookupOption>> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("page", String(options.page ?? 1));
+  searchParams.set("pageSize", String(options.pageSize ?? 25));
+
+  if (options.search && options.search.trim().length > 0) {
+    searchParams.set("search", options.search.trim());
+  }
+
+  return requestJson<PagedResult<RecordLookupOption>>(
+    `/api/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}/lookup-options?${searchParams.toString()}`,
     { method: "GET", credentials: "include" },
     fetcher
   );
