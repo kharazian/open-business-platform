@@ -23,7 +23,8 @@ public sealed record FormRecordListItemDto(
     Guid? AssignedGroupId,
     IReadOnlyDictionary<string, object?> Values,
     DateTimeOffset CreatedAt,
-    Guid? CreatedById);
+    Guid? CreatedById,
+    IReadOnlyDictionary<string, string>? DisplayValues = null);
 
 public sealed record FormRecordDto(
     Guid Id,
@@ -37,7 +38,8 @@ public sealed record FormRecordDto(
     IReadOnlyDictionary<string, object?> Values,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
-    Guid? CreatedById);
+    Guid? CreatedById,
+    IReadOnlyDictionary<string, string>? DisplayValues = null);
 
 public sealed record FormRecordDetailDto(
     Guid Id,
@@ -55,7 +57,8 @@ public sealed record FormRecordDetailDto(
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
     DateTimeOffset? UpdatedAt,
-    Guid? UpdatedById);
+    Guid? UpdatedById,
+    IReadOnlyDictionary<string, string>? DisplayValues = null);
 
 public sealed record RecordErrorResponse(string Message, IReadOnlyList<FormValidationError>? Errors = null);
 

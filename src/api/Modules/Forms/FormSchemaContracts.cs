@@ -50,7 +50,12 @@ public sealed record FormFieldLookupDefinition(
     string SourceType,
     string SourceFormId,
     IReadOnlyList<string> LabelFieldIds,
-    IReadOnlyList<string> SearchFieldIds);
+    IReadOnlyList<string> SearchFieldIds,
+    IReadOnlyList<FormFieldLookupFilterDefinition>? Filters = null);
+
+public sealed record FormFieldLookupFilterDefinition(
+    string SourceFieldId,
+    string ValueFromFieldId);
 
 public sealed record FormFieldDefinition(
     string Id,

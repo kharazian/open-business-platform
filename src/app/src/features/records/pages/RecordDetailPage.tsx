@@ -435,6 +435,7 @@ export function RecordDetailPage() {
                 <FormRenderer
                   errors={validationErrors}
                   formId={record.formId}
+                  lookupDisplayValues={record.displayValues}
                   onChange={handleDraftChange}
                   onSubmit={() => void saveRecord()}
                   schema={record.schema}
@@ -444,12 +445,12 @@ export function RecordDetailPage() {
               ) : (
                 <div className="grid gap-3">
                   {record.schema.fields.map((field) => (
-                    <ValueRow field={field} key={field.id} value={record.values[field.id]} />
+                    <ValueRow displayValue={record.displayValues?.[field.id]} field={field} key={field.id} value={record.values[field.id]} />
                   ))}
                   {Object.keys(record.values)
                     .filter((fieldId) => !fieldsById.has(fieldId))
                     .map((fieldId) => (
-                      <ValueRow key={fieldId} label={fieldId} value={record.values[fieldId]} />
+                      <ValueRow displayValue={record.displayValues?.[fieldId]} key={fieldId} label={fieldId} value={record.values[fieldId]} />
                     ))}
                 </div>
               )}
@@ -464,14 +465,24 @@ export function RecordDetailPage() {
   );
 }
 
-function ValueRow({ field, label, value }: { field?: FormField; label?: string; value: FormRecordValue | undefined }) {
+function ValueRow({
+  displayValue,
+  field,
+  label,
+  value
+}: {
+  displayValue?: string;
+  field?: FormField;
+  label?: string;
+  value: FormRecordValue | undefined;
+}) {
   return (
     <div className="print-value-row grid gap-2 rounded-xl border border-border bg-card/70 p-4 md:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="min-w-0">
         <p className="truncate font-bold text-foreground">{field?.label ?? label}</p>
         {field ? <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-muted-foreground">{field.type}</p> : null}
       </div>
-      <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{formatRecordValue(value)}</p>
+      <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{displayValue ?? formatRecordValue(value)}</p>
     </div>
   );
 }

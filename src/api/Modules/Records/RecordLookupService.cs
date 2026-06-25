@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Application.Common;
+using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
@@ -30,6 +31,9 @@ public sealed class RecordLookupService
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
         var search = Normalize(request.Search);
+        var dependencyValues = request.DependencyValues is null
+            ? new Dictionary<string, string?>(StringComparer.Ordinal)
+            : new Dictionary<string, string?>(request.DependencyValues, StringComparer.Ordinal);
 
         var parentForm = await dbContext.Forms
             .AsNoTracking()
@@ -107,6 +111,7 @@ public sealed class RecordLookupService
                 Record = record,
                 Values = DeserializeValues(record.ValuesJson)
             })
+            .Where(item => MatchesLookupFilters(item.Values, lookupField.Lookup.Filters, dependencyValues))
             .Where(item => search is null || MatchesLookupSearch(item.Values, visibleSearchFieldIds, search))
             .ToArray();
 
@@ -120,6 +125,109 @@ public sealed class RecordLookupService
             .ToArray();
 
         return new PagedResultDto<RecordLookupOptionDto>(candidates.LongLength, items);
+    }
+
+    public async Task<IReadOnlyList<IReadOnlyDictionary<string, string>>> ResolveLookupDisplayValuesAsync(
+        ClaimsPrincipal principal,
+        FormSchemaDefinition schema,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> valueSets,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var displayValues = valueSets
+            .Select(_ => new Dictionary<string, string>(StringComparer.Ordinal))
+            .ToArray();
+
+        if (valueSets.Count == 0)
+        {
+            return displayValues;
+        }
+
+        var lookupFields = schema.Fields
+            .Where(field => string.Equals(field.Type, FormFieldTypes.RecordLookup, StringComparison.Ordinal))
+            .Where(field => field.Lookup is not null)
+            .ToArray();
+
+        foreach (var field in lookupFields)
+        {
+            var lookup = field.Lookup!;
+            if (!string.Equals(lookup.SourceType, "form_records", StringComparison.Ordinal)
+                || !Guid.TryParse(lookup.SourceFormId, out var sourceFormId)
+                || !await permissionService.CanAccessFormAsync(principal, sourceFormId, PlatformPermissions.Form.View, cancellationToken))
+            {
+                continue;
+            }
+
+            var selectedValues = new List<SelectedLookupValue>();
+            for (var index = 0; index < valueSets.Count; index++)
+            {
+                if (valueSets[index].TryGetValue(field.Id, out var value) && TryGetLookupRecordId(value, out var recordId))
+                {
+                    selectedValues.Add(new SelectedLookupValue(index, recordId));
+                }
+            }
+
+            if (selectedValues.Count == 0)
+            {
+                continue;
+            }
+
+            var sourceFieldAccess = await permissionService.GetFieldAccessAsync(principal, sourceFormId, cancellationToken);
+            var visibleLabelFieldIds = lookup.LabelFieldIds
+                .Where(fieldId => !sourceFieldAccess.HiddenFieldIds.Contains(fieldId))
+                .ToArray();
+            var selectedRecordIds = selectedValues
+                .Select(item => item.RecordId)
+                .Distinct()
+                .ToArray();
+
+            var sourceQuery = await permissionService.ApplyRecordAccessAsync(
+                principal,
+                dbContext.Records.AsNoTracking().Where(record =>
+                    record.FormId == sourceFormId
+                    && !record.IsDeleted
+                    && selectedRecordIds.Contains(record.Id)),
+                sourceFormId,
+                PlatformPermissions.Form.View,
+                cancellationToken);
+
+            var labelsByRecordId = (await sourceQuery.ToArrayAsync(cancellationToken))
+                .ToDictionary(
+                    record => record.Id,
+                    record => ComposeLookupLabel(DeserializeValues(record.ValuesJson), visibleLabelFieldIds));
+
+            foreach (var selectedValue in selectedValues)
+            {
+                if (labelsByRecordId.TryGetValue(selectedValue.RecordId, out var label))
+                {
+                    displayValues[selectedValue.Index][field.Id] = label;
+                }
+            }
+        }
+
+        return displayValues;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>> ResolveLookupDisplayValuesByRecordIdAsync(
+        ClaimsPrincipal principal,
+        FormSchemaDefinition schema,
+        IReadOnlyCollection<FormRecord> records,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var recordArray = records.ToArray();
+        var valueSets = recordArray
+            .Select(record => DeserializeValues(record.ValuesJson))
+            .ToArray();
+        var resolved = await ResolveLookupDisplayValuesAsync(principal, schema, valueSets, permissionService, cancellationToken);
+
+        return recordArray
+            .Select((record, index) => new { record.Id, Values = resolved[index] })
+            .Where(item => item.Values.Count > 0)
+            .ToDictionary(
+                item => item.Id,
+                item => (IReadOnlyDictionary<string, string>)item.Values,
+                EqualityComparer<Guid>.Default);
     }
 
     public async Task<IReadOnlyList<FormValidationError>> ValidateLookupValuesAsync(
@@ -210,6 +318,34 @@ public sealed class RecordLookupService
             && ToDisplayString(value)?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) == true);
     }
 
+    public static bool MatchesLookupFilters(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyCollection<FormFieldLookupFilterDefinition>? filters,
+        IReadOnlyDictionary<string, string?> dependencyValues)
+    {
+        if (filters is null || filters.Count == 0)
+        {
+            return true;
+        }
+
+        return filters.All(filter =>
+        {
+            if (string.IsNullOrWhiteSpace(filter.SourceFieldId)
+                || string.IsNullOrWhiteSpace(filter.ValueFromFieldId)
+                || !dependencyValues.TryGetValue(filter.ValueFromFieldId, out var dependencyValue)
+                || string.IsNullOrWhiteSpace(dependencyValue))
+            {
+                return false;
+            }
+
+            return values.TryGetValue(filter.SourceFieldId, out var sourceValue)
+                && string.Equals(
+                    Normalize(ToDisplayString(sourceValue)),
+                    Normalize(dependencyValue),
+                    StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
     private static FormValidationError LookupValueError(FormFieldDefinition field, string code, string message)
     {
         return new FormValidationError($"values.{field.Id}", code, message);
@@ -294,4 +430,6 @@ public sealed class RecordLookupService
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
+
+    private sealed record SelectedLookupValue(int Index, Guid RecordId);
 }

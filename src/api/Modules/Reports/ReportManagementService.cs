@@ -5,6 +5,7 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Records;
 
 namespace OpenBusinessPlatform.Api.Modules.Reports;
 
@@ -12,10 +13,12 @@ public sealed class ReportManagementService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
+    private readonly RecordLookupService recordLookup;
 
-    public ReportManagementService(OpenBusinessPlatformDbContext dbContext)
+    public ReportManagementService(OpenBusinessPlatformDbContext dbContext, RecordLookupService recordLookup)
     {
         this.dbContext = dbContext;
+        this.recordLookup = recordLookup;
     }
 
     public async Task<IReadOnlyCollection<ListReportSummaryDto>> ListReportsAsync(Guid formId, CancellationToken cancellationToken)
@@ -120,7 +123,8 @@ public sealed class ReportManagementService
             executionContext.Config,
             executionContext.Schema,
             executionContext.Records,
-            request);
+            request,
+            executionContext.DisplayValuesByRecordId);
     }
 
     public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
@@ -164,7 +168,8 @@ public sealed class ReportManagementService
             executionContext.Config,
             executionContext.Schema,
             executionContext.Records,
-            search);
+            search,
+            executionContext.DisplayValuesByRecordId);
     }
 
     private async Task<ListReportExecutionContext> LoadReportExecutionContextAsync(
@@ -217,8 +222,20 @@ public sealed class ReportManagementService
             cancellationToken);
         var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
+        var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
+        var displayValuesByRecordId = await recordLookup.ResolveLookupDisplayValuesByRecordIdAsync(
+            principal,
+            visibleSchema,
+            records,
+            permissionService,
+            cancellationToken);
 
-        return new ListReportExecutionContext(report, schema, RemoveHiddenColumns(config, fieldAccess.HiddenFieldIds), records);
+        return new ListReportExecutionContext(
+            report,
+            visibleSchema,
+            RemoveHiddenColumns(config, fieldAccess.HiddenFieldIds),
+            records,
+            displayValuesByRecordId);
     }
 
     private static string GetRecordAccessActionForReportOperation(bool isCsvExport)
@@ -313,6 +330,48 @@ public sealed class ReportManagementService
         };
     }
 
+    private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
+        FormSchemaDefinition schema,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        if (hiddenFieldIds.Count == 0)
+        {
+            return schema;
+        }
+
+        return schema with
+        {
+            Fields = schema.Fields
+                .Where(field => !hiddenFieldIds.Contains(field.Id))
+                .ToArray(),
+            Layout = RemoveHiddenFieldsFromLayout(schema.Layout, hiddenFieldIds)
+        };
+    }
+
+    private static FormLayoutDefinition RemoveHiddenFieldsFromLayout(
+        FormLayoutDefinition layout,
+        IReadOnlySet<string> hiddenFieldIds)
+    {
+        return layout with
+        {
+            Pages = layout.Pages.Select(page => page with
+            {
+                Sections = page.Sections.Select(section => section with
+                {
+                    Rows = section.Rows.Select(row => row with
+                    {
+                        Columns = row.Columns.Select(column => column with
+                        {
+                            Fields = column.Fields
+                                .Where(fieldId => !hiddenFieldIds.Contains(fieldId))
+                                .ToArray()
+                        }).ToArray()
+                    }).ToArray()
+                }).ToArray()
+            }).ToArray()
+        };
+    }
+
     private static string? NormalizeOptionalText(string? value)
     {
         var normalized = value?.Trim();
@@ -349,5 +408,6 @@ public sealed class ReportManagementService
         ReportDefinition Report,
         FormSchemaDefinition Schema,
         ListReportConfigDefinition Config,
-        IReadOnlyCollection<FormRecord> Records);
+        IReadOnlyCollection<FormRecord> Records,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>> DisplayValuesByRecordId);
 }

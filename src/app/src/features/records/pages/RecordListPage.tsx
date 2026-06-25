@@ -31,7 +31,7 @@ const recordColumns: Array<TableColumn<FormRecordListItem>> = [
   },
   {
     header: "Values",
-    render: (record) => <ValuePreview values={record.values} />
+    render: (record) => <ValuePreview displayValues={record.displayValues} values={record.values} />
   },
   {
     header: "Version",
@@ -228,7 +228,7 @@ function MobileRecordSummary({ record }: { record: FormRecordListItem }) {
         </Badge>
       </div>
       <div className="mt-4">
-        <ValuePreview values={record.values} />
+        <ValuePreview displayValues={record.displayValues} values={record.values} />
       </div>
       <RecordDetailLink className="mt-4 w-full" recordId={record.id} />
     </div>
@@ -289,7 +289,7 @@ function RecordPager({
   );
 }
 
-function ValuePreview({ values }: { values: Record<string, FormRecordValue> }) {
+function ValuePreview({ displayValues, values }: { displayValues?: Record<string, string>; values: Record<string, FormRecordValue> }) {
   const entries = Object.entries(values).slice(0, 3);
 
   if (entries.length === 0) {
@@ -301,7 +301,7 @@ function ValuePreview({ values }: { values: Record<string, FormRecordValue> }) {
       {entries.map(([key, value]) => (
         <div className="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)]" key={key}>
           <dt className="truncate font-bold text-muted-foreground">{key}</dt>
-          <dd className="min-w-0 truncate text-foreground">{formatRecordValue(value)}</dd>
+          <dd className="min-w-0 truncate text-foreground">{displayValues?.[key] ?? formatRecordValue(value)}</dd>
         </div>
       ))}
     </dl>

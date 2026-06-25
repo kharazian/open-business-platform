@@ -117,7 +117,14 @@ public sealed class RecordSubmissionService
             record.AssignedGroupId,
             DateTimeOffset.UtcNow), cancellationToken);
 
-        return ToDto(record, request.Values);
+        var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
+            principal,
+            schema,
+            new[] { request.Values },
+            permissionService,
+            cancellationToken);
+
+        return ToDto(record, request.Values, displayValues[0]);
     }
 
     private void AddAudit(FormRecord record, Guid? userId)
@@ -132,7 +139,10 @@ public sealed class RecordSubmissionService
         });
     }
 
-    private static FormRecordDto ToDto(FormRecord record, IReadOnlyDictionary<string, object?> values)
+    private static FormRecordDto ToDto(
+        FormRecord record,
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyDictionary<string, string> displayValues)
     {
         return new FormRecordDto(
             record.Id,
@@ -146,7 +156,8 @@ public sealed class RecordSubmissionService
             values,
             record.ConcurrencyStamp,
             record.CreatedAt,
-            record.CreatedById);
+            record.CreatedById,
+            displayValues);
     }
 
     private static TriggerRecordSnapshot ToTriggerSnapshot(FormRecord record, IReadOnlyDictionary<string, object?> values)

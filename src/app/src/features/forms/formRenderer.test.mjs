@@ -114,7 +114,11 @@ test("form renderer wires record lookup fields to lookup options API", () => {
   assert.equal(rendererSource.includes("RecordLookupField"), true);
   assert.equal(rendererSource.includes('field.type === "recordLookup"'), true);
   assert.equal(rendererSource.includes("formId?: string"), true);
+  assert.equal(rendererSource.includes("lookupDisplayValues?: Record<string, string>"), true);
+  assert.equal(rendererSource.includes("displayValue={lookupDisplayValues?.[field.id]}"), true);
+  assert.equal(rendererSource.includes("dependencies={values}"), true);
   assert.equal(rendererSource.includes('aria-label="Search lookup records"'), true);
   assert.equal(submitPageSource.includes("formId={form.id}"), true);
   assert.equal(recordDetailSource.includes("formId={record.formId}"), true);
+  assert.equal(recordDetailSource.includes("lookupDisplayValues={record.displayValues}"), true);
 });

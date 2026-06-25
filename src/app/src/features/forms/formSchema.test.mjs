@@ -134,7 +134,13 @@ test("form schema supports record lookup fields with lookup config", () => {
           sourceType: "form_records",
           sourceFormId: "11111111-1111-1111-1111-111111111111",
           labelFieldIds: ["customer_name"],
-          searchFieldIds: ["customer_name", "customer_code"]
+          searchFieldIds: ["customer_name", "customer_code"],
+          filters: [
+            {
+              sourceFieldId: "department",
+              valueFromFieldId: "request_department"
+            }
+          ]
         }
       }
     ],
@@ -169,6 +175,21 @@ test("form schema supports record lookup fields with lookup config", () => {
     customer: "22222222-2222-2222-2222-222222222222"
   }), { valid: true, errors: [] });
   assert.equal(validateRecordValues(lookupSchema, { customer: 123 }).errors.some((error) => error.code === "record.lookup_type"), true);
+  assert.equal(
+    validateFormSchema({
+      ...lookupSchema,
+      fields: [
+        {
+          ...lookupSchema.fields[0],
+          lookup: {
+            ...lookupSchema.fields[0].lookup,
+            filters: [{ sourceFieldId: "", valueFromFieldId: "request_department" }]
+          }
+        }
+      ]
+    }).errors.some((error) => error.code === "field.lookup_filter_required"),
+    true
+  );
   assert.equal(
     validateFormSchema({
       ...lookupSchema,

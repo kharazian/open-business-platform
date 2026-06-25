@@ -138,11 +138,21 @@ public sealed class RecordMutationService
                 cancellationToken);
         }
 
+        var visibleValues = MaskValues(effectiveValues, fieldAccess.HiddenFieldIds);
+        var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
+        var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
+            principal,
+            visibleSchema,
+            new[] { visibleValues },
+            permissionService,
+            cancellationToken);
+
         return ToDetailDto(
             record,
-            MaskValues(effectiveValues, fieldAccess.HiddenFieldIds),
-            RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds),
-            fieldAccess.ReadOnlyFieldIds);
+            visibleValues,
+            visibleSchema,
+            fieldAccess.ReadOnlyFieldIds,
+            displayValues[0]);
     }
 
     public async Task<bool> DeleteRecordAsync(
@@ -320,7 +330,8 @@ public sealed class RecordMutationService
         FormRecord record,
         IReadOnlyDictionary<string, object?> values,
         FormSchemaDefinition schema,
-        IReadOnlyCollection<string> readOnlyFieldIds)
+        IReadOnlyCollection<string> readOnlyFieldIds,
+        IReadOnlyDictionary<string, string>? displayValues = null)
     {
         return new FormRecordDetailDto(
             record.Id,
@@ -338,7 +349,8 @@ public sealed class RecordMutationService
             record.CreatedAt,
             record.CreatedById,
             record.UpdatedAt,
-            record.UpdatedById);
+            record.UpdatedById,
+            displayValues);
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)
@@ -364,11 +376,21 @@ public sealed class RecordMutationService
         }
 
         var fieldAccess = await permissionService.GetFieldAccessAsync(principal, record.FormId, cancellationToken);
+        var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
+        var values = MaskValues(DeserializeValues(record.ValuesJson), fieldAccess.HiddenFieldIds);
+        var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
+            principal,
+            visibleSchema,
+            new[] { values },
+            permissionService,
+            cancellationToken);
+
         return ToDetailDto(
             record,
-            MaskValues(DeserializeValues(record.ValuesJson), fieldAccess.HiddenFieldIds),
-            RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds),
-            fieldAccess.ReadOnlyFieldIds);
+            values,
+            visibleSchema,
+            fieldAccess.ReadOnlyFieldIds,
+            displayValues[0]);
     }
 
     private async Task EnsureAssignmentTargetsAsync(Guid? assignedToUserId, Guid? assignedGroupId, CancellationToken cancellationToken)

@@ -203,6 +203,16 @@ public static partial class FormSchemaValidator
         {
             errors.Add(Error($"{path}.lookup.searchFieldIds", "field.lookup_search_fields_required", $"'{field.Label}' requires at least one search field."));
         }
+
+        var filters = field.Lookup.Filters ?? Array.Empty<FormFieldLookupFilterDefinition>();
+        for (var index = 0; index < filters.Count; index++)
+        {
+            var filter = filters[index];
+            if (string.IsNullOrWhiteSpace(filter.SourceFieldId) || string.IsNullOrWhiteSpace(filter.ValueFromFieldId))
+            {
+                errors.Add(Error($"{path}.lookup.filters[{index}]", "field.lookup_filter_required", $"'{field.Label}' lookup filters require source and parent fields."));
+            }
+        }
     }
 
     private static void ValidateLayout(

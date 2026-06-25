@@ -34,6 +34,12 @@ export type FormFieldLookupConfig = {
   sourceFormId: string;
   labelFieldIds: string[];
   searchFieldIds: string[];
+  filters?: FormFieldLookupFilter[];
+};
+
+export type FormFieldLookupFilter = {
+  sourceFieldId: string;
+  valueFromFieldId: string;
 };
 
 export type FormField = {

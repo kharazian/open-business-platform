@@ -130,17 +130,24 @@ test("form builder exposes record lookup field metadata", () => {
     sourceType: "form_records",
     sourceFormId: "",
     labelFieldIds: [],
-    searchFieldIds: []
+    searchFieldIds: [],
+    filters: []
   });
 });
 
-test("form builder exposes record lookup settings", () => {
+test("form builder exposes guided record lookup settings", () => {
   const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
 
   assert.equal(source.includes("RecordLookupSettings"), true);
   assert.equal(source.includes("Source form"), true);
-  assert.equal(source.includes("Label field ids"), true);
-  assert.equal(source.includes("Search field ids"), true);
+  assert.equal(source.includes("Label fields"), true);
+  assert.equal(source.includes("Search fields"), true);
+  assert.equal(source.includes("Dependent filters"), true);
+  assert.equal(source.includes("sourceFormOptions"), true);
+  assert.equal(source.includes("sourceFieldOptions"), true);
+  assert.equal(source.includes("parentFieldOptions"), true);
+  assert.equal(source.includes("Label field ids"), false);
+  assert.equal(source.includes("Search field ids"), false);
 });
 
 test("form builder preview layout uses the full viewport", () => {

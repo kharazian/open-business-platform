@@ -1,5 +1,5 @@
 import type { FormSummary } from "./drafts";
-import type { FormRecordValues, FormSchema, ValidationError } from "./types";
+import type { FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "./types";
 
 type ApiFetchResponse = {
   ok: boolean;
@@ -65,6 +65,7 @@ export type FormRecord = {
   formVersionId: string;
   status: string;
   values: FormRecordValues;
+  displayValues?: Record<string, string>;
   concurrencyStamp: string;
   createdAt: string;
   createdById?: string | null;
@@ -76,6 +77,7 @@ export type FormRecordListItem = {
   formVersionId: string;
   status: string;
   values: FormRecordValues;
+  displayValues?: Record<string, string>;
   createdAt: string;
   createdById?: string | null;
 };
@@ -107,6 +109,7 @@ export type ListLookupOptionsOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
+  dependencies?: Record<string, FormRecordValue | undefined>;
 };
 
 export class FormsApiError extends Error {
@@ -232,6 +235,14 @@ export async function listLookupOptions(
   if (options.search && options.search.trim().length > 0) {
     searchParams.set("search", options.search.trim());
   }
+
+  Object.entries(options.dependencies ?? {}).forEach(([fieldId, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    searchParams.set(`dependency.${fieldId}`, String(value));
+  });
 
   return requestJson<PagedResult<RecordLookupOption>>(
     `/api/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}/lookup-options?${searchParams.toString()}`,

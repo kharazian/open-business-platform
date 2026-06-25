@@ -2563,6 +2563,50 @@ AssertTrue(
 AssertFalse(
     RecordLookupService.IsRecordLookupValue("not-a-record-id"),
     "Record lookup value helpers should reject non-GUID strings.");
+var dependentLookupSchema = lookupSchema with
+{
+    Fields = new[]
+    {
+        lookupSchema.Fields.Single() with
+        {
+            Lookup = lookupSchema.Fields.Single().Lookup! with
+            {
+                Filters = new[] { new FormFieldLookupFilterDefinition("department", "request_department") }
+            }
+        }
+    }
+};
+AssertTrue(FormSchemaValidator.ValidateSchema(dependentLookupSchema).Valid, "Dependent record lookup filters should validate with source and parent field ids.");
+AssertTrue(
+    FormSchemaValidator.ValidateSchema(
+        dependentLookupSchema with
+        {
+            Fields = new[]
+            {
+                dependentLookupSchema.Fields.Single() with
+                {
+                    Lookup = dependentLookupSchema.Fields.Single().Lookup! with
+                    {
+                        Filters = new[] { new FormFieldLookupFilterDefinition("", "request_department") }
+                    }
+                }
+            }
+        })
+        .Errors
+        .Any(error => error.Code == "field.lookup_filter_required"),
+    "Dependent record lookup filters should reject missing source field ids.");
+AssertTrue(
+    RecordLookupService.MatchesLookupFilters(
+        new Dictionary<string, object?> { ["department"] = "hr" },
+        new[] { new FormFieldLookupFilterDefinition("department", "request_department") },
+        new Dictionary<string, string?> { ["request_department"] = "hr" }),
+    "Record lookup filters should match source values against parent form dependency values.");
+AssertFalse(
+    RecordLookupService.MatchesLookupFilters(
+        new Dictionary<string, object?> { ["department"] = "finance" },
+        new[] { new FormFieldLookupFilterDefinition("department", "request_department") },
+        new Dictionary<string, string?> { ["request_department"] = "hr" }),
+    "Record lookup filters should exclude records that do not match parent form dependency values.");
 var incompleteLookupDraftSchema = lookupSchema with
 {
     Fields = new[]
@@ -2606,6 +2650,10 @@ AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
     "Record lookup service should be registered for endpoint injection.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordLookupContracts.cs"))
+        .Contains("DependencyValues", StringComparison.Ordinal),
+    "Record lookup options requests should carry parent form dependency values for conditional lookups.");
 AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordSubmissionService.cs"))
         .Contains("ValidateLookupValuesAsync", StringComparison.Ordinal),
@@ -2932,6 +2980,41 @@ var fullExecutionReport = ListReportExecutionEngine.ExecuteAll(
     search: null);
 AssertEqual(2, fullExecutionReport.Rows.Count, "Report CSV export should be able to execute all matching rows without pagination.");
 AssertEqual("Jane Cooper", fullExecutionReport.Rows.First().Cells["employee_name"].DisplayValue, "Full report execution should preserve saved sort order.");
+
+var lookupReportRecordId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+var lookupReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Orders",
+    "Order form",
+    new ListReportConfigDefinition(
+        1,
+        new[] { new ListReportColumnDefinition("customer", "Customer", true, 180) },
+        Array.Empty<ListReportFilterDefinition>(),
+        Array.Empty<ListReportSortDefinition>()),
+    lookupSchema,
+    new[]
+    {
+        new FormRecord
+        {
+            Id = lookupReportRecordId,
+            FormId = sampleDepartmentId,
+            FormVersionId = publishedVersion.Id,
+            Status = RecordStatuses.Active,
+            ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+            {
+                ["customer"] = "33333333-3333-3333-3333-333333333333"
+            }),
+            CreatedAt = sampleCreatedAt
+        }
+    },
+    new RunListReportRequest(),
+    displayValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, string>>
+    {
+        [lookupReportRecordId] = new Dictionary<string, string> { ["customer"] = "Acme Corp" }
+    });
+AssertEqual("33333333-3333-3333-3333-333333333333", lookupReport.Rows.Single().Cells["customer"].Value, "Lookup report cells should preserve raw selected record ids.");
+AssertEqual("Acme Corp", lookupReport.Rows.Single().Cells["customer"].DisplayValue, "Lookup report cells should display resolved lookup labels.");
 
 var csvReport = new ListReportExecutionDto(
     reportSummary.Id,

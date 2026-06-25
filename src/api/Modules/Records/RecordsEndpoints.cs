@@ -31,7 +31,7 @@ public static class RecordsEndpoints
                     httpContext.User,
                     formId,
                     fieldId,
-                    new RecordLookupOptionsRequest(page ?? 1, pageSize ?? 25, search),
+                    new RecordLookupOptionsRequest(page ?? 1, pageSize ?? 25, search, GetLookupDependencyValues(httpContext)),
                     permissionService,
                     cancellationToken);
 
@@ -256,5 +256,16 @@ public static class RecordsEndpoints
     {
         var value = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static IReadOnlyDictionary<string, string?> GetLookupDependencyValues(HttpContext httpContext)
+    {
+        const string Prefix = "dependency.";
+        return httpContext.Request.Query
+            .Where(pair => pair.Key.StartsWith(Prefix, StringComparison.Ordinal))
+            .ToDictionary(
+                pair => pair.Key[Prefix.Length..],
+                pair => string.IsNullOrWhiteSpace(pair.Value.ToString()) ? null : pair.Value.ToString(),
+                StringComparer.Ordinal);
     }
 }

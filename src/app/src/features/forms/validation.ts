@@ -153,6 +153,13 @@ function validateLookupConfig(field: FormField, path: string, errors: Validation
   if (!Array.isArray(lookup.searchFieldIds) || lookup.searchFieldIds.length === 0 || lookup.searchFieldIds.some((fieldId) => !isNonEmptyString(fieldId))) {
     errors.push(error(`${path}.lookup.searchFieldIds`, "field.lookup_search_fields_required", `'${field.label}' requires at least one search field.`));
   }
+
+  const filters = Array.isArray(lookup.filters) ? lookup.filters : [];
+  filters.forEach((filter, filterIndex) => {
+    if (!isNonEmptyString(filter.sourceFieldId) || !isNonEmptyString(filter.valueFromFieldId)) {
+      errors.push(error(`${path}.lookup.filters[${filterIndex}]`, "field.lookup_filter_required", `'${field.label}' lookup filters require source and parent fields.`));
+    }
+  });
 }
 
 function validateLayout(layout: FormLayout | undefined, fieldIds: Set<string>, errors: ValidationError[]) {

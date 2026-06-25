@@ -479,7 +479,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete V1 schema while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row.
+`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete V1 schema while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row. `recordLookup` fields store their source form, label fields, search fields, and optional dependent filters inside this schema JSON; no separate lookup table is required for the current implementation.
 
 ### form_versions
 
@@ -527,6 +527,8 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
+`values_json` stores submitted field values exactly as submitted and validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. Resolved lookup labels are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
+
 Important indexes:
 
 - form_id
@@ -573,7 +575,7 @@ Indexes:
 - type
 - created_by_id
 
-The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`.
+The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, resolves visible `recordLookup` labels into display cells while preserving raw IDs as cell values, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`.
 
 ## Dashboards
 

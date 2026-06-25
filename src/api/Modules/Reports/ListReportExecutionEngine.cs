@@ -17,11 +17,12 @@ public static class ListReportExecutionEngine
         ListReportConfigDefinition config,
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
-        RunListReportRequest request)
+        RunListReportRequest request,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var preparedReport = PrepareReport(config, schema, records, request.Search);
+        var preparedReport = PrepareReport(config, schema, records, request.Search, displayValuesByRecordId);
         var pageRecords = preparedReport.Records
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -48,9 +49,10 @@ public static class ListReportExecutionEngine
         ListReportConfigDefinition config,
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
-        string? search = null)
+        string? search = null,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
     {
-        var preparedReport = PrepareReport(config, schema, records, search);
+        var preparedReport = PrepareReport(config, schema, records, search, displayValuesByRecordId);
         var rows = preparedReport.Records
             .Select(record => ToRowDto(record, preparedReport.Columns))
             .ToArray();
@@ -71,13 +73,19 @@ public static class ListReportExecutionEngine
         ListReportConfigDefinition config,
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
-        string? search)
+        string? search,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId)
     {
         var normalizedSearch = Normalize(search);
         var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
         var columns = GetVisibleColumns(config, fieldsById);
         var preparedRecords = records
-            .Select(record => new PreparedReportRecord(record, DeserializeValues(record.ValuesJson)))
+            .Select(record => new PreparedReportRecord(
+                record,
+                DeserializeValues(record.ValuesJson),
+                displayValuesByRecordId?.TryGetValue(record.Id, out var displayValues) == true
+                    ? displayValues
+                    : new Dictionary<string, string>(StringComparer.Ordinal)))
             .Where(record => MatchesFilters(record, config.Filters))
             .Where(record => MatchesSearch(record, columns, fieldsById, normalizedSearch))
             .ToArray();
@@ -118,7 +126,7 @@ public static class ListReportExecutionEngine
 
     private static bool MatchesFilter(PreparedReportRecord record, ListReportFilterDefinition filter)
     {
-        var value = GetFieldValue(record, filter.FieldId.Trim());
+        var value = GetComparableFieldValue(record, filter.FieldId.Trim());
         var filterValue = Normalize(filter.Value);
 
         return filter.Operator.Trim() switch
@@ -154,7 +162,7 @@ public static class ListReportExecutionEngine
                 return false;
             }
 
-            return ToSearchText(GetFieldValue(record, column.FieldId)).Contains(search, StringComparison.OrdinalIgnoreCase);
+            return ToSearchText(GetComparableFieldValue(record, column.FieldId)).Contains(search, StringComparison.OrdinalIgnoreCase);
         });
     }
 
@@ -176,8 +184,8 @@ public static class ListReportExecutionEngine
         {
             var fieldId = sortItem.FieldId.Trim();
             sorted = sortItem.Direction.Trim() == ReportSortDirections.Desc
-                ? sorted.OrderByDescending(record => ToSortValue(GetFieldValue(record, fieldId)), ReportSortValueComparer.Instance).ToArray()
-                : sorted.OrderBy(record => ToSortValue(GetFieldValue(record, fieldId)), ReportSortValueComparer.Instance).ToArray();
+                ? sorted.OrderByDescending(record => ToSortValue(GetComparableFieldValue(record, fieldId)), ReportSortValueComparer.Instance).ToArray()
+                : sorted.OrderBy(record => ToSortValue(GetComparableFieldValue(record, fieldId)), ReportSortValueComparer.Instance).ToArray();
         }
 
         return sorted;
@@ -192,7 +200,10 @@ public static class ListReportExecutionEngine
             column =>
             {
                 var value = GetFieldValue(record, column.FieldId);
-                return new ListReportExecutionCellDto(ToSerializableValue(value), ToDisplayValue(value));
+                var displayValue = record.DisplayValues.TryGetValue(column.FieldId, out var resolvedDisplayValue)
+                    ? resolvedDisplayValue
+                    : ToDisplayValue(value);
+                return new ListReportExecutionCellDto(ToSerializableValue(value), displayValue);
             },
             StringComparer.Ordinal);
 
@@ -212,6 +223,13 @@ public static class ListReportExecutionEngine
             ReportableSystemFields.DepartmentId => record.Record.DepartmentId,
             _ => record.Values.TryGetValue(fieldId, out var value) ? value : null
         };
+    }
+
+    private static object? GetComparableFieldValue(PreparedReportRecord record, string fieldId)
+    {
+        return record.DisplayValues.TryGetValue(fieldId, out var displayValue)
+            ? displayValue
+            : GetFieldValue(record, fieldId);
     }
 
     private static IReadOnlyDictionary<string, object?> DeserializeValues(JsonDocument valuesJson)
@@ -346,7 +364,10 @@ public static class ListReportExecutionEngine
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private sealed record PreparedReportRecord(FormRecord Record, IReadOnlyDictionary<string, object?> Values);
+    private sealed record PreparedReportRecord(
+        FormRecord Record,
+        IReadOnlyDictionary<string, object?> Values,
+        IReadOnlyDictionary<string, string> DisplayValues);
 
     private sealed record PreparedReport(IReadOnlyList<ListReportExecutionColumnDto> Columns, PreparedReportRecord[] Records);
 

@@ -1375,6 +1375,34 @@ Draft, archived, deleted, and invalid published forms do not render a submission
 
 ## Records
 
+### Lookup options
+
+`GET /api/forms/{formId}/fields/{fieldId}/lookup-options?page=1&pageSize=25&search=acme&dependency.department=hr`
+
+Requires authentication plus parent form `view`, form `manage`, or `forms.manage_all` access. The target field must be a visible `recordLookup` field on the parent form. The backend reads the field's lookup config, applies source form `view` access, V3 source record scopes, hidden source-field rules, optional runtime search, and any configured dependent filters before returning options.
+
+Query parameters:
+
+- `page` default `1`
+- `pageSize` default `25`, maximum `100`
+- `search` optional text matched against configured visible search fields
+- `dependency.{fieldId}` optional parent form values used by dependent lookup filters
+
+Response:
+
+```json
+{
+  "totalCount": 1,
+  "items": [
+    {
+      "recordId": "33333333-3333-3333-3333-333333333333",
+      "label": "Acme Corp",
+      "description": "ACME-001"
+    }
+  ]
+}
+```
+
 ### Submit record
 
 `POST /api/forms/{formId}/records`
@@ -1406,13 +1434,14 @@ Response:
     "first_name": "John",
     "email": "john@example.com"
   },
+  "displayValues": {},
   "concurrencyStamp": "record-stamp",
   "createdAt": "2026-05-21T00:00:00Z",
   "createdById": "22222222-2222-2222-2222-222222222222"
 }
 ```
 
-Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, stores `records.form_version_id`, sets owner/department metadata from the current user, and writes a `record_created` audit entry. Draft and archived forms reject record submission.
+Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, validates selected `recordLookup` records against source record visibility, stores `records.form_version_id`, sets owner/department metadata from the current user, and writes a `record_created` audit entry. Draft and archived forms reject record submission. `displayValues` is response-only and may include resolved lookup labels while `values` preserves the stored record IDs.
 
 ### List records
 
@@ -1439,6 +1468,7 @@ Response:
         "first_name": "John",
         "email": "john@example.com"
       },
+      "displayValues": {},
       "createdAt": "2026-05-21T00:00:00Z",
       "createdById": "22222222-2222-2222-2222-222222222222"
     }
@@ -1446,7 +1476,7 @@ Response:
 }
 ```
 
-Search matches the record id, form version id, status, value keys, and value text for records on the requested form. Hidden field values are removed before records are returned.
+Search matches the record id, form version id, status, value keys, value text, and resolved lookup display text for records on the requested form. Hidden field values are removed before records are returned. `displayValues` is response-only and contains labels for visible lookup values when they can be resolved for the current user.
 
 ### Get record detail
 
@@ -1470,6 +1500,7 @@ Response:
     "first_name": "John",
     "email": "john@example.com"
   },
+  "displayValues": {},
   "schema": {
     "schemaVersion": 1,
     "fields": [],
@@ -1484,7 +1515,7 @@ Response:
 }
 ```
 
-Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time. Hidden field values are omitted, and read-only field ids tell the client which returned values cannot be edited by the current user.
+Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time. Hidden field values are omitted, and read-only field ids tell the client which returned values cannot be edited by the current user. `displayValues` hydrates visible lookup labels for read-only display and edit controls; clients still submit the raw IDs from `values`.
 
 ### Update record
 
@@ -1659,7 +1690,7 @@ Response: `201 Created` with the saved report detail. V2 validates report config
 
 Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
 
-Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells.
+Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
 
 Response:
 

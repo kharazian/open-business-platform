@@ -26,6 +26,7 @@ export type FormRendererProps = {
   schema: FormSchema;
   values: FormRecordValues;
   errors?: ValidationError[];
+  lookupDisplayValues?: Record<string, string>;
   mode?: FormRendererMode;
   previewSize?: FormPreviewSize;
   submitLabel?: string;
@@ -38,6 +39,7 @@ export function FormRenderer({
   schema,
   values,
   errors = [],
+  lookupDisplayValues,
   mode = "entry",
   previewSize = "responsive",
   submitLabel = "Submit",
@@ -103,6 +105,8 @@ export function FormRenderer({
                               errors={errorsById[field.id] ?? []}
                               field={field}
                               formId={formId}
+                              dependencies={values}
+                              displayValue={lookupDisplayValues?.[field.id]}
                               key={field.id}
                               onChange={(value) => handleFieldChange(field, value)}
                               value={values[field.id]}
@@ -130,6 +134,8 @@ export function FormRenderer({
 
 function RenderedField({
   disabled,
+  dependencies,
+  displayValue,
   errors,
   field,
   formId,
@@ -137,6 +143,8 @@ function RenderedField({
   value
 }: {
   disabled: boolean;
+  dependencies: FormRecordValues;
+  displayValue?: string;
   errors: string[];
   field: FormField;
   formId?: string;
@@ -243,6 +251,8 @@ function RenderedField({
         error={error}
         field={field}
         formId={formId}
+        dependencies={dependencies}
+        displayValue={displayValue}
         onChange={onChange}
         value={getStringValue(value)}
       />
@@ -266,6 +276,8 @@ function RenderedField({
 
 function RecordLookupField({
   disabled,
+  dependencies,
+  displayValue,
   error,
   field,
   formId,
@@ -273,17 +285,19 @@ function RecordLookupField({
   value
 }: {
   disabled: boolean;
+  dependencies: FormRecordValues;
+  displayValue?: string;
   error?: string;
   field: FormField;
   formId?: string;
   onChange: (value: string) => void;
   value: string;
 }) {
-  const [search, setSearch] = useState(value);
+  const [search, setSearch] = useState(displayValue ?? value);
   const [options, setOptions] = useState<RecordLookupOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(displayValue ?? null);
   const sourceFormId = field.lookup?.sourceFormId ?? "";
   const lookupReady = Boolean(
     formId &&
@@ -301,6 +315,13 @@ function RecordLookupField({
       setSelectedLabel(selectedOption.label);
     }
   }, [selectedOption]);
+
+  useEffect(() => {
+    if (displayValue) {
+      setSelectedLabel(displayValue);
+      setSearch(displayValue);
+    }
+  }, [displayValue]);
 
   useEffect(() => {
     if (!value) {
@@ -325,7 +346,7 @@ function RecordLookupField({
     setLoading(true);
     setLookupError(null);
 
-    listLookupOptions(formId, field.id, { search })
+    listLookupOptions(formId, field.id, { search, dependencies })
       .then((result) => {
         if (!cancelled) {
           setOptions(result.items);
@@ -346,7 +367,7 @@ function RecordLookupField({
     return () => {
       cancelled = true;
     };
-  }, [disabled, field.id, formId, lookupReady, search, sourceFormId]);
+  }, [dependencies, disabled, field.id, formId, lookupReady, search, sourceFormId]);
 
   function handleSearchChange(nextSearch: string) {
     setSearch(nextSearch);

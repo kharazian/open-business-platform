@@ -191,7 +191,8 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
       sourceType: "form_records",
       sourceFormId: "",
       labelFieldIds: [],
-      searchFieldIds: []
+      searchFieldIds: [],
+      filters: []
     };
   }
 
@@ -241,9 +242,40 @@ function normalizeField(field: FormField): FormField {
     delete normalized.options;
   }
 
+  if (field.type === "recordLookup") {
+    normalized.lookup = normalizeLookup(field.lookup);
+  } else {
+    delete normalized.lookup;
+  }
+
   removeUndefinedOptionalProperties(normalized);
 
   return normalized;
+}
+
+function normalizeLookup(lookup: FormField["lookup"]): NonNullable<FormField["lookup"]> {
+  return {
+    sourceType: "form_records",
+    sourceFormId: normalizeText(lookup?.sourceFormId) ?? "",
+    labelFieldIds: normalizeFieldIds(lookup?.labelFieldIds),
+    searchFieldIds: normalizeFieldIds(lookup?.searchFieldIds),
+    filters: (lookup?.filters ?? [])
+      .map((filter) => ({
+        sourceFieldId: normalizeText(filter.sourceFieldId) ?? "",
+        valueFromFieldId: normalizeText(filter.valueFromFieldId) ?? ""
+      }))
+      .filter((filter) => filter.sourceFieldId && filter.valueFromFieldId)
+  };
+}
+
+function normalizeFieldIds(fieldIds: string[] | undefined): string[] {
+  return Array.from(
+    new Set(
+      (fieldIds ?? [])
+        .map((fieldId) => normalizeText(fieldId))
+        .filter((fieldId): fieldId is string => Boolean(fieldId))
+    )
+  );
 }
 
 function normalizeDefaultValue(field: FormField): FormRecordValue | undefined {

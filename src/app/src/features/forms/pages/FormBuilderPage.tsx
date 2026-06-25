@@ -57,7 +57,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { cn } from "../../../lib/cn";
-import { getForm, publishForm, updateFormDraft } from "../api";
+import { getForm, listForms, publishForm, updateFormDraft, type FormDetail } from "../api";
 import {
   addFieldToSchema,
   createEmptyFormBuilderSchema,
@@ -122,7 +122,7 @@ import {
   type FormSchema
 } from "../types";
 import { validateRecordValues } from "../validation";
-import { getFormStatusLabel, type FormStatus } from "../drafts";
+import { getFormStatusLabel, type FormStatus, type FormSummary } from "../drafts";
 
 const fieldTypeOptions = formFieldTypes.map((type) => ({ label: fieldTypeLabels[type], value: type }));
 const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
@@ -231,6 +231,7 @@ export function FormBuilderPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formNameError, setFormNameError] = useState<string | undefined>();
   const [formStatus, setFormStatus] = useState<FormStatus>("draft");
+  const [sourceForms, setSourceForms] = useState<FormSummary[]>([]);
   const [loadingForm, setLoadingForm] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -309,6 +310,26 @@ export function FormBuilderPage() {
       active = false;
     };
   }, [resolvedFormId]);
+
+  useEffect(() => {
+    let active = true;
+
+    listForms()
+      .then((forms) => {
+        if (active) {
+          setSourceForms(forms);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSourceForms([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const selectedFieldId = selection?.type === "field" ? selection.id : null;
   const selectedField = useMemo(
@@ -720,6 +741,8 @@ export function FormBuilderPage() {
               rowContext={selectedRowContext}
               sectionContext={selectedSectionContext}
               selection={selection}
+              schema={schema}
+              sourceForms={sourceForms}
               onAddRow={handleAddRow}
               onAddColumn={handleAddColumn}
               onBalanceRowColumns={handleBalanceRowColumns}
@@ -1596,6 +1619,8 @@ function DeleteConfirmationModal({
 function BuilderSettings({
   selection,
   field,
+  schema,
+  sourceForms,
   sectionContext,
   rowContext,
   columnContext,
@@ -1615,6 +1640,8 @@ function BuilderSettings({
 }: {
   selection: DesignerSelection | null;
   field: FormField | null;
+  schema: FormSchema;
+  sourceForms: FormSummary[];
   sectionContext: SectionContext | null;
   rowContext: RowContext | null;
   columnContext: ColumnContext | null;
@@ -1667,6 +1694,8 @@ function BuilderSettings({
       onChange={onChangeField}
       onChangeLayoutWidth={onChangeFieldLayoutWidth}
       onRequestDelete={onRequestDeleteField}
+      schema={schema}
+      sourceForms={sourceForms}
     />
   );
 }
@@ -1890,13 +1919,17 @@ function FieldSettings({
   layoutWidth,
   onChange,
   onChangeLayoutWidth,
-  onRequestDelete
+  onRequestDelete,
+  schema,
+  sourceForms
 }: {
   field: FormField | null;
   layoutWidth: LayoutWidthValue | null;
   onChange: (field: FormField) => void;
   onChangeLayoutWidth: (fieldId: string, width: LayoutWidthValue) => void;
   onRequestDelete: (field: FormField) => void;
+  schema: FormSchema;
+  sourceForms: FormSummary[];
 }) {
   if (!field) {
     return (
@@ -1959,7 +1992,7 @@ function FieldSettings({
           />
           <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} />
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
-          {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} /> : null}
+          {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} schema={schema} sourceForms={sourceForms} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -1970,48 +2003,213 @@ function FieldSettings({
   );
 }
 
-function RecordLookupSettings({ field, onChange }: { field: FormField; onChange: (field: FormField) => void }) {
+function RecordLookupSettings({
+  field,
+  onChange,
+  schema,
+  sourceForms
+}: {
+  field: FormField;
+  onChange: (field: FormField) => void;
+  schema: FormSchema;
+  sourceForms: FormSummary[];
+}) {
   const lookup = field.lookup ?? {
     sourceType: "form_records" as const,
     sourceFormId: "",
     labelFieldIds: [],
-    searchFieldIds: []
+    searchFieldIds: [],
+    filters: []
   };
+  const [sourceFormDetail, setSourceFormDetail] = useState<FormDetail | null>(null);
+  const [sourceFormLoading, setSourceFormLoading] = useState(false);
+  const [sourceFormError, setSourceFormError] = useState<string | null>(null);
+  const sourceFormOptions = sourceForms.map((form) => ({ label: `${form.name} (${getFormStatusLabel(form.status)})`, value: form.id }));
+  const sourceSchema = sourceFormDetail?.draftSchema ?? null;
+  const sourceFieldOptions = (sourceSchema?.fields ?? []).map((sourceField) => ({ label: sourceField.label, value: sourceField.id }));
+  const parentFieldOptions = schema.fields
+    .filter((candidate) => candidate.id !== field.id)
+    .map((parentField) => ({ label: parentField.label, value: parentField.id }));
+  const filters = lookup.filters ?? [];
 
   function updateLookup(patch: Partial<NonNullable<FormField["lookup"]>>) {
     onChange({ ...field, lookup: { ...lookup, ...patch } });
   }
 
+  useEffect(() => {
+    if (!lookup.sourceFormId) {
+      setSourceFormDetail(null);
+      setSourceFormError(null);
+      setSourceFormLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSourceFormLoading(true);
+    setSourceFormError(null);
+
+    getForm(lookup.sourceFormId)
+      .then((form) => {
+        if (active) {
+          setSourceFormDetail(form);
+        }
+      })
+      .catch((caught) => {
+        if (active) {
+          setSourceFormDetail(null);
+          setSourceFormError(getErrorMessage(caught));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setSourceFormLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [lookup.sourceFormId]);
+
+  function handleSourceFormChange(sourceFormId: string) {
+    updateLookup({
+      sourceFormId,
+      labelFieldIds: [],
+      searchFieldIds: [],
+      filters: []
+    });
+  }
+
+  function toggleLookupField(fieldIds: string[], fieldId: string, checked: boolean) {
+    const nextFieldIds = checked
+      ? Array.from(new Set([...fieldIds, fieldId]))
+      : fieldIds.filter((candidate) => candidate !== fieldId);
+    return nextFieldIds;
+  }
+
+  function updateFilter(index: number, patch: Partial<(typeof filters)[number]>) {
+    updateLookup({
+      filters: filters.map((filter, filterIndex) => (filterIndex === index ? { ...filter, ...patch } : filter))
+    });
+  }
+
+  function addFilter() {
+    updateLookup({
+      filters: [
+        ...filters,
+        {
+          sourceFieldId: sourceFieldOptions[0]?.value ?? "",
+          valueFromFieldId: parentFieldOptions[0]?.value ?? ""
+        }
+      ]
+    });
+  }
+
+  function removeFilter(index: number) {
+    updateLookup({ filters: filters.filter((_, filterIndex) => filterIndex !== index) });
+  }
+
   return (
-    <div className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3">
-      <p className="text-sm font-bold text-foreground">Lookup source</p>
-      <Input
+    <div className="grid gap-4 rounded-xl border border-border bg-muted/30 p-3">
+      <div>
+        <p className="text-sm font-bold text-foreground">Lookup source</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">The stored value remains the selected record id; users see labels from the source form.</p>
+      </div>
+      <Select
         label="Source form"
-        onChange={(event) => updateLookup({ sourceFormId: event.target.value })}
-        placeholder="Source form id"
+        onChange={(event) => handleSourceFormChange(event.target.value)}
         value={lookup.sourceFormId}
-      />
-      <Input
-        label="Label field ids"
-        onChange={(event) => updateLookup({ labelFieldIds: splitFieldIds(event.target.value) })}
-        placeholder="customer_name, customer_code"
-        value={lookup.labelFieldIds.join(", ")}
-      />
-      <Input
-        label="Search field ids"
-        onChange={(event) => updateLookup({ searchFieldIds: splitFieldIds(event.target.value) })}
-        placeholder="customer_name, phone"
-        value={lookup.searchFieldIds.join(", ")}
-      />
+      >
+        <option value="">Select a source form</option>
+        {sourceFormOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+      {sourceFormLoading ? <p className="text-xs font-semibold text-muted-foreground">Loading source fields...</p> : null}
+      {sourceFormError ? <p className="text-xs font-semibold text-danger">{sourceFormError}</p> : null}
+      {lookup.sourceFormId && !sourceFormLoading && sourceFieldOptions.length === 0 ? (
+        <p className="text-xs font-semibold text-muted-foreground">No source fields are available yet.</p>
+      ) : null}
+      {sourceFieldOptions.length > 0 ? (
+        <>
+          <LookupFieldCheckboxGroup
+            label="Label fields"
+            selectedFieldIds={lookup.labelFieldIds}
+            fieldOptions={sourceFieldOptions}
+            onChange={(fieldId, checked) => updateLookup({ labelFieldIds: toggleLookupField(lookup.labelFieldIds, fieldId, checked) })}
+          />
+          <LookupFieldCheckboxGroup
+            label="Search fields"
+            selectedFieldIds={lookup.searchFieldIds}
+            fieldOptions={sourceFieldOptions}
+            onChange={(fieldId, checked) => updateLookup({ searchFieldIds: toggleLookupField(lookup.searchFieldIds, fieldId, checked) })}
+          />
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-foreground">Dependent filters</p>
+              <Button disabled={sourceFieldOptions.length === 0 || parentFieldOptions.length === 0} onClick={addFilter} size="sm" variant="outline">
+                <Plus className="size-4" />
+                Add filter
+              </Button>
+            </div>
+            {filters.length === 0 ? (
+              <p className="text-xs leading-5 text-muted-foreground">Add a filter when this lookup should depend on another field in this form.</p>
+            ) : null}
+            {filters.map((filter, index) => (
+              <div className="grid gap-2 rounded-lg border border-border bg-card/70 p-2" key={`${filter.sourceFieldId}-${filter.valueFromFieldId}-${index}`}>
+                <Select
+                  label="Source field"
+                  onChange={(event) => updateFilter(index, { sourceFieldId: event.target.value })}
+                  options={sourceFieldOptions}
+                  value={filter.sourceFieldId}
+                />
+                <Select
+                  label="Equals parent field"
+                  onChange={(event) => updateFilter(index, { valueFromFieldId: event.target.value })}
+                  options={parentFieldOptions}
+                  value={filter.valueFromFieldId}
+                />
+                <Button className={formBuilderSoftDangerButtonClassName} onClick={() => removeFilter(index)} size="sm" variant="outline">
+                  <Trash2 className="size-4" />
+                  Remove filter
+                </Button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
 
-function splitFieldIds(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+function LookupFieldCheckboxGroup({
+  fieldOptions,
+  label,
+  onChange,
+  selectedFieldIds
+}: {
+  fieldOptions: Array<{ label: string; value: string }>;
+  label: string;
+  onChange: (fieldId: string, checked: boolean) => void;
+  selectedFieldIds: string[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <p className="text-sm font-bold text-foreground">{label}</p>
+      <div className="grid gap-2 rounded-lg border border-border bg-card/70 p-2">
+        {fieldOptions.map((option) => (
+          <Checkbox
+            checked={selectedFieldIds.includes(option.value)}
+            key={option.value}
+            label={option.label}
+            onChange={(event) => onChange(option.value, event.target.checked)}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function DefaultValueSetting({
