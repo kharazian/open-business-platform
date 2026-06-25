@@ -7,7 +7,8 @@ export const formFieldTypes = [
   "date",
   "select",
   "checkbox",
-  "radio"
+  "radio",
+  "recordLookup"
 ] as const;
 
 export type FormFieldType = (typeof formFieldTypes)[number];
@@ -28,6 +29,13 @@ export type FormFieldValidation = {
 
 export type FormRecordValue = string | number | boolean | null;
 
+export type FormFieldLookupConfig = {
+  sourceType: "form_records";
+  sourceFormId: string;
+  labelFieldIds: string[];
+  searchFieldIds: string[];
+};
+
 export type FormField = {
   id: string;
   type: FormFieldType;
@@ -38,6 +46,7 @@ export type FormField = {
   defaultValue?: FormRecordValue;
   options?: FormFieldOption[];
   validation?: FormFieldValidation;
+  lookup?: FormFieldLookupConfig;
 };
 
 export type ResponsiveSpan = {

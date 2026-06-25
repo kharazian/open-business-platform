@@ -21,6 +21,7 @@ import {
   CalendarDays,
   CheckSquare,
   CircleDot,
+  Database,
   Eye,
   Hash,
   LayoutPanelLeft,
@@ -133,7 +134,8 @@ const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
   date: CalendarDays,
   select: List,
   checkbox: CheckSquare,
-  radio: CircleDot
+  radio: CircleDot,
+  recordLookup: Database
 };
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
@@ -1956,6 +1958,7 @@ function FieldSettings({
           />
           <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} />
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
+          {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -1964,6 +1967,50 @@ function FieldSettings({
       </CardContent>
     </Card>
   );
+}
+
+function RecordLookupSettings({ field, onChange }: { field: FormField; onChange: (field: FormField) => void }) {
+  const lookup = field.lookup ?? {
+    sourceType: "form_records" as const,
+    sourceFormId: "",
+    labelFieldIds: [],
+    searchFieldIds: []
+  };
+
+  function updateLookup(patch: Partial<NonNullable<FormField["lookup"]>>) {
+    onChange({ ...field, lookup: { ...lookup, ...patch } });
+  }
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3">
+      <p className="text-sm font-bold text-foreground">Lookup source</p>
+      <Input
+        label="Source form"
+        onChange={(event) => updateLookup({ sourceFormId: event.target.value })}
+        placeholder="Source form id"
+        value={lookup.sourceFormId}
+      />
+      <Input
+        label="Label field ids"
+        onChange={(event) => updateLookup({ labelFieldIds: splitFieldIds(event.target.value) })}
+        placeholder="customer_name, customer_code"
+        value={lookup.labelFieldIds.join(", ")}
+      />
+      <Input
+        label="Search field ids"
+        onChange={(event) => updateLookup({ searchFieldIds: splitFieldIds(event.target.value) })}
+        placeholder="customer_name, phone"
+        value={lookup.searchFieldIds.join(", ")}
+      />
+    </div>
+  );
+}
+
+function splitFieldIds(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function DefaultValueSetting({

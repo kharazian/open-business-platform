@@ -12,6 +12,7 @@ import {
 
 const choiceFieldTypes = new Set(["select", "radio"]);
 const textFieldTypes = new Set(["text", "textarea", "phone"]);
+const lookupFieldTypes = new Set(["recordLookup"]);
 const breakpoints = ["mobile", "tablet", "desktop"] as const;
 
 export function validateFormSchema(schema: FormSchema): ValidationResult {
@@ -94,6 +95,10 @@ function validateField(field: FormField, index: number, fieldIds: Set<string>, e
   if (choiceFieldTypes.has(field.type)) {
     validateOptions(field, path, errors);
   }
+
+  if (lookupFieldTypes.has(field.type)) {
+    validateLookupConfig(field, path, errors);
+  }
 }
 
 function validateOptions(field: FormField, path: string, errors: ValidationError[]) {
@@ -123,6 +128,31 @@ function validateOptions(field: FormField, path: string, errors: ValidationError
       optionValues.add(option.value);
     }
   });
+}
+
+function validateLookupConfig(field: FormField, path: string, errors: ValidationError[]) {
+  const lookup = field.lookup;
+
+  if (!lookup) {
+    errors.push(error(`${path}.lookup`, "field.lookup_required", `'${field.label}' requires lookup configuration.`));
+    return;
+  }
+
+  if (lookup.sourceType !== "form_records") {
+    errors.push(error(`${path}.lookup.sourceType`, "field.lookup_source_type", `'${field.label}' lookup source is not supported.`));
+  }
+
+  if (!isNonEmptyString(lookup.sourceFormId)) {
+    errors.push(error(`${path}.lookup.sourceFormId`, "field.lookup_source_form_required", `'${field.label}' requires a source form.`));
+  }
+
+  if (!Array.isArray(lookup.labelFieldIds) || lookup.labelFieldIds.length === 0 || lookup.labelFieldIds.some((fieldId) => !isNonEmptyString(fieldId))) {
+    errors.push(error(`${path}.lookup.labelFieldIds`, "field.lookup_label_fields_required", `'${field.label}' requires at least one label field.`));
+  }
+
+  if (!Array.isArray(lookup.searchFieldIds) || lookup.searchFieldIds.length === 0 || lookup.searchFieldIds.some((fieldId) => !isNonEmptyString(fieldId))) {
+    errors.push(error(`${path}.lookup.searchFieldIds`, "field.lookup_search_fields_required", `'${field.label}' requires at least one search field.`));
+  }
 }
 
 function validateLayout(layout: FormLayout | undefined, fieldIds: Set<string>, errors: ValidationError[]) {
@@ -275,6 +305,14 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
   if (field.type === "checkbox") {
     if (typeof value !== "boolean") {
       errors.push(error(path, "record.type", `'${field.label}' must be true or false.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "recordLookup") {
+    if (typeof value !== "string") {
+      errors.push(error(path, "record.lookup_type", `'${field.label}' must be a selected record id.`));
     }
 
     return;

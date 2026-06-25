@@ -10,15 +10,19 @@ public static partial class FormSchemaValidator
 
     public static FormValidationResult ValidateSchema(FormSchemaDefinition? schema)
     {
-        return ValidateSchemaCore(schema, requireFields: true, requireLayoutRows: true);
+        return ValidateSchemaCore(schema, requireFields: true, requireLayoutRows: true, requireFieldConfiguration: true);
     }
 
     public static FormValidationResult ValidateDraftSchema(FormSchemaDefinition? schema)
     {
-        return ValidateSchemaCore(schema, requireFields: false, requireLayoutRows: false);
+        return ValidateSchemaCore(schema, requireFields: false, requireLayoutRows: false, requireFieldConfiguration: false);
     }
 
-    private static FormValidationResult ValidateSchemaCore(FormSchemaDefinition? schema, bool requireFields, bool requireLayoutRows)
+    private static FormValidationResult ValidateSchemaCore(
+        FormSchemaDefinition? schema,
+        bool requireFields,
+        bool requireLayoutRows,
+        bool requireFieldConfiguration)
     {
         var errors = new List<FormValidationError>();
         var fieldIds = new HashSet<string>(StringComparer.Ordinal);
@@ -46,7 +50,7 @@ public static partial class FormSchemaValidator
         {
             for (var index = 0; index < schema.Fields.Count; index++)
             {
-                ValidateField(schema.Fields[index], index, fieldIds, errors);
+                ValidateField(schema.Fields[index], index, fieldIds, errors, requireFieldConfiguration);
             }
         }
 
@@ -95,7 +99,8 @@ public static partial class FormSchemaValidator
         FormFieldDefinition field,
         int index,
         HashSet<string> fieldIds,
-        List<FormValidationError> errors)
+        List<FormValidationError> errors,
+        bool requireFieldConfiguration)
     {
         var path = $"fields[{index}]";
 
@@ -118,9 +123,14 @@ public static partial class FormSchemaValidator
             errors.Add(Error($"{path}.type", "field.type_unknown", "Field type is not supported in V1."));
         }
 
-        if (FormFieldTypes.IsChoice(field.Type))
+        if (requireFieldConfiguration && FormFieldTypes.IsChoice(field.Type))
         {
             ValidateOptions(field, path, errors);
+        }
+
+        if (requireFieldConfiguration && string.Equals(field.Type, FormFieldTypes.RecordLookup, StringComparison.Ordinal))
+        {
+            ValidateLookup(field, path, errors);
         }
     }
 
@@ -160,6 +170,38 @@ public static partial class FormSchemaValidator
             {
                 errors.Add(Error($"{optionPath}.value", "field.option_value_duplicate", $"Option value '{option.Value}' is duplicated."));
             }
+        }
+    }
+
+    private static void ValidateLookup(
+        FormFieldDefinition field,
+        string path,
+        List<FormValidationError> errors)
+    {
+        if (field.Lookup is null)
+        {
+            errors.Add(Error($"{path}.lookup", "field.lookup_required", $"'{field.Label}' requires lookup configuration."));
+            return;
+        }
+
+        if (!string.Equals(field.Lookup.SourceType, "form_records", StringComparison.Ordinal))
+        {
+            errors.Add(Error($"{path}.lookup.sourceType", "field.lookup_source_type", $"'{field.Label}' lookup source is not supported."));
+        }
+
+        if (!Guid.TryParse(field.Lookup.SourceFormId, out _))
+        {
+            errors.Add(Error($"{path}.lookup.sourceFormId", "field.lookup_source_form_required", $"'{field.Label}' requires a source form."));
+        }
+
+        if (field.Lookup.LabelFieldIds is null || field.Lookup.LabelFieldIds.Count == 0 || field.Lookup.LabelFieldIds.Any(string.IsNullOrWhiteSpace))
+        {
+            errors.Add(Error($"{path}.lookup.labelFieldIds", "field.lookup_label_fields_required", $"'{field.Label}' requires at least one label field."));
+        }
+
+        if (field.Lookup.SearchFieldIds is null || field.Lookup.SearchFieldIds.Count == 0 || field.Lookup.SearchFieldIds.Any(string.IsNullOrWhiteSpace))
+        {
+            errors.Add(Error($"{path}.lookup.searchFieldIds", "field.lookup_search_fields_required", $"'{field.Label}' requires at least one search field."));
         }
     }
 
@@ -386,6 +428,13 @@ public static partial class FormSchemaValidator
                 if (!IsBooleanValue(value))
                 {
                     errors.Add(Error(path, "record.type", $"'{field.Label}' must be true or false."));
+                }
+
+                return;
+            case FormFieldTypes.RecordLookup:
+                if (!IsStringValue(value) || !Guid.TryParse(AsString(value), out _))
+                {
+                    errors.Add(Error(path, "record.lookup_type", $"'{field.Label}' must be a selected record id."));
                 }
 
                 return;

@@ -11,6 +11,7 @@ public static class FormFieldTypes
     public const string Select = "select";
     public const string Checkbox = "checkbox";
     public const string Radio = "radio";
+    public const string RecordLookup = "recordLookup";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -22,7 +23,8 @@ public static class FormFieldTypes
         Date,
         Select,
         Checkbox,
-        Radio
+        Radio,
+        RecordLookup
     };
 
     public static bool IsChoice(string type)
@@ -44,6 +46,12 @@ public sealed record FormFieldValidationDefinition(
     decimal? Max = null,
     string? Pattern = null);
 
+public sealed record FormFieldLookupDefinition(
+    string SourceType,
+    string SourceFormId,
+    IReadOnlyList<string> LabelFieldIds,
+    IReadOnlyList<string> SearchFieldIds);
+
 public sealed record FormFieldDefinition(
     string Id,
     string Type,
@@ -53,7 +61,8 @@ public sealed record FormFieldDefinition(
     string? HelpText = null,
     object? DefaultValue = null,
     IReadOnlyList<FormFieldOptionDefinition>? Options = null,
-    FormFieldValidationDefinition? Validation = null);
+    FormFieldValidationDefinition? Validation = null,
+    FormFieldLookupDefinition? Lookup = null);
 
 public sealed record ResponsiveSpanDefinition(
     int Mobile,

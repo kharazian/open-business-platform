@@ -1,0 +1,200 @@
+using System.Globalization;
+using System.Security.Claims;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using OpenBusinessPlatform.Api.Application.Common;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
+using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Identity;
+
+namespace OpenBusinessPlatform.Api.Modules.Records;
+
+public sealed class RecordLookupService
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly OpenBusinessPlatformDbContext dbContext;
+
+    public RecordLookupService(OpenBusinessPlatformDbContext dbContext)
+    {
+        this.dbContext = dbContext;
+    }
+
+    public async Task<PagedResultDto<RecordLookupOptionDto>> ListOptionsAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        string fieldId,
+        RecordLookupOptionsRequest request,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var search = Normalize(request.Search);
+
+        var parentForm = await dbContext.Forms
+            .AsNoTracking()
+            .Include(form => form.CurrentVersion)
+            .FirstOrDefaultAsync(form => form.Id == formId && !form.IsDeleted, cancellationToken);
+
+        if (parentForm?.CurrentVersion is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Form was not found.");
+        }
+
+        var parentSchema = DeserializeSchema(parentForm.CurrentVersion.SchemaJson);
+        if (parentSchema is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Form schema is invalid.");
+        }
+
+        var fieldAccess = await permissionService.GetFieldAccessAsync(principal, formId, cancellationToken);
+        if (fieldAccess.HiddenFieldIds.Contains(fieldId))
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Lookup field was not found.");
+        }
+
+        var lookupField = parentSchema.Fields.FirstOrDefault(field =>
+            string.Equals(field.Id, fieldId, StringComparison.Ordinal)
+            && string.Equals(field.Type, FormFieldTypes.RecordLookup, StringComparison.Ordinal));
+
+        if (lookupField?.Lookup is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Lookup field was not found.");
+        }
+
+        if (!Guid.TryParse(lookupField.Lookup.SourceFormId, out var sourceFormId))
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Lookup source form is invalid.");
+        }
+
+        if (!await permissionService.CanAccessFormAsync(principal, sourceFormId, PlatformPermissions.Form.View, cancellationToken))
+        {
+            throw new RecordQueryException(StatusCodes.Status403Forbidden, "Lookup source access was denied.");
+        }
+
+        var sourceFormExists = await dbContext.Forms
+            .AsNoTracking()
+            .AnyAsync(form => form.Id == sourceFormId && !form.IsDeleted, cancellationToken);
+
+        if (!sourceFormExists)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Lookup source form was not found.");
+        }
+
+        var sourceFieldAccess = await permissionService.GetFieldAccessAsync(principal, sourceFormId, cancellationToken);
+        var visibleLabelFieldIds = lookupField.Lookup.LabelFieldIds
+            .Where(fieldId => !sourceFieldAccess.HiddenFieldIds.Contains(fieldId))
+            .ToArray();
+        var visibleSearchFieldIds = lookupField.Lookup.SearchFieldIds
+            .Where(fieldId => !sourceFieldAccess.HiddenFieldIds.Contains(fieldId))
+            .ToArray();
+
+        var query = await permissionService.ApplyRecordAccessAsync(
+            principal,
+            dbContext.Records.AsNoTracking().Where(record => record.FormId == sourceFormId && !record.IsDeleted),
+            sourceFormId,
+            PlatformPermissions.Form.View,
+            cancellationToken);
+
+        var records = await query
+            .OrderByDescending(record => record.CreatedAt)
+            .ThenByDescending(record => record.Id)
+            .ToArrayAsync(cancellationToken);
+
+        var candidates = records
+            .Select(record => new
+            {
+                Record = record,
+                Values = DeserializeValues(record.ValuesJson)
+            })
+            .Where(item => search is null || MatchesLookupSearch(item.Values, visibleSearchFieldIds, search))
+            .ToArray();
+
+        var items = candidates
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(item => new RecordLookupOptionDto(
+                item.Record.Id,
+                ComposeLookupLabel(item.Values, visibleLabelFieldIds),
+                ComposeLookupDescription(item.Values, visibleSearchFieldIds, visibleLabelFieldIds)))
+            .ToArray();
+
+        return new PagedResultDto<RecordLookupOptionDto>(candidates.LongLength, items);
+    }
+
+    public static string ComposeLookupLabel(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyCollection<string> labelFieldIds)
+    {
+        var parts = labelFieldIds
+            .Select(fieldId => values.TryGetValue(fieldId, out var value) ? ToDisplayString(value) : null)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .ToArray();
+
+        return parts.Length == 0 ? "(Untitled record)" : string.Join(" - ", parts);
+    }
+
+    public static bool MatchesLookupSearch(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyCollection<string> searchFieldIds,
+        string search)
+    {
+        var normalizedSearch = Normalize(search);
+        if (normalizedSearch is null)
+        {
+            return true;
+        }
+
+        return searchFieldIds.Any(fieldId =>
+            values.TryGetValue(fieldId, out var value)
+            && ToDisplayString(value)?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private static string? ComposeLookupDescription(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyCollection<string> searchFieldIds,
+        IReadOnlyCollection<string> labelFieldIds)
+    {
+        var labelIds = labelFieldIds.ToHashSet(StringComparer.Ordinal);
+        var parts = searchFieldIds
+            .Where(fieldId => !labelIds.Contains(fieldId))
+            .Select(fieldId => values.TryGetValue(fieldId, out var value) ? ToDisplayString(value) : null)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .ToArray();
+
+        return parts.Length == 0 ? null : string.Join(" - ", parts);
+    }
+
+    private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)
+    {
+        return schemaJson?.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions);
+    }
+
+    private static IReadOnlyDictionary<string, object?> DeserializeValues(JsonDocument valuesJson)
+    {
+        return JsonSerializer.Deserialize<Dictionary<string, object?>>(valuesJson.RootElement.GetRawText(), JsonOptions)
+            ?? new Dictionary<string, object?>();
+    }
+
+    private static string? ToDisplayString(object? value)
+    {
+        return value switch
+        {
+            null => null,
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => null,
+            JsonElement element => element.ToString(),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static string? Normalize(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+}

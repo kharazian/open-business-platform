@@ -6,6 +6,7 @@ import {
   createEmptyFormBuilderSchema,
   createFormBuilderDraftStorageKey,
   deleteFieldFromSchema,
+  fieldTypeDescriptions,
   fieldTypeLabels,
   getFieldLayoutWidth,
   layoutWidthOptions,
@@ -115,6 +116,31 @@ test("form builder helpers manage field lifecycle, layout widths, and local draf
 
   storage.setItem(createFormBuilderDraftStorageKey("form-broken"), "{not json");
   assert.deepEqual(loadFormBuilderDraft("form-broken", storage), createEmptyFormBuilderSchema());
+});
+
+test("form builder exposes record lookup field metadata", () => {
+  assert.equal(fieldTypeLabels.recordLookup, "Record lookup");
+  assert.equal(fieldTypeDescriptions.recordLookup, "Search and select a record from another form");
+
+  const result = addFieldToSchema(createEmptyFormBuilderSchema(), "recordLookup");
+
+  assert.equal(result.field.type, "recordLookup");
+  assert.equal(result.field.label, "Record lookup");
+  assert.deepEqual(result.field.lookup, {
+    sourceType: "form_records",
+    sourceFormId: "",
+    labelFieldIds: [],
+    searchFieldIds: []
+  });
+});
+
+test("form builder exposes record lookup settings", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("RecordLookupSettings"), true);
+  assert.equal(source.includes("Source form"), true);
+  assert.equal(source.includes("Label field ids"), true);
+  assert.equal(source.includes("Search field ids"), true);
 });
 
 test("form builder preview layout uses the full viewport", () => {

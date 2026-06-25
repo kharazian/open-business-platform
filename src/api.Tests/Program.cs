@@ -2505,6 +2505,102 @@ AssertEqual("Jane Cooper", submitRecordRequest.Values["employee_name"], "Submit 
 AssertTrue(FormSchemaValidator.ValidateRecordValues(publishableSchema, submitRecordRequest.Values).Valid, "Publishable form schemas should validate submitted values.");
 AssertFalse(FormSchemaValidator.ValidateRecordValues(publishableSchema, new Dictionary<string, object?>()).Valid, "Required published fields should be enforced for record submission.");
 
+var lookupSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition(
+            "customer",
+            FormFieldTypes.RecordLookup,
+            "Customer",
+            Required: true,
+            Lookup: new FormFieldLookupDefinition(
+                "form_records",
+                "11111111-1111-1111-1111-111111111111",
+                new[] { "customer_name" },
+                new[] { "customer_name", "customer_code" }))
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            null,
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition(
+                    "section_1",
+                    null,
+                    null,
+                    new[]
+                    {
+                        new FormLayoutRowDefinition(
+                            "row_1",
+                            new[]
+                            {
+                                new FormLayoutColumnDefinition(
+                                    "col_1",
+                                    new ResponsiveSpanDefinition(12, 12, 12),
+                                    new[] { "customer" })
+                            })
+                    })
+            })
+    }));
+AssertTrue(FormSchemaValidator.ValidateSchema(lookupSchema).Valid, "Record lookup schemas should validate with lookup configuration.");
+AssertTrue(
+    FormSchemaValidator.ValidateRecordValues(
+        lookupSchema,
+        new Dictionary<string, object?> { ["customer"] = "22222222-2222-2222-2222-222222222222" }).Valid,
+    "Record lookup values should accept selected record id strings.");
+AssertTrue(
+    FormSchemaValidator.ValidateRecordValues(lookupSchema, new Dictionary<string, object?> { ["customer"] = 123 })
+        .Errors
+        .Any(error => error.Code == "record.lookup_type"),
+    "Record lookup values should reject non-string values.");
+var incompleteLookupDraftSchema = lookupSchema with
+{
+    Fields = new[]
+    {
+        new FormFieldDefinition(
+            "customer",
+            FormFieldTypes.RecordLookup,
+            "Customer",
+            Lookup: new FormFieldLookupDefinition("form_records", string.Empty, Array.Empty<string>(), Array.Empty<string>()))
+    }
+};
+AssertTrue(FormSchemaValidator.ValidateDraftSchema(incompleteLookupDraftSchema).Valid, "Incomplete lookup fields should still save in draft form.");
+AssertFalse(FormSchemaValidator.ValidateSchema(incompleteLookupDraftSchema).Valid, "Incomplete lookup fields should not publish.");
+var lookupOption = new RecordLookupOptionDto(
+    Guid.Parse("22222222-2222-2222-2222-222222222222"),
+    "Acme Corp",
+    "ACME-001");
+AssertEqual("Acme Corp", lookupOption.Label, "Lookup option should expose display label.");
+AssertEqual("ACME-001", lookupOption.Description, "Lookup option should expose optional description.");
+AssertEqual(
+    "Acme Corp - ACME-001",
+    RecordLookupService.ComposeLookupLabel(
+        new Dictionary<string, object?>
+        {
+            ["customer_name"] = "Acme Corp",
+            ["customer_code"] = "ACME-001"
+        },
+        new[] { "customer_name", "customer_code" }),
+    "Lookup labels should join configured visible label fields.");
+AssertTrue(
+    RecordLookupService.MatchesLookupSearch(
+        new Dictionary<string, object?> { ["customer_name"] = "Acme Corp" },
+        new[] { "customer_name" },
+        "acme"),
+    "Lookup search should match configured visible search fields.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
+        .Contains("/api/forms/{formId:guid}/fields/{fieldId}/lookup-options", StringComparison.Ordinal),
+    "Records endpoints should expose a lookup options route.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
+        .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
+    "Record lookup service should be registered for endpoint injection.");
+
 var recordDto = new FormRecordDto(
     Guid.Parse("55555555-5555-5555-5555-555555555555"),
     sampleDepartmentId,

@@ -9,6 +9,36 @@ public static class RecordsEndpoints
     {
         var group = endpoints.MapGroup("/api/forms/{formId:guid}/records").WithTags("Records").RequireAuthorization();
 
+        endpoints.MapGet("/api/forms/{formId:guid}/fields/{fieldId}/lookup-options", async (
+            Guid formId,
+            string fieldId,
+            int? page,
+            int? pageSize,
+            string? search,
+            RecordLookupService recordLookup,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var options = await recordLookup.ListOptionsAsync(
+                    httpContext.User,
+                    formId,
+                    fieldId,
+                    new RecordLookupOptionsRequest(page ?? 1, pageSize ?? 25, search),
+                    permissionService,
+                    cancellationToken);
+
+                return Results.Ok(options);
+            });
+        }).WithTags("Records").RequireAuthorization();
+
         group.MapGet("", async (
             Guid formId,
             int? page,

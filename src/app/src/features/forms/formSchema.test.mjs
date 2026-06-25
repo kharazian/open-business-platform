@@ -120,3 +120,60 @@ test("form schema and record validation catches invalid definitions and values",
   assert.equal(invalidRecord.errors.some((error) => error.code === "record.type"), true);
   assert.equal(invalidRecord.errors.some((error) => error.code === "record.field_unknown"), true);
 });
+
+test("form schema supports record lookup fields with lookup config", () => {
+  const lookupSchema = {
+    schemaVersion: 1,
+    fields: [
+      {
+        id: "customer",
+        type: "recordLookup",
+        label: "Customer",
+        required: true,
+        lookup: {
+          sourceType: "form_records",
+          sourceFormId: "11111111-1111-1111-1111-111111111111",
+          labelFieldIds: ["customer_name"],
+          searchFieldIds: ["customer_name", "customer_code"]
+        }
+      }
+    ],
+    layout: {
+      pages: [
+        {
+          id: "page_1",
+          sections: [
+            {
+              id: "section_1",
+              rows: [
+                {
+                  id: "row_1",
+                  columns: [
+                    {
+                      id: "col_1",
+                      span: { mobile: 12, tablet: 12, desktop: 12 },
+                      fields: ["customer"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+
+  assert.deepEqual(validateFormSchema(lookupSchema), { valid: true, errors: [] });
+  assert.deepEqual(validateRecordValues(lookupSchema, {
+    customer: "22222222-2222-2222-2222-222222222222"
+  }), { valid: true, errors: [] });
+  assert.equal(validateRecordValues(lookupSchema, { customer: 123 }).errors.some((error) => error.code === "record.lookup_type"), true);
+  assert.equal(
+    validateFormSchema({
+      ...lookupSchema,
+      fields: [{ id: "customer", type: "recordLookup", label: "Customer" }]
+    }).errors.some((error) => error.code === "field.lookup_required"),
+    true
+  );
+});

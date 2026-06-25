@@ -20,7 +20,8 @@ export const fieldTypeLabels: Record<FormFieldType, string> = {
   date: "Date",
   select: "Select",
   checkbox: "Checkbox",
-  radio: "Radio"
+  radio: "Radio",
+  recordLookup: "Record lookup"
 };
 
 export const fieldTypeDescriptions: Record<FormFieldType, string> = {
@@ -32,7 +33,8 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   date: "Calendar date",
   select: "Dropdown choice",
   checkbox: "True or false checkbox",
-  radio: "Single visible choice"
+  radio: "Single visible choice",
+  recordLookup: "Search and select a record from another form"
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
@@ -182,6 +184,15 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
 
   if (isChoiceFieldType(type)) {
     field.options = createDefaultOptions(field.id);
+  }
+
+  if (type === "recordLookup") {
+    field.lookup = {
+      sourceType: "form_records",
+      sourceFormId: "",
+      labelFieldIds: [],
+      searchFieldIds: []
+    };
   }
 
   return field;
