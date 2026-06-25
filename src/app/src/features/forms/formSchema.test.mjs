@@ -198,3 +198,89 @@ test("form schema supports record lookup fields with lookup config", () => {
     true
   );
 });
+
+test("form schema supports practical business field types", () => {
+  const schema = {
+    schemaVersion: 1,
+    fields: [
+      { id: "attachment", type: "fileUpload", label: "Attachment" },
+      { id: "budget", type: "currency", label: "Budget" },
+      { id: "completion", type: "percent", label: "Completion" },
+      { id: "priority", type: "rating", label: "Priority" },
+      { id: "website", type: "url", label: "Website" },
+      { id: "start_time", type: "time", label: "Start time" },
+      { id: "starts_at", type: "datetime", label: "Starts at" },
+      { id: "owner", type: "userPicker", label: "Owner" },
+      { id: "department", type: "departmentPicker", label: "Department" }
+    ],
+    layout: {
+      pages: [
+        {
+          id: "page_1",
+          sections: [
+            {
+              id: "section_1",
+              rows: [
+                {
+                  id: "row_1",
+                  columns: [
+                    {
+                      id: "col_1",
+                      span: { mobile: 12, tablet: 12, desktop: 12 },
+                      fields: [
+                        "attachment",
+                        "budget",
+                        "completion",
+                        "priority",
+                        "website",
+                        "start_time",
+                        "starts_at",
+                        "owner",
+                        "department"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+
+  assert.deepEqual(validateFormSchema(schema), { valid: true, errors: [] });
+  assert.deepEqual(validateRecordValues(schema, {
+    attachment: "pending-upload.pdf",
+    budget: 1250.5,
+    completion: 87.25,
+    priority: 4,
+    website: "https://example.com/request",
+    start_time: "09:30",
+    starts_at: "2026-06-25T09:30",
+    owner: "11111111-1111-1111-1111-111111111111",
+    department: "22222222-2222-2222-2222-222222222222"
+  }), { valid: true, errors: [] });
+
+  const invalid = validateRecordValues(schema, {
+    attachment: 123,
+    budget: "1250",
+    completion: 125,
+    priority: 6,
+    website: "not-a-url",
+    start_time: "25:00",
+    starts_at: "2026-06-25",
+    owner: "not-a-user-id",
+    department: "not-a-department-id"
+  });
+
+  assert.equal(invalid.errors.some((error) => error.path === "values.attachment" && error.code === "record.type"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.budget" && error.code === "record.type"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.completion" && error.code === "record.percent"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.priority" && error.code === "record.rating"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.website" && error.code === "record.url"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.start_time" && error.code === "record.time"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.starts_at" && error.code === "record.datetime"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.owner" && error.code === "record.user_picker_type"), true);
+  assert.equal(invalid.errors.some((error) => error.path === "values.department" && error.code === "record.department_picker_type"), true);
+});

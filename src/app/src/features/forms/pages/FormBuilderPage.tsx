@@ -18,13 +18,18 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Building2,
+  CalendarClock,
   CalendarDays,
   CheckSquare,
   CircleDot,
+  Clock,
   Database,
+  DollarSign,
   Eye,
   Hash,
   LayoutPanelLeft,
+  LinkIcon,
   List,
   Mail,
   Minus,
@@ -32,15 +37,19 @@ import {
   MoreVertical,
   Phone,
   Plus,
+  Percent,
   Rocket,
   Rows3,
   Save,
   Settings2,
   Smartphone,
+  Star,
   SquareSplitHorizontal,
   SquareStack,
   Tablet,
   Type,
+  Upload,
+  UserRound,
   type LucideIcon,
   Trash2
 } from "lucide-react";
@@ -135,7 +144,16 @@ const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
   select: List,
   checkbox: CheckSquare,
   radio: CircleDot,
-  recordLookup: Database
+  recordLookup: Database,
+  fileUpload: Upload,
+  currency: DollarSign,
+  percent: Percent,
+  rating: Star,
+  url: LinkIcon,
+  time: Clock,
+  datetime: CalendarClock,
+  userPicker: UserRound,
+  departmentPicker: Building2
 };
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
@@ -2250,7 +2268,7 @@ function DefaultValueSetting({
     <Input
       label="Default value"
       onChange={(event) => onChange(event.target.value)}
-      type={field.type === "number" ? "number" : getInputType(field.type)}
+      type={["number", "currency", "percent", "rating"].includes(field.type) ? "number" : getInputType(field.type)}
       value={field.defaultValue === undefined || typeof field.defaultValue === "boolean" ? "" : String(field.defaultValue)}
     />
   );
@@ -2339,9 +2357,12 @@ function findColumnContext(schema: FormSchema, columnId: string): ColumnContext 
 
 function getInputType(type: FormFieldType): string {
   if (type === "email") return "email";
-  if (type === "number") return "number";
+  if (["number", "currency", "percent", "rating"].includes(type)) return "number";
   if (type === "date") return "date";
+  if (type === "datetime") return "datetime-local";
   if (type === "phone") return "tel";
+  if (type === "time") return "time";
+  if (type === "url") return "url";
   return "text";
 }
 

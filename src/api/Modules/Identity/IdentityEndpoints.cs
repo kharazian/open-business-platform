@@ -43,6 +43,20 @@ public static class IdentityEndpoints
         group.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
         group.MapPost("/logout", async (HttpContext httpContext) => await SignOutAsync(httpContext)).RequireAuthorization();
 
+        var directory = endpoints.MapGroup("/api/directory").WithTags("Directory").RequireAuthorization();
+        directory.MapGet("/users", async (
+            IdentityManagementService identityManagement,
+            CancellationToken cancellationToken) =>
+        {
+            return Results.Ok(new { items = await identityManagement.ListDirectoryUsersAsync(cancellationToken) });
+        });
+        directory.MapGet("/departments", async (
+            IdentityManagementService identityManagement,
+            CancellationToken cancellationToken) =>
+        {
+            return Results.Ok(new { items = await identityManagement.ListDirectoryDepartmentsAsync(cancellationToken) });
+        });
+
         var users = endpoints.MapGroup("/api/users").WithTags("Users").RequireAuthorization();
         users.MapGet("/", async (
             IdentityManagementService identityManagement,

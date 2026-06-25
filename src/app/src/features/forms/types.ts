@@ -8,7 +8,16 @@ export const formFieldTypes = [
   "select",
   "checkbox",
   "radio",
-  "recordLookup"
+  "recordLookup",
+  "fileUpload",
+  "currency",
+  "percent",
+  "rating",
+  "url",
+  "time",
+  "datetime",
+  "userPicker",
+  "departmentPicker"
 ] as const;
 
 export type FormFieldType = (typeof formFieldTypes)[number];

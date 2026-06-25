@@ -47,6 +47,8 @@ export function getReportableFields(schema: FormSchema | null | undefined): Repo
 
 function toReportableField(field: FormField): ReportableField {
   const isChoice = field.type === "select" || field.type === "radio";
+  const isNumeric = ["number", "currency", "percent", "rating"].includes(field.type);
+  const isGroupable = isChoice || ["rating", "userPicker", "departmentPicker"].includes(field.type);
 
   return {
     id: field.id,
@@ -60,9 +62,9 @@ function toReportableField(field: FormField): ReportableField {
     })),
     filterable: true,
     sortable: true,
-    searchable: ["text", "textarea", "email", "phone", "select", "radio"].includes(field.type),
-    supportsAggregation: field.type === "number",
-    supportsChoiceGrouping: isChoice
+    searchable: ["text", "textarea", "email", "phone", "select", "radio", "url", "fileUpload", "userPicker", "departmentPicker"].includes(field.type),
+    supportsAggregation: isNumeric,
+    supportsChoiceGrouping: isGroupable
   };
 }
 

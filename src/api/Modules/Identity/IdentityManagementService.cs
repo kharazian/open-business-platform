@@ -50,6 +50,16 @@ public sealed class IdentityManagementService
         return users.Select(ToUserDto).ToArray();
     }
 
+    public async Task<IReadOnlyCollection<DirectoryOptionDto>> ListDirectoryUsersAsync(CancellationToken cancellationToken)
+    {
+        return await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive)
+            .OrderBy(user => user.Name)
+            .Select(user => new DirectoryOptionDto(user.Id, user.Name, user.Email))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public async Task<UserDto?> GetUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await UserQuery().SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
@@ -237,6 +247,16 @@ public sealed class IdentityManagementService
             .ToArrayAsync(cancellationToken);
 
         return departments.Select(ToDepartmentDto).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<DirectoryOptionDto>> ListDirectoryDepartmentsAsync(CancellationToken cancellationToken)
+    {
+        return await dbContext.Departments
+            .AsNoTracking()
+            .Where(department => department.IsActive)
+            .OrderBy(department => department.Name)
+            .Select(department => new DirectoryOptionDto(department.Id, department.Name))
+            .ToArrayAsync(cancellationToken);
     }
 
     public async Task<DepartmentDto?> GetDepartmentAsync(Guid departmentId, CancellationToken cancellationToken)

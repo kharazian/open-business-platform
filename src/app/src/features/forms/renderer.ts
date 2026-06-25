@@ -69,7 +69,7 @@ export function coerceFieldInputValue(field: FormField, value: FormRecordValue |
     return null;
   }
 
-  if (field.type === "number") {
+  if (["number", "currency", "percent", "rating"].includes(field.type)) {
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : null;
   }

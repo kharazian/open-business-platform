@@ -21,7 +21,16 @@ export const fieldTypeLabels: Record<FormFieldType, string> = {
   select: "Select",
   checkbox: "Checkbox",
   radio: "Radio",
-  recordLookup: "Record lookup"
+  recordLookup: "Record lookup",
+  fileUpload: "File upload",
+  currency: "Currency",
+  percent: "Percent",
+  rating: "Rating",
+  url: "URL",
+  time: "Time",
+  datetime: "Date and time",
+  userPicker: "User picker",
+  departmentPicker: "Department picker"
 };
 
 export const fieldTypeDescriptions: Record<FormFieldType, string> = {
@@ -34,7 +43,16 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   select: "Dropdown choice",
   checkbox: "True or false checkbox",
   radio: "Single visible choice",
-  recordLookup: "Search and select a record from another form"
+  recordLookup: "Search and select a record from another form",
+  fileUpload: "Placeholder for future file upload storage",
+  currency: "Money amount",
+  percent: "Percentage from 0 to 100",
+  rating: "Rating from 1 to 5",
+  url: "Website or link",
+  time: "Time of day",
+  datetime: "Date and time",
+  userPicker: "Select an active platform user",
+  departmentPicker: "Select an active department"
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
@@ -287,7 +305,7 @@ function normalizeDefaultValue(field: FormField): FormRecordValue | undefined {
     return Boolean(field.defaultValue);
   }
 
-  if (field.type === "number") {
+  if (["number", "currency", "percent", "rating"].includes(field.type)) {
     const numericValue = typeof field.defaultValue === "number" ? field.defaultValue : Number(field.defaultValue);
     return Number.isFinite(numericValue) ? numericValue : undefined;
   }

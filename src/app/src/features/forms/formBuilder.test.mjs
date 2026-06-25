@@ -135,6 +135,48 @@ test("form builder exposes record lookup field metadata", () => {
   });
 });
 
+test("form builder exposes additional business field metadata", () => {
+  assert.equal(fieldTypeLabels.fileUpload, "File upload");
+  assert.equal(fieldTypeLabels.currency, "Currency");
+  assert.equal(fieldTypeLabels.percent, "Percent");
+  assert.equal(fieldTypeLabels.rating, "Rating");
+  assert.equal(fieldTypeLabels.url, "URL");
+  assert.equal(fieldTypeLabels.time, "Time");
+  assert.equal(fieldTypeLabels.datetime, "Date and time");
+  assert.equal(fieldTypeLabels.userPicker, "User picker");
+  assert.equal(fieldTypeLabels.departmentPicker, "Department picker");
+  assert.equal(fieldTypeDescriptions.userPicker, "Select an active platform user");
+  assert.equal(fieldTypeDescriptions.departmentPicker, "Select an active department");
+
+  const schema = createEmptyFormBuilderSchema();
+  const currencyResult = addFieldToSchema(schema, "currency");
+  const userResult = addFieldToSchema(currencyResult.schema, "userPicker");
+
+  assert.equal(currencyResult.field.id, "currency");
+  assert.equal(currencyResult.field.label, "Currency");
+  assert.equal(userResult.field.id, "user_picker");
+  assert.equal(userResult.field.label, "User picker");
+  assert.equal(userResult.schema.fields.length, 2);
+  assert.equal(userResult.schema.layout.pages[0].sections[0].rows.length, 2);
+});
+
+test("form builder wires icons and preview input types for additional business fields", () => {
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("Upload"), true);
+  assert.equal(source.includes("DollarSign"), true);
+  assert.equal(source.includes("Percent"), true);
+  assert.equal(source.includes("Star"), true);
+  assert.equal(source.includes("LinkIcon"), true);
+  assert.equal(source.includes("Clock"), true);
+  assert.equal(source.includes("CalendarClock"), true);
+  assert.equal(source.includes("UserRound"), true);
+  assert.equal(source.includes("Building2"), true);
+  assert.equal(source.includes('if (type === "url") return "url";'), true);
+  assert.equal(source.includes('if (type === "time") return "time";'), true);
+  assert.equal(source.includes('if (type === "datetime") return "datetime-local";'), true);
+});
+
 test("form builder exposes guided record lookup settings", () => {
   const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
 

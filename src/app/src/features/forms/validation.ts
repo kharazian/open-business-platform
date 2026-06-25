@@ -11,9 +11,13 @@ import {
 } from "./types";
 
 const choiceFieldTypes = new Set(["select", "radio"]);
-const textFieldTypes = new Set(["text", "textarea", "phone"]);
+const textFieldTypes = new Set(["text", "textarea", "phone", "fileUpload"]);
+const numericFieldTypes = new Set(["number", "currency"]);
 const lookupFieldTypes = new Set(["recordLookup"]);
 const breakpoints = ["mobile", "tablet", "desktop"] as const;
+const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+const datetimePattern = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 export function validateFormSchema(schema: FormSchema): ValidationResult {
   const errors: ValidationError[] = [];
@@ -293,9 +297,35 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
     return;
   }
 
-  if (field.type === "number") {
+  if (numericFieldTypes.has(field.type)) {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       errors.push(error(path, "record.type", `'${field.label}' must be a finite number.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "percent") {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      errors.push(error(path, "record.type", `'${field.label}' must be a finite number.`));
+      return;
+    }
+
+    if (value < 0 || value > 100) {
+      errors.push(error(path, "record.percent", `'${field.label}' must be between 0 and 100.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "rating") {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      errors.push(error(path, "record.type", `'${field.label}' must be a whole number.`));
+      return;
+    }
+
+    if (value < 1 || value > 5) {
+      errors.push(error(path, "record.rating", `'${field.label}' must be a rating from 1 to 5.`));
     }
 
     return;
@@ -304,6 +334,30 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
   if (field.type === "date") {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       errors.push(error(path, "record.date", `'${field.label}' must use YYYY-MM-DD format.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "time") {
+    if (typeof value !== "string" || !timePattern.test(value)) {
+      errors.push(error(path, "record.time", `'${field.label}' must use HH:mm format.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "datetime") {
+    if (typeof value !== "string" || !datetimePattern.test(value)) {
+      errors.push(error(path, "record.datetime", `'${field.label}' must use date and time format.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "url") {
+    if (typeof value !== "string" || !isHttpUrl(value)) {
+      errors.push(error(path, "record.url", `'${field.label}' must be a valid URL.`));
     }
 
     return;
@@ -318,8 +372,24 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
   }
 
   if (field.type === "recordLookup") {
-    if (typeof value !== "string") {
+    if (typeof value !== "string" || !guidPattern.test(value)) {
       errors.push(error(path, "record.lookup_type", `'${field.label}' must be a selected record id.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "userPicker") {
+    if (typeof value !== "string" || !guidPattern.test(value)) {
+      errors.push(error(path, "record.user_picker_type", `'${field.label}' must be a selected user id.`));
+    }
+
+    return;
+  }
+
+  if (field.type === "departmentPicker") {
+    if (typeof value !== "string" || !guidPattern.test(value)) {
+      errors.push(error(path, "record.department_picker_type", `'${field.label}' must be a selected department id.`));
     }
 
     return;
@@ -345,6 +415,15 @@ function isEmptyValue(value: FormRecordValue | undefined): boolean {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function error(path: string, code: string, message: string): ValidationError {

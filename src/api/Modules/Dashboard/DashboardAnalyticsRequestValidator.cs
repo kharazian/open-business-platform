@@ -121,7 +121,7 @@ public static class DashboardAnalyticsRequestValidator
             return;
         }
 
-        if (!fieldsById.TryGetValue(normalized, out var field) || field.Type is not (FormFieldTypes.Date or "datetime"))
+        if (!fieldsById.TryGetValue(normalized, out var field) || field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime))
         {
             errors.Add(new DashboardAnalyticsValidationError("dateFieldId", "dashboard.analytics.date.field_invalid", "Trend field must be a date field."));
         }

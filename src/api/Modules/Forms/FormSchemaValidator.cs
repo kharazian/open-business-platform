@@ -7,6 +7,8 @@ public static partial class FormSchemaValidator
 {
     private static readonly Regex EmailPattern = CreateEmailPattern();
     private static readonly Regex DatePattern = CreateDatePattern();
+    private static readonly Regex TimePattern = CreateTimePattern();
+    private static readonly Regex DatetimePattern = CreateDatetimePattern();
 
     public static FormValidationResult ValidateSchema(FormSchemaDefinition? schema)
     {
@@ -401,6 +403,7 @@ public static partial class FormSchemaValidator
             case FormFieldTypes.Text:
             case FormFieldTypes.Textarea:
             case FormFieldTypes.Phone:
+            case FormFieldTypes.FileUpload:
                 if (!IsStringValue(value))
                 {
                     errors.Add(Error(path, "record.type", $"'{field.Label}' must be text."));
@@ -421,9 +424,42 @@ public static partial class FormSchemaValidator
 
                 return;
             case FormFieldTypes.Number:
+            case FormFieldTypes.Currency:
                 if (!IsNumberValue(value))
                 {
                     errors.Add(Error(path, "record.type", $"'{field.Label}' must be a finite number."));
+                }
+
+                return;
+            case FormFieldTypes.Percent:
+                if (!TryGetDecimal(value, out var percentValue))
+                {
+                    errors.Add(Error(path, "record.type", $"'{field.Label}' must be a finite number."));
+                    return;
+                }
+
+                if (percentValue < 0 || percentValue > 100)
+                {
+                    errors.Add(Error(path, "record.percent", $"'{field.Label}' must be between 0 and 100."));
+                }
+
+                return;
+            case FormFieldTypes.Rating:
+                if (!TryGetDecimal(value, out var ratingValue))
+                {
+                    errors.Add(Error(path, "record.type", $"'{field.Label}' must be a whole number."));
+                    return;
+                }
+
+                if (ratingValue != decimal.Truncate(ratingValue))
+                {
+                    errors.Add(Error(path, "record.type", $"'{field.Label}' must be a whole number."));
+                    return;
+                }
+
+                if (ratingValue < 1 || ratingValue > 5)
+                {
+                    errors.Add(Error(path, "record.rating", $"'{field.Label}' must be a rating from 1 to 5."));
                 }
 
                 return;
@@ -431,6 +467,27 @@ public static partial class FormSchemaValidator
                 if (!IsStringValue(value) || !DatePattern.IsMatch(AsString(value) ?? string.Empty))
                 {
                     errors.Add(Error(path, "record.date", $"'{field.Label}' must use YYYY-MM-DD format."));
+                }
+
+                return;
+            case FormFieldTypes.Time:
+                if (!IsStringValue(value) || !TimePattern.IsMatch(AsString(value) ?? string.Empty))
+                {
+                    errors.Add(Error(path, "record.time", $"'{field.Label}' must use HH:mm format."));
+                }
+
+                return;
+            case FormFieldTypes.Datetime:
+                if (!IsStringValue(value) || !DatetimePattern.IsMatch(AsString(value) ?? string.Empty))
+                {
+                    errors.Add(Error(path, "record.datetime", $"'{field.Label}' must use date and time format."));
+                }
+
+                return;
+            case FormFieldTypes.Url:
+                if (!IsStringValue(value) || !IsHttpUrl(AsString(value) ?? string.Empty))
+                {
+                    errors.Add(Error(path, "record.url", $"'{field.Label}' must be a valid URL."));
                 }
 
                 return;
@@ -445,6 +502,20 @@ public static partial class FormSchemaValidator
                 if (!IsStringValue(value) || !Guid.TryParse(AsString(value), out _))
                 {
                     errors.Add(Error(path, "record.lookup_type", $"'{field.Label}' must be a selected record id."));
+                }
+
+                return;
+            case FormFieldTypes.UserPicker:
+                if (!IsStringValue(value) || !Guid.TryParse(AsString(value), out _))
+                {
+                    errors.Add(Error(path, "record.user_picker_type", $"'{field.Label}' must be a selected user id."));
+                }
+
+                return;
+            case FormFieldTypes.DepartmentPicker:
+                if (!IsStringValue(value) || !Guid.TryParse(AsString(value), out _))
+                {
+                    errors.Add(Error(path, "record.department_picker_type", $"'{field.Label}' must be a selected department id."));
                 }
 
                 return;
@@ -491,8 +562,53 @@ public static partial class FormSchemaValidator
 
     private static bool IsNumberValue(object? value)
     {
-        return value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal
-            || value is JsonElement { ValueKind: JsonValueKind.Number };
+        return TryGetDecimal(value, out _);
+    }
+
+    private static bool TryGetDecimal(object? value, out decimal number)
+    {
+        switch (value)
+        {
+            case byte byteValue:
+                number = byteValue;
+                return true;
+            case sbyte signedByteValue:
+                number = signedByteValue;
+                return true;
+            case short shortValue:
+                number = shortValue;
+                return true;
+            case ushort unsignedShortValue:
+                number = unsignedShortValue;
+                return true;
+            case int intValue:
+                number = intValue;
+                return true;
+            case uint unsignedIntValue:
+                number = unsignedIntValue;
+                return true;
+            case long longValue:
+                number = longValue;
+                return true;
+            case ulong unsignedLongValue:
+                number = unsignedLongValue;
+                return true;
+            case float floatValue when !float.IsNaN(floatValue) && !float.IsInfinity(floatValue):
+                number = (decimal)floatValue;
+                return true;
+            case double doubleValue when !double.IsNaN(doubleValue) && !double.IsInfinity(doubleValue):
+                number = (decimal)doubleValue;
+                return true;
+            case decimal decimalValue:
+                number = decimalValue;
+                return true;
+            case JsonElement { ValueKind: JsonValueKind.Number } element when element.TryGetDecimal(out var decimalValue):
+                number = decimalValue;
+                return true;
+            default:
+                number = 0;
+                return false;
+        }
     }
 
     private static string? AsString(object? value)
@@ -510,9 +626,22 @@ public static partial class FormSchemaValidator
         return new FormValidationError(path, code, message);
     }
 
+    private static bool IsHttpUrl(string value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
+    }
+
     [GeneratedRegex(@"^[^\s@]+@[^\s@]+\.[^\s@]+$", RegexOptions.CultureInvariant)]
     private static partial Regex CreateEmailPattern();
 
     [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}$", RegexOptions.CultureInvariant)]
     private static partial Regex CreateDatePattern();
+
+    [GeneratedRegex(@"^([01]\d|2[0-3]):[0-5]\d$", RegexOptions.CultureInvariant)]
+    private static partial Regex CreateTimePattern();
+
+    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$", RegexOptions.CultureInvariant)]
+    private static partial Regex CreateDatetimePattern();
 }

@@ -972,10 +972,16 @@ public static class TriggerDefinitionValidator
     {
         return field.Type switch
         {
-            FormFieldTypes.Number => 1,
+            FormFieldTypes.Number or FormFieldTypes.Currency => 1,
+            FormFieldTypes.Percent => 50,
+            FormFieldTypes.Rating => 3,
             FormFieldTypes.Checkbox => true,
             FormFieldTypes.Email => "source@example.test",
             FormFieldTypes.Date => "2026-01-01",
+            FormFieldTypes.Time => "09:30",
+            FormFieldTypes.Datetime => "2026-01-01T09:30",
+            FormFieldTypes.Url => "https://example.test",
+            FormFieldTypes.UserPicker or FormFieldTypes.DepartmentPicker or FormFieldTypes.RecordLookup => "11111111-1111-1111-1111-111111111111",
             FormFieldTypes.Select or FormFieldTypes.Radio => field.Options?.FirstOrDefault()?.Value ?? string.Empty,
             _ => "source value"
         };

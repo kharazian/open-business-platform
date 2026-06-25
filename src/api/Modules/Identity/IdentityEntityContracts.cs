@@ -6,6 +6,8 @@ public sealed record UserDepartmentDto(Guid Id, string Name, bool IsPrimary);
 
 public sealed record UserGroupDto(Guid Id, string Name);
 
+public sealed record DirectoryOptionDto(Guid Id, string Label, string? Description = null);
+
 public sealed record UserDto(
     Guid Id,
     string Name,

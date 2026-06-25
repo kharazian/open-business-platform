@@ -59,6 +59,9 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
   assert.equal(coerceFieldInputValue(schema.fields[1], ""), null);
   assert.equal(coerceFieldInputValue(schema.fields[2], false), false);
   assert.equal(coerceFieldInputValue(schema.fields[0], "Grace"), "Grace");
+  assert.equal(coerceFieldInputValue({ id: "budget", type: "currency", label: "Budget" }, "42.75"), 42.75);
+  assert.equal(coerceFieldInputValue({ id: "completion", type: "percent", label: "Completion" }, "87.5"), 87.5);
+  assert.equal(coerceFieldInputValue({ id: "rating", type: "rating", label: "Rating" }, "4"), 4);
 
   assert.deepEqual(
     getFieldErrorsById([
@@ -121,4 +124,19 @@ test("form renderer wires record lookup fields to lookup options API", () => {
   assert.equal(submitPageSource.includes("formId={form.id}"), true);
   assert.equal(recordDetailSource.includes("formId={record.formId}"), true);
   assert.equal(recordDetailSource.includes("lookupDisplayValues={record.displayValues}"), true);
+});
+
+test("form renderer wires user and department pickers to directory options", () => {
+  const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+  const directoryApiSource = readFileSync(new URL("./directoryApi.ts", import.meta.url), "utf8");
+
+  assert.equal(rendererSource.includes("DirectoryPickerField"), true);
+  assert.equal(rendererSource.includes('field.type === "userPicker"'), true);
+  assert.equal(rendererSource.includes('field.type === "departmentPicker"'), true);
+  assert.equal(rendererSource.includes("listDirectoryUsers"), true);
+  assert.equal(rendererSource.includes("listDirectoryDepartments"), true);
+  assert.equal(rendererSource.includes('"Select a user"'), true);
+  assert.equal(rendererSource.includes('"Select a department"'), true);
+  assert.equal(directoryApiSource.includes('"/api/directory/users"'), true);
+  assert.equal(directoryApiSource.includes('"/api/directory/departments"'), true);
 });

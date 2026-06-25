@@ -1977,6 +1977,8 @@ AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagem
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListDepartmentsAsync)), "Identity management should list departments.");
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.CreateDepartmentAsync)), "Identity management should create departments.");
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.UpdateDepartmentAsync)), "Identity management should update departments.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListDirectoryUsersAsync)), "Identity management should expose active user directory options for form picker fields.");
+AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListDirectoryDepartmentsAsync)), "Identity management should expose active department directory options for form picker fields.");
 AssertNotNull(typeof(FormRecordDetailDto).GetProperty(nameof(FormRecordDetailDto.ReadOnlyFieldIds)), "Record detail should include read-only field IDs.");
 AssertNotNull(typeof(AssignRecordRequest), "Records should expose an assignment request contract.");
 AssertNotNull(typeof(ChangeRecordStatusRequest), "Records should expose a status change request contract.");
@@ -2563,6 +2565,95 @@ AssertTrue(
 AssertFalse(
     RecordLookupService.IsRecordLookupValue("not-a-record-id"),
     "Record lookup value helpers should reject non-GUID strings.");
+var businessFieldSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("attachment", FormFieldTypes.FileUpload, "Attachment"),
+        new FormFieldDefinition("budget", FormFieldTypes.Currency, "Budget"),
+        new FormFieldDefinition("completion", FormFieldTypes.Percent, "Completion"),
+        new FormFieldDefinition("priority", FormFieldTypes.Rating, "Priority"),
+        new FormFieldDefinition("website", FormFieldTypes.Url, "Website"),
+        new FormFieldDefinition("start_time", FormFieldTypes.Time, "Start time"),
+        new FormFieldDefinition("starts_at", FormFieldTypes.Datetime, "Starts at"),
+        new FormFieldDefinition("owner", FormFieldTypes.UserPicker, "Owner"),
+        new FormFieldDefinition("department", FormFieldTypes.DepartmentPicker, "Department")
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            null,
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition(
+                    "section_1",
+                    null,
+                    null,
+                    new[]
+                    {
+                        new FormLayoutRowDefinition(
+                            "row_1",
+                            new[]
+                            {
+                                new FormLayoutColumnDefinition(
+                                    "col_1",
+                                    new ResponsiveSpanDefinition(12, 12, 12),
+                                    new[]
+                                    {
+                                        "attachment",
+                                        "budget",
+                                        "completion",
+                                        "priority",
+                                        "website",
+                                        "start_time",
+                                        "starts_at",
+                                        "owner",
+                                        "department"
+                                    })
+                            })
+                    })
+            })
+    }));
+AssertTrue(FormSchemaValidator.ValidateSchema(businessFieldSchema).Valid, "Business form field types should validate in published schemas.");
+AssertTrue(
+    FormSchemaValidator.ValidateRecordValues(
+        businessFieldSchema,
+        new Dictionary<string, object?>
+        {
+            ["attachment"] = "pending-upload.pdf",
+            ["budget"] = 1250.5m,
+            ["completion"] = 87.25m,
+            ["priority"] = 4,
+            ["website"] = "https://example.com/request",
+            ["start_time"] = "09:30",
+            ["starts_at"] = "2026-06-25T09:30",
+            ["owner"] = "11111111-1111-1111-1111-111111111111",
+            ["department"] = "22222222-2222-2222-2222-222222222222"
+        }).Valid,
+    "Business form field values should validate with their expected storage shapes.");
+var invalidBusinessValues = FormSchemaValidator.ValidateRecordValues(
+    businessFieldSchema,
+    new Dictionary<string, object?>
+    {
+        ["attachment"] = 123,
+        ["budget"] = "1250",
+        ["completion"] = 125,
+        ["priority"] = 6,
+        ["website"] = "not-a-url",
+        ["start_time"] = "25:00",
+        ["starts_at"] = "2026-06-25",
+        ["owner"] = "not-a-user-id",
+        ["department"] = "not-a-department-id"
+    });
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.percent"), "Percent values should stay inside 0 to 100.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.rating"), "Rating values should stay inside the supported rating range.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.url"), "URL values should require an absolute HTTP or HTTPS URL.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.time"), "Time values should use HH:mm format.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.datetime"), "Date-time values should use datetime-local format.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.user_picker_type"), "User picker values should be selected user ids.");
+AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.department_picker_type"), "Department picker values should be selected department ids.");
 var dependentLookupSchema = lookupSchema with
 {
     Fields = new[]
@@ -2819,13 +2910,25 @@ var reportingSchema = publishableSchema with
             {
                 new FormFieldOptionDefinition("opt_hr", "Human Resources", "hr"),
                 new FormFieldOptionDefinition("opt_finance", "Finance", "finance")
-            })
+            }),
+        new("budget", FormFieldTypes.Currency, "Budget"),
+        new("completion", FormFieldTypes.Percent, "Completion"),
+        new("priority", FormFieldTypes.Rating, "Priority"),
+        new("website", FormFieldTypes.Url, "Website"),
+        new("owner", FormFieldTypes.UserPicker, "Owner"),
+        new("approving_department", FormFieldTypes.DepartmentPicker, "Approving department")
     }
 };
 var reportableFields = FormReportableFieldMetadata.GetReportableFields(reportingSchema);
 AssertTrue(reportableFields.Any(field => field.Id == "employee_name" && field.Label == "Employee name" && field.Source == ReportableFieldSources.Form), "Reportable metadata should include form text fields.");
 AssertTrue(reportableFields.Any(field => field.Id == "salary" && field.SupportsAggregation), "Reportable metadata should mark number fields as aggregatable.");
+AssertTrue(reportableFields.Any(field => field.Id == "budget" && field.SupportsAggregation), "Reportable metadata should mark currency fields as aggregatable.");
+AssertTrue(reportableFields.Any(field => field.Id == "completion" && field.SupportsAggregation), "Reportable metadata should mark percent fields as aggregatable.");
+AssertTrue(reportableFields.Any(field => field.Id == "priority" && field.SupportsAggregation && field.SupportsChoiceGrouping), "Reportable metadata should mark ratings as numeric and groupable.");
 AssertTrue(reportableFields.Any(field => field.Id == "department" && field.SupportsChoiceGrouping), "Reportable metadata should mark choice fields as groupable.");
+AssertTrue(reportableFields.Any(field => field.Id == "owner" && field.SupportsChoiceGrouping), "Reportable metadata should mark user pickers as groupable.");
+AssertTrue(reportableFields.Any(field => field.Id == "approving_department" && field.SupportsChoiceGrouping), "Reportable metadata should mark department pickers as groupable.");
+AssertTrue(reportableFields.Any(field => field.Id == "website" && field.Searchable), "Reportable metadata should mark URL fields as searchable.");
 AssertEqual("Human Resources", reportableFields.Single(field => field.Id == "department").Options.Single(option => option.Value == "hr").Label, "Reportable metadata should preserve option labels.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.UpdatedAt), "Reportable metadata should include updated date system field.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.OwnerId), "Reportable metadata should include owner system field.");

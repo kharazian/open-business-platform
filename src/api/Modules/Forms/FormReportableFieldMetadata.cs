@@ -57,6 +57,10 @@ public static class FormReportableFieldMetadata
     private static ReportableFieldMetadata ToReportableField(FormFieldDefinition field)
     {
         var isChoice = FormFieldTypes.IsChoice(field.Type);
+        var isGroupable = isChoice
+            || field.Type is FormFieldTypes.Rating
+                or FormFieldTypes.UserPicker
+                or FormFieldTypes.DepartmentPicker;
 
         return new ReportableFieldMetadata(
             field.Id,
@@ -69,8 +73,8 @@ public static class FormReportableFieldMetadata
             Filterable: true,
             Sortable: true,
             Searchable: IsSearchable(field.Type),
-            SupportsAggregation: field.Type == FormFieldTypes.Number,
-            SupportsChoiceGrouping: isChoice);
+            SupportsAggregation: FormFieldTypes.IsNumeric(field.Type),
+            SupportsChoiceGrouping: isGroupable);
     }
 
     private static bool IsSearchable(string type)
@@ -80,6 +84,10 @@ public static class FormReportableFieldMetadata
             or FormFieldTypes.Email
             or FormFieldTypes.Phone
             or FormFieldTypes.Select
-            or FormFieldTypes.Radio;
+            or FormFieldTypes.Radio
+            or FormFieldTypes.Url
+            or FormFieldTypes.FileUpload
+            or FormFieldTypes.UserPicker
+            or FormFieldTypes.DepartmentPicker;
     }
 }

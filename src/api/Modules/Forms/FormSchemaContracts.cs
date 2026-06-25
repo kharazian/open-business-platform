@@ -12,6 +12,15 @@ public static class FormFieldTypes
     public const string Checkbox = "checkbox";
     public const string Radio = "radio";
     public const string RecordLookup = "recordLookup";
+    public const string FileUpload = "fileUpload";
+    public const string Currency = "currency";
+    public const string Percent = "percent";
+    public const string Rating = "rating";
+    public const string Url = "url";
+    public const string Time = "time";
+    public const string Datetime = "datetime";
+    public const string UserPicker = "userPicker";
+    public const string DepartmentPicker = "departmentPicker";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -24,13 +33,30 @@ public static class FormFieldTypes
         Select,
         Checkbox,
         Radio,
-        RecordLookup
+        RecordLookup,
+        FileUpload,
+        Currency,
+        Percent,
+        Rating,
+        Url,
+        Time,
+        Datetime,
+        UserPicker,
+        DepartmentPicker
     };
 
     public static bool IsChoice(string type)
     {
         return string.Equals(type, Select, StringComparison.Ordinal)
             || string.Equals(type, Radio, StringComparison.Ordinal);
+    }
+
+    public static bool IsNumeric(string type)
+    {
+        return string.Equals(type, Number, StringComparison.Ordinal)
+            || string.Equals(type, Currency, StringComparison.Ordinal)
+            || string.Equals(type, Percent, StringComparison.Ordinal)
+            || string.Equals(type, Rating, StringComparison.Ordinal);
     }
 }
 

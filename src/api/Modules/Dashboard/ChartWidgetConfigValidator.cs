@@ -117,7 +117,7 @@ public static class ChartWidgetConfigValidator
             return;
         }
 
-        if (!fieldsById.TryGetValue(normalized, out var field) || field.Type is not (FormFieldTypes.Date or "datetime"))
+        if (!fieldsById.TryGetValue(normalized, out var field) || field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime))
         {
             errors.Add(new ChartValidationError("dateFieldId", "chart.date.field_invalid", "Date trend field must be a date field."));
         }

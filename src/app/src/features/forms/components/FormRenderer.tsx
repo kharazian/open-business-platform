@@ -8,6 +8,7 @@ import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { cn } from "../../../lib/cn";
+import { listDirectoryDepartments, listDirectoryUsers, type DirectoryOption } from "../directoryApi";
 import {
   coerceFieldInputValue,
   getColumnSpanClass,
@@ -259,6 +260,18 @@ function RenderedField({
     );
   }
 
+  if (field.type === "userPicker" || field.type === "departmentPicker") {
+    return (
+      <DirectoryPickerField
+        disabled={disabled}
+        error={error}
+        field={field}
+        onChange={onChange}
+        value={getStringValue(value)}
+      />
+    );
+  }
+
   return (
     <Input
       disabled={disabled}
@@ -271,6 +284,78 @@ function RenderedField({
       type={getInputType(field.type)}
       value={getStringValue(value)}
     />
+  );
+}
+
+function DirectoryPickerField({
+  disabled,
+  error,
+  field,
+  onChange,
+  value
+}: {
+  disabled: boolean;
+  error?: string;
+  field: FormField;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const [options, setOptions] = useState<DirectoryOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const isUserPicker = field.type === "userPicker";
+  const placeholder = isUserPicker ? "Select a user" : "Select a department";
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setDirectoryError(null);
+
+    const request = isUserPicker ? listDirectoryUsers() : listDirectoryDepartments();
+    request
+      .then((items) => {
+        if (!cancelled) {
+          setOptions(items);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setOptions([]);
+          setDirectoryError(caught instanceof Error ? caught.message : "Directory options could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isUserPicker]);
+
+  const selectedFallback = value && !options.some((option) => option.id === value)
+    ? [{ id: value, label: value, description: null }]
+    : [];
+
+  return (
+    <Select
+      disabled={disabled || loading}
+      error={error}
+      help={directoryError ?? (loading ? "Loading directory..." : field.helpText)}
+      label={getFieldLabel(field)}
+      onChange={(event) => onChange(event.target.value)}
+      required={field.required}
+      value={value}
+    >
+      <option value="">{placeholder}</option>
+      {[...selectedFallback, ...options].map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.description ? `${option.label} (${option.description})` : option.label}
+        </option>
+      ))}
+    </Select>
   );
 }
 
