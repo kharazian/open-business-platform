@@ -130,7 +130,9 @@ public sealed class IncomingWebhookExecutionService
         var record = await recordSubmission.SubmitRecordAsync(
             listener.TargetFormId,
             new SubmitRecordRequest(values),
+            principal,
             createdById,
+            permissionService,
             cancellationToken);
 
         return record.Id;

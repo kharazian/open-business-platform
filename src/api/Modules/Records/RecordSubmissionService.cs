@@ -1,8 +1,10 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
+using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Triggers;
 
 namespace OpenBusinessPlatform.Api.Modules.Records;
@@ -12,17 +14,24 @@ public sealed class RecordSubmissionService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly RecordLookupService recordLookup;
 
-    public RecordSubmissionService(OpenBusinessPlatformDbContext dbContext, TriggerEventDispatcher triggerDispatcher)
+    public RecordSubmissionService(
+        OpenBusinessPlatformDbContext dbContext,
+        TriggerEventDispatcher triggerDispatcher,
+        RecordLookupService recordLookup)
     {
         this.dbContext = dbContext;
         this.triggerDispatcher = triggerDispatcher;
+        this.recordLookup = recordLookup;
     }
 
     public async Task<FormRecordDto> SubmitRecordAsync(
         Guid formId,
         SubmitRecordRequest request,
+        ClaimsPrincipal principal,
         Guid? submittedById,
+        PermissionService permissionService,
         CancellationToken cancellationToken)
     {
         if (request.Values is null)
@@ -61,6 +70,17 @@ public sealed class RecordSubmissionService
         if (!validation.Valid)
         {
             throw new RecordSubmissionException(StatusCodes.Status400BadRequest, "Record values are invalid.", validation.Errors);
+        }
+
+        var lookupValidation = await recordLookup.ValidateLookupValuesAsync(
+            principal,
+            schema,
+            request.Values,
+            permissionService,
+            cancellationToken);
+        if (lookupValidation.Count > 0)
+        {
+            throw new RecordSubmissionException(StatusCodes.Status400BadRequest, "Record values are invalid.", lookupValidation);
         }
 
         var record = new FormRecord

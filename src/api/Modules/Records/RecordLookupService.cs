@@ -122,6 +122,65 @@ public sealed class RecordLookupService
         return new PagedResultDto<RecordLookupOptionDto>(candidates.LongLength, items);
     }
 
+    public async Task<IReadOnlyList<FormValidationError>> ValidateLookupValuesAsync(
+        ClaimsPrincipal principal,
+        FormSchemaDefinition schema,
+        IReadOnlyDictionary<string, object?> values,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var errors = new List<FormValidationError>();
+
+        foreach (var field in schema.Fields.Where(field => string.Equals(field.Type, FormFieldTypes.RecordLookup, StringComparison.Ordinal)))
+        {
+            if (!values.TryGetValue(field.Id, out var value) || IsEmptyLookupValue(value))
+            {
+                continue;
+            }
+
+            if (!TryGetLookupRecordId(value, out var selectedRecordId))
+            {
+                errors.Add(LookupValueError(field, "record.lookup_type", $"'{field.Label}' must be a selected record id."));
+                continue;
+            }
+
+            if (field.Lookup is null
+                || !string.Equals(field.Lookup.SourceType, "form_records", StringComparison.Ordinal)
+                || !Guid.TryParse(field.Lookup.SourceFormId, out var sourceFormId))
+            {
+                errors.Add(LookupValueError(field, "record.lookup_source_invalid", $"'{field.Label}' lookup source is invalid."));
+                continue;
+            }
+
+            if (!await permissionService.CanAccessFormAsync(principal, sourceFormId, PlatformPermissions.Form.View, cancellationToken))
+            {
+                errors.Add(LookupValueError(field, "record.lookup_record_unknown", $"'{field.Label}' selected record was not found or is not accessible."));
+                continue;
+            }
+
+            var selectedRecord = await dbContext.Records
+                .AsNoTracking()
+                .FirstOrDefaultAsync(record =>
+                    record.Id == selectedRecordId
+                    && record.FormId == sourceFormId
+                    && !record.IsDeleted,
+                    cancellationToken);
+
+            if (selectedRecord is null
+                || !await permissionService.CanAccessRecordAsync(principal, selectedRecord, PlatformPermissions.Form.View, cancellationToken))
+            {
+                errors.Add(LookupValueError(field, "record.lookup_record_unknown", $"'{field.Label}' selected record was not found or is not accessible."));
+            }
+        }
+
+        return errors;
+    }
+
+    public static bool IsRecordLookupValue(object? value)
+    {
+        return TryGetLookupRecordId(value, out _);
+    }
+
     public static string ComposeLookupLabel(
         IReadOnlyDictionary<string, object?> values,
         IReadOnlyCollection<string> labelFieldIds)
@@ -149,6 +208,44 @@ public sealed class RecordLookupService
         return searchFieldIds.Any(fieldId =>
             values.TryGetValue(fieldId, out var value)
             && ToDisplayString(value)?.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    private static FormValidationError LookupValueError(FormFieldDefinition field, string code, string message)
+    {
+        return new FormValidationError($"values.{field.Id}", code, message);
+    }
+
+    private static bool IsEmptyLookupValue(object? value)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        if (value is JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined })
+        {
+            return true;
+        }
+
+        var text = AsLookupString(value);
+        return text is not null && string.IsNullOrWhiteSpace(text);
+    }
+
+    private static bool TryGetLookupRecordId(object? value, out Guid recordId)
+    {
+        recordId = Guid.Empty;
+        var text = AsLookupString(value);
+        return !string.IsNullOrWhiteSpace(text) && Guid.TryParse(text, out recordId);
+    }
+
+    private static string? AsLookupString(object? value)
+    {
+        return value switch
+        {
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            _ => null
+        };
     }
 
     private static string? ComposeLookupDescription(

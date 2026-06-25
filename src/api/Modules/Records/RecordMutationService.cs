@@ -14,11 +14,16 @@ public sealed class RecordMutationService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly RecordLookupService recordLookup;
 
-    public RecordMutationService(OpenBusinessPlatformDbContext dbContext, TriggerEventDispatcher triggerDispatcher)
+    public RecordMutationService(
+        OpenBusinessPlatformDbContext dbContext,
+        TriggerEventDispatcher triggerDispatcher,
+        RecordLookupService recordLookup)
     {
         this.dbContext = dbContext;
         this.triggerDispatcher = triggerDispatcher;
+        this.recordLookup = recordLookup;
     }
 
     public async Task<FormRecordDetailDto> UpdateRecordAsync(
@@ -81,6 +86,17 @@ public sealed class RecordMutationService
         if (!validation.Valid)
         {
             throw new RecordMutationException(StatusCodes.Status400BadRequest, "Record values are invalid.", validation.Errors);
+        }
+
+        var lookupValidation = await recordLookup.ValidateLookupValuesAsync(
+            principal,
+            schema,
+            effectiveValues,
+            permissionService,
+            cancellationToken);
+        if (lookupValidation.Count > 0)
+        {
+            throw new RecordMutationException(StatusCodes.Status400BadRequest, "Record values are invalid.", lookupValidation);
         }
 
         record.ValuesJson = JsonSerializer.SerializeToDocument(effectiveValues, JsonOptions);

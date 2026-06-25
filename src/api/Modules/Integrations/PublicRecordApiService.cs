@@ -75,7 +75,9 @@ public sealed class PublicRecordApiService
         var record = await recordSubmission.SubmitRecordAsync(
             formId,
             new SubmitRecordRequest(request.Values),
+            effectivePrincipal,
             userId,
+            permissionService,
             cancellationToken);
         var fieldAccess = await permissionService.GetFieldAccessAsync(effectivePrincipal, formId, cancellationToken);
         var response = ToPublicResponse(record, fieldAccess.HiddenFieldIds);

@@ -2557,6 +2557,12 @@ AssertTrue(
         .Errors
         .Any(error => error.Code == "record.lookup_type"),
     "Record lookup values should reject non-string values.");
+AssertTrue(
+    RecordLookupService.IsRecordLookupValue("22222222-2222-2222-2222-222222222222"),
+    "Record lookup value helpers should accept selected record id strings.");
+AssertFalse(
+    RecordLookupService.IsRecordLookupValue("not-a-record-id"),
+    "Record lookup value helpers should reject non-GUID strings.");
 var incompleteLookupDraftSchema = lookupSchema with
 {
     Fields = new[]
@@ -2600,6 +2606,14 @@ AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
     "Record lookup service should be registered for endpoint injection.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordSubmissionService.cs"))
+        .Contains("ValidateLookupValuesAsync", StringComparison.Ordinal),
+    "Record submission should validate selected lookup records before saving.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordMutationService.cs"))
+        .Contains("ValidateLookupValuesAsync", StringComparison.Ordinal),
+    "Record edits should validate selected lookup records before saving.");
 
 var recordDto = new FormRecordDto(
     Guid.Parse("55555555-5555-5555-5555-555555555555"),

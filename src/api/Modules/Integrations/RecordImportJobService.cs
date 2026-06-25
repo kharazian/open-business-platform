@@ -126,7 +126,7 @@ public sealed class RecordImportJobService
 
         foreach (var row in csv.Rows)
         {
-            await ProcessRowAsync(job, normalized.Mapping, row, createdById, cancellationToken);
+            await ProcessRowAsync(job, normalized.Mapping, row, principal, createdById, cancellationToken);
         }
 
         job.SucceededRows = await dbContext.RecordImportJobRows.CountAsync(
@@ -153,6 +153,7 @@ public sealed class RecordImportJobService
         RecordImportJob job,
         RecordImportMappingDefinition mapping,
         RecordImportCsvRow row,
+        ClaimsPrincipal principal,
         Guid? createdById,
         CancellationToken cancellationToken)
     {
@@ -162,7 +163,9 @@ public sealed class RecordImportJobService
             var record = await recordSubmission.SubmitRecordAsync(
                 job.FormId,
                 new SubmitRecordRequest(values),
+                principal,
                 createdById,
+                permissionService,
                 cancellationToken);
 
             dbContext.RecordImportJobRows.Add(new RecordImportJobRow

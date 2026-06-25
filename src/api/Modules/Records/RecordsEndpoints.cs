@@ -82,7 +82,13 @@ public static class RecordsEndpoints
 
             return await HandleRecordRequestAsync(async () =>
             {
-                var record = await recordSubmission.SubmitRecordAsync(formId, request, GetCurrentUserId(httpContext), cancellationToken);
+                var record = await recordSubmission.SubmitRecordAsync(
+                    formId,
+                    request,
+                    httpContext.User,
+                    GetCurrentUserId(httpContext),
+                    permissionService,
+                    cancellationToken);
                 return Results.Created($"/api/records/{record.Id}", record);
             });
         });
