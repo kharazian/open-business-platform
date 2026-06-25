@@ -146,6 +146,7 @@ export function SubmitFormPage() {
             <div className={validationErrors.length > 0 ? "mt-4" : undefined}>
               <FormRenderer
                 errors={validationErrors}
+                formId={form.id}
                 onChange={handleValueChange}
                 onSubmit={() => void handleSubmit()}
                 schema={form.schema}

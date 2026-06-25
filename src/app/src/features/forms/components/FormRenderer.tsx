@@ -1,4 +1,5 @@
-import type { FormEvent, ReactNode } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -15,11 +16,13 @@ import {
   getRenderableRows,
   type FormPreviewSize
 } from "../renderer";
+import { listLookupOptions, type RecordLookupOption } from "../api";
 import type { FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
 
 type FormRendererMode = "entry" | "readonly";
 
 export type FormRendererProps = {
+  formId?: string;
   schema: FormSchema;
   values: FormRecordValues;
   errors?: ValidationError[];
@@ -31,6 +34,7 @@ export type FormRendererProps = {
 };
 
 export function FormRenderer({
+  formId,
   schema,
   values,
   errors = [],
@@ -98,6 +102,7 @@ export function FormRenderer({
                               disabled={readonly}
                               errors={errorsById[field.id] ?? []}
                               field={field}
+                              formId={formId}
                               key={field.id}
                               onChange={(value) => handleFieldChange(field, value)}
                               value={values[field.id]}
@@ -127,12 +132,14 @@ function RenderedField({
   disabled,
   errors,
   field,
+  formId,
   onChange,
   value
 }: {
   disabled: boolean;
   errors: string[];
   field: FormField;
+  formId?: string;
   onChange: (value: FormRecordValue | string | boolean) => void;
   value: FormRecordValue | undefined;
 }) {
@@ -229,6 +236,19 @@ function RenderedField({
     );
   }
 
+  if (field.type === "recordLookup") {
+    return (
+      <RecordLookupField
+        disabled={disabled}
+        error={error}
+        field={field}
+        formId={formId}
+        onChange={onChange}
+        value={getStringValue(value)}
+      />
+    );
+  }
+
   return (
     <Input
       disabled={disabled}
@@ -241,6 +261,190 @@ function RenderedField({
       type={getInputType(field.type)}
       value={getStringValue(value)}
     />
+  );
+}
+
+function RecordLookupField({
+  disabled,
+  error,
+  field,
+  formId,
+  onChange,
+  value
+}: {
+  disabled: boolean;
+  error?: string;
+  field: FormField;
+  formId?: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const [search, setSearch] = useState(value);
+  const [options, setOptions] = useState<RecordLookupOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const sourceFormId = field.lookup?.sourceFormId ?? "";
+  const lookupReady = Boolean(
+    formId &&
+      sourceFormId &&
+      field.lookup?.labelFieldIds.length &&
+      field.lookup?.searchFieldIds.length
+  );
+  const selectedOption = useMemo(
+    () => options.find((option) => option.recordId === value),
+    [options, value]
+  );
+
+  useEffect(() => {
+    if (selectedOption) {
+      setSelectedLabel(selectedOption.label);
+    }
+  }, [selectedOption]);
+
+  useEffect(() => {
+    if (!value) {
+      setSelectedLabel(null);
+      return;
+    }
+
+    if (!search && !selectedLabel) {
+      setSearch(value);
+    }
+  }, [search, selectedLabel, value]);
+
+  useEffect(() => {
+    if (disabled || !lookupReady || !formId) {
+      setOptions([]);
+      setLoading(false);
+      setLookupError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setLookupError(null);
+
+    listLookupOptions(formId, field.id, { search })
+      .then((result) => {
+        if (!cancelled) {
+          setOptions(result.items);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setOptions([]);
+          setLookupError(caught instanceof Error ? caught.message : "Lookup options could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [disabled, field.id, formId, lookupReady, search, sourceFormId]);
+
+  function handleSearchChange(nextSearch: string) {
+    setSearch(nextSearch);
+
+    if (value && nextSearch !== (selectedLabel ?? value)) {
+      onChange("");
+      setSelectedLabel(null);
+    }
+  }
+
+  function selectOption(option: RecordLookupOption) {
+    onChange(option.recordId);
+    setSearch(option.label);
+    setSelectedLabel(option.label);
+  }
+
+  function clearSelection() {
+    onChange("");
+    setSearch("");
+    setSelectedLabel(null);
+  }
+
+  return (
+    <div className="grid gap-2">
+      <label className="block">
+        <span className="mb-2 block text-sm font-bold text-foreground">{getFieldLabel(field)}</span>
+        <span className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            aria-label="Search lookup records"
+            className={cn(
+              "h-10 w-full rounded-xl border bg-card/90 px-3 pl-10 pr-11 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:ring-4 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60",
+              error ? "border-danger" : "border-border"
+            )}
+            disabled={disabled || !lookupReady}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+              }
+            }}
+            placeholder={field.placeholder ?? "Search records"}
+            required={field.required}
+            type="search"
+            value={search}
+          />
+          {value && !disabled ? (
+            <Button
+              aria-label={`Clear ${field.label}`}
+              className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
+              onClick={clearSelection}
+              size="icon"
+              variant="ghost"
+            >
+              <X className="size-4" />
+            </Button>
+          ) : null}
+        </span>
+      </label>
+      {error ? <p className="text-xs font-semibold text-danger">{error}</p> : null}
+      {!error && field.helpText ? <p className="text-xs text-muted-foreground">{field.helpText}</p> : null}
+      {!lookupReady ? (
+        <p className="text-xs font-semibold text-muted-foreground">Configure the lookup source before selecting records.</p>
+      ) : null}
+      {selectedLabel ? (
+        <p className="text-xs font-semibold text-muted-foreground">Selected: {selectedLabel}</p>
+      ) : value ? (
+        <p className="text-xs font-semibold text-muted-foreground">Selected record: {value}</p>
+      ) : null}
+      {lookupReady && !disabled ? (
+        <div className="grid gap-2 rounded-xl border border-border bg-card/70 p-2" role="listbox">
+          {loading ? <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">Loading records...</p> : null}
+          {lookupError ? <p className="px-2 py-1 text-xs font-semibold text-danger">{lookupError}</p> : null}
+          {!loading && !lookupError && options.length === 0 ? (
+            <p className="px-2 py-1 text-xs font-semibold text-muted-foreground">No matching records.</p>
+          ) : null}
+          {options.map((option) => (
+            <button
+              className={cn(
+                "rounded-lg border px-3 py-2 text-left transition hover:bg-muted/60",
+                option.recordId === value ? "border-primary bg-primary/10" : "border-border bg-background"
+              )}
+              key={option.recordId}
+              aria-selected={option.recordId === value}
+              onClick={() => selectOption(option)}
+              role="option"
+              type="button"
+            >
+              <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-foreground">
+                {option.label}
+                {option.recordId === value ? <Badge>Selected</Badge> : null}
+              </span>
+              {option.description ? <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

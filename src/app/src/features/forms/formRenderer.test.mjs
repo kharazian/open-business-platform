@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import {
   coerceFieldInputValue,
@@ -102,4 +103,18 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "tablet"), "col-span-6");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "desktop"), "col-span-4");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "responsive"), "col-span-12 md:col-span-6 xl:col-span-4");
+});
+
+test("form renderer wires record lookup fields to lookup options API", () => {
+  const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+  const submitPageSource = readFileSync(new URL("./pages/SubmitFormPage.tsx", import.meta.url), "utf8");
+  const recordDetailSource = readFileSync(new URL("../records/pages/RecordDetailPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(rendererSource.includes("listLookupOptions"), true);
+  assert.equal(rendererSource.includes("RecordLookupField"), true);
+  assert.equal(rendererSource.includes('field.type === "recordLookup"'), true);
+  assert.equal(rendererSource.includes("formId?: string"), true);
+  assert.equal(rendererSource.includes('aria-label="Search lookup records"'), true);
+  assert.equal(submitPageSource.includes("formId={form.id}"), true);
+  assert.equal(recordDetailSource.includes("formId={record.formId}"), true);
 });

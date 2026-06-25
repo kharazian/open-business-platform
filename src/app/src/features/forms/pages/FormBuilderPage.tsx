@@ -789,6 +789,7 @@ export function FormBuilderPage() {
           >
             <FormRenderer
               errors={previewErrors}
+              formId={resolvedFormId}
               onChange={handlePreviewValueChange}
               onSubmit={handleValidatePreview}
               previewSize={previewSize}

@@ -434,6 +434,7 @@ export function RecordDetailPage() {
               {editing ? (
                 <FormRenderer
                   errors={validationErrors}
+                  formId={record.formId}
                   onChange={handleDraftChange}
                   onSubmit={() => void saveRecord()}
                   schema={record.schema}
