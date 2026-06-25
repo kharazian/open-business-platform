@@ -22,7 +22,7 @@ public static class FormsEndpoints
                 return Results.Forbid();
             }
 
-            return Results.Ok(new { items = await formManagement.ListFormsAsync(cancellationToken) });
+            return Results.Ok(new { items = await formManagement.ListAccessibleFormsAsync(httpContext.User, permissionService, cancellationToken) });
         });
 
         group.MapGet("/{formId:guid}/published", async (

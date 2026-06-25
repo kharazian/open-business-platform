@@ -24,7 +24,7 @@ public static class ReportsEndpoints
 
             return await HandleReportRequestAsync(async () =>
             {
-                var reports = await reportManagement.ListReportsAsync(formId, cancellationToken);
+                var reports = await reportManagement.ListAccessibleReportsAsync(httpContext.User, formId, permissionService, cancellationToken);
                 return Results.Ok(new { items = reports });
             });
         });

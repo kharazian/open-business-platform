@@ -575,7 +575,7 @@ Indexes:
 - type
 - created_by_id
 
-The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, resolves visible `recordLookup` labels into display cells while preserving raw IDs as cell values, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`.
+The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, resolves visible `recordLookup` labels into display cells while preserving raw IDs as cell values, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`. Generated default "All Records" reports are marked in existing `extra_properties_json` with `isDefaultAllRecords`.
 
 ## Dashboards
 

@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using System.Text.Json;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Reports;
 
 namespace OpenBusinessPlatform.Api.Modules.Forms;
 
@@ -9,10 +12,12 @@ public sealed class FormManagementService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
+    private readonly DefaultReportProvisioningService defaultReports;
 
-    public FormManagementService(OpenBusinessPlatformDbContext dbContext)
+    public FormManagementService(OpenBusinessPlatformDbContext dbContext, DefaultReportProvisioningService defaultReports)
     {
         this.dbContext = dbContext;
+        this.defaultReports = defaultReports;
     }
 
     public async Task<IReadOnlyCollection<FormSummaryDto>> ListFormsAsync(CancellationToken cancellationToken)
@@ -26,6 +31,31 @@ public sealed class FormManagementService
             .ToArrayAsync(cancellationToken);
 
         return forms.Select(ToSummaryDto).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<FormSummaryDto>> ListAccessibleFormsAsync(
+        ClaimsPrincipal principal,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var forms = await dbContext.Forms
+            .AsNoTracking()
+            .Include(form => form.CurrentVersion)
+            .Where(form => !form.IsDeleted)
+            .OrderByDescending(form => form.UpdatedAt ?? form.CreatedAt)
+            .ThenBy(form => form.Name)
+            .ToArrayAsync(cancellationToken);
+        var visibleForms = new List<FormDefinition>();
+
+        foreach (var form in forms)
+        {
+            if (await CanSeeFormInListAsync(principal, permissionService, form.Id, cancellationToken))
+            {
+                visibleForms.Add(form);
+            }
+        }
+
+        return visibleForms.Select(ToSummaryDto).ToArray();
     }
 
     public async Task<FormSummaryDto> CreateFormAsync(CreateFormRequest request, CancellationToken cancellationToken)
@@ -218,6 +248,7 @@ public sealed class FormManagementService
         form.Status = FormStatuses.Published;
         form.CurrentVersion = version;
         AddAudit("Form", form.Id, "form_published", publishedById);
+        await defaultReports.EnsureAllRecordsReportAsync(form, schema, publishedById, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -266,6 +297,23 @@ public sealed class FormManagementService
             form.CreatedById,
             form.UpdatedAt,
             form.UpdatedById);
+    }
+
+    private static async Task<bool> CanSeeFormInListAsync(
+        ClaimsPrincipal principal,
+        PermissionService permissionService,
+        Guid formId,
+        CancellationToken cancellationToken)
+    {
+        foreach (var action in PlatformPermissions.FormActions)
+        {
+            if (await permissionService.CanAccessFormAsync(principal, formId, action, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AddAudit(string entityType, Guid entityId, string action, Guid? userId = null)

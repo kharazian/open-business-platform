@@ -1971,6 +1971,8 @@ AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.Apply
 AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.CanAccessRecordAsync)), "PermissionService should expose record access checks.");
 AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.GetFieldAccessAsync)), "PermissionService should expose field access checks.");
 AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.CanAccessReportAsync)), "PermissionService should expose report access checks.");
+AssertNotNull(typeof(FormManagementService).GetMethod(nameof(FormManagementService.ListAccessibleFormsAsync)), "Form management should expose permission-filtered form lists.");
+AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ListAccessibleReportsAsync)), "Report management should expose permission-filtered report lists.");
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.ListGroupsAsync)), "Identity management should list groups.");
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.CreateGroupAsync)), "Identity management should create groups.");
 AssertNotNull(typeof(IdentityManagementService).GetMethod(nameof(IdentityManagementService.UpdateGroupAsync)), "Identity management should update groups.");
@@ -2933,6 +2935,16 @@ AssertEqual("Human Resources", reportableFields.Single(field => field.Id == "dep
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.UpdatedAt), "Reportable metadata should include updated date system field.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.OwnerId), "Reportable metadata should include owner system field.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.DepartmentId), "Reportable metadata should include department system field.");
+AssertNotNull(typeof(DefaultReportProvisioningService).GetMethod(nameof(DefaultReportProvisioningService.EnsureAllRecordsReportAsync)), "Default report provisioning should expose an idempotent publish hook.");
+AssertEqual("All Records", DefaultListReportFactory.DefaultReportName, "Default report factory should use the standard All Records name.");
+var defaultReportConfig = DefaultListReportFactory.CreateAllRecordsConfig(reportingSchema);
+AssertSequenceEqual(
+    new[] { "employee_name", "salary", "department", "budget", "completion", "priority", "website", "owner", "approving_department", ReportableSystemFields.Status, ReportableSystemFields.CreatedAt },
+    defaultReportConfig.Columns.Select(column => column.FieldId).ToArray(),
+    "Default All Records reports should show all form fields plus status and created date.");
+AssertTrue(defaultReportConfig.Columns.All(column => column.Visible), "Default All Records report columns should be visible.");
+AssertEqual(ReportableSystemFields.CreatedAt, defaultReportConfig.Sort.Single().FieldId, "Default All Records reports should sort by created date.");
+AssertEqual(ReportSortDirections.Desc, defaultReportConfig.Sort.Single().Direction, "Default All Records reports should show newest records first.");
 
 var listReportConfig = new ListReportConfigDefinition(
     1,

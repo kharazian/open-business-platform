@@ -23,6 +23,32 @@ public sealed class ReportManagementService
 
     public async Task<IReadOnlyCollection<ListReportSummaryDto>> ListReportsAsync(Guid formId, CancellationToken cancellationToken)
     {
+        var reports = await LoadReportSummariesAsync(formId, cancellationToken);
+        return reports.Select(ToSummaryDto).ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<ListReportSummaryDto>> ListAccessibleReportsAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var reports = await LoadReportSummariesAsync(formId, cancellationToken);
+        var visibleReports = new List<ReportDefinition>();
+
+        foreach (var report in reports)
+        {
+            if (await CanSeeReportInListAsync(principal, permissionService, report.Id, cancellationToken))
+            {
+                visibleReports.Add(report);
+            }
+        }
+
+        return visibleReports.Select(ToSummaryDto).ToArray();
+    }
+
+    private async Task<ReportDefinition[]> LoadReportSummariesAsync(Guid formId, CancellationToken cancellationToken)
+    {
         var formExists = await dbContext.Forms
             .AsNoTracking()
             .AnyAsync(form => form.Id == formId && !form.IsDeleted, cancellationToken);
@@ -32,15 +58,13 @@ public sealed class ReportManagementService
             throw new ReportManagementException(StatusCodes.Status404NotFound, "Form was not found.");
         }
 
-        var reports = await dbContext.Reports
+        return await dbContext.Reports
             .AsNoTracking()
             .Include(report => report.Form)
             .Where(report => report.FormId == formId && report.Type == ReportTypes.List && !report.IsDeleted)
             .OrderByDescending(report => report.UpdatedAt ?? report.CreatedAt)
             .ThenBy(report => report.Name)
             .ToArrayAsync(cancellationToken);
-
-        return reports.Select(ToSummaryDto).ToArray();
     }
 
     public async Task<ListReportDetailDto> CreateListReportAsync(
@@ -241,6 +265,23 @@ public sealed class ReportManagementService
     private static string GetRecordAccessActionForReportOperation(bool isCsvExport)
     {
         return isCsvExport ? PlatformPermissions.Form.Export : PlatformPermissions.Form.View;
+    }
+
+    private static async Task<bool> CanSeeReportInListAsync(
+        ClaimsPrincipal principal,
+        PermissionService permissionService,
+        Guid reportId,
+        CancellationToken cancellationToken)
+    {
+        foreach (var action in PlatformPermissions.ReportActions)
+        {
+            if (await permissionService.CanAccessReportAsync(principal, reportId, action, cancellationToken))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static ListReportSummaryDto ToSummaryDto(ReportDefinition report)

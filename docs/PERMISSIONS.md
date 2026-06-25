@@ -85,7 +85,7 @@ Per-form actions:
 - `delete`
 - `manage`
 
-The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks.
+The frontend filters navigation from the signed-in user's effective permissions. Backend APIs still enforce the actual permission checks. The form list endpoint returns only forms where the current user has at least one scoped form action. The report list endpoint returns only reports where the current user has report access, while still requiring report menu access and source form view access.
 
 V2 list report definition endpoints require `menu.reports` plus form view access for listing, and `reports.manage` plus form manage access for creation. V3 report run/export endpoints also use report-level view/export/manage grants when explicit report permissions exist. Report runs filter rows through scoped form `view` access; CSV exports require and filter rows through scoped form `export` access.
 

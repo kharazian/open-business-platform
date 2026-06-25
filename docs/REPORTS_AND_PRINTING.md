@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, runnable list report viewing over real record data, CSV export for all matching report rows, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page.
+Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, automatic default "All Records" list reports when forms are published, runnable list report viewing over real record data, CSV export for all matching report rows, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page.
 
 ## Principle
 
@@ -27,6 +27,7 @@ V2 features:
 - Sorting: one saved sort in the current builder, config supports multiple
 - Search: implemented at runtime in the report viewer for visible searchable columns
 - Saved reports: implemented
+- Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports
 - Print: implemented for the currently visible report viewer page
 - Export CSV: implemented for all matching permitted report rows and visible report columns
