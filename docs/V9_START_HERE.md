@@ -15,13 +15,14 @@ This packet is the handoff for V9: Enterprise Platform.
 1. `AGENTS.md`
 2. `docs/MASTER_PRD_FOR_AI.md`
 3. `docs/ROADMAP.md`
-4. `docs/V8_FINALIZATION.md`
-5. `docs/API_SPEC.md`
-6. `docs/DATA_MODEL.md`
-7. `docs/TRIGGERS_AND_WORKFLOWS.md`
-8. `tasks/v8/README.md`
-9. `tasks/v9/README.md`
-10. The selected `tasks/v9/*.md` task file when one is created.
+4. `docs/CREATOR_APP_SUPPORT_ROADMAP.md`
+5. `docs/V8_FINALIZATION.md`
+6. `docs/API_SPEC.md`
+7. `docs/DATA_MODEL.md`
+8. `docs/TRIGGERS_AND_WORKFLOWS.md`
+9. `tasks/v8/README.md`
+10. `tasks/v9/README.md`
+11. The selected `tasks/v9/*.md` task file when one is created.
 
 ## V9 Direction
 

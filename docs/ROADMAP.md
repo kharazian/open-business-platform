@@ -45,6 +45,8 @@
 
 Next: V9 can be postponed; when ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
 
+The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
+
 ## Product Engine Path
 
 The long-term product should be built as cooperating engines:
@@ -239,6 +241,25 @@ Features:
 - Integration logs implemented
 - Integration operations UI implemented
 - Retry failed integrations
+
+## Creator-Style Operational App Support
+
+Goal: support the class of operational business apps currently built in systems such as Zoho Creator, while preserving this platform's module boundaries and backend authorization model.
+
+Planning doc: `docs/CREATOR_APP_SUPPORT_ROADMAP.md`
+
+Future capability areas:
+
+- Richer form fields such as datetime, time, URL, address, file, autonumber, decimal/currency, and subform/grid fields.
+- Stronger lookup and relationship modeling for parent-child records and nested report columns.
+- Report quick-view/detail-view layouts with permission-aware row and header actions.
+- Record detail workspaces with related records, timelines, and typed operational actions.
+- Secret-safe integration connector configuration for SFTP, file storage, vendor APIs, and webhooks.
+- File processing jobs, import/export jobs, generated artifacts, and retry state.
+- Scheduled job definitions, queue controls, locks, and manual run/retry actions.
+- Safe action engine expansion for file generation, connector operations, external API calls, record mutations, notifications, workflow starts, and document generation.
+- Operational logs alongside audit, trigger, workflow, and integration logs.
+- Creator-style export analysis/import tooling with credential redaction and unsupported-feature reporting.
 
 ## V9: Enterprise Platform
 
