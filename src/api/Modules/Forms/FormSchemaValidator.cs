@@ -134,6 +134,11 @@ public static partial class FormSchemaValidator
         {
             ValidateLookup(field, path, errors);
         }
+
+        if (requireFieldConfiguration && string.Equals(field.Type, FormFieldTypes.SubTable, StringComparison.Ordinal))
+        {
+            ValidateSubTable(field, path, errors);
+        }
     }
 
     private static void ValidateOptions(
@@ -214,6 +219,53 @@ public static partial class FormSchemaValidator
             {
                 errors.Add(Error($"{path}.lookup.filters[{index}]", "field.lookup_filter_required", $"'{field.Label}' lookup filters require source and parent fields."));
             }
+        }
+    }
+
+    private static void ValidateSubTable(
+        FormFieldDefinition field,
+        string path,
+        List<FormValidationError> errors)
+    {
+        if (field.SubTable is null)
+        {
+            errors.Add(Error($"{path}.subTable", "field.sub_table_required", $"'{field.Label}' requires sub-table configuration."));
+            return;
+        }
+
+        if (!string.Equals(field.SubTable.SourceType, "child_form_records", StringComparison.Ordinal))
+        {
+            errors.Add(Error($"{path}.subTable.sourceType", "field.sub_table_source_type", $"'{field.Label}' sub-table source is not supported."));
+        }
+
+        if (!Guid.TryParse(field.SubTable.ChildFormId, out _))
+        {
+            errors.Add(Error($"{path}.subTable.childFormId", "field.sub_table_child_form_required", $"'{field.Label}' requires a child form."));
+        }
+
+        if (string.IsNullOrWhiteSpace(field.SubTable.ParentLookupFieldId))
+        {
+            errors.Add(Error($"{path}.subTable.parentLookupFieldId", "field.sub_table_parent_lookup_required", $"'{field.Label}' requires a parent lookup field."));
+        }
+
+        if (field.SubTable.DisplayColumnFieldIds is null || field.SubTable.DisplayColumnFieldIds.Count == 0 || field.SubTable.DisplayColumnFieldIds.Any(string.IsNullOrWhiteSpace))
+        {
+            errors.Add(Error($"{path}.subTable.displayColumnFieldIds", "field.sub_table_display_fields_required", $"'{field.Label}' requires at least one display column."));
+        }
+
+        if (field.SubTable.MinRows is < 0)
+        {
+            errors.Add(Error($"{path}.subTable.minRows", "field.sub_table_min_rows", $"'{field.Label}' minimum rows must be 0 or greater."));
+        }
+
+        if (field.SubTable.MaxRows is < 1)
+        {
+            errors.Add(Error($"{path}.subTable.maxRows", "field.sub_table_max_rows", $"'{field.Label}' maximum rows must be 1 or greater."));
+        }
+
+        if (field.SubTable.MinRows.HasValue && field.SubTable.MaxRows.HasValue && field.SubTable.MinRows.Value > field.SubTable.MaxRows.Value)
+        {
+            errors.Add(Error($"{path}.subTable.maxRows", "field.sub_table_row_range", $"'{field.Label}' minimum rows cannot exceed maximum rows."));
         }
     }
 
@@ -518,6 +570,9 @@ public static partial class FormSchemaValidator
                     errors.Add(Error(path, "record.department_picker_type", $"'{field.Label}' must be a selected department id."));
                 }
 
+                return;
+            case FormFieldTypes.SubTable:
+                errors.Add(Error(path, "record.sub_table_readonly", $"'{field.Label}' is stored through related child records."));
                 return;
         }
 

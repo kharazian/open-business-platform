@@ -14,6 +14,7 @@ const choiceFieldTypes = new Set(["select", "radio"]);
 const textFieldTypes = new Set(["text", "textarea", "phone", "fileUpload"]);
 const numericFieldTypes = new Set(["number", "currency"]);
 const lookupFieldTypes = new Set(["recordLookup"]);
+const subTableFieldTypes = new Set(["subTable"]);
 const breakpoints = ["mobile", "tablet", "desktop"] as const;
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -103,6 +104,10 @@ function validateField(field: FormField, index: number, fieldIds: Set<string>, e
   if (lookupFieldTypes.has(field.type)) {
     validateLookupConfig(field, path, errors);
   }
+
+  if (subTableFieldTypes.has(field.type)) {
+    validateSubTableConfig(field, path, errors);
+  }
 }
 
 function validateOptions(field: FormField, path: string, errors: ValidationError[]) {
@@ -164,6 +169,56 @@ function validateLookupConfig(field: FormField, path: string, errors: Validation
       errors.push(error(`${path}.lookup.filters[${filterIndex}]`, "field.lookup_filter_required", `'${field.label}' lookup filters require source and parent fields.`));
     }
   });
+}
+
+function validateSubTableConfig(field: FormField, path: string, errors: ValidationError[]) {
+  const subTable = field.subTable;
+
+  if (!subTable) {
+    errors.push(error(`${path}.subTable`, "field.sub_table_required", `'${field.label}' requires sub-table configuration.`));
+    return;
+  }
+
+  if (subTable.sourceType !== "child_form_records") {
+    errors.push(error(`${path}.subTable.sourceType`, "field.sub_table_source_type", `'${field.label}' sub-table source is not supported.`));
+  }
+
+  if (!isNonEmptyString(subTable.childFormId)) {
+    errors.push(error(`${path}.subTable.childFormId`, "field.sub_table_child_form_required", `'${field.label}' requires a child form.`));
+  }
+
+  if (!isNonEmptyString(subTable.parentLookupFieldId)) {
+    errors.push(error(`${path}.subTable.parentLookupFieldId`, "field.sub_table_parent_lookup_required", `'${field.label}' requires a parent lookup field.`));
+  }
+
+  if (
+    !Array.isArray(subTable.displayColumnFieldIds) ||
+    subTable.displayColumnFieldIds.length === 0 ||
+    subTable.displayColumnFieldIds.some((fieldId) => !isNonEmptyString(fieldId))
+  ) {
+    errors.push(
+      error(
+        `${path}.subTable.displayColumnFieldIds`,
+        "field.sub_table_display_fields_required",
+        `'${field.label}' requires at least one display column.`
+      )
+    );
+  }
+
+  const minRows = subTable.minRows;
+  const maxRows = subTable.maxRows;
+
+  if (minRows !== undefined && (!Number.isInteger(minRows) || minRows < 0)) {
+    errors.push(error(`${path}.subTable.minRows`, "field.sub_table_min_rows", `'${field.label}' minimum rows must be 0 or greater.`));
+  }
+
+  if (maxRows !== undefined && (!Number.isInteger(maxRows) || maxRows < 1)) {
+    errors.push(error(`${path}.subTable.maxRows`, "field.sub_table_max_rows", `'${field.label}' maximum rows must be 1 or greater.`));
+  }
+
+  if (minRows !== undefined && maxRows !== undefined && Number.isInteger(minRows) && Number.isInteger(maxRows) && minRows > maxRows) {
+    errors.push(error(`${path}.subTable.maxRows`, "field.sub_table_row_range", `'${field.label}' minimum rows cannot exceed maximum rows.`));
+  }
 }
 
 function validateLayout(layout: FormLayout | undefined, fieldIds: Set<string>, errors: ValidationError[]) {
@@ -278,6 +333,11 @@ function validateLayoutFields(
 
 function validateRecordFieldValue(field: FormField, value: FormRecordValue, errors: ValidationError[]) {
   const path = `values.${field.id}`;
+
+  if (field.type === "subTable") {
+    errors.push(error(path, "record.sub_table_readonly", `'${field.label}' is stored through related child records.`));
+    return;
+  }
 
   if (textFieldTypes.has(field.type) && typeof value !== "string") {
     errors.push(error(path, "record.type", `'${field.label}' must be text.`));

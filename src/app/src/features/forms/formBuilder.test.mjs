@@ -135,6 +135,67 @@ test("form builder exposes record lookup field metadata", () => {
   });
 });
 
+test("form builder exposes sub-table field metadata and configuration UI", () => {
+  assert.equal(fieldTypeLabels.subTable, "Sub-table");
+  assert.equal(fieldTypeDescriptions.subTable, "Show related child form records");
+
+  const result = addFieldToSchema(createEmptyFormBuilderSchema(), "subTable");
+
+  assert.equal(result.field.type, "subTable");
+  assert.equal(result.field.label, "Sub-table");
+  assert.equal(result.field.required, false);
+  assert.deepEqual(result.field.subTable, {
+    sourceType: "child_form_records",
+    childFormId: "",
+    parentLookupFieldId: "",
+    displayColumnFieldIds: [],
+    allowInlineCreate: false,
+    allowInlineEdit: false,
+    allowInlineDelete: false
+  });
+
+  const normalized = updateFieldInSchema(result.schema, {
+    ...result.field,
+    defaultValue: "should be removed",
+    placeholder: "Not stored",
+    required: true,
+    subTable: {
+      sourceType: "child_form_records",
+      childFormId: "  child-form-id  ",
+      parentLookupFieldId: " parent ",
+      displayColumnFieldIds: [" name ", "name", "", "amount"],
+      allowInlineCreate: true,
+      allowInlineEdit: true,
+      allowInlineDelete: true,
+      minRows: 0,
+      maxRows: 10
+    }
+  });
+
+  assert.equal(normalized.fields[0].required, false);
+  assert.equal(normalized.fields[0].defaultValue, undefined);
+  assert.deepEqual(normalized.fields[0].subTable, {
+    sourceType: "child_form_records",
+    childFormId: "child-form-id",
+    parentLookupFieldId: "parent",
+    displayColumnFieldIds: ["name", "amount"],
+    allowInlineCreate: false,
+    allowInlineEdit: false,
+    allowInlineDelete: false,
+    minRows: 0,
+    maxRows: 10
+  });
+
+  const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("SubTableSettings"), true);
+  assert.equal(source.includes("Child form"), true);
+  assert.equal(source.includes("Parent lookup field"), true);
+  assert.equal(source.includes("Display columns"), true);
+  assert.equal(source.includes("Inline actions are planned after child record APIs are connected."), true);
+  assert.equal(source.includes('field.type !== "subTable"'), true);
+});
+
 test("form builder exposes additional business field metadata", () => {
   assert.equal(fieldTypeLabels.fileUpload, "File upload");
   assert.equal(fieldTypeLabels.currency, "Currency");

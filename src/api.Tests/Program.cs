@@ -2567,6 +2567,100 @@ AssertTrue(
 AssertFalse(
     RecordLookupService.IsRecordLookupValue("not-a-record-id"),
     "Record lookup value helpers should reject non-GUID strings.");
+var subTableSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition(
+            "line_items",
+            FormFieldTypes.SubTable,
+            "Line items",
+            SubTable: new FormFieldSubTableDefinition(
+                "child_form_records",
+                "11111111-1111-1111-1111-111111111111",
+                "parent_request",
+                new[] { "item_name", "quantity", "price" },
+                AllowInlineCreate: false,
+                AllowInlineEdit: false,
+                AllowInlineDelete: false,
+                MinRows: 0,
+                MaxRows: 25))
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition(
+            "page_1",
+            null,
+            null,
+            new[]
+            {
+                new FormLayoutSectionDefinition(
+                    "section_1",
+                    null,
+                    null,
+                    new[]
+                    {
+                        new FormLayoutRowDefinition(
+                            "row_1",
+                            new[]
+                            {
+                                new FormLayoutColumnDefinition(
+                                    "col_1",
+                                    new ResponsiveSpanDefinition(12, 12, 12),
+                                    new[] { "line_items" })
+                            })
+                    })
+            })
+    }));
+AssertTrue(FormSchemaValidator.ValidateSchema(subTableSchema).Valid, "Sub-table schemas should validate with child form configuration.");
+AssertTrue(FormSchemaValidator.ValidateRecordValues(subTableSchema, new Dictionary<string, object?>()).Valid, "Sub-table record values should be stored through child records.");
+AssertTrue(
+    FormSchemaValidator.ValidateRecordValues(subTableSchema, new Dictionary<string, object?> { ["line_items"] = "embedded-child-data" })
+        .Errors
+        .Any(error => error.Code == "record.sub_table_readonly"),
+    "Sub-table values should reject embedded parent-record values.");
+AssertTrue(
+    FormSchemaValidator.ValidateSchema(
+        subTableSchema with
+        {
+            Fields = new[]
+            {
+                subTableSchema.Fields.Single() with
+                {
+                    SubTable = subTableSchema.Fields.Single().SubTable! with
+                    {
+                        ParentLookupFieldId = string.Empty,
+                        DisplayColumnFieldIds = Array.Empty<string>(),
+                        MinRows = 10,
+                        MaxRows = 3
+                    }
+                }
+            }
+        })
+        .Errors
+        .Any(error => error.Code == "field.sub_table_display_fields_required"),
+    "Sub-table fields should require display columns before publishing.");
+AssertTrue(
+    FormSchemaValidator.ValidateSchema(
+        subTableSchema with
+        {
+            Fields = new[]
+            {
+                subTableSchema.Fields.Single() with
+                {
+                    SubTable = subTableSchema.Fields.Single().SubTable! with
+                    {
+                        ParentLookupFieldId = string.Empty,
+                        DisplayColumnFieldIds = Array.Empty<string>(),
+                        MinRows = 10,
+                        MaxRows = 3
+                    }
+                }
+            }
+        })
+        .Errors
+        .Any(error => error.Code == "field.sub_table_row_range"),
+    "Sub-table row limits should reject min values larger than max values.");
 var businessFieldSchema = new FormSchemaDefinition(
     1,
     new[]
@@ -2918,7 +3012,16 @@ var reportingSchema = publishableSchema with
         new("priority", FormFieldTypes.Rating, "Priority"),
         new("website", FormFieldTypes.Url, "Website"),
         new("owner", FormFieldTypes.UserPicker, "Owner"),
-        new("approving_department", FormFieldTypes.DepartmentPicker, "Approving department")
+        new("approving_department", FormFieldTypes.DepartmentPicker, "Approving department"),
+        new(
+            "line_items",
+            FormFieldTypes.SubTable,
+            "Line items",
+            SubTable: new FormFieldSubTableDefinition(
+                "child_form_records",
+                "11111111-1111-1111-1111-111111111111",
+                "parent_request",
+                new[] { "item_name", "quantity" }))
     }
 };
 var reportableFields = FormReportableFieldMetadata.GetReportableFields(reportingSchema);
@@ -2931,6 +3034,7 @@ AssertTrue(reportableFields.Any(field => field.Id == "department" && field.Suppo
 AssertTrue(reportableFields.Any(field => field.Id == "owner" && field.SupportsChoiceGrouping), "Reportable metadata should mark user pickers as groupable.");
 AssertTrue(reportableFields.Any(field => field.Id == "approving_department" && field.SupportsChoiceGrouping), "Reportable metadata should mark department pickers as groupable.");
 AssertTrue(reportableFields.Any(field => field.Id == "website" && field.Searchable), "Reportable metadata should mark URL fields as searchable.");
+AssertFalse(reportableFields.Any(field => field.Id == "line_items"), "Reportable metadata should not flatten sub-table child records into parent report fields.");
 AssertEqual("Human Resources", reportableFields.Single(field => field.Id == "department").Options.Single(option => option.Value == "hr").Label, "Reportable metadata should preserve option labels.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.UpdatedAt), "Reportable metadata should include updated date system field.");
 AssertTrue(reportableFields.Any(field => field.Id == ReportableSystemFields.OwnerId), "Reportable metadata should include owner system field.");

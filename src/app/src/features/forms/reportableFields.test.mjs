@@ -20,6 +20,17 @@ test("reportable fields include normalized form metadata and system fields", () 
           { id: "opt_hr", label: "Human Resources", value: "hr" },
           { id: "opt_finance", label: "Finance", value: "finance" }
         ]
+      },
+      {
+        id: "line_items",
+        type: "subTable",
+        label: "Line items",
+        subTable: {
+          sourceType: "child_form_records",
+          childFormId: "11111111-1111-1111-1111-111111111111",
+          parentLookupFieldId: "parent_request",
+          displayColumnFieldIds: ["item_name"]
+        }
       }
     ],
     layout: { pages: [] }
@@ -31,6 +42,7 @@ test("reportable fields include normalized form metadata and system fields", () 
   assert.equal(fields.find((field) => field.id === "salary").supportsAggregation, true);
   assert.equal(fields.find((field) => field.id === "department").supportsChoiceGrouping, true);
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
+  assert.equal(fields.some((field) => field.id === "line_items"), false);
   assert.equal(fields.some((field) => field.id === "updated_at" && field.source === "system"), true);
   assert.equal(fields.some((field) => field.id === "owner_id" && field.source === "system"), true);
   assert.equal(fields.some((field) => field.id === "department_id" && field.source === "system"), true);

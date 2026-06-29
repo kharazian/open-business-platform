@@ -21,6 +21,7 @@ public static class FormFieldTypes
     public const string Datetime = "datetime";
     public const string UserPicker = "userPicker";
     public const string DepartmentPicker = "departmentPicker";
+    public const string SubTable = "subTable";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -42,7 +43,8 @@ public static class FormFieldTypes
         Time,
         Datetime,
         UserPicker,
-        DepartmentPicker
+        DepartmentPicker,
+        SubTable
     };
 
     public static bool IsChoice(string type)
@@ -83,6 +85,17 @@ public sealed record FormFieldLookupFilterDefinition(
     string SourceFieldId,
     string ValueFromFieldId);
 
+public sealed record FormFieldSubTableDefinition(
+    string SourceType,
+    string ChildFormId,
+    string ParentLookupFieldId,
+    IReadOnlyList<string> DisplayColumnFieldIds,
+    bool AllowInlineCreate = false,
+    bool AllowInlineEdit = false,
+    bool AllowInlineDelete = false,
+    int? MinRows = null,
+    int? MaxRows = null);
+
 public sealed record FormFieldDefinition(
     string Id,
     string Type,
@@ -93,7 +106,8 @@ public sealed record FormFieldDefinition(
     object? DefaultValue = null,
     IReadOnlyList<FormFieldOptionDefinition>? Options = null,
     FormFieldValidationDefinition? Validation = null,
-    FormFieldLookupDefinition? Lookup = null);
+    FormFieldLookupDefinition? Lookup = null,
+    FormFieldSubTableDefinition? SubTable = null);
 
 public sealed record ResponsiveSpanDefinition(
     int Mobile,

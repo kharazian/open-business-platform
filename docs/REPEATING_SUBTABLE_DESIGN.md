@@ -1,6 +1,6 @@
 # Repeating Table / Sub-Table Design
 
-Status: design foundation for the next form-builder milestone.
+Status: first implementation foundation added.
 
 ## Decision
 
@@ -27,7 +27,7 @@ Child records keep repeated data first-class:
 
 ## Schema Shape
 
-The parent form can later include a `subTable` layout field with configuration like:
+The parent form can include a `subTable` layout field with configuration like:
 
 ```ts
 type SubTableConfig = {
@@ -61,6 +61,8 @@ Sub-table UI can appear only when the user can view the parent record and has at
 
 Child forms should automatically get their own default reports. Parent reports should not flatten child rows in the first version. Later report builder work can add related-row counts, summaries, or nested exports explicitly.
 
-## First Implementation Slice
+## Implemented Foundation
 
-The first code slice should add only the schema contract and builder configuration UI for a disabled/read-only sub-table preview. It should not create child records inline until the parent-child API path is designed and tested.
+The first code slice adds the schema contract, frontend/backend validation, builder configuration UI, and a disabled/read-only sub-table preview. Sub-table fields are excluded from parent report metadata because they represent related child records, not scalar parent record values.
+
+Inline child-row create, edit, and delete are intentionally still disabled until the parent-child record API path is designed and tested.

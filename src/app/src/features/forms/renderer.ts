@@ -61,6 +61,10 @@ export function createInitialRecordValues(schema: FormSchema): FormRecordValues 
 }
 
 export function coerceFieldInputValue(field: FormField, value: FormRecordValue | string | boolean): FormRecordValue {
+  if (field.type === "subTable") {
+    return null;
+  }
+
   if (field.type === "checkbox") {
     return Boolean(value);
   }
@@ -126,6 +130,10 @@ export function getColumnSpanClass(column: FormLayoutColumn, previewSize: FormPr
 }
 
 function normalizeInitialFieldValue(field: FormField): FormRecordValue {
+  if (field.type === "subTable") {
+    return null;
+  }
+
   if (field.defaultValue !== undefined) {
     return coerceFieldInputValue(field, field.defaultValue);
   }

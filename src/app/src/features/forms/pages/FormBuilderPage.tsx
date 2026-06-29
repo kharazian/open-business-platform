@@ -153,7 +153,8 @@ const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
   time: Clock,
   datetime: CalendarClock,
   userPicker: UserRound,
-  departmentPicker: Building2
+  departmentPicker: Building2,
+  subTable: Rows3
 };
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
@@ -1535,6 +1536,27 @@ function FieldCardIconButton({
 function FieldPreview({ field }: { field: FormField }) {
   const controlClass = "min-h-10 w-full rounded-xl border border-border bg-muted/50 px-3 text-sm text-muted-foreground";
 
+  if (field.type === "subTable") {
+    const displayColumnFieldIds = field.subTable?.displayColumnFieldIds ?? [];
+
+    return (
+      <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+          <span className="text-sm font-bold text-foreground">Related child records</span>
+          <Badge variant="default">Read-only</Badge>
+        </div>
+        <div className="grid grid-cols-3 border-b border-border bg-card/70 text-xs font-bold text-muted-foreground">
+          {(displayColumnFieldIds.length > 0 ? displayColumnFieldIds.slice(0, 3) : ["Column 1", "Column 2", "Column 3"]).map((columnLabel) => (
+            <div className="truncate border-r border-border px-3 py-2 last:border-r-0" key={columnLabel}>
+              {columnLabel}
+            </div>
+          ))}
+        </div>
+        <div className="px-3 py-4 text-xs font-semibold text-muted-foreground">Child records appear here after the parent record is opened.</div>
+      </div>
+    );
+  }
+
   if (field.type === "textarea") {
     return <textarea className={cn(controlClass, "min-h-24 py-3")} disabled placeholder={field.placeholder} />;
   }
@@ -1968,6 +1990,8 @@ function FieldSettings({
     onChange({ ...field, ...patch });
   }
 
+  const supportsFieldValueSettings = field.type !== "subTable";
+
   return (
     <Card className="self-start">
       <CardHeader>
@@ -1988,7 +2012,7 @@ function FieldSettings({
             value={field.type}
           />
           <Input label="Label" onChange={(event) => patchField({ label: event.target.value })} value={field.label} />
-          {field.type !== "checkbox" ? (
+          {field.type !== "checkbox" && field.type !== "subTable" ? (
             <Input
               label="Placeholder"
               onChange={(event) => patchField({ placeholder: event.target.value })}
@@ -2003,14 +2027,17 @@ function FieldSettings({
             options={layoutWidthSelectOptions}
             value={layoutWidth ?? "full"}
           />
-          <Checkbox
-            checked={Boolean(field.required)}
-            label="Required"
-            onChange={(event) => patchField({ required: event.target.checked })}
-          />
-          <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} />
+          {supportsFieldValueSettings ? (
+            <Checkbox
+              checked={Boolean(field.required)}
+              label="Required"
+              onChange={(event) => patchField({ required: event.target.checked })}
+            />
+          ) : null}
+          {field.type !== "subTable" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
           {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} schema={schema} sourceForms={sourceForms} /> : null}
+          {field.type === "subTable" ? <SubTableSettings field={field} onChange={onChange} sourceForms={sourceForms} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -2198,6 +2225,181 @@ function RecordLookupSettings({
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function SubTableSettings({
+  field,
+  onChange,
+  sourceForms
+}: {
+  field: FormField;
+  onChange: (field: FormField) => void;
+  sourceForms: FormSummary[];
+}) {
+  const subTable = field.subTable ?? {
+    sourceType: "child_form_records" as const,
+    childFormId: "",
+    parentLookupFieldId: "",
+    displayColumnFieldIds: [],
+    allowInlineCreate: false,
+    allowInlineEdit: false,
+    allowInlineDelete: false
+  };
+  const [childFormDetail, setChildFormDetail] = useState<FormDetail | null>(null);
+  const [childFormLoading, setChildFormLoading] = useState(false);
+  const [childFormError, setChildFormError] = useState<string | null>(null);
+  const childFormOptions = sourceForms.map((form) => ({ label: `${form.name} (${getFormStatusLabel(form.status)})`, value: form.id }));
+  const childSchema = childFormDetail?.draftSchema ?? null;
+  const childFields = childSchema?.fields ?? [];
+  const parentLookupFieldOptions = childFields
+    .filter((childField) => childField.type === "recordLookup")
+    .map((childField) => ({ label: childField.label, value: childField.id }));
+  const displayColumnOptions = childFields
+    .filter((childField) => childField.type !== "subTable" && childField.id !== subTable.parentLookupFieldId)
+    .map((childField) => ({ label: childField.label, value: childField.id }));
+
+  function updateSubTable(patch: Partial<NonNullable<FormField["subTable"]>>) {
+    onChange({ ...field, subTable: { ...subTable, ...patch } });
+  }
+
+  useEffect(() => {
+    if (!subTable.childFormId) {
+      setChildFormDetail(null);
+      setChildFormError(null);
+      setChildFormLoading(false);
+      return;
+    }
+
+    let active = true;
+    setChildFormLoading(true);
+    setChildFormError(null);
+
+    getForm(subTable.childFormId)
+      .then((form) => {
+        if (active) {
+          setChildFormDetail(form);
+        }
+      })
+      .catch((caught) => {
+        if (active) {
+          setChildFormDetail(null);
+          setChildFormError(getErrorMessage(caught));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setChildFormLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [subTable.childFormId]);
+
+  function handleChildFormChange(childFormId: string) {
+    updateSubTable({
+      childFormId,
+      parentLookupFieldId: "",
+      displayColumnFieldIds: []
+    });
+  }
+
+  function handleParentLookupFieldChange(parentLookupFieldId: string) {
+    updateSubTable({
+      parentLookupFieldId,
+      displayColumnFieldIds: subTable.displayColumnFieldIds.filter((fieldId) => fieldId !== parentLookupFieldId)
+    });
+  }
+
+  function toggleDisplayColumn(fieldId: string, checked: boolean) {
+    updateSubTable({
+      displayColumnFieldIds: checked
+        ? Array.from(new Set([...subTable.displayColumnFieldIds, fieldId]))
+        : subTable.displayColumnFieldIds.filter((candidate) => candidate !== fieldId)
+    });
+  }
+
+  function updateMinRows(value: string) {
+    updateSubTable({ minRows: value ? Number(value) : undefined });
+  }
+
+  function updateMaxRows(value: string) {
+    updateSubTable({ maxRows: value ? Number(value) : undefined });
+  }
+
+  return (
+    <div className="grid gap-4 rounded-xl border border-border bg-muted/30 p-3">
+      <div>
+        <p className="text-sm font-bold text-foreground">Related child records</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Select a child form, then choose the lookup field that points back to this parent form.
+        </p>
+      </div>
+      <Select label="Child form" onChange={(event) => handleChildFormChange(event.target.value)} value={subTable.childFormId}>
+        <option value="">Select a child form</option>
+        {childFormOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+      {childFormLoading ? <p className="text-xs font-semibold text-muted-foreground">Loading child fields...</p> : null}
+      {childFormError ? <p className="text-xs font-semibold text-danger">{childFormError}</p> : null}
+      {subTable.childFormId && !childFormLoading && childFields.length === 0 ? (
+        <p className="text-xs font-semibold text-muted-foreground">No child fields are available yet.</p>
+      ) : null}
+      {childFields.length > 0 ? (
+        <>
+          <Select
+            help="This field must be a record lookup on the child form."
+            label="Parent lookup field"
+            onChange={(event) => handleParentLookupFieldChange(event.target.value)}
+            value={subTable.parentLookupFieldId}
+          >
+            <option value="">Select the parent lookup</option>
+            {parentLookupFieldOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {parentLookupFieldOptions.length === 0 ? (
+            <p className="text-xs font-semibold text-muted-foreground">Add a record lookup field on the child form before publishing this sub-table.</p>
+          ) : null}
+          <LookupFieldCheckboxGroup
+            label="Display columns"
+            selectedFieldIds={subTable.displayColumnFieldIds}
+            fieldOptions={displayColumnOptions}
+            onChange={toggleDisplayColumn}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              label="Minimum rows"
+              min={0}
+              onChange={(event) => updateMinRows(event.target.value)}
+              type="number"
+              value={subTable.minRows === undefined ? "" : String(subTable.minRows)}
+            />
+            <Input
+              label="Maximum rows"
+              min={1}
+              onChange={(event) => updateMaxRows(event.target.value)}
+              type="number"
+              value={subTable.maxRows === undefined ? "" : String(subTable.maxRows)}
+            />
+          </div>
+        </>
+      ) : null}
+      <div className="grid gap-2 rounded-lg border border-border bg-card/70 p-2">
+        <p className="text-sm font-bold text-foreground">Inline actions</p>
+        <p className="text-xs leading-5 text-muted-foreground">Inline actions are planned after child record APIs are connected.</p>
+        <Checkbox checked={false} disabled label="Allow inline create" readOnly />
+        <Checkbox checked={false} disabled label="Allow inline edit" readOnly />
+        <Checkbox checked={false} disabled label="Allow inline delete" readOnly />
+      </div>
     </div>
   );
 }

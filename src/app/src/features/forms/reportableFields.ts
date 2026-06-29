@@ -41,7 +41,7 @@ export const reportableSystemFields = [
 export const reportableSystemFieldIds = reportableSystemFields.map((field) => field.id);
 
 export function getReportableFields(schema: FormSchema | null | undefined): ReportableField[] {
-  const formFields = schema?.fields.map(toReportableField) ?? [];
+  const formFields = schema?.fields.filter((field) => field.type !== "subTable").map(toReportableField) ?? [];
   return [...formFields, ...reportableSystemFields];
 }
 

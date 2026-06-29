@@ -160,6 +160,10 @@ function RenderedField({
   );
   const error = errors[0];
 
+  if (field.type === "subTable") {
+    return <SubTablePreviewField errors={errors} field={field} />;
+  }
+
   if (field.type === "textarea") {
     return (
       <Textarea
@@ -284,6 +288,45 @@ function RenderedField({
       type={getInputType(field.type)}
       value={getStringValue(value)}
     />
+  );
+}
+
+function SubTablePreviewField({ errors, field }: { errors: string[]; field: FormField }) {
+  const displayColumnFieldIds = field.subTable?.displayColumnFieldIds ?? [];
+  const previewColumnLabels = displayColumnFieldIds.length > 0 ? displayColumnFieldIds : ["Column 1", "Column 2", "Column 3"];
+
+  return (
+    <FieldShell errors={errors} helpText={field.helpText}>
+      <div className="overflow-hidden rounded-xl border border-border bg-card/80">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-foreground">{field.label}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Related child records are shown from the configured child form.</p>
+          </div>
+          <Badge variant="default">Read-only</Badge>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-96 text-left text-sm">
+            <thead className="bg-muted/60 text-xs font-bold uppercase tracking-normal text-muted-foreground">
+              <tr>
+                {previewColumnLabels.map((columnLabel) => (
+                  <th className="px-4 py-3" key={columnLabel}>
+                    {columnLabel}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={previewColumnLabels.length}>
+                  Child record rows will appear here after child record APIs are connected.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </FieldShell>
   );
 }
 

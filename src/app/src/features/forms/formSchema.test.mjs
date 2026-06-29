@@ -199,6 +199,104 @@ test("form schema supports record lookup fields with lookup config", () => {
   );
 });
 
+test("form schema supports read-only sub-table fields with child form config", () => {
+  const subTableSchema = {
+    schemaVersion: 1,
+    fields: [
+      {
+        id: "line_items",
+        type: "subTable",
+        label: "Line items",
+        subTable: {
+          sourceType: "child_form_records",
+          childFormId: "11111111-1111-1111-1111-111111111111",
+          parentLookupFieldId: "parent_request",
+          displayColumnFieldIds: ["item_name", "quantity", "price"],
+          allowInlineCreate: false,
+          allowInlineEdit: false,
+          allowInlineDelete: false,
+          minRows: 0,
+          maxRows: 25
+        }
+      }
+    ],
+    layout: {
+      pages: [
+        {
+          id: "page_1",
+          sections: [
+            {
+              id: "section_1",
+              rows: [
+                {
+                  id: "row_1",
+                  columns: [
+                    {
+                      id: "col_1",
+                      span: { mobile: 12, tablet: 12, desktop: 12 },
+                      fields: ["line_items"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  };
+
+  assert.deepEqual(validateFormSchema(subTableSchema), { valid: true, errors: [] });
+  assert.deepEqual(validateRecordValues(subTableSchema, {}), { valid: true, errors: [] });
+  assert.equal(
+    validateRecordValues(subTableSchema, { line_items: "embedded-child-data" }).errors.some((error) => error.code === "record.sub_table_readonly"),
+    true
+  );
+  assert.equal(
+    validateFormSchema({
+      ...subTableSchema,
+      fields: [{ id: "line_items", type: "subTable", label: "Line items" }]
+    }).errors.some((error) => error.code === "field.sub_table_required"),
+    true
+  );
+  assert.equal(
+    validateFormSchema({
+      ...subTableSchema,
+      fields: [
+        {
+          ...subTableSchema.fields[0],
+          subTable: {
+            ...subTableSchema.fields[0].subTable,
+            parentLookupFieldId: "",
+            displayColumnFieldIds: [],
+            minRows: 10,
+            maxRows: 3
+          }
+        }
+      ]
+    }).errors.some((error) => error.code === "field.sub_table_display_fields_required"),
+    true
+  );
+  assert.equal(
+    validateFormSchema({
+      ...subTableSchema,
+      fields: [
+        {
+          ...subTableSchema.fields[0],
+          subTable: {
+            ...subTableSchema.fields[0].subTable,
+            parentLookupFieldId: "",
+            displayColumnFieldIds: [],
+            minRows: 10,
+            maxRows: 3
+          }
+        }
+      ]
+    }).errors.some((error) => error.code === "field.sub_table_row_range"),
+    true
+  );
+});
+
 test("form schema supports practical business field types", () => {
   const schema = {
     schemaVersion: 1,

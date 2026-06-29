@@ -46,7 +46,11 @@ public static class FormReportableFieldMetadata
 
     public static IReadOnlyList<ReportableFieldMetadata> GetReportableFields(FormSchemaDefinition schema)
     {
-        return schema.Fields.Select(ToReportableField).Concat(SystemFields).ToArray();
+        return schema.Fields
+            .Where(field => !string.Equals(field.Type, FormFieldTypes.SubTable, StringComparison.Ordinal))
+            .Select(ToReportableField)
+            .Concat(SystemFields)
+            .ToArray();
     }
 
     public static IReadOnlyDictionary<string, ReportableFieldMetadata> GetReportableFieldsById(FormSchemaDefinition schema)

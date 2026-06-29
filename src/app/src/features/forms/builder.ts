@@ -30,7 +30,8 @@ export const fieldTypeLabels: Record<FormFieldType, string> = {
   time: "Time",
   datetime: "Date and time",
   userPicker: "User picker",
-  departmentPicker: "Department picker"
+  departmentPicker: "Department picker",
+  subTable: "Sub-table"
 };
 
 export const fieldTypeDescriptions: Record<FormFieldType, string> = {
@@ -52,7 +53,8 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   time: "Time of day",
   datetime: "Date and time",
   userPicker: "Select an active platform user",
-  departmentPicker: "Select an active department"
+  departmentPicker: "Select an active department",
+  subTable: "Show related child form records"
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
@@ -214,6 +216,18 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
     };
   }
 
+  if (type === "subTable") {
+    field.subTable = {
+      sourceType: "child_form_records",
+      childFormId: "",
+      parentLookupFieldId: "",
+      displayColumnFieldIds: [],
+      allowInlineCreate: false,
+      allowInlineEdit: false,
+      allowInlineDelete: false
+    };
+  }
+
   return field;
 }
 
@@ -266,6 +280,17 @@ function normalizeField(field: FormField): FormField {
     delete normalized.lookup;
   }
 
+  if (field.type === "subTable") {
+    normalized.subTable = normalizeSubTable(field.subTable);
+    normalized.required = false;
+    delete normalized.defaultValue;
+    delete normalized.placeholder;
+    delete normalized.options;
+    delete normalized.lookup;
+  } else {
+    delete normalized.subTable;
+  }
+
   removeUndefinedOptionalProperties(normalized);
 
   return normalized;
@@ -294,6 +319,36 @@ function normalizeFieldIds(fieldIds: string[] | undefined): string[] {
         .filter((fieldId): fieldId is string => Boolean(fieldId))
     )
   );
+}
+
+function normalizeSubTable(subTable: FormField["subTable"]): NonNullable<FormField["subTable"]> {
+  const minRows = normalizeOptionalInteger(subTable?.minRows);
+  const maxRows = normalizeOptionalInteger(subTable?.maxRows);
+  const normalized: NonNullable<FormField["subTable"]> = {
+    sourceType: "child_form_records" as const,
+    childFormId: normalizeText(subTable?.childFormId) ?? "",
+    parentLookupFieldId: normalizeText(subTable?.parentLookupFieldId) ?? "",
+    displayColumnFieldIds: normalizeFieldIds(subTable?.displayColumnFieldIds),
+    allowInlineCreate: false,
+    allowInlineEdit: false,
+    allowInlineDelete: false,
+    minRows,
+    maxRows
+  };
+
+  if (normalized.minRows === undefined) delete normalized.minRows;
+  if (normalized.maxRows === undefined) delete normalized.maxRows;
+
+  return normalized;
+}
+
+function normalizeOptionalInteger(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const numericValue = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(numericValue) ? numericValue : undefined;
 }
 
 function normalizeDefaultValue(field: FormField): FormRecordValue | undefined {

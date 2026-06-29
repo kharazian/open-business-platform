@@ -17,7 +17,8 @@ export const formFieldTypes = [
   "time",
   "datetime",
   "userPicker",
-  "departmentPicker"
+  "departmentPicker",
+  "subTable"
 ] as const;
 
 export type FormFieldType = (typeof formFieldTypes)[number];
@@ -51,6 +52,18 @@ export type FormFieldLookupFilter = {
   valueFromFieldId: string;
 };
 
+export type FormFieldSubTableConfig = {
+  sourceType: "child_form_records";
+  childFormId: string;
+  parentLookupFieldId: string;
+  displayColumnFieldIds: string[];
+  allowInlineCreate?: boolean;
+  allowInlineEdit?: boolean;
+  allowInlineDelete?: boolean;
+  minRows?: number;
+  maxRows?: number;
+};
+
 export type FormField = {
   id: string;
   type: FormFieldType;
@@ -62,6 +75,7 @@ export type FormField = {
   options?: FormFieldOption[];
   validation?: FormFieldValidation;
   lookup?: FormFieldLookupConfig;
+  subTable?: FormFieldSubTableConfig;
 };
 
 export type ResponsiveSpan = {

@@ -26,6 +26,18 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
           { id: "priority_high", label: "High", value: "high" }
         ],
         defaultValue: "high"
+      },
+      {
+        id: "line_items",
+        type: "subTable",
+        label: "Line items",
+        defaultValue: "ignored",
+        subTable: {
+          sourceType: "child_form_records",
+          childFormId: "11111111-1111-1111-1111-111111111111",
+          parentLookupFieldId: "parent_request",
+          displayColumnFieldIds: ["item_name"]
+        }
       }
     ],
     layout: {
@@ -52,7 +64,8 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
     name: "Ada",
     amount: 25,
     approved: true,
-    priority: "high"
+    priority: "high",
+    line_items: null
   });
 
   assert.equal(coerceFieldInputValue(schema.fields[1], "42"), 42);
@@ -62,6 +75,7 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
   assert.equal(coerceFieldInputValue({ id: "budget", type: "currency", label: "Budget" }, "42.75"), 42.75);
   assert.equal(coerceFieldInputValue({ id: "completion", type: "percent", label: "Completion" }, "87.5"), 87.5);
   assert.equal(coerceFieldInputValue({ id: "rating", type: "rating", label: "Rating" }, "4"), 4);
+  assert.equal(coerceFieldInputValue(schema.fields[4], "child-row-value"), null);
 
   assert.deepEqual(
     getFieldErrorsById([
@@ -106,6 +120,15 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "tablet"), "col-span-6");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "desktop"), "col-span-4");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "responsive"), "col-span-12 md:col-span-6 xl:col-span-4");
+});
+
+test("form renderer exposes read-only sub-table preview", () => {
+  const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+
+  assert.equal(rendererSource.includes("SubTablePreviewField"), true);
+  assert.equal(rendererSource.includes('field.type === "subTable"'), true);
+  assert.equal(rendererSource.includes("Related child records"), true);
+  assert.equal(rendererSource.includes("displayColumnFieldIds"), true);
 });
 
 test("form renderer wires record lookup fields to lookup options API", () => {
