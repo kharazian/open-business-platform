@@ -1,6 +1,6 @@
 # Repeating Table / Sub-Table Design
 
-Status: foundation plus existing child-row display added.
+Status: foundation, child-row display, inline child-row create, and grid controls added.
 
 ## Decision
 
@@ -49,9 +49,11 @@ The child form owns its normal fields plus a required `recordLookup` field that 
 
 1. Configure a sub-table block in the form builder by selecting child form, parent lookup field, and visible columns.
 2. Render existing child rows inside parent record detail/edit views.
-3. Add inline child-row create/edit/delete using the child form renderer in a modal or drawer.
-4. Add child row validation rules such as minimum and maximum rows.
-5. Extend print/report views with related child-row sections.
+3. Add inline child-row create using the child form renderer in a modal.
+4. Add child row paging, sorting, and per-column filtering.
+5. Add inline child-row edit/delete after the child record update/delete API path is designed and tested.
+6. Add child row validation rules such as minimum and maximum rows.
+7. Extend print/report views with related child-row sections.
 
 ## Permission Rules
 
@@ -67,4 +69,6 @@ The first code slice adds the schema contract, frontend/backend validation, buil
 
 The second code slice adds a parent-record scoped child-row read API and displays existing child rows in parent record detail and edit views. The API uses the parent record's stored schema version, enforces parent and child form access, applies child record scope filtering, hides unauthorized child fields, and hydrates lookup display labels for visible child columns.
 
-Inline child-row create, edit, and delete are intentionally still disabled until the parent-child record API path is designed and tested.
+The third code slice adds inline child-row create from the parent record view. The renderer opens the configured child form in a modal, pre-fills the hidden parent lookup with the current parent record ID, validates against the child form schema, submits through the existing child record creation API, and refreshes the related rows after save. The sub-table grid now supports backend paging, sortable column headers, and per-column filters.
+
+Inline child-row edit and delete are intentionally still disabled until the child record update/delete API path is designed and tested.

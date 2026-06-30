@@ -134,6 +134,13 @@ test("form renderer exposes read-only sub-table preview", () => {
   assert.equal(rendererSource.includes("recordId?: string"), true);
   assert.equal(rendererSource.includes("Loading child records"), true);
   assert.equal(rendererSource.includes("No child records found."), true);
+  assert.equal(rendererSource.includes("openAddRowModal"), true);
+  assert.equal(rendererSource.includes("submitRecord(childForm.id"), true);
+  assert.equal(rendererSource.includes("[field.subTable.parentLookupFieldId]: recordId"), true);
+  assert.equal(rendererSource.includes("sortFieldId"), true);
+  assert.equal(rendererSource.includes("sortDirection"), true);
+  assert.equal(rendererSource.includes("columnFilters"), true);
+  assert.equal(rendererSource.includes("Page"), true);
   assert.equal(recordDetailSource.includes("SubTablePreviewField"), true);
   assert.equal(recordDetailSource.includes("recordId={record.id}"), true);
 });

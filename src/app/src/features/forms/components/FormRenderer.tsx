@@ -1,24 +1,38 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input } from "../../../components/ui/Input";
+import { Modal } from "../../../components/ui/Modal";
 import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { cn } from "../../../lib/cn";
 import { listDirectoryDepartments, listDirectoryUsers, type DirectoryOption } from "../directoryApi";
 import {
   coerceFieldInputValue,
+  createInitialRecordValues,
   getColumnSpanClass,
   getFieldErrorsById,
   getLayoutFields,
   getRenderableRows,
   type FormPreviewSize
 } from "../renderer";
-import { listLookupOptions, listSubTableRows, type RecordLookupOption, type SubTableRowsResult } from "../api";
+import {
+  FormsApiError,
+  getPublishedFormForSubmission,
+  listLookupOptions,
+  listSubTableRows,
+  submitRecord,
+  type PublishedFormForSubmission,
+  type RecordLookupOption,
+  type SubTableRowsResult
+} from "../api";
+import { clearSubmissionFieldErrors } from "../submission";
 import type { FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
+import { validateRecordValues } from "../validation";
 
 type FormRendererMode = "entry" | "readonly";
 
@@ -31,6 +45,7 @@ export type FormRendererProps = {
   lookupDisplayValues?: Record<string, string>;
   mode?: FormRendererMode;
   previewSize?: FormPreviewSize;
+  renderAsForm?: boolean;
   submitLabel?: string;
   onChange?: (fieldId: string, value: FormRecordValue) => void;
   onSubmit?: () => void;
@@ -45,6 +60,7 @@ export function FormRenderer({
   lookupDisplayValues,
   mode = "entry",
   previewSize = "responsive",
+  renderAsForm = true,
   submitLabel = "Submit",
   onChange,
   onSubmit
@@ -76,8 +92,8 @@ export function FormRenderer({
     );
   }
 
-  return (
-    <form className="grid gap-6" noValidate onSubmit={handleSubmit}>
+  const content = (
+    <>
       {schema.layout.pages.map((page) => (
         <div className="grid gap-5" key={page.id}>
           {page.title || page.description ? (
@@ -132,7 +148,15 @@ export function FormRenderer({
           <Button type="submit">{submitLabel}</Button>
         </div>
       ) : null}
+    </>
+  );
+
+  return renderAsForm ? (
+    <form className="grid gap-6" noValidate onSubmit={handleSubmit}>
+      {content}
     </form>
+  ) : (
+    <div className="grid gap-6">{content}</div>
   );
 }
 
@@ -301,10 +325,29 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
   const [rows, setRows] = useState<SubTableRowsResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [subTableError, setSubTableError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [sortFieldId, setSortFieldId] = useState<string | undefined>();
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [addRowOpen, setAddRowOpen] = useState(false);
+  const [childForm, setChildForm] = useState<PublishedFormForSubmission | null>(null);
+  const [childValues, setChildValues] = useState<FormRecordValues>({});
+  const [childErrors, setChildErrors] = useState<ValidationError[]>([]);
+  const [childFormLoading, setChildFormLoading] = useState(false);
+  const [childSaving, setChildSaving] = useState(false);
+  const [childError, setChildError] = useState<string | null>(null);
   const subTableReady = Boolean(recordId && field.subTable?.childFormId && field.subTable?.parentLookupFieldId);
   const columns = rows?.columns.length
     ? rows.columns
     : displayColumnFieldIds.map((fieldId) => ({ fieldId, label: fieldId, type: "text" }));
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil((rows?.totalCount ?? 0) / pageSize));
+  const canCreate = Boolean(subTableReady && field.subTable?.allowInlineCreate);
+  const maxRows = field.subTable?.maxRows;
+  const createDisabledByMaxRows = maxRows !== undefined && (rows?.totalCount ?? 0) >= maxRows;
+  const childRenderSchema = childForm && field.subTable?.parentLookupFieldId
+    ? removeFieldFromSchema(childForm.schema, field.subTable.parentLookupFieldId)
+    : childForm?.schema ?? null;
 
   useEffect(() => {
     if (!recordId || !subTableReady) {
@@ -318,7 +361,13 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
     setLoading(true);
     setSubTableError(null);
 
-    listSubTableRows(recordId, field.id)
+    listSubTableRows(recordId, field.id, {
+      page,
+      pageSize,
+      sortFieldId,
+      sortDirection,
+      filters: columnFilters
+    })
       .then((result) => {
         if (!cancelled) {
           setRows(result);
@@ -339,7 +388,131 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
     return () => {
       cancelled = true;
     };
-  }, [field.id, recordId, subTableReady]);
+  }, [columnFilters, field.id, page, recordId, sortDirection, sortFieldId, subTableReady]);
+
+  function refreshRows() {
+    if (!recordId || !subTableReady) {
+      return;
+    }
+
+    setLoading(true);
+    setSubTableError(null);
+    listSubTableRows(recordId, field.id, {
+      page,
+      pageSize,
+      sortFieldId,
+      sortDirection,
+      filters: columnFilters
+    })
+      .then(setRows)
+      .catch((caught) => setSubTableError(caught instanceof Error ? caught.message : "Child records could not be loaded."))
+      .finally(() => setLoading(false));
+  }
+
+  function toggleSort(nextSortFieldId: string) {
+    setPage(1);
+    if (sortFieldId === nextSortFieldId) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortFieldId(nextSortFieldId);
+    setSortDirection("asc");
+  }
+
+  function updateFilter(fieldId: string, value: string) {
+    setPage(1);
+    setColumnFilters((current) => ({ ...current, [fieldId]: value }));
+  }
+
+  async function openAddRowModal() {
+    if (!recordId || !field.subTable?.childFormId || !field.subTable.parentLookupFieldId) {
+      return;
+    }
+
+    setAddRowOpen(true);
+    setChildFormLoading(true);
+    setChildError(null);
+    setChildErrors([]);
+
+    try {
+      const loadedChildForm = await getPublishedFormForSubmission(field.subTable.childFormId);
+      setChildForm(loadedChildForm);
+      setChildValues({
+        ...createInitialRecordValues(loadedChildForm.schema),
+        [field.subTable.parentLookupFieldId]: recordId
+      });
+    } catch (caught) {
+      setChildForm(null);
+      setChildError(caught instanceof Error ? caught.message : "Child form could not be loaded.");
+    } finally {
+      setChildFormLoading(false);
+    }
+  }
+
+  function closeAddRowModal() {
+    if (childSaving) {
+      return;
+    }
+
+    resetAddRowModal();
+  }
+
+  function resetAddRowModal() {
+    setAddRowOpen(false);
+    setChildForm(null);
+    setChildValues({});
+    setChildErrors([]);
+    setChildError(null);
+  }
+
+  function handleChildValueChange(fieldId: string, value: FormRecordValue) {
+    setChildValues((current) => ({
+      ...current,
+      [fieldId]: value,
+      ...(recordId && field.subTable?.parentLookupFieldId ? { [field.subTable.parentLookupFieldId]: recordId } : {})
+    }));
+    setChildErrors((currentErrors) => clearSubmissionFieldErrors(currentErrors, fieldId));
+    setChildError(null);
+  }
+
+  async function saveChildRow() {
+    if (!childForm || !recordId || !field.subTable?.parentLookupFieldId) {
+      return;
+    }
+
+    const values = {
+      ...childValues,
+      [field.subTable.parentLookupFieldId]: recordId
+    };
+    const validation = validateRecordValues(childForm.schema, values);
+    setChildErrors(validation.errors);
+
+    if (!validation.valid) {
+      return;
+    }
+
+    setChildSaving(true);
+    setChildError(null);
+
+    try {
+      await submitRecord(childForm.id, { values });
+      resetAddRowModal();
+      if (page === 1) {
+        refreshRows();
+      } else {
+        setPage(1);
+      }
+    } catch (caught) {
+      if (caught instanceof FormsApiError && caught.errors.length > 0) {
+        setChildErrors(caught.errors);
+      }
+
+      setChildError(caught instanceof Error ? caught.message : "Child row could not be saved.");
+    } finally {
+      setChildSaving(false);
+    }
+  }
 
   return (
     <FieldShell errors={errors} helpText={field.helpText}>
@@ -349,7 +522,15 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
             <p className="text-sm font-bold text-foreground">{field.label}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">Related child records are shown from the configured child form.</p>
           </div>
-          <Badge variant="default">{rows ? formatRowCount(rows.totalCount) : "Read-only"}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="default">{rows ? formatRowCount(rows.totalCount) : "Read-only"}</Badge>
+            {canCreate ? (
+              <Button disabled={createDisabledByMaxRows || loading} onClick={() => void openAddRowModal()} size="sm" variant="outline">
+                <Plus className="size-4" />
+                Add row
+              </Button>
+            ) : null}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-96 text-left text-sm">
@@ -357,10 +538,39 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
               <tr>
                 {(columns.length > 0 ? columns : [{ fieldId: "empty", label: "Column", type: "text" }]).map((column) => (
                   <th className="px-4 py-3" key={column.fieldId}>
-                    {column.label}
+                    {column.fieldId === "empty" ? (
+                      column.label
+                    ) : (
+                      <button
+                        className="inline-flex items-center gap-1 font-bold text-muted-foreground transition hover:text-foreground"
+                        onClick={() => toggleSort(column.fieldId)}
+                        type="button"
+                      >
+                        {column.label}
+                        {sortFieldId === column.fieldId ? (
+                          sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                        ) : null}
+                      </button>
+                    )}
                   </th>
                 ))}
               </tr>
+              {columns.length > 0 ? (
+                <tr>
+                  {columns.map((column) => (
+                    <th className="px-4 pb-3" key={`${column.fieldId}-filter`}>
+                      <input
+                        aria-label={`Filter ${column.label}`}
+                        className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:ring-4 focus:ring-primary/20"
+                        onKeyDown={preventNestedFormSubmit}
+                        onChange={(event) => updateFilter(column.fieldId, event.target.value)}
+                        placeholder={`Filter ${column.label}`}
+                        value={columnFilters[column.fieldId] ?? ""}
+                      />
+                    </th>
+                  ))}
+                </tr>
+              ) : null}
             </thead>
             <tbody>
               {!subTableReady ? (
@@ -407,7 +617,54 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
             </tbody>
           </table>
         </div>
+        {subTableReady && rows ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs font-semibold text-muted-foreground">
+            <span>Page {page} of {totalPages}</span>
+            <div className="flex gap-2">
+              <Button disabled={loading || page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} size="sm" variant="outline">
+                <ChevronLeft className="size-4" />
+                Previous
+              </Button>
+              <Button disabled={loading || page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} size="sm" variant="outline">
+                Next
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
+      <Modal
+        description="Create a child record linked to this parent record."
+        footer={
+          <>
+            <Button disabled={childSaving} onClick={closeAddRowModal} variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={childSaving || childFormLoading || !childForm} onClick={() => void saveChildRow()}>
+              {childSaving ? "Saving..." : "Save row"}
+            </Button>
+          </>
+        }
+        onClose={closeAddRowModal}
+        open={addRowOpen}
+        panelClassName="max-w-3xl"
+        title={`Add ${field.label}`}
+      >
+        <div className="grid gap-4" onKeyDown={preventNestedFormSubmit}>
+          {childError ? <Alert title="Sub-table row">{childError}</Alert> : null}
+          {childFormLoading ? <p className="text-sm font-semibold text-muted-foreground">Loading child form...</p> : null}
+          {childForm && childRenderSchema ? (
+            <FormRenderer
+              errors={childErrors}
+              formId={childForm.id}
+              onChange={handleChildValueChange}
+              renderAsForm={false}
+              schema={childRenderSchema}
+              values={childValues}
+            />
+          ) : null}
+        </div>
+      </Modal>
     </FieldShell>
   );
 }
@@ -695,6 +952,41 @@ function getStringValue(value: FormRecordValue | undefined): string {
   }
 
   return String(value);
+}
+
+function preventNestedFormSubmit(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  const target = event.target;
+  if (target instanceof HTMLTextAreaElement) {
+    return;
+  }
+
+  event.preventDefault();
+}
+
+function removeFieldFromSchema(schema: FormSchema, fieldId: string): FormSchema {
+  return {
+    ...schema,
+    fields: schema.fields.filter((field) => field.id !== fieldId),
+    layout: {
+      pages: schema.layout.pages.map((page) => ({
+        ...page,
+        sections: page.sections.map((section) => ({
+          ...section,
+          rows: section.rows.map((row) => ({
+            ...row,
+            columns: row.columns.map((column) => ({
+              ...column,
+              fields: column.fields.filter((candidate) => candidate !== fieldId)
+            }))
+          }))
+        }))
+      }))
+    }
+  };
 }
 
 function formatTableValue(value: FormRecordValue | string | undefined): string {

@@ -4,7 +4,12 @@ namespace OpenBusinessPlatform.Api.Modules.Records;
 
 public sealed record ListRecordsRequest(int Page = 1, int PageSize = 25, string? Search = null);
 
-public sealed record ListSubTableRowsRequest(int Page = 1, int PageSize = 25);
+public sealed record ListSubTableRowsRequest(
+    int Page = 1,
+    int PageSize = 25,
+    string? SortFieldId = null,
+    string? SortDirection = null,
+    IReadOnlyDictionary<string, string?>? Filters = null);
 
 public sealed record SubmitRecordRequest(IReadOnlyDictionary<string, object?> Values);
 

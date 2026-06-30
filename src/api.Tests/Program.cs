@@ -2842,6 +2842,16 @@ AssertFalse(
         Guid.Parse("22222222-2222-2222-2222-222222222222")),
     "Sub-table child rows should exclude records linked to a different parent.");
 AssertTrue(
+    RecordQueryService.MatchesSubTableFilters(
+        new Dictionary<string, object?> { ["item_name"] = "Laptop stand" },
+        new Dictionary<string, string> { ["item_name"] = "lap" }),
+    "Sub-table filters should match visible child column values by contains.");
+AssertFalse(
+    RecordQueryService.MatchesSubTableFilters(
+        new Dictionary<string, object?> { ["item_name"] = "Mouse" },
+        new Dictionary<string, string> { ["item_name"] = "lap" }),
+    "Sub-table filters should exclude child rows that do not match column filters.");
+AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
         .Contains("/api/forms/{formId:guid}/fields/{fieldId}/lookup-options", StringComparison.Ordinal),
     "Records endpoints should expose a lookup options route.");
@@ -2887,6 +2897,17 @@ var recordListRequest = new ListRecordsRequest(Page: 2, PageSize: 10, Search: "J
 AssertEqual(2, recordListRequest.Page, "List records requests should carry the requested page.");
 AssertEqual(10, recordListRequest.PageSize, "List records requests should carry the requested page size.");
 AssertEqual("Jane", recordListRequest.Search, "List records requests should carry the search term.");
+var subTableRowsRequest = new ListSubTableRowsRequest(
+    Page: 2,
+    PageSize: 5,
+    SortFieldId: "quantity",
+    SortDirection: "asc",
+    Filters: new Dictionary<string, string?> { ["item_name"] = "Laptop" });
+AssertEqual(2, subTableRowsRequest.Page, "Sub-table row requests should carry the requested page.");
+AssertEqual(5, subTableRowsRequest.PageSize, "Sub-table row requests should carry the requested page size.");
+AssertEqual("quantity", subTableRowsRequest.SortFieldId, "Sub-table row requests should carry the requested sort field.");
+AssertEqual("asc", subTableRowsRequest.SortDirection, "Sub-table row requests should carry sort direction.");
+AssertEqual("Laptop", subTableRowsRequest.Filters!["item_name"], "Sub-table row requests should carry per-column filters.");
 
 var recordListItem = new FormRecordListItemDto(
     recordDto.Id,

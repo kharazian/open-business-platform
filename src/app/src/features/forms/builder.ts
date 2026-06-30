@@ -329,7 +329,7 @@ function normalizeSubTable(subTable: FormField["subTable"]): NonNullable<FormFie
     childFormId: normalizeText(subTable?.childFormId) ?? "",
     parentLookupFieldId: normalizeText(subTable?.parentLookupFieldId) ?? "",
     displayColumnFieldIds: normalizeFieldIds(subTable?.displayColumnFieldIds),
-    allowInlineCreate: false,
+    allowInlineCreate: Boolean(subTable?.allowInlineCreate),
     allowInlineEdit: false,
     allowInlineDelete: false,
     minRows,

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Security.Claims;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
@@ -227,6 +228,7 @@ public sealed class RecordQueryService
             .Select(fieldId => childFieldsById[fieldId])
             .Select(field => new SubTableColumnDto(field.Id, field.Label, field.Type))
             .ToArray();
+        var filters = NormalizeSubTableFilters(request.Filters, displayColumnFieldIds);
 
         var childQuery = await permissionService.ApplyRecordAccessAsync(
             principal,
@@ -242,28 +244,40 @@ public sealed class RecordQueryService
             .Select(record => new ChildRecordRow(record, DeserializeValues(record.ValuesJson)))
             .Where(row => IsLinkedToParentRecord(row.Values, subTableField.SubTable.ParentLookupFieldId, recordId))
             .ToArray();
-        var pagedRows = linkedRows
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToArray();
-        var rowValues = pagedRows
+        var linkedRowValues = linkedRows
             .Select(row => ProjectValues(row.Values, displayColumnFieldIds))
             .ToArray();
         var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
             principal,
             visibleChildSchema,
-            rowValues,
+            linkedRowValues,
             permissionService,
             cancellationToken);
+        var hydratedRows = linkedRows
+            .Select((row, index) => new SubTableHydratedRow(
+                row.Record,
+                linkedRowValues[index],
+                ProjectDisplayValues(displayValues[index], displayColumnFieldIds)))
+            .Where(row => MatchesHydratedSubTableFilters(row, filters, displayColumnFieldIds))
+            .ToArray();
+        var sortedRows = SortSubTableRows(
+            hydratedRows,
+            request.SortFieldId,
+            request.SortDirection,
+            displayColumnFieldIds);
+        var pagedRows = sortedRows
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
         var rowDtos = pagedRows
-            .Select((row, index) => new SubTableRowDto(
+            .Select(row => new SubTableRowDto(
                 row.Record.Id,
-                rowValues[index],
-                ProjectDisplayValues(displayValues[index], displayColumnFieldIds),
+                row.Values,
+                row.DisplayValues,
                 row.Record.CreatedAt))
             .ToArray();
 
-        return new SubTableRowsDto(fieldId, columns, linkedRows.LongLength, rowDtos);
+        return new SubTableRowsDto(fieldId, columns, hydratedRows.LongLength, rowDtos);
     }
 
     public static bool IsLinkedToParentRecord(
@@ -273,6 +287,20 @@ public sealed class RecordQueryService
     {
         return values.TryGetValue(parentLookupFieldId, out var value)
             && string.Equals(Normalize(ToDisplayString(value)), parentRecordId.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool MatchesSubTableFilters(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyDictionary<string, string> filters)
+    {
+        if (filters.Count == 0)
+        {
+            return true;
+        }
+
+        return filters.All(filter =>
+            values.TryGetValue(filter.Key, out var value)
+            && ToDisplayString(value)?.Contains(filter.Value, StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private static FormRecordListItemDto ToListItem(
@@ -356,6 +384,71 @@ public sealed class RecordQueryService
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
     }
 
+    private static IReadOnlyDictionary<string, string> NormalizeSubTableFilters(
+        IReadOnlyDictionary<string, string?>? filters,
+        IReadOnlyCollection<string> visibleColumnFieldIds)
+    {
+        var visibleColumns = visibleColumnFieldIds.ToHashSet(StringComparer.Ordinal);
+        return (filters ?? new Dictionary<string, string?>())
+            .Where(pair => visibleColumns.Contains(pair.Key))
+            .Select(pair => new { pair.Key, Value = Normalize(pair.Value) })
+            .Where(pair => pair.Value is not null)
+            .ToDictionary(pair => pair.Key, pair => pair.Value!, StringComparer.Ordinal);
+    }
+
+    private static bool MatchesHydratedSubTableFilters(
+        SubTableHydratedRow row,
+        IReadOnlyDictionary<string, string> filters,
+        IReadOnlyCollection<string> displayColumnFieldIds)
+    {
+        if (filters.Count == 0)
+        {
+            return true;
+        }
+
+        var filterValues = displayColumnFieldIds.ToDictionary(
+            fieldId => fieldId,
+            fieldId => (object?)GetHydratedFieldValue(row, fieldId),
+            StringComparer.Ordinal);
+        return MatchesSubTableFilters(filterValues, filters);
+    }
+
+    private static IReadOnlyList<SubTableHydratedRow> SortSubTableRows(
+        IReadOnlyList<SubTableHydratedRow> rows,
+        string? sortFieldId,
+        string? sortDirection,
+        IReadOnlyCollection<string> displayColumnFieldIds)
+    {
+        var sortAscending = string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+        var canSortByField = !string.IsNullOrWhiteSpace(sortFieldId) && displayColumnFieldIds.Contains(sortFieldId, StringComparer.Ordinal);
+        if (!canSortByField)
+        {
+            return rows
+                .OrderByDescending(row => row.Record.CreatedAt)
+                .ThenByDescending(row => row.Record.Id)
+                .ToArray();
+        }
+
+        var sortedRows = sortAscending
+            ? rows.OrderBy(row => GetHydratedFieldValue(row, sortFieldId!), SubTableFieldValueComparer.Instance)
+            : rows.OrderByDescending(row => GetHydratedFieldValue(row, sortFieldId!), SubTableFieldValueComparer.Instance);
+
+        return sortedRows
+            .ThenByDescending(row => row.Record.CreatedAt)
+            .ThenByDescending(row => row.Record.Id)
+            .ToArray();
+    }
+
+    private static object? GetHydratedFieldValue(SubTableHydratedRow row, string fieldId)
+    {
+        if (row.DisplayValues.TryGetValue(fieldId, out var displayValue))
+        {
+            return displayValue;
+        }
+
+        return row.Values.TryGetValue(fieldId, out var value) ? value : null;
+    }
+
     private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
         FormSchemaDefinition schema,
         IReadOnlySet<string> hiddenFieldIds)
@@ -416,6 +509,29 @@ public sealed class RecordQueryService
         };
     }
 
+    private static bool TryGetDecimal(object? value, out decimal result)
+    {
+        result = 0;
+        return value switch
+        {
+            decimal decimalValue => SetDecimal(decimalValue, out result),
+            int intValue => SetDecimal(intValue, out result),
+            long longValue => SetDecimal(longValue, out result),
+            double doubleValue when double.IsFinite(doubleValue) => SetDecimal((decimal)doubleValue, out result),
+            float floatValue when float.IsFinite(floatValue) => SetDecimal((decimal)floatValue, out result),
+            JsonElement { ValueKind: JsonValueKind.Number } element when element.TryGetDecimal(out var decimalValue) => SetDecimal(decimalValue, out result),
+            JsonElement { ValueKind: JsonValueKind.String } element => decimal.TryParse(element.GetString(), NumberStyles.Number, CultureInfo.InvariantCulture, out result),
+            string text => decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out result),
+            _ => false
+        };
+    }
+
+    private static bool SetDecimal(decimal value, out decimal result)
+    {
+        result = value;
+        return true;
+    }
+
     private static string? Normalize(string? value)
     {
         var normalized = value?.Trim();
@@ -425,4 +541,39 @@ public sealed class RecordQueryService
     private sealed record ChildRecordRow(
         FormRecord Record,
         IReadOnlyDictionary<string, object?> Values);
+
+    private sealed record SubTableHydratedRow(
+        FormRecord Record,
+        IReadOnlyDictionary<string, object?> Values,
+        IReadOnlyDictionary<string, string> DisplayValues);
+
+    private sealed class SubTableFieldValueComparer : IComparer<object?>
+    {
+        public static readonly SubTableFieldValueComparer Instance = new();
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is null && y is null)
+            {
+                return 0;
+            }
+
+            if (x is null)
+            {
+                return -1;
+            }
+
+            if (y is null)
+            {
+                return 1;
+            }
+
+            if (TryGetDecimal(x, out var leftDecimal) && TryGetDecimal(y, out var rightDecimal))
+            {
+                return leftDecimal.CompareTo(rightDecimal);
+            }
+
+            return string.Compare(ToDisplayString(x), ToDisplayString(y), StringComparison.OrdinalIgnoreCase);
+        }
+    }
 }

@@ -179,7 +179,7 @@ test("form builder exposes sub-table field metadata and configuration UI", () =>
     childFormId: "child-form-id",
     parentLookupFieldId: "parent",
     displayColumnFieldIds: ["name", "amount"],
-    allowInlineCreate: false,
+    allowInlineCreate: true,
     allowInlineEdit: false,
     allowInlineDelete: false,
     minRows: 0,
@@ -192,7 +192,8 @@ test("form builder exposes sub-table field metadata and configuration UI", () =>
   assert.equal(source.includes("Child form"), true);
   assert.equal(source.includes("Parent lookup field"), true);
   assert.equal(source.includes("Display columns"), true);
-  assert.equal(source.includes("Inline actions are planned after child record APIs are connected."), true);
+  assert.equal(source.includes("Allow inline create"), true);
+  assert.equal(source.includes("Inline edit and delete are planned after child record APIs are connected."), true);
   assert.equal(source.includes('field.type !== "subTable"'), true);
 });
 

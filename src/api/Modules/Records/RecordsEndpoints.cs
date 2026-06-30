@@ -125,6 +125,8 @@ public static class RecordsEndpoints
             string fieldId,
             int? page,
             int? pageSize,
+            string? sortFieldId,
+            string? sortDirection,
             RecordQueryService recordQuery,
             PermissionService permissionService,
             HttpContext httpContext,
@@ -147,7 +149,7 @@ public static class RecordsEndpoints
                     httpContext.User,
                     recordId,
                     fieldId,
-                    new ListSubTableRowsRequest(page ?? 1, pageSize ?? 25),
+                    new ListSubTableRowsRequest(page ?? 1, pageSize ?? 25, sortFieldId, sortDirection, GetSubTableFilterValues(httpContext)),
                     permissionService,
                     cancellationToken);
                 return Results.Ok(rows);
@@ -295,6 +297,17 @@ public static class RecordsEndpoints
     private static IReadOnlyDictionary<string, string?> GetLookupDependencyValues(HttpContext httpContext)
     {
         const string Prefix = "dependency.";
+        return httpContext.Request.Query
+            .Where(pair => pair.Key.StartsWith(Prefix, StringComparison.Ordinal))
+            .ToDictionary(
+                pair => pair.Key[Prefix.Length..],
+                pair => string.IsNullOrWhiteSpace(pair.Value.ToString()) ? null : pair.Value.ToString(),
+                StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string?> GetSubTableFilterValues(HttpContext httpContext)
+    {
+        const string Prefix = "filter.";
         return httpContext.Request.Query
             .Where(pair => pair.Key.StartsWith(Prefix, StringComparison.Ordinal))
             .ToDictionary(

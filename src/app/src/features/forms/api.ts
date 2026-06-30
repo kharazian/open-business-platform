@@ -97,6 +97,9 @@ export type ListRecordsOptions = {
 export type ListSubTableRowsOptions = {
   page?: number;
   pageSize?: number;
+  sortFieldId?: string;
+  sortDirection?: "asc" | "desc";
+  filters?: Record<string, string | undefined>;
 };
 
 export type PagedResult<T> = {
@@ -285,6 +288,19 @@ export async function listSubTableRows(
   const searchParams = new URLSearchParams();
   searchParams.set("page", String(options.page ?? 1));
   searchParams.set("pageSize", String(options.pageSize ?? 25));
+
+  if (options.sortFieldId && options.sortFieldId.trim().length > 0) {
+    searchParams.set("sortFieldId", options.sortFieldId.trim());
+    searchParams.set("sortDirection", options.sortDirection === "asc" ? "asc" : "desc");
+  }
+
+  Object.entries(options.filters ?? {}).forEach(([fieldId, value]) => {
+    if (!value || value.trim().length === 0) {
+      return;
+    }
+
+    searchParams.set(`filter.${fieldId}`, value.trim());
+  });
 
   return requestJson<SubTableRowsResult>(
     `/api/records/${encodeURIComponent(recordId)}/subtables/${encodeURIComponent(fieldId)}/rows?${searchParams.toString()}`,

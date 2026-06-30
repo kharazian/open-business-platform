@@ -213,7 +213,10 @@ test("forms API client maps requests, responses, and errors", async () => {
     };
   }
 
-  if (input === "/api/records/record-1/subtables/line_items/rows?page=1&pageSize=25" && init.method === "GET") {
+  if (
+    input === "/api/records/record-1/subtables/line_items/rows?page=2&pageSize=5&sortFieldId=quantity&sortDirection=asc&filter.item_name=Laptop" &&
+    init.method === "GET"
+  ) {
     return {
       ok: true,
       json: async () => ({
@@ -295,7 +298,12 @@ const submittedRecord = await api.submitRecord("form-2", { values: { site_name: 
 const listedRecords = await api.listRecords("form-2", { page: 2, pageSize: 10, search: "North plant" }, fetcher);
 const lookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme" }, fetcher);
 const dependentLookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme", dependencies: { department: "hr" } }, fetcher);
-const subTableRows = await api.listSubTableRows("record-1", "line_items", {}, fetcher);
+const subTableRows = await api.listSubTableRows(
+  "record-1",
+  "line_items",
+  { page: 2, pageSize: 5, sortFieldId: "quantity", sortDirection: "asc", filters: { item_name: "Laptop" } },
+  fetcher
+);
 const recordDetail = await api.getRecord("record-1", fetcher);
 const updatedRecord = await api.updateRecord(
   "record-1",
@@ -372,7 +380,7 @@ assert.equal(calls[8].init.credentials, "include");
 assert.equal(calls[9].input, "/api/forms/form-2/fields/customer/lookup-options?page=1&pageSize=25&search=Acme&dependency.department=hr");
 assert.equal(calls[9].init.method, "GET");
 assert.equal(calls[9].init.credentials, "include");
-assert.equal(calls[10].input, "/api/records/record-1/subtables/line_items/rows?page=1&pageSize=25");
+assert.equal(calls[10].input, "/api/records/record-1/subtables/line_items/rows?page=2&pageSize=5&sortFieldId=quantity&sortDirection=asc&filter.item_name=Laptop");
 assert.equal(calls[10].init.method, "GET");
 assert.equal(calls[10].init.credentials, "include");
 assert.equal(calls[11].input, "/api/records/record-1");
