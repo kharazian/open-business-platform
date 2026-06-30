@@ -2830,9 +2830,25 @@ AssertTrue(
         "acme"),
     "Lookup search should match configured visible search fields.");
 AssertTrue(
+    RecordQueryService.IsLinkedToParentRecord(
+        new Dictionary<string, object?> { ["parent_request"] = "22222222-2222-2222-2222-222222222222" },
+        "parent_request",
+        Guid.Parse("22222222-2222-2222-2222-222222222222")),
+    "Sub-table child rows should match selected parent record lookup ids.");
+AssertFalse(
+    RecordQueryService.IsLinkedToParentRecord(
+        new Dictionary<string, object?> { ["parent_request"] = "33333333-3333-3333-3333-333333333333" },
+        "parent_request",
+        Guid.Parse("22222222-2222-2222-2222-222222222222")),
+    "Sub-table child rows should exclude records linked to a different parent.");
+AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
         .Contains("/api/forms/{formId:guid}/fields/{fieldId}/lookup-options", StringComparison.Ordinal),
     "Records endpoints should expose a lookup options route.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
+        .Contains("/{recordId:guid}/subtables/{fieldId}/rows", StringComparison.Ordinal),
+    "Records endpoints should expose a parent-record scoped sub-table rows route.");
 AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
@@ -2886,6 +2902,26 @@ var recordListItem = new FormRecordListItemDto(
     recordDto.CreatedById);
 AssertEqual(recordDto.FormVersionId, recordListItem.FormVersionId, "Record list items should expose the stored form version id.");
 AssertEqual("Jane Cooper", recordListItem.Values["employee_name"], "Record list items should expose submitted values for default list views.");
+
+var subTableRows = new SubTableRowsDto(
+    "line_items",
+    new[]
+    {
+        new SubTableColumnDto("item_name", "Item name", FormFieldTypes.Text),
+        new SubTableColumnDto("quantity", "Quantity", FormFieldTypes.Number)
+    },
+    1,
+    new[]
+    {
+        new SubTableRowDto(
+            Guid.Parse("66666666-6666-6666-6666-666666666666"),
+            new Dictionary<string, object?> { ["item_name"] = "Laptop", ["quantity"] = 1 },
+            new Dictionary<string, string>(),
+            sampleUpdatedAt)
+    });
+AssertEqual("line_items", subTableRows.FieldId, "Sub-table row responses should identify the parent field.");
+AssertEqual("Item name", subTableRows.Columns[0].Label, "Sub-table row responses should expose visible child column labels.");
+AssertEqual("Laptop", subTableRows.Items[0].Values["item_name"], "Sub-table row responses should expose child record values.");
 
 var recordDetail = new FormRecordDetailDto(
     recordDto.Id,

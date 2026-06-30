@@ -94,6 +94,11 @@ export type ListRecordsOptions = {
   search?: string;
 };
 
+export type ListSubTableRowsOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
 export type PagedResult<T> = {
   totalCount: number;
   items: T[];
@@ -110,6 +115,26 @@ export type ListLookupOptionsOptions = {
   pageSize?: number;
   search?: string;
   dependencies?: Record<string, FormRecordValue | undefined>;
+};
+
+export type SubTableColumn = {
+  fieldId: string;
+  label: string;
+  type: string;
+};
+
+export type SubTableRow = {
+  recordId: string;
+  values: FormRecordValues;
+  displayValues?: Record<string, string>;
+  createdAt: string;
+};
+
+export type SubTableRowsResult = {
+  fieldId: string;
+  columns: SubTableColumn[];
+  totalCount: number;
+  items: SubTableRow[];
 };
 
 export class FormsApiError extends Error {
@@ -246,6 +271,23 @@ export async function listLookupOptions(
 
   return requestJson<PagedResult<RecordLookupOption>>(
     `/api/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}/lookup-options?${searchParams.toString()}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listSubTableRows(
+  recordId: string,
+  fieldId: string,
+  options: ListSubTableRowsOptions = {},
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<SubTableRowsResult> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("page", String(options.page ?? 1));
+  searchParams.set("pageSize", String(options.pageSize ?? 25));
+
+  return requestJson<SubTableRowsResult>(
+    `/api/records/${encodeURIComponent(recordId)}/subtables/${encodeURIComponent(fieldId)}/rows?${searchParams.toString()}`,
     { method: "GET", credentials: "include" },
     fetcher
   );

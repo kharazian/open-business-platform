@@ -213,6 +213,28 @@ test("forms API client maps requests, responses, and errors", async () => {
     };
   }
 
+  if (input === "/api/records/record-1/subtables/line_items/rows?page=1&pageSize=25" && init.method === "GET") {
+    return {
+      ok: true,
+      json: async () => ({
+        fieldId: "line_items",
+        columns: [
+          { fieldId: "item_name", label: "Item name", type: "text" },
+          { fieldId: "quantity", label: "Quantity", type: "number" }
+        ],
+        totalCount: 1,
+        items: [
+          {
+            recordId: "line-item-1",
+            values: { item_name: "Laptop", quantity: 1 },
+            displayValues: {},
+            createdAt: "2026-05-19T13:22:00.000Z"
+          }
+        ]
+      })
+    };
+  }
+
   if (input === "/api/records/record-1" && init.method === "GET") {
     return {
       ok: true,
@@ -273,6 +295,7 @@ const submittedRecord = await api.submitRecord("form-2", { values: { site_name: 
 const listedRecords = await api.listRecords("form-2", { page: 2, pageSize: 10, search: "North plant" }, fetcher);
 const lookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme" }, fetcher);
 const dependentLookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme", dependencies: { department: "hr" } }, fetcher);
+const subTableRows = await api.listSubTableRows("record-1", "line_items", {}, fetcher);
 const recordDetail = await api.getRecord("record-1", fetcher);
 const updatedRecord = await api.updateRecord(
   "record-1",
@@ -303,6 +326,9 @@ assert.deepEqual(lookupOptions.items[0], {
   description: "ACME-001"
 });
 assert.equal(dependentLookupOptions.items[0].label, "HR Customer");
+assert.equal(subTableRows.fieldId, "line_items");
+assert.equal(subTableRows.columns[0].label, "Item name");
+assert.equal(subTableRows.items[0].values.item_name, "Laptop");
 assert.equal(recordDetail.schema.fields[0].id, "site_name");
 assert.equal(recordDetail.displayValues.customer, "Acme Corp");
 assert.equal(updatedRecord.values.site_name, "South plant");
@@ -346,18 +372,21 @@ assert.equal(calls[8].init.credentials, "include");
 assert.equal(calls[9].input, "/api/forms/form-2/fields/customer/lookup-options?page=1&pageSize=25&search=Acme&dependency.department=hr");
 assert.equal(calls[9].init.method, "GET");
 assert.equal(calls[9].init.credentials, "include");
-assert.equal(calls[10].input, "/api/records/record-1");
+assert.equal(calls[10].input, "/api/records/record-1/subtables/line_items/rows?page=1&pageSize=25");
 assert.equal(calls[10].init.method, "GET");
 assert.equal(calls[10].init.credentials, "include");
 assert.equal(calls[11].input, "/api/records/record-1");
-assert.equal(calls[11].init.method, "PUT");
+assert.equal(calls[11].init.method, "GET");
 assert.equal(calls[11].init.credentials, "include");
-assert.equal(calls[11].init.headers["Content-Type"], "application/json");
-assert.deepEqual(JSON.parse(calls[11].init.body), { values: { site_name: "South plant" }, concurrencyStamp: "record-stamp" });
 assert.equal(calls[12].input, "/api/records/record-1");
-assert.equal(calls[12].init.method, "DELETE");
+assert.equal(calls[12].init.method, "PUT");
 assert.equal(calls[12].init.credentials, "include");
-assert.equal(calls[12].init.body, undefined);
+assert.equal(calls[12].init.headers["Content-Type"], "application/json");
+assert.deepEqual(JSON.parse(calls[12].init.body), { values: { site_name: "South plant" }, concurrencyStamp: "record-stamp" });
+assert.equal(calls[13].input, "/api/records/record-1");
+assert.equal(calls[13].init.method, "DELETE");
+assert.equal(calls[13].init.credentials, "include");
+assert.equal(calls[13].init.body, undefined);
 
   await assert.rejects(
     () => api.listForms(async () => ({ ok: true, json: async () => ({}) })),

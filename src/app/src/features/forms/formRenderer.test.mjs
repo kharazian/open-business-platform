@@ -124,11 +124,18 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
 
 test("form renderer exposes read-only sub-table preview", () => {
   const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+  const recordDetailSource = readFileSync(new URL("../records/pages/RecordDetailPage.tsx", import.meta.url), "utf8");
 
   assert.equal(rendererSource.includes("SubTablePreviewField"), true);
   assert.equal(rendererSource.includes('field.type === "subTable"'), true);
   assert.equal(rendererSource.includes("Related child records"), true);
   assert.equal(rendererSource.includes("displayColumnFieldIds"), true);
+  assert.equal(rendererSource.includes("listSubTableRows"), true);
+  assert.equal(rendererSource.includes("recordId?: string"), true);
+  assert.equal(rendererSource.includes("Loading child records"), true);
+  assert.equal(rendererSource.includes("No child records found."), true);
+  assert.equal(recordDetailSource.includes("SubTablePreviewField"), true);
+  assert.equal(recordDetailSource.includes("recordId={record.id}"), true);
 });
 
 test("form renderer wires record lookup fields to lookup options API", () => {

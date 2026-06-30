@@ -4,6 +4,8 @@ namespace OpenBusinessPlatform.Api.Modules.Records;
 
 public sealed record ListRecordsRequest(int Page = 1, int PageSize = 25, string? Search = null);
 
+public sealed record ListSubTableRowsRequest(int Page = 1, int PageSize = 25);
+
 public sealed record SubmitRecordRequest(IReadOnlyDictionary<string, object?> Values);
 
 public sealed record UpdateRecordRequest(IReadOnlyDictionary<string, object?> Values, string ConcurrencyStamp);
@@ -59,6 +61,23 @@ public sealed record FormRecordDetailDto(
     DateTimeOffset? UpdatedAt,
     Guid? UpdatedById,
     IReadOnlyDictionary<string, string>? DisplayValues = null);
+
+public sealed record SubTableColumnDto(
+    string FieldId,
+    string Label,
+    string Type);
+
+public sealed record SubTableRowDto(
+    Guid RecordId,
+    IReadOnlyDictionary<string, object?> Values,
+    IReadOnlyDictionary<string, string>? DisplayValues,
+    DateTimeOffset CreatedAt);
+
+public sealed record SubTableRowsDto(
+    string FieldId,
+    IReadOnlyList<SubTableColumnDto> Columns,
+    long TotalCount,
+    IReadOnlyList<SubTableRowDto> Items);
 
 public sealed record RecordErrorResponse(string Message, IReadOnlyList<FormValidationError>? Errors = null);
 

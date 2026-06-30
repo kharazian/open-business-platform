@@ -9,7 +9,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { FormRenderer } from "../../forms/components/FormRenderer";
+import { FormRenderer, SubTablePreviewField } from "../../forms/components/FormRenderer";
 import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { validateRecordValues } from "../../forms/validation";
@@ -435,6 +435,7 @@ export function RecordDetailPage() {
                 <FormRenderer
                   errors={validationErrors}
                   formId={record.formId}
+                  recordId={record.id}
                   lookupDisplayValues={record.displayValues}
                   onChange={handleDraftChange}
                   onSubmit={() => void saveRecord()}
@@ -445,7 +446,13 @@ export function RecordDetailPage() {
               ) : (
                 <div className="grid gap-3">
                   {record.schema.fields.map((field) => (
-                    <ValueRow displayValue={record.displayValues?.[field.id]} field={field} key={field.id} value={record.values[field.id]} />
+                    <ValueRow
+                      displayValue={record.displayValues?.[field.id]}
+                      field={field}
+                      key={field.id}
+                      recordId={record.id}
+                      value={record.values[field.id]}
+                    />
                   ))}
                   {Object.keys(record.values)
                     .filter((fieldId) => !fieldsById.has(fieldId))
@@ -469,13 +476,19 @@ function ValueRow({
   displayValue,
   field,
   label,
+  recordId,
   value
 }: {
   displayValue?: string;
   field?: FormField;
   label?: string;
+  recordId?: string;
   value: FormRecordValue | undefined;
 }) {
+  if (field?.type === "subTable") {
+    return <SubTablePreviewField errors={[]} field={field} recordId={recordId} />;
+  }
+
   return (
     <div className="print-value-row grid gap-2 rounded-xl border border-border bg-card/70 p-4 md:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="min-w-0">

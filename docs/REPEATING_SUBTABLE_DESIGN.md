@@ -1,6 +1,6 @@
 # Repeating Table / Sub-Table Design
 
-Status: first implementation foundation added.
+Status: foundation plus existing child-row display added.
 
 ## Decision
 
@@ -64,5 +64,7 @@ Child forms should automatically get their own default reports. Parent reports s
 ## Implemented Foundation
 
 The first code slice adds the schema contract, frontend/backend validation, builder configuration UI, and a disabled/read-only sub-table preview. Sub-table fields are excluded from parent report metadata because they represent related child records, not scalar parent record values.
+
+The second code slice adds a parent-record scoped child-row read API and displays existing child rows in parent record detail and edit views. The API uses the parent record's stored schema version, enforces parent and child form access, applies child record scope filtering, hides unauthorized child fields, and hydrates lookup display labels for visible child columns.
 
 Inline child-row create, edit, and delete are intentionally still disabled until the parent-child record API path is designed and tested.

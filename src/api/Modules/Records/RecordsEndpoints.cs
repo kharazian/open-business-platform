@@ -120,6 +120,40 @@ public static class RecordsEndpoints
             });
         });
 
+        detailGroup.MapGet("/{recordId:guid}/subtables/{fieldId}/rows", async (
+            Guid recordId,
+            string fieldId,
+            int? page,
+            int? pageSize,
+            RecordQueryService recordQuery,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var rows = await recordQuery.ListSubTableRowsAsync(
+                    httpContext.User,
+                    recordId,
+                    fieldId,
+                    new ListSubTableRowsRequest(page ?? 1, pageSize ?? 25),
+                    permissionService,
+                    cancellationToken);
+                return Results.Ok(rows);
+            });
+        });
+
         detailGroup.MapPut("/{recordId:guid}", async (
             Guid recordId,
             UpdateRecordRequest request,

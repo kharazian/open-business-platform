@@ -17,13 +17,14 @@ import {
   getRenderableRows,
   type FormPreviewSize
 } from "../renderer";
-import { listLookupOptions, type RecordLookupOption } from "../api";
+import { listLookupOptions, listSubTableRows, type RecordLookupOption, type SubTableRowsResult } from "../api";
 import type { FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
 
 type FormRendererMode = "entry" | "readonly";
 
 export type FormRendererProps = {
   formId?: string;
+  recordId?: string;
   schema: FormSchema;
   values: FormRecordValues;
   errors?: ValidationError[];
@@ -37,6 +38,7 @@ export type FormRendererProps = {
 
 export function FormRenderer({
   formId,
+  recordId,
   schema,
   values,
   errors = [],
@@ -106,6 +108,7 @@ export function FormRenderer({
                               errors={errorsById[field.id] ?? []}
                               field={field}
                               formId={formId}
+                              recordId={recordId}
                               dependencies={values}
                               displayValue={lookupDisplayValues?.[field.id]}
                               key={field.id}
@@ -140,6 +143,7 @@ function RenderedField({
   errors,
   field,
   formId,
+  recordId,
   onChange,
   value
 }: {
@@ -149,6 +153,7 @@ function RenderedField({
   errors: string[];
   field: FormField;
   formId?: string;
+  recordId?: string;
   onChange: (value: FormRecordValue | string | boolean) => void;
   value: FormRecordValue | undefined;
 }) {
@@ -161,7 +166,7 @@ function RenderedField({
   const error = errors[0];
 
   if (field.type === "subTable") {
-    return <SubTablePreviewField errors={errors} field={field} />;
+    return <SubTablePreviewField errors={errors} field={field} recordId={recordId} />;
   }
 
   if (field.type === "textarea") {
@@ -291,9 +296,50 @@ function RenderedField({
   );
 }
 
-function SubTablePreviewField({ errors, field }: { errors: string[]; field: FormField }) {
+export function SubTablePreviewField({ errors, field, recordId }: { errors: string[]; field: FormField; recordId?: string }) {
   const displayColumnFieldIds = field.subTable?.displayColumnFieldIds ?? [];
-  const previewColumnLabels = displayColumnFieldIds.length > 0 ? displayColumnFieldIds : ["Column 1", "Column 2", "Column 3"];
+  const [rows, setRows] = useState<SubTableRowsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [subTableError, setSubTableError] = useState<string | null>(null);
+  const subTableReady = Boolean(recordId && field.subTable?.childFormId && field.subTable?.parentLookupFieldId);
+  const columns = rows?.columns.length
+    ? rows.columns
+    : displayColumnFieldIds.map((fieldId) => ({ fieldId, label: fieldId, type: "text" }));
+
+  useEffect(() => {
+    if (!recordId || !subTableReady) {
+      setRows(null);
+      setLoading(false);
+      setSubTableError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setSubTableError(null);
+
+    listSubTableRows(recordId, field.id)
+      .then((result) => {
+        if (!cancelled) {
+          setRows(result);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setRows(null);
+          setSubTableError(caught instanceof Error ? caught.message : "Child records could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [field.id, recordId, subTableReady]);
 
   return (
     <FieldShell errors={errors} helpText={field.helpText}>
@@ -303,25 +349,61 @@ function SubTablePreviewField({ errors, field }: { errors: string[]; field: Form
             <p className="text-sm font-bold text-foreground">{field.label}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">Related child records are shown from the configured child form.</p>
           </div>
-          <Badge variant="default">Read-only</Badge>
+          <Badge variant="default">{rows ? formatRowCount(rows.totalCount) : "Read-only"}</Badge>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-96 text-left text-sm">
             <thead className="bg-muted/60 text-xs font-bold uppercase tracking-normal text-muted-foreground">
               <tr>
-                {previewColumnLabels.map((columnLabel) => (
-                  <th className="px-4 py-3" key={columnLabel}>
-                    {columnLabel}
+                {(columns.length > 0 ? columns : [{ fieldId: "empty", label: "Column", type: "text" }]).map((column) => (
+                  <th className="px-4 py-3" key={column.fieldId}>
+                    {column.label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={previewColumnLabels.length}>
-                  Child record rows will appear here after child record APIs are connected.
-                </td>
-              </tr>
+              {!subTableReady ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                    {recordId ? "Configure the child form, parent lookup field, and display columns before showing rows." : "Child record rows will appear here after the parent record is opened."}
+                  </td>
+                </tr>
+              ) : loading ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                    Loading child records...
+                  </td>
+                </tr>
+              ) : subTableError ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm font-semibold text-danger" colSpan={Math.max(columns.length, 1)}>
+                    {subTableError}
+                  </td>
+                </tr>
+              ) : rows && rows.items.length > 0 && columns.length > 0 ? (
+                rows.items.map((row) => (
+                  <tr className="border-t border-border" key={row.recordId}>
+                    {columns.map((column) => (
+                      <td className="px-4 py-3 text-sm text-foreground" key={column.fieldId}>
+                        {formatTableValue(row.displayValues?.[column.fieldId] ?? row.values[column.fieldId])}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : rows && columns.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={1}>
+                    No visible columns configured.
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                    No child records found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -613,6 +695,22 @@ function getStringValue(value: FormRecordValue | undefined): string {
   }
 
   return String(value);
+}
+
+function formatTableValue(value: FormRecordValue | string | undefined): string {
+  if (value === undefined || value === null || value === "") {
+    return "Empty";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  return String(value);
+}
+
+function formatRowCount(count: number): string {
+  return `${count} ${count === 1 ? "row" : "rows"}`;
 }
 
 function getFieldLabel(field: FormField): string {

@@ -138,6 +138,143 @@ public sealed class RecordQueryService
             displayValues[0]);
     }
 
+    public async Task<SubTableRowsDto> ListSubTableRowsAsync(
+        ClaimsPrincipal principal,
+        Guid recordId,
+        string fieldId,
+        ListSubTableRowsRequest request,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var page = Math.Max(1, request.Page);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var parentRecord = await dbContext.Records
+            .AsNoTracking()
+            .Include(candidate => candidate.FormVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == recordId && !candidate.IsDeleted, cancellationToken);
+
+        if (parentRecord is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Record was not found.");
+        }
+
+        if (!await permissionService.CanAccessRecordAsync(principal, parentRecord, PlatformPermissions.Form.View, cancellationToken))
+        {
+            throw new RecordQueryException(StatusCodes.Status403Forbidden, "Record access was denied.");
+        }
+
+        if (parentRecord.FormVersion is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Record form version was not found.");
+        }
+
+        var parentSchema = DeserializeSchema(parentRecord.FormVersion.SchemaJson);
+        if (parentSchema is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Record form version schema is invalid.");
+        }
+
+        var parentFieldAccess = await permissionService.GetFieldAccessAsync(principal, parentRecord.FormId, cancellationToken);
+        if (parentFieldAccess.HiddenFieldIds.Contains(fieldId))
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Sub-table field was not found.");
+        }
+
+        var subTableField = parentSchema.Fields.FirstOrDefault(field =>
+            string.Equals(field.Id, fieldId, StringComparison.Ordinal)
+            && string.Equals(field.Type, FormFieldTypes.SubTable, StringComparison.Ordinal));
+
+        if (subTableField?.SubTable is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Sub-table field was not found.");
+        }
+
+        if (!Guid.TryParse(subTableField.SubTable.ChildFormId, out var childFormId))
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Sub-table child form is invalid.");
+        }
+
+        if (!await permissionService.CanAccessFormAsync(principal, childFormId, PlatformPermissions.Form.View, cancellationToken))
+        {
+            throw new RecordQueryException(StatusCodes.Status403Forbidden, "Sub-table child form access was denied.");
+        }
+
+        var childForm = await dbContext.Forms
+            .AsNoTracking()
+            .Include(form => form.CurrentVersion)
+            .FirstOrDefaultAsync(form => form.Id == childFormId && !form.IsDeleted, cancellationToken);
+
+        if (childForm?.CurrentVersion is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status404NotFound, "Sub-table child form was not found.");
+        }
+
+        var childSchema = DeserializeSchema(childForm.CurrentVersion.SchemaJson);
+        if (childSchema is null)
+        {
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Sub-table child form schema is invalid.");
+        }
+
+        var childFieldAccess = await permissionService.GetFieldAccessAsync(principal, childFormId, cancellationToken);
+        var visibleChildSchema = RemoveHiddenFieldsFromSchema(childSchema, childFieldAccess.HiddenFieldIds);
+        var childFieldsById = visibleChildSchema.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
+        var displayColumnFieldIds = subTableField.SubTable.DisplayColumnFieldIds
+            .Where(fieldId => !childFieldAccess.HiddenFieldIds.Contains(fieldId))
+            .Where(fieldId => childFieldsById.TryGetValue(fieldId, out var field) && !string.Equals(field.Type, FormFieldTypes.SubTable, StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var columns = displayColumnFieldIds
+            .Select(fieldId => childFieldsById[fieldId])
+            .Select(field => new SubTableColumnDto(field.Id, field.Label, field.Type))
+            .ToArray();
+
+        var childQuery = await permissionService.ApplyRecordAccessAsync(
+            principal,
+            dbContext.Records.AsNoTracking().Where(record => record.FormId == childFormId && !record.IsDeleted),
+            childFormId,
+            PlatformPermissions.Form.View,
+            cancellationToken);
+
+        var linkedRows = (await childQuery
+                .OrderByDescending(record => record.CreatedAt)
+                .ThenByDescending(record => record.Id)
+                .ToArrayAsync(cancellationToken))
+            .Select(record => new ChildRecordRow(record, DeserializeValues(record.ValuesJson)))
+            .Where(row => IsLinkedToParentRecord(row.Values, subTableField.SubTable.ParentLookupFieldId, recordId))
+            .ToArray();
+        var pagedRows = linkedRows
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+        var rowValues = pagedRows
+            .Select(row => ProjectValues(row.Values, displayColumnFieldIds))
+            .ToArray();
+        var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
+            principal,
+            visibleChildSchema,
+            rowValues,
+            permissionService,
+            cancellationToken);
+        var rowDtos = pagedRows
+            .Select((row, index) => new SubTableRowDto(
+                row.Record.Id,
+                rowValues[index],
+                ProjectDisplayValues(displayValues[index], displayColumnFieldIds),
+                row.Record.CreatedAt))
+            .ToArray();
+
+        return new SubTableRowsDto(fieldId, columns, linkedRows.LongLength, rowDtos);
+    }
+
+    public static bool IsLinkedToParentRecord(
+        IReadOnlyDictionary<string, object?> values,
+        string parentLookupFieldId,
+        Guid parentRecordId)
+    {
+        return values.TryGetValue(parentLookupFieldId, out var value)
+            && string.Equals(Normalize(ToDisplayString(value)), parentRecordId.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static FormRecordListItemDto ToListItem(
         FormRecord record,
         IReadOnlyDictionary<string, object?> values,
@@ -201,6 +338,24 @@ public sealed class RecordQueryService
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
     }
 
+    private static IReadOnlyDictionary<string, object?> ProjectValues(
+        IReadOnlyDictionary<string, object?> values,
+        IReadOnlyCollection<string> fieldIds)
+    {
+        return fieldIds
+            .Where(fieldId => values.ContainsKey(fieldId))
+            .ToDictionary(fieldId => fieldId, fieldId => values[fieldId], StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string> ProjectDisplayValues(
+        IReadOnlyDictionary<string, string> displayValues,
+        IReadOnlyCollection<string> fieldIds)
+    {
+        return displayValues
+            .Where(pair => fieldIds.Contains(pair.Key, StringComparer.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+    }
+
     private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
         FormSchemaDefinition schema,
         IReadOnlySet<string> hiddenFieldIds)
@@ -248,9 +403,26 @@ public sealed class RecordQueryService
         return schemaJson?.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions);
     }
 
+    private static string? ToDisplayString(object? value)
+    {
+        return value switch
+        {
+            null => null,
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => null,
+            JsonElement element => element.ToString(),
+            _ => Convert.ToString(value)
+        };
+    }
+
     private static string? Normalize(string? value)
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
+
+    private sealed record ChildRecordRow(
+        FormRecord Record,
+        IReadOnlyDictionary<string, object?> Values);
 }
