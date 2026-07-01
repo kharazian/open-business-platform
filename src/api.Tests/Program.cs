@@ -2908,6 +2908,16 @@ AssertEqual(5, subTableRowsRequest.PageSize, "Sub-table row requests should carr
 AssertEqual("quantity", subTableRowsRequest.SortFieldId, "Sub-table row requests should carry the requested sort field.");
 AssertEqual("asc", subTableRowsRequest.SortDirection, "Sub-table row requests should carry sort direction.");
 AssertEqual("Laptop", subTableRowsRequest.Filters!["item_name"], "Sub-table row requests should carry per-column filters.");
+var runListReportRequest = new RunListReportRequest(
+    Page: 2,
+    PageSize: 10,
+    Search: "Jane",
+    SortFieldId: "employee_name",
+    SortDirection: "desc",
+    Filters: new Dictionary<string, string?> { ["department"] = "hr" });
+AssertEqual("employee_name", runListReportRequest.SortFieldId, "Run report requests should carry the runtime sort field.");
+AssertEqual("desc", runListReportRequest.SortDirection, "Run report requests should carry runtime sort direction.");
+AssertEqual("hr", runListReportRequest.Filters!["department"], "Run report requests should carry runtime column filters.");
 
 var recordListItem = new FormRecordListItemDto(
     recordDto.Id,
@@ -3232,6 +3242,32 @@ var executedReport = ListReportExecutionEngine.Execute(
 AssertEqual(1, executedReport.TotalCount, "Report execution should apply runtime search after saved filters.");
 AssertEqual("Jane Cooper", executedReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report rows should expose display cells by field.");
 AssertEqual(RecordStatuses.Active, executedReport.Rows.Single().Cells[ReportableSystemFields.Status].Value, "Report rows should expose system field values.");
+
+var runtimeFilteredReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(
+        Page: 1,
+        PageSize: 10,
+        Filters: new Dictionary<string, string?> { ["employee_name"] = "jordan" }));
+AssertEqual(1, runtimeFilteredReport.TotalCount, "Report execution should apply runtime column filters after saved filters.");
+AssertEqual("Jordan Lee", runtimeFilteredReport.Rows.Single().Cells["employee_name"].DisplayValue, "Runtime column filters should match visible report cell text.");
+
+var runtimeSortedReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 1, SortFieldId: "employee_name", SortDirection: ReportSortDirections.Desc));
+AssertEqual("Jordan Lee", runtimeSortedReport.Rows.Single().Cells["employee_name"].DisplayValue, "Runtime sort should override saved report sort before pagination.");
 
 var pagedExecutionReport = ListReportExecutionEngine.Execute(
     reportSummary.Id,

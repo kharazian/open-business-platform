@@ -76,6 +76,19 @@ export async function executeListReport(
     query.set("search", options.search.trim());
   }
 
+  if (options.sortFieldId?.trim()) {
+    query.set("sortFieldId", options.sortFieldId.trim());
+    query.set("sortDirection", options.sortDirection === "asc" ? "asc" : "desc");
+  }
+
+  Object.entries(options.filters ?? {}).forEach(([fieldId, value]) => {
+    if (!value?.trim()) {
+      return;
+    }
+
+    query.set(`filter.${fieldId}`, value.trim());
+  });
+
   const queryString = query.toString();
 
   return requestJson<ListReportExecution>(

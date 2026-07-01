@@ -42,6 +42,9 @@ export type ExecuteListReportOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
+  sortFieldId?: string;
+  sortDirection?: ReportSortDirection;
+  filters?: Record<string, string | undefined>;
 };
 
 export type ListReportExecutionColumn = {

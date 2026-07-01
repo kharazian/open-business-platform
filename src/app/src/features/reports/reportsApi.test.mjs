@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import * as api from "./api.ts";
 import { createListReportConfig, getReportFieldOptions } from "./builder.ts";
@@ -60,7 +61,7 @@ test("reports API client maps list report requests and errors", async () => {
       };
     }
 
-    if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane" && init.method === "GET") {
+    if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse" && init.method === "GET") {
       return {
         ok: true,
         json: async () => ({
@@ -94,7 +95,14 @@ test("reports API client maps list report requests and errors", async () => {
   const executed = await api.executeListReport(
     "form-2",
     "report-1",
-    { page: 2, pageSize: 10, search: "Jane" },
+    {
+      page: 2,
+      pageSize: 10,
+      search: "Jane",
+      sortFieldId: "site_name",
+      sortDirection: "asc",
+      filters: { site_name: "Warehouse" }
+    },
     fetcher
   );
   const exportUrl = api.getListReportCsvExportUrl("form-2", "report-1", { search: " Jane " });
@@ -119,7 +127,7 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[1].init.headers["Content-Type"], "application/json");
   assert.equal(JSON.parse(calls[1].init.body).name, "Open inspections");
   assert.deepEqual(JSON.parse(calls[1].init.body).config, config);
-  assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane");
+  assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
   assert.equal(calls[2].init.method, "GET");
   assert.equal(calls[2].init.credentials, "include");
   assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane");
@@ -150,6 +158,16 @@ test("reports API client maps list report requests and errors", async () => {
       return true;
     }
   );
+});
+
+test("reports page exposes runtime column filters and clickable sort headers", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const apiSource = readFileSync(new URL("./api.ts", import.meta.url), "utf8");
+
+  assert.equal(source.includes("reportColumnFilters"), true);
+  assert.equal(source.includes("toggleReportSort"), true);
+  assert.equal(source.includes("Sort by"), true);
+  assert.equal(apiSource.includes("filter."), true);
 });
 
 test("report builder field options use shared reportable metadata", () => {

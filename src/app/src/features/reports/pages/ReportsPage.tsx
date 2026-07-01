@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileDown, FileText, Play, Plus, Printer, RefreshCw, Save, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, X } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -24,7 +24,7 @@ import { getReportTablePrintDescription } from "../reportPrint";
 import { loadReportWorkspace } from "../workspace";
 import {
   type ListReportExecution,
-  type ListReportExecutionRow,
+  type ExecuteListReportOptions,
   type ListReportFilter,
   type ListReportSummary,
   type ReportFilterOperator,
@@ -54,6 +54,9 @@ export function ReportsPage() {
   const [reportSearch, setReportSearch] = useState("");
   const [executedReportSearch, setExecutedReportSearch] = useState("");
   const [reportPage, setReportPage] = useState(1);
+  const [reportSortFieldId, setReportSortFieldId] = useState<string | undefined>();
+  const [reportSortDirection, setReportSortDirection] = useState<ReportSortDirection>("asc");
+  const [reportColumnFilters, setReportColumnFilters] = useState<Record<string, string>>({});
   const [reportName, setReportName] = useState("");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
   const [columnLabels, setColumnLabels] = useState<Record<string, string>>({});
@@ -170,6 +173,9 @@ export function ReportsPage() {
     setReportSearch("");
     setExecutedReportSearch("");
     setReportPage(1);
+    setReportSortFieldId(undefined);
+    setReportSortDirection("asc");
+    setReportColumnFilters({});
 
     loadReportWorkspace(selectedFormId)
       .then((workspace) => {
@@ -235,23 +241,13 @@ export function ReportsPage() {
   const reportPrintDescription = reportExecution
     ? getReportTablePrintDescription(reportExecution.totalCount, reportExecution.page, totalReportPages, executedReportSearch)
     : "";
+  const hasReportColumnFilters = Object.values(reportColumnFilters).some((value) => value.trim().length > 0);
   const selectedPrintTemplateSummary = useMemo(
     () => reportPrintTemplates.find((template) => template.id === selectedPrintTemplateId) ?? null,
     [reportPrintTemplates, selectedPrintTemplateId]
   );
   const selectedPrintRenderTarget = selectedPrintTemplateSummary ? resolvePrintTemplateRenderTarget(selectedPrintTemplateSummary) : null;
   const selectedServerPdfVersionId = selectedPrintRenderTarget?.source === "version" ? selectedPrintRenderTarget.versionId : null;
-  const executionColumns = useMemo<Array<TableColumn<ListReportExecutionRow>>>(
-    () =>
-      reportExecution?.columns.map((column) => ({
-        header: column.label,
-        render: (row) => {
-          const value = row.cells[column.fieldId]?.displayValue?.trim();
-          return value ? value : <span className="text-muted-foreground">-</span>;
-        }
-      })) ?? [],
-    [reportExecution]
-  );
   const reportColumns = useMemo<Array<TableColumn<ListReportSummary>>>(
     () => [
       { header: "Report", accessor: "name" },
@@ -299,6 +295,9 @@ export function ReportsPage() {
         setSelectedPrintTemplateId("");
         setSelectedPrintTemplate(null);
         setExecutedReportSearch("");
+        setReportSortFieldId(undefined);
+        setReportSortDirection("asc");
+        setReportColumnFilters({});
       }
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -386,7 +385,7 @@ export function ReportsPage() {
     return sortFieldId ? [{ fieldId: sortFieldId, direction: sortDirection }] : [];
   }
 
-  async function handleRunReport(reportId: string, page: number) {
+  async function handleRunReport(reportId: string, page: number, overrides: Partial<ExecuteListReportOptions> = {}) {
     if (!selectedFormId || !reportId) {
       return;
     }
@@ -398,8 +397,18 @@ export function ReportsPage() {
     setPrintTemplateError(null);
 
     try {
-      const search = reportSearch;
-      const execution = await executeListReport(selectedFormId, reportId, { page, pageSize: reportPageSize, search });
+      const search = overrides.search ?? reportSearch;
+      const effectiveSortFieldId = overrides.sortFieldId ?? reportSortFieldId;
+      const effectiveSortDirection = overrides.sortDirection ?? reportSortDirection;
+      const effectiveFilters = overrides.filters ?? reportColumnFilters;
+      const execution = await executeListReport(selectedFormId, reportId, {
+        page,
+        pageSize: reportPageSize,
+        search,
+        sortFieldId: effectiveSortFieldId,
+        sortDirection: effectiveSortDirection,
+        filters: effectiveFilters
+      });
       const templates = await loadReportPrintTemplates(execution.formId, execution.reportId);
       setReportExecution(execution);
       setReportPrintTemplates(templates);
@@ -428,6 +437,36 @@ export function ReportsPage() {
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void handleRunReport(selectedReportId, 1);
+  }
+
+  function toggleReportSort(fieldId: string) {
+    const nextDirection = reportSortFieldId === fieldId && reportSortDirection === "asc" ? "desc" : "asc";
+    setReportSortFieldId(fieldId);
+    setReportSortDirection(nextDirection);
+
+    if (selectedReportId) {
+      void handleRunReport(selectedReportId, 1, { sortFieldId: fieldId, sortDirection: nextDirection });
+    }
+  }
+
+  function updateReportColumnFilter(fieldId: string, value: string) {
+    setReportColumnFilters((current) => ({ ...current, [fieldId]: value }));
+  }
+
+  function applyReportColumnFilters() {
+    if (!selectedReportId) {
+      return;
+    }
+
+    void handleRunReport(selectedReportId, 1);
+  }
+
+  function clearReportColumnFilters() {
+    setReportColumnFilters({});
+
+    if (selectedReportId) {
+      void handleRunReport(selectedReportId, 1, { filters: {} });
+    }
   }
 
   async function handlePrintAction() {
@@ -790,6 +829,14 @@ export function ReportsPage() {
                 <RefreshCw className="size-4" />
                 Refresh
               </Button>
+              <Button disabled={!selectedReportId || runningReport} onClick={applyReportColumnFilters} variant="outline">
+                <ListFilter className="size-4" />
+                Apply filters
+              </Button>
+              <Button disabled={!selectedReportId || runningReport || !hasReportColumnFilters} onClick={clearReportColumnFilters} variant="outline">
+                <X className="size-4" />
+                Clear filters
+              </Button>
             </div>
           </form>
 
@@ -802,7 +849,16 @@ export function ReportsPage() {
             </div>
           ) : reportExecution && reportExecution.rows.length > 0 ? (
             <div className="grid gap-4">
-              <Table columns={executionColumns} rows={reportExecution.rows} />
+              <ReportExecutionTable
+                columnFilters={reportColumnFilters}
+                execution={reportExecution}
+                onApplyFilters={applyReportColumnFilters}
+                onFilterChange={updateReportColumnFilter}
+                onSort={toggleReportSort}
+                running={runningReport}
+                sortDirection={reportSortDirection}
+                sortFieldId={reportSortFieldId}
+              />
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
                 <span className="font-semibold text-muted-foreground">
                   Page {reportExecution.page} of {totalReportPages}
@@ -862,6 +918,90 @@ export function ReportsPage() {
         </CardContent>
       </Card>
       {reportExecution && !selectedPrintTemplate ? <PrintDocumentFooter /> : null}
+    </div>
+  );
+}
+
+function ReportExecutionTable({
+  columnFilters,
+  execution,
+  onApplyFilters,
+  onFilterChange,
+  onSort,
+  running,
+  sortDirection,
+  sortFieldId
+}: {
+  columnFilters: Record<string, string>;
+  execution: ListReportExecution;
+  onApplyFilters: () => void;
+  onFilterChange: (fieldId: string, value: string) => void;
+  onSort: (fieldId: string) => void;
+  running: boolean;
+  sortDirection: ReportSortDirection;
+  sortFieldId?: string;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card/80">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[44rem] text-left text-sm">
+          <thead className="bg-muted/60 text-xs font-bold uppercase tracking-normal text-muted-foreground">
+            <tr>
+              {execution.columns.map((column) => (
+                <th className="px-4 py-3" key={column.fieldId} style={column.width ? { width: column.width } : undefined}>
+                  <button
+                    aria-label={`Sort by ${column.label}`}
+                    className="inline-flex items-center gap-1 font-bold text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={running}
+                    onClick={() => onSort(column.fieldId)}
+                    type="button"
+                  >
+                    {column.label}
+                    {sortFieldId === column.fieldId ? (
+                      sortDirection === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                    ) : null}
+                  </button>
+                </th>
+              ))}
+            </tr>
+            <tr>
+              {execution.columns.map((column) => (
+                <th className="px-4 pb-3" key={`${column.fieldId}-filter`}>
+                  <input
+                    aria-label={`Filter ${column.label}`}
+                    className="h-8 w-full rounded-lg border border-border bg-card px-2 text-xs font-semibold text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:ring-4 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={running}
+                    onChange={(event) => onFilterChange(column.fieldId, event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        onApplyFilters();
+                      }
+                    }}
+                    placeholder={`Filter ${column.label}`}
+                    value={columnFilters[column.fieldId] ?? ""}
+                  />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {execution.rows.map((row) => (
+              <tr className="border-t border-border" key={row.recordId}>
+                {execution.columns.map((column) => {
+                  const value = row.cells[column.fieldId]?.displayValue?.trim();
+
+                  return (
+                    <td className="px-4 py-3 text-sm text-foreground" key={column.fieldId}>
+                      {value ? value : <span className="text-muted-foreground">-</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

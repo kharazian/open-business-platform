@@ -59,7 +59,13 @@ public sealed record ListReportConfigDefinition(
 
 public sealed record CreateListReportRequest(string Name, ListReportConfigDefinition Config);
 
-public sealed record RunListReportRequest(int Page = 1, int PageSize = 25, string? Search = null);
+public sealed record RunListReportRequest(
+    int Page = 1,
+    int PageSize = 25,
+    string? Search = null,
+    string? SortFieldId = null,
+    string? SortDirection = null,
+    IReadOnlyDictionary<string, string?>? Filters = null);
 
 public sealed record ListReportExecutionColumnDto(
     string FieldId,

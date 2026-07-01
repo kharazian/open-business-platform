@@ -24,8 +24,9 @@ V2 features:
 - Reorder columns: implemented in the list report builder selected-columns panel
 - Rename columns: implemented as saved custom column labels
 - Filters: one saved filter in the current builder, config supports multiple
-- Sorting: one saved sort in the current builder, config supports multiple
+- Sorting: one saved sort in the current builder, config supports multiple, and report viewer headers can apply a runtime visible-column sort
 - Search: implemented at runtime in the report viewer for visible searchable columns
+- Per-column filters: implemented at runtime in the report viewer for visible columns
 - Saved reports: implemented
 - Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports

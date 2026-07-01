@@ -55,6 +55,8 @@ public static class ReportsEndpoints
             int? page,
             int? pageSize,
             string? search,
+            string? sortFieldId,
+            string? sortDirection,
             ReportManagementService reportManagement,
             PermissionService permissionService,
             HttpContext httpContext,
@@ -72,7 +74,7 @@ public static class ReportsEndpoints
                     httpContext.User,
                     formId,
                     reportId,
-                    new RunListReportRequest(page ?? 1, pageSize ?? 25, search),
+                    new RunListReportRequest(page ?? 1, pageSize ?? 25, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext)),
                     permissionService,
                     cancellationToken);
 
@@ -163,5 +165,16 @@ public static class ReportsEndpoints
     {
         var value = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static IReadOnlyDictionary<string, string?> GetReportFilterValues(HttpContext httpContext)
+    {
+        const string Prefix = "filter.";
+        return httpContext.Request.Query
+            .Where(pair => pair.Key.StartsWith(Prefix, StringComparison.Ordinal))
+            .ToDictionary(
+                pair => pair.Key[Prefix.Length..],
+                pair => string.IsNullOrWhiteSpace(pair.Value.ToString()) ? null : pair.Value.ToString(),
+                StringComparer.Ordinal);
     }
 }

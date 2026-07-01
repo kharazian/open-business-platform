@@ -1686,11 +1686,11 @@ Response: `201 Created` with the saved report detail. V2 validates report config
 
 ### Run report
 
-`GET /api/forms/{formId}/reports/{reportId}/run?page=1&pageSize=25&search=Jane`
+`GET /api/forms/{formId}/reports/{reportId}/run?page=1&pageSize=25&search=Jane&sortFieldId=first_name&sortDirection=asc&filter.first_name=Jane`
 
 Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
 
-Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, saved sort, and pagination before returning display-ready cells. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
+Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, optional runtime per-column filters, runtime sort when a visible column is selected, saved sort fallback, and pagination before returning display-ready cells. Runtime filters use `filter.<fieldId>` query parameters and are limited to visible execution columns after hidden-field rules are applied. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
 
 Response:
 
