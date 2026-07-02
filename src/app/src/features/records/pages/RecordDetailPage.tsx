@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Edit3, FileDown, GitBranch, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -21,13 +21,15 @@ import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from
 import type { PrintTemplateRenderDetail, PrintTemplateSummary } from "../../printing/types";
 import { executeRecordWorkflowTransition, getRecordWorkflow, startRecordWorkflow } from "../../workflows/api";
 import type { RecordWorkflowState, RecordWorkflowTransition } from "../../workflows/types";
-import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath } from "../recordEditor";
+import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath, isRecordEditMode } from "../recordEditor";
 import { getRecordDetailPrintDescription, requestBrowserPrint } from "../recordPrint";
 
 export function RecordDetailPage() {
   const { recordId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const resolvedRecordId = recordId ?? "";
+  const editModeRequested = isRecordEditMode(searchParams);
   const [record, setRecord] = useState<FormRecordDetail | null>(null);
   const [draftValues, setDraftValues] = useState<FormRecordValues>({});
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
@@ -50,7 +52,7 @@ export function RecordDetailPage() {
 
   useEffect(() => {
     void refreshRecord();
-  }, [resolvedRecordId]);
+  }, [editModeRequested, resolvedRecordId]);
 
   useEffect(() => {
     if (!selectedPrintTemplateId) {
@@ -124,7 +126,7 @@ export function RecordDetailPage() {
       setDraftValues(createRecordEditDraft(loadedRecord));
       applyWorkflowState(loadedWorkflowState);
       setValidationErrors([]);
-      setEditing(false);
+      setEditing(editModeRequested);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {

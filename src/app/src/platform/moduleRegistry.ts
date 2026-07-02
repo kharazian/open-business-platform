@@ -17,9 +17,11 @@ export type PlatformRoute = {
   element: ReactNode;
   index?: boolean;
   path?: string;
-  permission?: string;
+  permission?: RoutePermission;
   requiresAuth?: boolean;
 };
+
+export type RoutePermission = string | readonly string[];
 
 export type ModuleNavigationItem = NavigationItem & {
   order?: number;
@@ -63,6 +65,16 @@ export function filterNavigationByPermissions(items: NavigationItem[], permissio
 
     return hasPermission ? [item] : [];
   });
+}
+
+export function hasRoutePermission(permission: RoutePermission | undefined, permissions: ReadonlySet<string>): boolean {
+  if (!permission) {
+    return true;
+  }
+
+  return typeof permission === "string"
+    ? permissions.has(permission)
+    : permission.some((candidate) => permissions.has(candidate));
 }
 
 export function getModulesByOwner(modules: PlatformModule[], owner: ModuleOwner): PlatformModule[] {

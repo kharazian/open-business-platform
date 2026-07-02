@@ -16,9 +16,9 @@ export const formsModule: PlatformModule = {
   routes: [
     { path: "/forms", element: <FormsListPage />, permission: "menu.forms" },
     { path: "/forms/:formId/builder", element: <FormBuilderPage />, permission: "menu.forms" },
-    { path: "/forms/:formId/submit", element: <SubmitFormPage />, permission: "menu.forms" },
-    { path: "/forms/:formId/records", element: <RecordListPage />, permission: "menu.forms" },
-    { path: "/records/:recordId", element: <RecordDetailPage />, permission: "menu.forms" }
+    { path: "/forms/:formId/submit", element: <SubmitFormPage />, permission: ["menu.forms", "menu.reports"] },
+    { path: "/forms/:formId/records", element: <RecordListPage />, permission: ["menu.forms", "menu.reports"] },
+    { path: "/records/:recordId", element: <RecordDetailPage />, permission: ["menu.forms", "menu.reports"] }
   ],
   navigation: [{ label: "Forms", path: "/forms", icon: ClipboardList, order: 30, permission: "menu.forms" }]
 };

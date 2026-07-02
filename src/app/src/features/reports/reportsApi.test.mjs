@@ -170,6 +170,22 @@ test("reports page exposes runtime column filters and clickable sort headers", (
   assert.equal(apiSource.includes("filter."), true);
 });
 
+test("reports page exposes record workflow actions from report rows", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const formsModuleSource = readFileSync(new URL("../../modules/forms/module.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("deleteRecord"), true);
+  assert.equal(source.includes("handleDeleteReportRecord"), true);
+  assert.equal(source.includes("getRecordDetailPath"), true);
+  assert.equal(source.includes("getRecordEditPath"), true);
+  assert.equal(source.includes("getRecordCreatePath"), true);
+  assert.equal(source.includes("New record"), true);
+  assert.equal(source.includes("View"), true);
+  assert.equal(source.includes("Edit"), true);
+  assert.equal(source.includes("Delete"), true);
+  assert.equal(formsModuleSource.includes('permission: ["menu.forms", "menu.reports"]'), true);
+});
+
 test("report builder field options use shared reportable metadata", () => {
   const schema = {
     schemaVersion: 1,

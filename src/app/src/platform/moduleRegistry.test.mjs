@@ -56,6 +56,10 @@ test("module registry sorts and filters navigation and routes", () => {
     ["index", "/dashboard", "/finance-dashboard"]
   );
 
+  assert.equal(registry.hasRoutePermission("menu.forms", new Set(["menu.forms"])), true);
+  assert.equal(registry.hasRoutePermission(["menu.forms", "menu.reports"], new Set(["menu.reports"])), true);
+  assert.equal(registry.hasRoutePermission(["menu.forms", "menu.reports"], new Set(["menu.dashboard"])), false);
+
   assert.deepEqual(
     registry.getModulesByOwner(modules, "app").map((module) => module.id),
     ["app.finance-dashboard"]

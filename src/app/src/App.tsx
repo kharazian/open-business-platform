@@ -8,7 +8,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { AppThemeProvider } from "./context/AppThemeContext";
 import { useAuth } from "./context/AuthContext";
 import { platformModules } from "./modules";
-import { getModuleRoutes } from "./platform/moduleRegistry";
+import { getModuleRoutes, hasRoutePermission, type RoutePermission } from "./platform/moduleRegistry";
 import { themePages } from "./theme/config/themePages";
 
 type Theme = "light" | "dark";
@@ -106,10 +106,10 @@ function RouteLoading() {
   );
 }
 
-function RequirePermission({ children, permission }: { children: ReactNode; permission: string }) {
+function RequirePermission({ children, permission }: { children: ReactNode; permission: RoutePermission }) {
   const { user } = useAuth();
 
-  if (!user?.permissions.includes(permission)) {
+  if (!hasRoutePermission(permission, new Set(user?.permissions ?? []))) {
     return (
       <main className="grid min-h-[50vh] place-items-center px-4">
         <div className="max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-soft">

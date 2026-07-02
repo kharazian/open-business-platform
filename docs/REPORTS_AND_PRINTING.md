@@ -27,6 +27,7 @@ V2 features:
 - Sorting: one saved sort in the current builder, config supports multiple, and report viewer headers can apply a runtime visible-column sort
 - Search: implemented at runtime in the report viewer for visible searchable columns
 - Per-column filters: implemented at runtime in the report viewer for visible columns
+- Row actions: implemented in the report viewer for record view, edit-mode open, inline delete with confirmation, and new record creation through existing record/form endpoints
 - Saved reports: implemented
 - Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports

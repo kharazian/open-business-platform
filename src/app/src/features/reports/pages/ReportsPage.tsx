@@ -1,5 +1,6 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, X } from "lucide-react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -10,7 +11,7 @@ import { Input } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Table, type TableColumn } from "../../../components/ui/Table";
-import { listForms, type FormDetail } from "../../forms/api";
+import { deleteRecord, listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
@@ -18,6 +19,7 @@ import { downloadReportPrintTemplatePdf, getPrintTemplate, getPrintTemplateVersi
 import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing/printLayout";
 import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
+import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
@@ -70,6 +72,7 @@ export function ReportsPage() {
   const [loadingReports, setLoadingReports] = useState(false);
   const [savingReport, setSavingReport] = useState(false);
   const [runningReport, setRunningReport] = useState(false);
+  const [deletingReportRecordId, setDeletingReportRecordId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -469,6 +472,32 @@ export function ReportsPage() {
     }
   }
 
+  async function handleDeleteReportRecord(recordId: string) {
+    if (!selectedReportId || !reportExecution) {
+      return;
+    }
+
+    if (!window.confirm("Delete this record?")) {
+      return;
+    }
+
+    const targetPage = reportExecution.rows.length === 1 && reportExecution.page > 1
+      ? reportExecution.page - 1
+      : reportExecution.page;
+
+    setDeletingReportRecordId(recordId);
+    setViewerError(null);
+
+    try {
+      await deleteRecord(recordId);
+      await handleRunReport(selectedReportId, targetPage);
+    } catch (caught) {
+      setViewerError(getErrorMessage(caught));
+    } finally {
+      setDeletingReportRecordId(null);
+    }
+  }
+
   async function handlePrintAction() {
     if (!reportExecution) return;
 
@@ -771,6 +800,12 @@ export function ReportsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
+              {selectedFormId ? (
+                <ReportActionLink to={getRecordCreatePath(selectedFormId)}>
+                  <Plus className="size-4" />
+                  New record
+                </ReportActionLink>
+              ) : null}
               {reportExecution && reportPrintTemplates.length > 0 ? (
                 <Select
                   aria-label="Print template"
@@ -853,8 +888,10 @@ export function ReportsPage() {
                 columnFilters={reportColumnFilters}
                 execution={reportExecution}
                 onApplyFilters={applyReportColumnFilters}
+                onDeleteRecord={(recordId) => void handleDeleteReportRecord(recordId)}
                 onFilterChange={updateReportColumnFilter}
                 onSort={toggleReportSort}
+                deletingRecordId={deletingReportRecordId}
                 running={runningReport}
                 sortDirection={reportSortDirection}
                 sortFieldId={reportSortFieldId}
@@ -924,8 +961,10 @@ export function ReportsPage() {
 
 function ReportExecutionTable({
   columnFilters,
+  deletingRecordId,
   execution,
   onApplyFilters,
+  onDeleteRecord,
   onFilterChange,
   onSort,
   running,
@@ -933,8 +972,10 @@ function ReportExecutionTable({
   sortFieldId
 }: {
   columnFilters: Record<string, string>;
+  deletingRecordId: string | null;
   execution: ListReportExecution;
   onApplyFilters: () => void;
+  onDeleteRecord: (recordId: string) => void;
   onFilterChange: (fieldId: string, value: string) => void;
   onSort: (fieldId: string) => void;
   running: boolean;
@@ -963,6 +1004,9 @@ function ReportExecutionTable({
                   </button>
                 </th>
               ))}
+              <th className="px-4 py-3" data-print-hide="true">
+                Actions
+              </th>
             </tr>
             <tr>
               {execution.columns.map((column) => (
@@ -983,6 +1027,7 @@ function ReportExecutionTable({
                   />
                 </th>
               ))}
+              <th className="px-4 pb-3" data-print-hide="true" />
             </tr>
           </thead>
           <tbody>
@@ -997,12 +1042,44 @@ function ReportExecutionTable({
                     </td>
                   );
                 })}
+                <td className="px-4 py-3" data-print-hide="true">
+                  <div className="flex flex-wrap gap-2">
+                    <ReportActionLink to={getRecordDetailPath(row.recordId)}>
+                      <Eye className="size-4" />
+                      View
+                    </ReportActionLink>
+                    <ReportActionLink to={getRecordEditPath(row.recordId)}>
+                      <Edit3 className="size-4" />
+                      Edit
+                    </ReportActionLink>
+                    <Button
+                      disabled={running || deletingRecordId === row.recordId}
+                      onClick={() => onDeleteRecord(row.recordId)}
+                      size="sm"
+                      variant="danger"
+                    >
+                      <Trash2 className="size-4" />
+                      {deletingRecordId === row.recordId ? "Deleting..." : "Delete"}
+                    </Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function ReportActionLink({ children, to }: { children: ReactNode; to: string }) {
+  return (
+    <Link
+      className="control-transition inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground hover:bg-muted"
+      to={to}
+    >
+      {children}
+    </Link>
   );
 }
 
