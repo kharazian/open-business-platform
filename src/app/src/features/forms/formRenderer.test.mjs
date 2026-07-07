@@ -141,6 +141,16 @@ test("form renderer exposes read-only sub-table preview", () => {
   assert.equal(rendererSource.includes("sortDirection"), true);
   assert.equal(rendererSource.includes("columnFilters"), true);
   assert.equal(rendererSource.includes("Page"), true);
+  assert.equal(rendererSource.includes("canEdit"), true);
+  assert.equal(rendererSource.includes("canDelete"), true);
+  assert.equal(rendererSource.includes("openEditRowModal"), true);
+  assert.equal(rendererSource.includes("saveEditedChildRow"), true);
+  assert.equal(rendererSource.includes("deleteChildRow"), true);
+  assert.equal(rendererSource.includes("getRecord(recordIdToEdit)"), true);
+  assert.equal(rendererSource.includes("updateRecord(editingChildRecord.id"), true);
+  assert.equal(rendererSource.includes("deleteRecord(recordIdToDelete)"), true);
+  assert.equal(rendererSource.includes("Edit row"), true);
+  assert.equal(rendererSource.includes("Delete row"), true);
   assert.equal(recordDetailSource.includes("SubTablePreviewField"), true);
   assert.equal(recordDetailSource.includes("recordId={record.id}"), true);
 });

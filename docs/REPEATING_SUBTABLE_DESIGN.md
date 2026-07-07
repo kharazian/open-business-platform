@@ -1,6 +1,6 @@
 # Repeating Table / Sub-Table Design
 
-Status: foundation, child-row display, inline child-row create, and grid controls added.
+Status: foundation, child-row display, inline child-row create/edit/delete, and grid controls added.
 
 ## Decision
 
@@ -71,4 +71,4 @@ The second code slice adds a parent-record scoped child-row read API and display
 
 The third code slice adds inline child-row create from the parent record view. The renderer opens the configured child form in a modal, pre-fills the hidden parent lookup with the current parent record ID, validates against the child form schema, submits through the existing child record creation API, and refreshes the related rows after save. The sub-table grid now supports backend paging, sortable column headers, and per-column filters.
 
-Inline child-row edit and delete are intentionally still disabled until the child record update/delete API path is designed and tested.
+The fourth code slice adds configurable inline child-row edit and delete actions. Edit loads the selected child record into the same child-form modal, preserves the hidden parent lookup, validates through the child form schema, saves through the existing record update API, and refreshes the sub-table grid. Delete asks for confirmation, uses the existing record delete API, and refreshes the current page while stepping back when the last row on a later page is removed.

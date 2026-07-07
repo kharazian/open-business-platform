@@ -1,5 +1,5 @@
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Edit3, Plus, Search, Trash2, X } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -22,10 +22,14 @@ import {
 } from "../renderer";
 import {
   FormsApiError,
+  deleteRecord,
+  getRecord,
   getPublishedFormForSubmission,
   listLookupOptions,
   listSubTableRows,
   submitRecord,
+  updateRecord,
+  type FormRecordDetail,
   type PublishedFormForSubmission,
   type RecordLookupOption,
   type SubTableRowsResult
@@ -329,13 +333,15 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
   const [sortFieldId, setSortFieldId] = useState<string | undefined>();
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
-  const [addRowOpen, setAddRowOpen] = useState(false);
+  const [childModalMode, setChildModalMode] = useState<"create" | "edit" | null>(null);
   const [childForm, setChildForm] = useState<PublishedFormForSubmission | null>(null);
+  const [editingChildRecord, setEditingChildRecord] = useState<FormRecordDetail | null>(null);
   const [childValues, setChildValues] = useState<FormRecordValues>({});
   const [childErrors, setChildErrors] = useState<ValidationError[]>([]);
   const [childFormLoading, setChildFormLoading] = useState(false);
   const [childSaving, setChildSaving] = useState(false);
   const [childError, setChildError] = useState<string | null>(null);
+  const [deletingChildRecordId, setDeletingChildRecordId] = useState<string | null>(null);
   const subTableReady = Boolean(recordId && field.subTable?.childFormId && field.subTable?.parentLookupFieldId);
   const columns = rows?.columns.length
     ? rows.columns
@@ -343,6 +349,10 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil((rows?.totalCount ?? 0) / pageSize));
   const canCreate = Boolean(subTableReady && field.subTable?.allowInlineCreate);
+  const canEdit = Boolean(subTableReady && field.subTable?.allowInlineEdit);
+  const canDelete = Boolean(subTableReady && field.subTable?.allowInlineDelete);
+  const hasRowActions = canEdit || canDelete;
+  const tableColumnCount = Math.max(columns.length + (hasRowActions ? 1 : 0), 1);
   const maxRows = field.subTable?.maxRows;
   const createDisabledByMaxRows = maxRows !== undefined && (rows?.totalCount ?? 0) >= maxRows;
   const childRenderSchema = childForm && field.subTable?.parentLookupFieldId
@@ -430,10 +440,11 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
       return;
     }
 
-    setAddRowOpen(true);
+    setChildModalMode("create");
     setChildFormLoading(true);
     setChildError(null);
     setChildErrors([]);
+    setEditingChildRecord(null);
 
     try {
       const loadedChildForm = await getPublishedFormForSubmission(field.subTable.childFormId);
@@ -450,17 +461,49 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
     }
   }
 
-  function closeAddRowModal() {
+  async function openEditRowModal(recordIdToEdit: string) {
+    if (!recordId || !field.subTable?.childFormId || !field.subTable.parentLookupFieldId) {
+      return;
+    }
+
+    setChildModalMode("edit");
+    setChildFormLoading(true);
+    setChildError(null);
+    setChildErrors([]);
+    setEditingChildRecord(null);
+
+    try {
+      const [loadedChildForm, loadedRecord] = await Promise.all([
+        getPublishedFormForSubmission(field.subTable.childFormId),
+        getRecord(recordIdToEdit)
+      ]);
+      setChildForm(loadedChildForm);
+      setEditingChildRecord(loadedRecord);
+      setChildValues({
+        ...loadedRecord.values,
+        [field.subTable.parentLookupFieldId]: recordId
+      });
+    } catch (caught) {
+      setChildForm(null);
+      setEditingChildRecord(null);
+      setChildError(caught instanceof Error ? caught.message : "Child row could not be loaded.");
+    } finally {
+      setChildFormLoading(false);
+    }
+  }
+
+  function closeChildRowModal() {
     if (childSaving) {
       return;
     }
 
-    resetAddRowModal();
+    resetChildRowModal();
   }
 
-  function resetAddRowModal() {
-    setAddRowOpen(false);
+  function resetChildRowModal() {
+    setChildModalMode(null);
     setChildForm(null);
+    setEditingChildRecord(null);
     setChildValues({});
     setChildErrors([]);
     setChildError(null);
@@ -474,6 +517,40 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
     }));
     setChildErrors((currentErrors) => clearSubmissionFieldErrors(currentErrors, fieldId));
     setChildError(null);
+  }
+
+  async function saveEditedChildRow() {
+    if (!childForm || !recordId || !field.subTable?.parentLookupFieldId || !editingChildRecord) {
+      return;
+    }
+
+    const values = {
+      ...childValues,
+      [field.subTable.parentLookupFieldId]: recordId
+    };
+    const validation = validateRecordValues(childForm.schema, values);
+    setChildErrors(validation.errors);
+
+    if (!validation.valid) {
+      return;
+    }
+
+    setChildSaving(true);
+    setChildError(null);
+
+    try {
+      await updateRecord(editingChildRecord.id, { values, concurrencyStamp: editingChildRecord.concurrencyStamp });
+      resetChildRowModal();
+      refreshRows();
+    } catch (caught) {
+      if (caught instanceof FormsApiError && caught.errors.length > 0) {
+        setChildErrors(caught.errors);
+      }
+
+      setChildError(caught instanceof Error ? caught.message : "Child row could not be saved.");
+    } finally {
+      setChildSaving(false);
+    }
   }
 
   async function saveChildRow() {
@@ -497,7 +574,7 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
 
     try {
       await submitRecord(childForm.id, { values });
-      resetAddRowModal();
+      resetChildRowModal();
       if (page === 1) {
         refreshRows();
       } else {
@@ -511,6 +588,29 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
       setChildError(caught instanceof Error ? caught.message : "Child row could not be saved.");
     } finally {
       setChildSaving(false);
+    }
+  }
+
+  async function deleteChildRow(recordIdToDelete: string) {
+    if (!window.confirm("Delete this child row?")) {
+      return;
+    }
+
+    const targetPage = rows && rows.items.length === 1 && page > 1 ? page - 1 : page;
+    setDeletingChildRecordId(recordIdToDelete);
+    setSubTableError(null);
+
+    try {
+      await deleteRecord(recordIdToDelete);
+      if (targetPage !== page) {
+        setPage(targetPage);
+      } else {
+        refreshRows();
+      }
+    } catch (caught) {
+      setSubTableError(caught instanceof Error ? caught.message : "Child row could not be deleted.");
+    } finally {
+      setDeletingChildRecordId(null);
     }
   }
 
@@ -554,6 +654,7 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
                     )}
                   </th>
                 ))}
+                {hasRowActions ? <th className="px-4 py-3">Actions</th> : null}
               </tr>
               {columns.length > 0 ? (
                 <tr>
@@ -569,25 +670,26 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
                       />
                     </th>
                   ))}
+                  {hasRowActions ? <th className="px-4 pb-3" /> : null}
                 </tr>
               ) : null}
             </thead>
             <tbody>
               {!subTableReady ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={tableColumnCount}>
                     {recordId ? "Configure the child form, parent lookup field, and display columns before showing rows." : "Child record rows will appear here after the parent record is opened."}
                   </td>
                 </tr>
               ) : loading ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={tableColumnCount}>
                     Loading child records...
                   </td>
                 </tr>
               ) : subTableError ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm font-semibold text-danger" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-4 text-sm font-semibold text-danger" colSpan={tableColumnCount}>
                     {subTableError}
                   </td>
                 </tr>
@@ -599,17 +701,40 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
                         {formatTableValue(row.displayValues?.[column.fieldId] ?? row.values[column.fieldId])}
                       </td>
                     ))}
+                    {hasRowActions ? (
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          {canEdit ? (
+                            <Button disabled={childFormLoading || childSaving || deletingChildRecordId !== null} onClick={() => void openEditRowModal(row.recordId)} size="sm" variant="outline">
+                              <Edit3 className="size-4" />
+                              Edit row
+                            </Button>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              disabled={childFormLoading || childSaving || deletingChildRecordId !== null}
+                              onClick={() => void deleteChildRow(row.recordId)}
+                              size="sm"
+                              variant="danger"
+                            >
+                              <Trash2 className="size-4" />
+                              {deletingChildRecordId === row.recordId ? "Deleting..." : "Delete row"}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               ) : rows && columns.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={1}>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={tableColumnCount}>
                     No visible columns configured.
                   </td>
                 </tr>
               ) : (
                 <tr>
-                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={Math.max(columns.length, 1)}>
+                  <td className="px-4 py-4 text-sm font-semibold text-muted-foreground" colSpan={tableColumnCount}>
                     No child records found.
                   </td>
                 </tr>
@@ -634,21 +759,21 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
         ) : null}
       </div>
       <Modal
-        description="Create a child record linked to this parent record."
+        description={childModalMode === "edit" ? "Update this child record while keeping it linked to the parent record." : "Create a child record linked to this parent record."}
         footer={
           <>
-            <Button disabled={childSaving} onClick={closeAddRowModal} variant="outline">
+            <Button disabled={childSaving} onClick={closeChildRowModal} variant="outline">
               Cancel
             </Button>
-            <Button disabled={childSaving || childFormLoading || !childForm} onClick={() => void saveChildRow()}>
+            <Button disabled={childSaving || childFormLoading || !childForm} onClick={() => void (childModalMode === "edit" ? saveEditedChildRow() : saveChildRow())}>
               {childSaving ? "Saving..." : "Save row"}
             </Button>
           </>
         }
-        onClose={closeAddRowModal}
-        open={addRowOpen}
+        onClose={closeChildRowModal}
+        open={childModalMode !== null}
         panelClassName="max-w-3xl"
-        title={`Add ${field.label}`}
+        title={`${childModalMode === "edit" ? "Edit" : "Add"} ${field.label}`}
       >
         <div className="grid gap-4" onKeyDown={preventNestedFormSubmit}>
           {childError ? <Alert title="Sub-table row">{childError}</Alert> : null}
@@ -658,6 +783,7 @@ export function SubTablePreviewField({ errors, field, recordId }: { errors: stri
               errors={childErrors}
               formId={childForm.id}
               onChange={handleChildValueChange}
+              lookupDisplayValues={editingChildRecord?.displayValues}
               renderAsForm={false}
               schema={childRenderSchema}
               values={childValues}

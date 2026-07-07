@@ -2395,14 +2395,21 @@ function SubTableSettings({
       ) : null}
       <div className="grid gap-2 rounded-lg border border-border bg-card/70 p-2">
         <p className="text-sm font-bold text-foreground">Inline actions</p>
-        <p className="text-xs leading-5 text-muted-foreground">Inline edit and delete are planned after child record APIs are connected.</p>
         <Checkbox
           checked={Boolean(subTable.allowInlineCreate)}
           label="Allow inline create"
           onChange={(event) => updateSubTable({ allowInlineCreate: event.target.checked })}
         />
-        <Checkbox checked={false} disabled label="Allow inline edit" readOnly />
-        <Checkbox checked={false} disabled label="Allow inline delete" readOnly />
+        <Checkbox
+          checked={Boolean(subTable.allowInlineEdit)}
+          label="Allow inline edit"
+          onChange={(event) => updateSubTable({ allowInlineEdit: event.target.checked })}
+        />
+        <Checkbox
+          checked={Boolean(subTable.allowInlineDelete)}
+          label="Allow inline delete"
+          onChange={(event) => updateSubTable({ allowInlineDelete: event.target.checked })}
+        />
       </div>
     </div>
   );
