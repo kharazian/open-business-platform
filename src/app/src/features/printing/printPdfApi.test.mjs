@@ -13,7 +13,14 @@ test("printing API maps server-side PDF download routes", async () => {
   const reportPdf = await downloadReportPrintTemplatePdf(
     "version 1",
     "report 1",
-    { page: 2, pageSize: 10, search: "Finance team" },
+    {
+      page: 2,
+      pageSize: 10,
+      search: "Finance team",
+      sortFieldId: "employee_name",
+      sortDirection: "desc",
+      filters: { department: "Finance" }
+    },
     fetcher
   );
 
@@ -23,7 +30,7 @@ test("printing API maps server-side PDF download routes", async () => {
   assert.deepEqual(calls[0].init, { method: "GET", credentials: "include" });
   assert.equal(
     calls[1].input,
-    "/api/print-template-versions/version%201/reports/report%201.pdf?page=2&pageSize=10&search=Finance+team"
+    "/api/print-template-versions/version%201/reports/report%201.pdf?page=2&pageSize=10&search=Finance+team&sortFieldId=employee_name&sortDirection=desc&filter.department=Finance"
   );
   assert.deepEqual(calls[1].init, { method: "GET", credentials: "include" });
 });

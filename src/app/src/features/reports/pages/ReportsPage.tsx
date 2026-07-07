@@ -21,7 +21,7 @@ import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
-import { createListReport, downloadListReportCsv, executeListReport, listReports } from "../api";
+import { createListReport, downloadListReportCsv, executeListReport, listReports, type ListReportRuntimeOptions } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
 import { loadReportWorkspace } from "../workspace";
 import {
@@ -55,6 +55,7 @@ export function ReportsPage() {
   const [reportExecution, setReportExecution] = useState<ListReportExecution | null>(null);
   const [reportSearch, setReportSearch] = useState("");
   const [executedReportSearch, setExecutedReportSearch] = useState("");
+  const [executedReportRuntimeOptions, setExecutedReportRuntimeOptions] = useState<ListReportRuntimeOptions>({});
   const [reportPage, setReportPage] = useState(1);
   const [reportSortFieldId, setReportSortFieldId] = useState<string | undefined>();
   const [reportSortDirection, setReportSortDirection] = useState<ReportSortDirection>("asc");
@@ -158,6 +159,7 @@ export function ReportsPage() {
       setReportPrintTemplates([]);
       setSelectedPrintTemplateId("");
       setSelectedPrintTemplate(null);
+      setExecutedReportRuntimeOptions({});
       return;
     }
 
@@ -175,6 +177,7 @@ export function ReportsPage() {
     setPrintTemplateError(null);
     setReportSearch("");
     setExecutedReportSearch("");
+    setExecutedReportRuntimeOptions({});
     setReportPage(1);
     setReportSortFieldId(undefined);
     setReportSortDirection("asc");
@@ -298,6 +301,7 @@ export function ReportsPage() {
         setSelectedPrintTemplateId("");
         setSelectedPrintTemplate(null);
         setExecutedReportSearch("");
+        setExecutedReportRuntimeOptions({});
         setReportSortFieldId(undefined);
         setReportSortDirection("asc");
         setReportColumnFilters({});
@@ -417,12 +421,19 @@ export function ReportsPage() {
       setReportPrintTemplates(templates);
       setSelectedPrintTemplateId((current) => templates.some((template) => template.id === current) ? current : "");
       setExecutedReportSearch(search);
+      setExecutedReportRuntimeOptions({
+        search,
+        sortFieldId: effectiveSortFieldId,
+        sortDirection: effectiveSortDirection,
+        filters: effectiveFilters
+      });
     } catch (caught) {
       setViewerError(getErrorMessage(caught));
       setReportExecution(null);
       setReportPrintTemplates([]);
       setSelectedPrintTemplateId("");
       setSelectedPrintTemplate(null);
+      setExecutedReportRuntimeOptions({});
     } finally {
       setRunningReport(false);
     }
@@ -516,7 +527,7 @@ export function ReportsPage() {
         {
           page: reportExecution.page,
           pageSize: reportExecution.pageSize,
-          search: executedReportSearch
+          ...executedReportRuntimeOptions
         }
       );
       downloadBlob(pdf, `${slugify(reportExecution.reportName)}.pdf`);
@@ -834,7 +845,7 @@ export function ReportsPage() {
                 disabled={!reportExecution || runningReport}
                 onClick={() => {
                   if (reportExecution) {
-                    downloadListReportCsv(reportExecution.formId, reportExecution.reportId, { search: executedReportSearch });
+                    downloadListReportCsv(reportExecution.formId, reportExecution.reportId, executedReportRuntimeOptions);
                   }
                 }}
                 variant="outline"

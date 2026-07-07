@@ -105,11 +105,26 @@ test("reports API client maps list report requests and errors", async () => {
     },
     fetcher
   );
-  const exportUrl = api.getListReportCsvExportUrl("form-2", "report-1", { search: " Jane " });
-  let downloadedUrl = "";
-  api.downloadListReportCsv("form-2", "report-1", { search: " Jane " }, (url) => {
-    downloadedUrl = url;
+  const exportUrl = api.getListReportCsvExportUrl("form-2", "report-1", {
+    search: " Jane ",
+    sortFieldId: "site_name",
+    sortDirection: "asc",
+    filters: { site_name: "Warehouse" }
   });
+  let downloadedUrl = "";
+  api.downloadListReportCsv(
+    "form-2",
+    "report-1",
+    {
+      search: " Jane ",
+      sortFieldId: "site_name",
+      sortDirection: "asc",
+      filters: { site_name: "Warehouse" }
+    },
+    (url) => {
+      downloadedUrl = url;
+    }
+  );
 
   assert.equal(reports[0].name, "Open inspections");
   assert.equal(reports[0].columnCount, 1);
@@ -130,8 +145,8 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
   assert.equal(calls[2].init.method, "GET");
   assert.equal(calls[2].init.credentials, "include");
-  assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane");
-  assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane");
+  assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
+  assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
 
   await assert.rejects(
     () => api.listReports("form-2", async () => ({ ok: true, json: async () => ({}) })),
@@ -167,6 +182,18 @@ test("reports page exposes runtime column filters and clickable sort headers", (
   assert.equal(source.includes("reportColumnFilters"), true);
   assert.equal(source.includes("toggleReportSort"), true);
   assert.equal(source.includes("Sort by"), true);
+  assert.equal(apiSource.includes("filter."), true);
+});
+
+test("reports page reuses executed runtime options for CSV and report PDF output", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const apiSource = readFileSync(new URL("./api.ts", import.meta.url), "utf8");
+
+  assert.equal(source.includes("executedReportRuntimeOptions"), true);
+  assert.equal(source.includes("downloadReportPrintTemplatePdf("), true);
+  assert.equal(source.includes("...executedReportRuntimeOptions"), true);
+  assert.equal(source.includes("downloadListReportCsv(reportExecution.formId, reportExecution.reportId, executedReportRuntimeOptions)"), true);
+  assert.equal(apiSource.includes("sortFieldId"), true);
   assert.equal(apiSource.includes("filter."), true);
 });
 

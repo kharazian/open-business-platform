@@ -160,7 +160,26 @@ public sealed class ReportManagementService
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
-        var report = await ExportListReportDataAsync(principal, formId, reportId, search, permissionService, cancellationToken);
+        return await ExportListReportCsvAsync(
+            principal,
+            formId,
+            reportId,
+            new RunListReportRequest(Search: search),
+            exportedById,
+            permissionService,
+            cancellationToken);
+    }
+
+    public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        Guid reportId,
+        RunListReportRequest request,
+        Guid? exportedById,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var report = await ExportListReportDataAsync(principal, formId, reportId, request, permissionService, cancellationToken);
 
         AddAudit("Report", reportId, "report_exported", exportedById);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -173,6 +192,23 @@ public sealed class ReportManagementService
         Guid formId,
         Guid reportId,
         string? search,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        return await ExportListReportDataAsync(
+            principal,
+            formId,
+            reportId,
+            new RunListReportRequest(Search: search),
+            permissionService,
+            cancellationToken);
+    }
+
+    public async Task<ListReportExecutionDto> ExportListReportDataAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        Guid reportId,
+        RunListReportRequest request,
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
@@ -192,7 +228,7 @@ public sealed class ReportManagementService
             executionContext.Config,
             executionContext.Schema,
             executionContext.Records,
-            search,
+            request,
             executionContext.DisplayValuesByRecordId);
     }
 

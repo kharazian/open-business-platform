@@ -331,6 +331,8 @@ public static class PrintingEndpoints
             int? page,
             int? pageSize,
             string? search,
+            string? sortFieldId,
+            string? sortDirection,
             PrintTemplateService templates,
             PrintPdfService pdfService,
             ReportManagementService reports,
@@ -362,7 +364,7 @@ public static class PrintingEndpoints
                     httpContext.User,
                     version.FormId,
                     reportId,
-                    new RunListReportRequest(page ?? 1, pageSize ?? 100, search),
+                    new RunListReportRequest(page ?? 1, pageSize ?? 100, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext)),
                     permissionService,
                     cancellationToken);
                 var pdfBytes = pdfService.BuildReportPdf(version, report);
@@ -370,7 +372,7 @@ public static class PrintingEndpoints
                     version.PrintTemplateId,
                     version.Id,
                     GetCurrentUserId(httpContext),
-                    new { reportId, report.Page, report.PageSize, search },
+                    new { reportId, report.Page, report.PageSize, search, sortFieldId, sortDirection, filters = GetReportFilterValues(httpContext) },
                     cancellationToken);
 
                 return Results.File(pdfBytes, PrintPdfDocumentBuilder.ContentType, CreatePdfFileName(version.Name, version.VersionNumber));
@@ -425,6 +427,17 @@ public static class PrintingEndpoints
     {
         var value = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
         return Guid.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private static IReadOnlyDictionary<string, string?> GetReportFilterValues(HttpContext httpContext)
+    {
+        const string Prefix = "filter.";
+        return httpContext.Request.Query
+            .Where(pair => pair.Key.StartsWith(Prefix, StringComparison.Ordinal))
+            .ToDictionary(
+                pair => pair.Key[Prefix.Length..],
+                pair => string.IsNullOrWhiteSpace(pair.Value.ToString()) ? null : pair.Value.ToString(),
+                StringComparer.Ordinal);
     }
 
     private static string CreatePdfFileName(string name, int versionNumber)

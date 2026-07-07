@@ -682,11 +682,14 @@ Table analytics return `columns` and `rows` with display-ready cells instead of 
 
 `GET /api/forms/{formId}/reports/{reportId}/export.csv`
 
-Requires authentication plus `menu.reports`, form `export` access, and report `export` access. Exports all rows allowed by the user's scoped `export` record access that match the saved report config and optional runtime search, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order after hidden field rules are applied. Export requests write a `report_exported` audit log entry after the report is resolved.
+Requires authentication plus `menu.reports`, form `export` access, and report `export` access. Exports all rows allowed by the user's scoped `export` record access that match the saved report config plus optional runtime search, per-column filters, and runtime sort, not just the currently visible viewer page. CSV columns match the saved report's visible columns in saved order after hidden field rules are applied. Export requests write a `report_exported` audit log entry after the report is resolved.
 
 Query parameters:
 
 - `search` optional runtime search string, applied the same way as `GET /api/forms/{formId}/reports/{reportId}/run`
+- `sortFieldId` optional visible report column id for runtime sorting
+- `sortDirection` optional `asc` or `desc`; defaults to `desc` when `sortFieldId` is supplied without `asc`
+- `filter.{fieldId}` optional runtime per-column filter values, applied to visible execution columns after hidden-field rules
 
 Response:
 
@@ -1732,11 +1735,11 @@ Returns `404` when the report does not exist for the form and `409` when the sav
 
 ### Export report CSV
 
-`GET /api/forms/{formId}/reports/{reportId}/export.csv?search=Jane`
+`GET /api/forms/{formId}/reports/{reportId}/export.csv?search=Jane&sortFieldId=first_name&sortDirection=asc&filter.first_name=Jane`
 
 Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `export` access.
 
-Exports all permitted report rows matching the saved report config and optional runtime search. CSV columns match the visible saved report columns after hidden field rules are applied. Export requests write a `report_exported` audit entry after the report is resolved.
+Exports all permitted report rows matching the saved report config, optional runtime search, optional runtime per-column filters, and optional runtime sort. CSV columns match the visible saved report columns after hidden field rules are applied. Export requests write a `report_exported` audit entry after the report is resolved.
 
 ## Printing V6
 
@@ -1818,7 +1821,7 @@ Response: `201 Created` with the saved template detail. The backend validates na
 - `GET /api/print-templates/{templateId}/versions` requires template view access and lists immutable published versions newest first.
 - `GET /api/print-template-versions/{versionId}` requires template view access and returns one immutable published version.
 - `GET /api/print-template-versions/{versionId}/records/{recordId}.pdf` requires form print/view and record view access, renders a published record template version as `application/pdf`, and writes `print_template_pdf_generated`.
-- `GET /api/print-template-versions/{versionId}/reports/{reportId}.pdf?page={page}&pageSize={pageSize}&search={search}` requires form print/view plus report view access, renders the permitted report execution page as `application/pdf`, and writes `print_template_pdf_generated`.
+- `GET /api/print-template-versions/{versionId}/reports/{reportId}.pdf?page={page}&pageSize={pageSize}&search={search}&sortFieldId={fieldId}&sortDirection={asc|desc}&filter.{fieldId}={value}` requires form print/view plus report view access, renders the permitted report execution page as `application/pdf`, and writes `print_template_pdf_generated`.
 
 The V6 frontend uses templates for selected record-detail/report-viewer browser print output, server-side PDF downloads for published template versions, and trigger email record PDF attachments.
 

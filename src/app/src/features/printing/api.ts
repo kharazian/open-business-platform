@@ -23,6 +23,14 @@ type BinaryFetchResponse = {
 
 export type PrintingFetcher = (input: string, init?: RequestInit) => Promise<ApiFetchResponse>;
 export type PrintingBinaryFetcher = (input: string, init?: RequestInit) => Promise<BinaryFetchResponse>;
+export type ReportPrintTemplatePdfOptions = {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  sortFieldId?: string;
+  sortDirection?: "asc" | "desc";
+  filters?: Record<string, string | undefined>;
+};
 
 export class PrintingApiError extends Error {
   readonly errors: PrintTemplateValidationError[];
@@ -140,7 +148,7 @@ export async function downloadRecordPrintTemplatePdf(
 export async function downloadReportPrintTemplatePdf(
   versionId: string,
   reportId: string,
-  options: { page?: number; pageSize?: number; search?: string | null } = {},
+  options: ReportPrintTemplatePdfOptions = {},
   fetcher: PrintingBinaryFetcher = defaultBinaryFetcher
 ): Promise<Blob> {
   const query = new URLSearchParams();
@@ -153,9 +161,22 @@ export async function downloadReportPrintTemplatePdf(
     query.set("pageSize", String(options.pageSize));
   }
 
-  if (options.search) {
-    query.set("search", options.search);
+  if (options.search?.trim()) {
+    query.set("search", options.search.trim());
   }
+
+  if (options.sortFieldId?.trim()) {
+    query.set("sortFieldId", options.sortFieldId.trim());
+    query.set("sortDirection", options.sortDirection === "asc" ? "asc" : "desc");
+  }
+
+  Object.entries(options.filters ?? {}).forEach(([fieldId, value]) => {
+    if (!value?.trim()) {
+      return;
+    }
+
+    query.set(`filter.${fieldId}`, value.trim());
+  });
 
   const queryString = query.toString();
 

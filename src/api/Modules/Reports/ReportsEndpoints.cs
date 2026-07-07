@@ -86,6 +86,8 @@ public static class ReportsEndpoints
             Guid formId,
             Guid reportId,
             string? search,
+            string? sortFieldId,
+            string? sortDirection,
             ReportManagementService reportManagement,
             PermissionService permissionService,
             HttpContext httpContext,
@@ -103,7 +105,7 @@ public static class ReportsEndpoints
                     httpContext.User,
                     formId,
                     reportId,
-                    search,
+                    new RunListReportRequest(1, 100, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext)),
                     GetCurrentUserId(httpContext),
                     permissionService,
                     cancellationToken);

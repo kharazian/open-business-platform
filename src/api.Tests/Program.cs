@@ -3292,6 +3292,29 @@ var fullExecutionReport = ListReportExecutionEngine.ExecuteAll(
     search: null);
 AssertEqual(2, fullExecutionReport.Rows.Count, "Report CSV export should be able to execute all matching rows without pagination.");
 AssertEqual("Jane Cooper", fullExecutionReport.Rows.First().Cells["employee_name"].DisplayValue, "Full report execution should preserve saved sort order.");
+var runtimeFullExecutionReport = ListReportExecutionEngine.ExecuteAll(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(
+        Search: null,
+        SortFieldId: "employee_name",
+        SortDirection: ReportSortDirections.Asc,
+        Filters: new Dictionary<string, string?> { ["employee_name"] = "j" }));
+AssertEqual(2, runtimeFullExecutionReport.Rows.Count, "Full report execution should apply runtime column filters for CSV export and report PDF data.");
+AssertEqual("Jane Cooper", runtimeFullExecutionReport.Rows.First().Cells["employee_name"].DisplayValue, "Full report execution should apply runtime sort for CSV export and report PDF data.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Reports", "ReportsEndpoints.cs"))
+        .Contains("ExportListReportCsvAsync(\n                    httpContext.User,\n                    formId,\n                    reportId,\n                    new RunListReportRequest(1, 100, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext))", StringComparison.Ordinal),
+    "CSV export endpoints should pass runtime search, sort, and column filters into report export.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Printing", "PrintingEndpoints.cs"))
+        .Contains("new RunListReportRequest(page ?? 1, pageSize ?? 100, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext))", StringComparison.Ordinal),
+    "Report PDF endpoints should pass runtime search, sort, and column filters into report execution.");
 
 var lookupReportRecordId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 var lookupReport = ListReportExecutionEngine.Execute(

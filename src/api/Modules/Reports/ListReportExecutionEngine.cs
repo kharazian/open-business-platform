@@ -52,11 +52,34 @@ public static class ListReportExecutionEngine
         string? search = null,
         IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
     {
-        var preparedReport = PrepareReport(
+        return ExecuteAll(
+            reportId,
+            formId,
+            reportName,
+            formName,
             config,
             schema,
             records,
             new RunListReportRequest(Search: search),
+            displayValuesByRecordId);
+    }
+
+    public static ListReportExecutionDto ExecuteAll(
+        Guid reportId,
+        Guid formId,
+        string reportName,
+        string formName,
+        ListReportConfigDefinition config,
+        FormSchemaDefinition schema,
+        IReadOnlyCollection<FormRecord> records,
+        RunListReportRequest request,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
+    {
+        var preparedReport = PrepareReport(
+            config,
+            schema,
+            records,
+            request,
             displayValuesByRecordId);
         var rows = preparedReport.Records
             .Select(record => ToRowDto(record, preparedReport.Columns))

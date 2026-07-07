@@ -32,7 +32,7 @@ V2 features:
 - Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports
 - Print: implemented for the currently visible report viewer page
-- Export CSV: implemented for all matching permitted report rows and visible report columns
+- Export CSV: implemented for all matching permitted report rows and visible report columns; runtime search, per-column filters, and runtime sort match the report viewer state
 
 ### Detail Report
 
@@ -105,7 +105,7 @@ Implemented foundation:
 - Field-based conditional sections for record/report templates
 - Immutable published template versions with latest-published rendering for record/report print selectors
 - Safe small logo uploads stored as template header data URLs, with preview and remove controls
-- Dependency-light server-side PDF generation for published record/report template versions
+- Dependency-light server-side PDF generation for published record/report template versions; report template PDFs reuse the viewer runtime search, per-column filters, sort, and page options
 - Trigger email attachments for generated record PDFs from published same-form record templates
 
 Later support:
