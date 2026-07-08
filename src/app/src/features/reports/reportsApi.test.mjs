@@ -61,6 +61,53 @@ test("reports API client maps list report requests and errors", async () => {
       };
     }
 
+    if (input === "/api/forms/form-2/reports/report-1" && init.method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "report-1",
+          formId: "form-2",
+          formName: "Safety inspection",
+          name: "Open inspections",
+          type: "list",
+          config,
+          concurrencyStamp: "report-stamp",
+          createdAt: "2026-05-22T12:00:00.000Z",
+          createdById: null,
+          updatedAt: null,
+          updatedById: null
+        })
+      };
+    }
+
+    if (input === "/api/forms/form-2/reports/report-1" && init.method === "PUT") {
+      const body = JSON.parse(init.body);
+
+      return {
+        ok: true,
+        json: async () => ({
+          id: "report-1",
+          formId: "form-2",
+          formName: "Safety inspection",
+          name: body.name,
+          type: "list",
+          config: body.config,
+          concurrencyStamp: "report-stamp-updated",
+          createdAt: "2026-05-22T12:00:00.000Z",
+          createdById: null,
+          updatedAt: "2026-05-22T12:15:00.000Z",
+          updatedById: null
+        })
+      };
+    }
+
+    if (input === "/api/forms/form-2/reports/report-1" && init.method === "DELETE") {
+      return {
+        ok: true,
+        json: async () => null
+      };
+    }
+
     if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse" && init.method === "GET") {
       return {
         ok: true,
@@ -92,6 +139,9 @@ test("reports API client maps list report requests and errors", async () => {
 
   const reports = await api.listReports("form-2", fetcher);
   const created = await api.createListReport("form-2", { name: "Open inspections", config }, fetcher);
+  const detail = await api.getListReport("form-2", "report-1", fetcher);
+  const updated = await api.updateListReport("form-2", "report-1", { name: "Updated inspections", config, concurrencyStamp: detail.concurrencyStamp }, fetcher);
+  await api.deleteListReport("form-2", "report-1", fetcher);
   const executed = await api.executeListReport(
     "form-2",
     "report-1",
@@ -130,6 +180,10 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(reports[0].columnCount, 1);
   assert.equal(created.name, "Open inspections");
   assert.equal(created.config.columns[0].fieldId, "site_name");
+  assert.equal(detail.id, "report-1");
+  assert.equal(detail.concurrencyStamp, "report-stamp");
+  assert.equal(updated.name, "Updated inspections");
+  assert.equal(updated.concurrencyStamp, "report-stamp-updated");
   assert.equal(executed.totalCount, 12);
   assert.equal(executed.columns[0].fieldId, "site_name");
   assert.equal(executed.rows[0].cells.site_name.displayValue, "Warehouse A");
@@ -142,9 +196,22 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[1].init.headers["Content-Type"], "application/json");
   assert.equal(JSON.parse(calls[1].init.body).name, "Open inspections");
   assert.deepEqual(JSON.parse(calls[1].init.body).config, config);
-  assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
+  assert.equal(calls[2].input, "/api/forms/form-2/reports/report-1");
   assert.equal(calls[2].init.method, "GET");
   assert.equal(calls[2].init.credentials, "include");
+  assert.equal(calls[3].input, "/api/forms/form-2/reports/report-1");
+  assert.equal(calls[3].init.method, "PUT");
+  assert.equal(calls[3].init.credentials, "include");
+  assert.equal(calls[3].init.headers["Content-Type"], "application/json");
+  assert.equal(JSON.parse(calls[3].init.body).name, "Updated inspections");
+  assert.equal(JSON.parse(calls[3].init.body).concurrencyStamp, "report-stamp");
+  assert.deepEqual(JSON.parse(calls[3].init.body).config, config);
+  assert.equal(calls[4].input, "/api/forms/form-2/reports/report-1");
+  assert.equal(calls[4].init.method, "DELETE");
+  assert.equal(calls[4].init.credentials, "include");
+  assert.equal(calls[5].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
+  assert.equal(calls[5].init.method, "GET");
+  assert.equal(calls[5].init.credentials, "include");
   assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
   assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
 
@@ -211,6 +278,22 @@ test("reports page exposes record workflow actions from report rows", () => {
   assert.equal(source.includes("Edit"), true);
   assert.equal(source.includes("Delete"), true);
   assert.equal(formsModuleSource.includes('permission: ["menu.forms", "menu.reports"]'), true);
+});
+
+test("reports page exposes saved report edit duplicate and delete management", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const apiSource = readFileSync(new URL("./api.ts", import.meta.url), "utf8");
+
+  assert.equal(apiSource.includes("getListReport"), true);
+  assert.equal(apiSource.includes("updateListReport"), true);
+  assert.equal(apiSource.includes("deleteListReport"), true);
+  assert.equal(source.includes("editingReportId"), true);
+  assert.equal(source.includes("handleEditReport"), true);
+  assert.equal(source.includes("handleDuplicateReport"), true);
+  assert.equal(source.includes("handleDeleteReportDefinition"), true);
+  assert.equal(source.includes("Duplicate"), true);
+  assert.equal(source.includes("Delete report"), true);
+  assert.equal(source.includes("Save changes"), true);
 });
 
 test("report builder field options use shared reportable metadata", () => {

@@ -49,6 +49,68 @@ public static class ReportsEndpoints
             });
         });
 
+        group.MapGet("/{reportId:guid}", async (
+            Guid formId,
+            Guid reportId,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken)
+                || !await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                var report = await reportManagement.GetListReportAsync(formId, reportId, cancellationToken);
+                return Results.Ok(report);
+            });
+        });
+
+        group.MapPut("/{reportId:guid}", async (
+            Guid formId,
+            Guid reportId,
+            UpdateListReportRequest request,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageReportAsync(permissionService, httpContext, formId, reportId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                var report = await reportManagement.UpdateListReportAsync(formId, reportId, request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Ok(report);
+            });
+        });
+
+        group.MapDelete("/{reportId:guid}", async (
+            Guid formId,
+            Guid reportId,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageReportAsync(permissionService, httpContext, formId, reportId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                await reportManagement.DeleteListReportAsync(formId, reportId, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.NoContent();
+            });
+        });
+
         group.MapGet("/{reportId:guid}/run", async (
             Guid formId,
             Guid reportId,
@@ -138,6 +200,17 @@ public static class ReportsEndpoints
     {
         return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Reports.Manage, cancellationToken)
             && await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Manage, cancellationToken);
+    }
+
+    private static async Task<bool> CanManageReportAsync(
+        PermissionService permissionService,
+        HttpContext httpContext,
+        Guid formId,
+        Guid reportId,
+        CancellationToken cancellationToken)
+    {
+        return await CanCreateReportsAsync(permissionService, httpContext, formId, cancellationToken)
+            && await permissionService.CanAccessReportAsync(httpContext.User, reportId, PlatformPermissions.Report.Manage, cancellationToken);
     }
 
     private static async Task<bool> CanExportReportsAsync(

@@ -38,6 +38,10 @@ export type CreateListReportRequest = {
   config: ListReportConfig;
 };
 
+export type UpdateListReportRequest = CreateListReportRequest & {
+  concurrencyStamp: string;
+};
+
 export type ExecuteListReportOptions = {
   page?: number;
   pageSize?: number;

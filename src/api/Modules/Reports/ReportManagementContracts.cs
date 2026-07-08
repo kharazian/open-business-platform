@@ -59,6 +59,8 @@ public sealed record ListReportConfigDefinition(
 
 public sealed record CreateListReportRequest(string Name, ListReportConfigDefinition Config);
 
+public sealed record UpdateListReportRequest(string Name, ListReportConfigDefinition Config, string ConcurrencyStamp);
+
 public sealed record RunListReportRequest(
     int Page = 1,
     int PageSize = 25,

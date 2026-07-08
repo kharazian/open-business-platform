@@ -1687,6 +1687,45 @@ Request:
 
 Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. Supported filter operators are `equals`, `contains`, `is_empty`, and `is_not_empty`; supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
 
+### Get report
+
+`GET /api/forms/{formId}/reports/{reportId}`
+
+Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
+
+Response: `200 OK` with the saved report detail, including `config` and `concurrencyStamp`.
+
+### Update report
+
+`PUT /api/forms/{formId}/reports/{reportId}`
+
+Requires authentication plus `reports.manage`, form `manage` or `forms.manage_all` access, and report `manage` access.
+
+Request uses the same `name` and `config` shape as create, plus the current `concurrencyStamp`:
+
+```json
+{
+  "name": "Employee directory",
+  "config": {
+    "schemaVersion": 1,
+    "columns": [],
+    "filters": [],
+    "sort": []
+  },
+  "concurrencyStamp": "stamp"
+}
+```
+
+Response: `200 OK` with the updated saved report detail. Updates validate the config against the current form schema, return `409` when the concurrency stamp is stale, and write a `report_updated` audit entry.
+
+### Delete report
+
+`DELETE /api/forms/{formId}/reports/{reportId}`
+
+Requires authentication plus `reports.manage`, form `manage` or `forms.manage_all` access, and report `manage` access.
+
+Response: `204 No Content`. Deleting a report soft-deletes the saved definition and writes a `report_deleted` audit entry.
+
 ### Run report
 
 `GET /api/forms/{formId}/reports/{reportId}/run?page=1&pageSize=25&search=Jane&sortFieldId=first_name&sortDirection=asc&filter.first_name=Jane`

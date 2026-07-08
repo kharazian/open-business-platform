@@ -4,7 +4,8 @@ import type {
   ListReportDetail,
   ListReportExecution,
   ListReportSummary,
-  ReportValidationError
+  ReportValidationError,
+  UpdateListReportRequest
 } from "./types";
 
 type ApiFetchResponse = {
@@ -53,6 +54,48 @@ export async function createListReport(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request)
     },
+    fetcher
+  );
+}
+
+export async function getListReport(
+  formId: string,
+  reportId: string,
+  fetcher: ReportsFetcher = defaultFetcher
+): Promise<ListReportDetail> {
+  return requestJson<ListReportDetail>(
+    `/api/forms/${encodeURIComponent(formId)}/reports/${encodeURIComponent(reportId)}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function updateListReport(
+  formId: string,
+  reportId: string,
+  request: UpdateListReportRequest,
+  fetcher: ReportsFetcher = defaultFetcher
+): Promise<ListReportDetail> {
+  return requestJson<ListReportDetail>(
+    `/api/forms/${encodeURIComponent(formId)}/reports/${encodeURIComponent(reportId)}`,
+    {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function deleteListReport(
+  formId: string,
+  reportId: string,
+  fetcher: ReportsFetcher = defaultFetcher
+): Promise<void> {
+  await requestVoid(
+    `/api/forms/${encodeURIComponent(formId)}/reports/${encodeURIComponent(reportId)}`,
+    { method: "DELETE", credentials: "include" },
     fetcher
   );
 }
@@ -143,6 +186,15 @@ async function requestJson<T>(input: string, init: RequestInit, fetcher: Reports
   }
 
   return body as T;
+}
+
+async function requestVoid(input: string, init: RequestInit, fetcher: ReportsFetcher): Promise<void> {
+  const response = await fetcher(input, init);
+  const body = await readJson(response);
+
+  if (!response.ok) {
+    throw new ReportsApiError(getErrorMessageFromBody(body), getValidationErrorsFromBody(body));
+  }
 }
 
 async function readJson(response: ApiFetchResponse): Promise<unknown> {

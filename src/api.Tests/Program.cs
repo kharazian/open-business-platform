@@ -3133,6 +3133,9 @@ var listReportConfig = new ListReportConfigDefinition(
     });
 var createReportRequest = new CreateListReportRequest("Employee directory", listReportConfig);
 AssertEqual("Employee directory", createReportRequest.Name, "Create list report requests should carry the report name.");
+var updateReportRequest = new UpdateListReportRequest("Employee directory updated", listReportConfig, "report-stamp");
+AssertEqual("Employee directory updated", updateReportRequest.Name, "Update list report requests should carry the report name.");
+AssertEqual("report-stamp", updateReportRequest.ConcurrencyStamp, "Update list report requests should carry concurrency stamps.");
 AssertTrue(ListReportConfigValidator.Validate(publishableSchema, listReportConfig).Valid, "List report configs should validate against known form fields and system fields.");
 AssertTrue(
     ListReportConfigValidator.Validate(
@@ -3383,6 +3386,16 @@ AssertEqual(
     csvExport.Content,
     "CSV export should include visible column labels and escape commas, quotes, and newlines.");
 AssertTypeAssignable<object, ReportManagementService>();
+AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.GetListReportAsync)), "Report management should expose saved report detail loading.");
+AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.UpdateListReportAsync)), "Report management should expose saved report updates.");
+AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.DeleteListReportAsync)), "Report management should expose saved report deletion.");
+var reportsEndpointsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Reports", "ReportsEndpoints.cs"));
+AssertTrue(reportsEndpointsSource.Contains("MapGet(\"/{reportId:guid}\"", StringComparison.Ordinal), "Reports endpoints should expose saved report detail loading.");
+AssertTrue(reportsEndpointsSource.Contains("MapPut(\"/{reportId:guid}\"", StringComparison.Ordinal), "Reports endpoints should expose saved report updates.");
+AssertTrue(reportsEndpointsSource.Contains("MapDelete(\"/{reportId:guid}\"", StringComparison.Ordinal), "Reports endpoints should expose saved report deletion.");
+var reportManagementSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Reports", "ReportManagementService.cs"));
+AssertTrue(reportManagementSource.Contains("\"report_updated\"", StringComparison.Ordinal), "Report updates should write audit entries.");
+AssertTrue(reportManagementSource.Contains("\"report_deleted\"", StringComparison.Ordinal), "Report deletion should write audit entries.");
 
 var chartConfig = new ChartWidgetConfigDefinition(
     ChartWidgetTypes.BarChart,

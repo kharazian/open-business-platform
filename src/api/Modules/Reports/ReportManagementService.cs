@@ -123,6 +123,112 @@ public sealed class ReportManagementService
         return ToDetailDto(report);
     }
 
+    public async Task<ListReportDetailDto> GetListReportAsync(
+        Guid formId,
+        Guid reportId,
+        CancellationToken cancellationToken)
+    {
+        var report = await dbContext.Reports
+            .AsNoTracking()
+            .Include(candidate => candidate.Form)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == reportId
+                && candidate.FormId == formId
+                && candidate.Type == ReportTypes.List
+                && !candidate.IsDeleted
+                && candidate.Form != null
+                && !candidate.Form.IsDeleted,
+                cancellationToken);
+
+        if (report is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status404NotFound, "Report was not found.");
+        }
+
+        return ToDetailDto(report);
+    }
+
+    public async Task<ListReportDetailDto> UpdateListReportAsync(
+        Guid formId,
+        Guid reportId,
+        UpdateListReportRequest request,
+        Guid? updatedById,
+        CancellationToken cancellationToken)
+    {
+        var report = await dbContext.Reports
+            .Include(candidate => candidate.Form)
+            .ThenInclude(form => form!.CurrentVersion)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == reportId
+                && candidate.FormId == formId
+                && candidate.Type == ReportTypes.List
+                && !candidate.IsDeleted
+                && candidate.Form != null
+                && !candidate.Form.IsDeleted,
+                cancellationToken);
+
+        if (report is null || report.Form is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status404NotFound, "Report was not found.");
+        }
+
+        EnsureConcurrencyStamp(report.ConcurrencyStamp, request.ConcurrencyStamp);
+
+        var name = (request.Name ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ReportManagementException(StatusCodes.Status400BadRequest, "Report name is required.");
+        }
+
+        var schema = ResolveReportSchema(report.Form);
+
+        if (schema is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status409Conflict, "Form schema is not available for report building.");
+        }
+
+        var validation = ListReportConfigValidator.Validate(schema, request.Config);
+
+        if (!validation.Valid)
+        {
+            throw new ReportManagementException(StatusCodes.Status400BadRequest, "Report config is invalid.", validation.Errors);
+        }
+
+        report.Name = name;
+        report.ConfigJson = SerializeConfig(NormalizeConfig(request.Config));
+        report.UpdatedById = updatedById;
+        AddAudit("Report", report.Id, "report_updated", updatedById);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ToDetailDto(report);
+    }
+
+    public async Task DeleteListReportAsync(
+        Guid formId,
+        Guid reportId,
+        Guid? deletedById,
+        CancellationToken cancellationToken)
+    {
+        var report = await dbContext.Reports
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == reportId
+                && candidate.FormId == formId
+                && candidate.Type == ReportTypes.List
+                && !candidate.IsDeleted,
+                cancellationToken);
+
+        if (report is null)
+        {
+            throw new ReportManagementException(StatusCodes.Status404NotFound, "Report was not found.");
+        }
+
+        report.DeletedById = deletedById;
+        dbContext.Reports.Remove(report);
+        AddAudit("Report", report.Id, "report_deleted", deletedById);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<ListReportExecutionDto> ExecuteListReportAsync(
         ClaimsPrincipal principal,
         Guid formId,
@@ -453,6 +559,14 @@ public sealed class ReportManagementService
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static void EnsureConcurrencyStamp(string currentStamp, string? requestedStamp)
+    {
+        if (!string.Equals(currentStamp, requestedStamp, StringComparison.Ordinal))
+        {
+            throw new ReportManagementException(StatusCodes.Status409Conflict, "Report was updated by someone else. Refresh and try again.");
+        }
     }
 
     private static FormSchemaDefinition? ResolveReportSchema(FormDefinition form)

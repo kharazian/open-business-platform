@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -21,12 +21,13 @@ import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
-import { createListReport, downloadListReportCsv, executeListReport, listReports, type ListReportRuntimeOptions } from "../api";
+import { createListReport, deleteListReport, downloadListReportCsv, executeListReport, getListReport, listReports, updateListReport, type ListReportRuntimeOptions } from "../api";
 import { getReportTablePrintDescription } from "../reportPrint";
 import { loadReportWorkspace } from "../workspace";
 import {
   type ListReportExecution,
   type ExecuteListReportOptions,
+  type ListReportDetail,
   type ListReportFilter,
   type ListReportSummary,
   type ReportFilterOperator,
@@ -68,6 +69,9 @@ export function ReportsPage() {
   const [filterValue, setFilterValue] = useState("");
   const [sortFieldId, setSortFieldId] = useState("created_at");
   const [sortDirection, setSortDirection] = useState<ReportSortDirection>("desc");
+  const [editingReportId, setEditingReportId] = useState("");
+  const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
+  const [managingReportId, setManagingReportId] = useState<string | null>(null);
   const [loadingForms, setLoadingForms] = useState(true);
   const [loadingFormDetail, setLoadingFormDetail] = useState(false);
   const [loadingReports, setLoadingReports] = useState(false);
@@ -160,6 +164,9 @@ export function ReportsPage() {
       setSelectedPrintTemplateId("");
       setSelectedPrintTemplate(null);
       setExecutedReportRuntimeOptions({});
+      setEditingReportId("");
+      setEditingReportConcurrencyStamp("");
+      setManagingReportId(null);
       return;
     }
 
@@ -182,13 +189,17 @@ export function ReportsPage() {
     setReportSortFieldId(undefined);
     setReportSortDirection("asc");
     setReportColumnFilters({});
+    setEditingReportId("");
+    setEditingReportConcurrencyStamp("");
+    setManagingReportId(null);
+    setReportNameError(undefined);
 
     loadReportWorkspace(selectedFormId)
       .then((workspace) => {
         if (!active) return;
         setFormDetail(workspace.formDetail);
         setReports(workspace.reports);
-        setReportName((current) => current || `${workspace.formDetail?.name ?? forms.find((form) => form.id === selectedFormId)?.name ?? "Form"} list`);
+        setReportName(`${workspace.formDetail?.name ?? forms.find((form) => form.id === selectedFormId)?.name ?? "Form"} list`);
       })
       .catch((caught: unknown) => {
         if (!active) return;
@@ -243,6 +254,7 @@ export function ReportsPage() {
     sort: buildSort()
   });
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
+  const editingReport = reports.find((report) => report.id === editingReportId) ?? null;
   const totalReportPages = reportExecution ? Math.max(1, Math.ceil(reportExecution.totalCount / reportExecution.pageSize)) : 1;
   const reportPrintDescription = reportExecution
     ? getReportTablePrintDescription(reportExecution.totalCount, reportExecution.page, totalReportPages, executedReportSearch)
@@ -267,21 +279,50 @@ export function ReportsPage() {
         render: (report) => formatDate(report.updatedAt ?? report.createdAt)
       },
       {
-        header: "Run",
+        header: "Actions",
         render: (report) => (
-          <Button
-            disabled={runningReport && selectedReportId === report.id}
-            onClick={() => handleRunReport(report.id, 1)}
-            size="sm"
-            variant={selectedReportId === report.id ? "secondary" : "outline"}
-          >
-            <Play className="size-4" />
-            {runningReport && selectedReportId === report.id ? "Running..." : "Run"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={runningReport && selectedReportId === report.id}
+              onClick={() => handleRunReport(report.id, 1)}
+              size="sm"
+              variant={selectedReportId === report.id ? "secondary" : "outline"}
+            >
+              <Play className="size-4" />
+              {runningReport && selectedReportId === report.id ? "Running..." : "Run"}
+            </Button>
+            <Button
+              disabled={managingReportId === report.id}
+              onClick={() => void handleEditReport(report.id)}
+              size="sm"
+              variant={editingReportId === report.id ? "secondary" : "outline"}
+            >
+              <Edit3 className="size-4" />
+              Edit
+            </Button>
+            <Button
+              disabled={managingReportId === report.id}
+              onClick={() => void handleDuplicateReport(report.id)}
+              size="sm"
+              variant="outline"
+            >
+              <Copy className="size-4" />
+              Duplicate
+            </Button>
+            <Button
+              disabled={managingReportId === report.id}
+              onClick={() => void handleDeleteReportDefinition(report)}
+              size="sm"
+              variant="danger"
+            >
+              <Trash2 className="size-4" />
+              {managingReportId === report.id ? "Deleting..." : "Delete report"}
+            </Button>
+          </div>
         )
       }
     ],
-    [runningReport, selectedReportId]
+    [editingReportId, managingReportId, runningReport, selectedReportId]
   );
 
   async function handleRefresh() {
@@ -306,6 +347,10 @@ export function ReportsPage() {
         setReportSortDirection("asc");
         setReportColumnFilters({});
       }
+
+      if (editingReportId && !refreshedReports.some((report) => report.id === editingReportId)) {
+        resetBuilderForNewReport();
+      }
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -313,7 +358,7 @@ export function ReportsPage() {
     }
   }
 
-  async function handleCreateReport() {
+  async function handleSaveReport() {
     const name = reportName.trim();
 
     setError(null);
@@ -327,10 +372,29 @@ export function ReportsPage() {
     setSavingReport(true);
 
     try {
+      if (editingReportId) {
+        if (!editingReportConcurrencyStamp) {
+          setError("Refresh this report before saving changes.");
+          return;
+        }
+
+        const updatedReport = await updateListReport(selectedFormId, editingReportId, {
+          name,
+          config: previewConfig,
+          concurrencyStamp: editingReportConcurrencyStamp
+        });
+        setEditingReportConcurrencyStamp(updatedReport.concurrencyStamp);
+        setReports(await listReports(selectedFormId));
+        setNotice("Report changes saved.");
+        setReportNameError(undefined);
+        await handleRunReport(updatedReport.id, 1);
+        return;
+      }
+
       const createdReport = await createListReport(selectedFormId, { name, config: previewConfig });
       setReports(await listReports(selectedFormId));
       setNotice("List report saved.");
-      setReportName(`${formDetail?.name ?? "Form"} list`);
+      resetBuilderForNewReport(getDefaultReportName());
       setReportNameError(undefined);
       await handleRunReport(createdReport.id, 1);
     } catch (caught) {
@@ -338,6 +402,133 @@ export function ReportsPage() {
     } finally {
       setSavingReport(false);
     }
+  }
+
+  async function handleEditReport(reportId: string) {
+    if (!selectedFormId) return;
+
+    setManagingReportId(reportId);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const report = await getListReport(selectedFormId, reportId);
+      loadReportIntoBuilder(report, { mode: "edit" });
+      setNotice("Report loaded for editing.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setManagingReportId(null);
+    }
+  }
+
+  async function handleDuplicateReport(reportId: string) {
+    if (!selectedFormId) return;
+
+    setManagingReportId(reportId);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const report = await getListReport(selectedFormId, reportId);
+      loadReportIntoBuilder(report, { mode: "duplicate" });
+      setNotice("Report copied into the builder. Save it as a new report.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setManagingReportId(null);
+    }
+  }
+
+  async function handleDeleteReportDefinition(report: ListReportSummary) {
+    if (!selectedFormId) return;
+
+    if (!window.confirm(`Delete report "${report.name}"?`)) {
+      return;
+    }
+
+    setManagingReportId(report.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await deleteListReport(selectedFormId, report.id);
+      const refreshedReports = await listReports(selectedFormId);
+      setReports(refreshedReports);
+
+      if (selectedReportId === report.id) {
+        setSelectedReportId("");
+        setReportExecution(null);
+        setReportPrintTemplates([]);
+        setSelectedPrintTemplateId("");
+        setSelectedPrintTemplate(null);
+        setExecutedReportSearch("");
+        setExecutedReportRuntimeOptions({});
+        setReportSortFieldId(undefined);
+        setReportSortDirection("asc");
+        setReportColumnFilters({});
+      }
+
+      if (editingReportId === report.id) {
+        resetBuilderForNewReport();
+      }
+
+      setNotice("Report deleted.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setManagingReportId(null);
+    }
+  }
+
+  function loadReportIntoBuilder(report: ListReportDetail, options: { mode: "edit" | "duplicate" }) {
+    const validFieldIds = new Set(fieldOptions.map((field) => field.id));
+    const columns = report.config.columns.filter((column) => column.visible && validFieldIds.has(column.fieldId));
+    const fallbackFieldIds = fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id);
+    const selectedColumnIds = columns.length > 0 ? columns.map((column) => column.fieldId) : fallbackFieldIds;
+    const labels = Object.fromEntries(fieldOptions.map((field) => [field.id, field.label]));
+
+    for (const column of columns) {
+      labels[column.fieldId] = column.label;
+    }
+
+    setSelectedFieldIds(selectedColumnIds);
+    setColumnLabels(labels);
+    setReportName(options.mode === "duplicate" ? `Copy of ${report.name}` : report.name);
+    setReportNameError(undefined);
+    setEditingReportId(options.mode === "edit" ? report.id : "");
+    setEditingReportConcurrencyStamp(options.mode === "edit" ? report.concurrencyStamp : "");
+
+    const firstFilter = report.config.filters.find((filter) => validFieldIds.has(filter.fieldId));
+    setFilterFieldId(firstFilter?.fieldId ?? "");
+    setFilterOperator(isSupportedFilterOperator(firstFilter?.operator) ? firstFilter.operator : "equals");
+    setFilterValue(firstFilter?.value ?? "");
+
+    const firstSort = report.config.sort.find((sort) => validFieldIds.has(sort.fieldId));
+    setSortFieldId(firstSort?.fieldId ?? getFallbackSortFieldId());
+    setSortDirection(firstSort?.direction === "asc" ? "asc" : "desc");
+  }
+
+  function resetBuilderForNewReport(name = getDefaultReportName()) {
+    setEditingReportId("");
+    setEditingReportConcurrencyStamp("");
+    setReportName(name);
+    setReportNameError(undefined);
+    setSelectedFieldIds(fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id));
+    setColumnLabels(Object.fromEntries(fieldOptions.map((field) => [field.id, field.label])));
+    setFilterFieldId("");
+    setFilterOperator("equals");
+    setFilterValue("");
+    setSortFieldId(getFallbackSortFieldId());
+    setSortDirection("desc");
+  }
+
+  function getDefaultReportName(): string {
+    return `${formDetail?.name ?? selectedForm?.name ?? "Form"} list`;
+  }
+
+  function getFallbackSortFieldId(): string {
+    return fieldOptions.some((field) => field.id === "created_at") ? "created_at" : fieldOptions[0]?.id ?? "";
   }
 
   function handleToggleField(fieldId: string, selected: boolean) {
@@ -568,9 +759,13 @@ export function ReportsPage() {
                 <RefreshCw className="size-4" />
                 Refresh
               </Button>
-              <Button disabled={!selectedFormId || fieldOptions.length === 0 || savingReport} onClick={handleCreateReport}>
+              <Button disabled={!selectedFormId || fieldOptions.length === 0 || savingReport} onClick={() => resetBuilderForNewReport()} variant="outline">
+                <Plus className="size-4" />
+                New report
+              </Button>
+              <Button disabled={!selectedFormId || fieldOptions.length === 0 || savingReport} onClick={handleSaveReport}>
                 <Save className="size-4" />
-                {savingReport ? "Saving..." : "Save report"}
+                {savingReport ? "Saving..." : editingReportId ? "Save changes" : "Save report"}
               </Button>
             </div>
           }
@@ -642,10 +837,10 @@ export function ReportsPage() {
           <CardHeader>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle>Builder</CardTitle>
-                <CardDescription>Columns, filter, and sort.</CardDescription>
+                <CardTitle>{editingReportId ? "Edit report" : "Builder"}</CardTitle>
+                <CardDescription>{editingReport ? `Editing ${editingReport.name}.` : "Columns, filter, and sort."}</CardDescription>
               </div>
-              <Badge>{selectedFieldIds.length} columns</Badge>
+              <Badge>{editingReportId ? "Editing" : `${selectedFieldIds.length} columns`}</Badge>
             </div>
           </CardHeader>
           <CardContent>
@@ -790,7 +985,7 @@ export function ReportsPage() {
           ) : (
             <EmptyState
               action={
-                <Button disabled={!selectedFormId || fieldOptions.length === 0} onClick={handleCreateReport} variant="outline">
+                <Button disabled={!selectedFormId || fieldOptions.length === 0} onClick={handleSaveReport} variant="outline">
                   <Plus className="size-4" />
                   Save first report
                 </Button>
@@ -1111,6 +1306,10 @@ function toReportTemplateExecution(execution: ListReportExecution): ReportTempla
 
 function filterRequiresValue(operator: ReportFilterOperator): boolean {
   return operator === "equals" || operator === "contains";
+}
+
+function isSupportedFilterOperator(value: string | undefined): value is ReportFilterOperator {
+  return filterOperatorOptions.some((option) => option.value === value);
 }
 
 function formatDate(value: string | null | undefined): string {
