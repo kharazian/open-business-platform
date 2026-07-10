@@ -91,6 +91,8 @@ V2 list report definition endpoints require `menu.reports` plus form view access
 
 Report viewer row actions route users into existing record create/detail/edit/delete flows. The frontend route gate allows those record pages from either `menu.forms` or `menu.reports`, while the backend still enforces the concrete form/record action: `submit`, `view`, `edit`, or `delete`.
 
+Saved report access can be managed from Users & Access or from the Reports page inline access panel. The inline report panel uses the same role permission API and lets admins grant the Reports menu, platform report management, required source-form `view`/`export`/`manage` actions, and report `view`/`export`/`manage` actions per role; it is only shown to users with `roles.manage`.
+
 V4 trigger management endpoints require form `manage` access or `forms.manage_all`. V5 workflow definition management endpoints use the same form `manage` or `forms.manage_all` backend check for form-scoped workflow authoring. `workflows.manage` is available as a built-in platform permission constant for future workflow-wide administration surfaces.
 
 ## Implemented V3 Record Scopes

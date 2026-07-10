@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -11,6 +11,7 @@ import { Input } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Table, type TableColumn } from "../../../components/ui/Table";
+import { useAuth } from "../../../context/AuthContext";
 import { deleteRecord, listForms, type FormDetail } from "../../forms/api";
 import { getFormStatusLabel, type FormSummary } from "../../forms/drafts";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
@@ -22,8 +23,23 @@ import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExe
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
 import { createListReportConfig, getReportFieldOptions } from "../builder";
 import { createListReport, deleteListReport, downloadListReportCsv, executeListReport, getListReport, listReports, updateListReport, type ListReportRuntimeOptions } from "../api";
+import {
+  grantReportAccessBundle,
+  hasFormAccessPermission,
+  hasReportAccessPermission,
+  reportAccessActionLabels,
+  reportAccessFormActionLabels,
+  reportAccessFormActions,
+  reportAccessMenuPermission,
+  reportAccessPlatformManagePermission,
+  rolePermissionDraftChanged,
+  setFormAccessPermission,
+  setGlobalPermission,
+} from "../reportAccess";
 import { getReportTablePrintDescription } from "../reportPrint";
 import { loadReportWorkspace } from "../workspace";
+import { getRolePermissions, listRoles, updateRolePermissions } from "../../users/api";
+import { reportAccessActions, type ReportAccessAction, type RoleDto, type RolePermissionsDto } from "../../users/types";
 import {
   type ListReportExecution,
   type ExecuteListReportOptions,
@@ -48,6 +64,7 @@ const sortDirectionOptions = [
 ];
 
 export function ReportsPage() {
+  const { user } = useAuth();
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
@@ -72,6 +89,12 @@ export function ReportsPage() {
   const [editingReportId, setEditingReportId] = useState("");
   const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
   const [managingReportId, setManagingReportId] = useState<string | null>(null);
+  const [accessReportId, setAccessReportId] = useState("");
+  const [accessRoles, setAccessRoles] = useState<RoleDto[]>([]);
+  const [accessOriginalPermissionsByRole, setAccessOriginalPermissionsByRole] = useState<Record<string, RolePermissionsDto>>({});
+  const [accessDraftPermissionsByRole, setAccessDraftPermissionsByRole] = useState<Record<string, RolePermissionsDto>>({});
+  const [loadingReportAccess, setLoadingReportAccess] = useState(false);
+  const [savingReportAccess, setSavingReportAccess] = useState(false);
   const [loadingForms, setLoadingForms] = useState(true);
   const [loadingFormDetail, setLoadingFormDetail] = useState(false);
   const [loadingReports, setLoadingReports] = useState(false);
@@ -167,6 +190,7 @@ export function ReportsPage() {
       setEditingReportId("");
       setEditingReportConcurrencyStamp("");
       setManagingReportId(null);
+      resetReportAccessState();
       return;
     }
 
@@ -192,6 +216,7 @@ export function ReportsPage() {
     setEditingReportId("");
     setEditingReportConcurrencyStamp("");
     setManagingReportId(null);
+    resetReportAccessState();
     setReportNameError(undefined);
 
     loadReportWorkspace(selectedFormId)
@@ -255,6 +280,12 @@ export function ReportsPage() {
   });
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
   const editingReport = reports.find((report) => report.id === editingReportId) ?? null;
+  const accessReport = reports.find((report) => report.id === accessReportId) ?? null;
+  const canManageReportAccess = user?.permissions.includes("roles.manage") ?? false;
+  const hasReportAccessChanges = Object.entries(accessDraftPermissionsByRole).some(([roleId, draft]) => {
+    const original = accessOriginalPermissionsByRole[roleId];
+    return original ? rolePermissionDraftChanged(original, draft) : false;
+  });
   const totalReportPages = reportExecution ? Math.max(1, Math.ceil(reportExecution.totalCount / reportExecution.pageSize)) : 1;
   const reportPrintDescription = reportExecution
     ? getReportTablePrintDescription(reportExecution.totalCount, reportExecution.page, totalReportPages, executedReportSearch)
@@ -309,6 +340,17 @@ export function ReportsPage() {
               <Copy className="size-4" />
               Duplicate
             </Button>
+            {canManageReportAccess ? (
+              <Button
+                disabled={loadingReportAccess && accessReportId === report.id}
+                onClick={() => void handleOpenReportAccess(report.id)}
+                size="sm"
+                variant={accessReportId === report.id ? "secondary" : "outline"}
+              >
+                <ShieldCheck className="size-4" />
+                Access
+              </Button>
+            ) : null}
             <Button
               disabled={managingReportId === report.id}
               onClick={() => void handleDeleteReportDefinition(report)}
@@ -322,7 +364,7 @@ export function ReportsPage() {
         )
       }
     ],
-    [editingReportId, managingReportId, runningReport, selectedReportId]
+    [accessReportId, canManageReportAccess, editingReportId, loadingReportAccess, managingReportId, runningReport, selectedReportId]
   );
 
   async function handleRefresh() {
@@ -350,6 +392,10 @@ export function ReportsPage() {
 
       if (editingReportId && !refreshedReports.some((report) => report.id === editingReportId)) {
         resetBuilderForNewReport();
+      }
+
+      if (accessReportId && !refreshedReports.some((report) => report.id === accessReportId)) {
+        resetReportAccessState();
       }
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -473,12 +519,129 @@ export function ReportsPage() {
         resetBuilderForNewReport();
       }
 
+      if (accessReportId === report.id) {
+        resetReportAccessState();
+      }
+
       setNotice("Report deleted.");
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
       setManagingReportId(null);
     }
+  }
+
+  async function handleOpenReportAccess(reportId: string) {
+    setAccessReportId(reportId);
+    setLoadingReportAccess(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const roles = (await listRoles()).sort((left, right) => left.name.localeCompare(right.name));
+      const permissions = await Promise.all(roles.map((role) => getRolePermissions(role.id)));
+      const permissionsByRole = Object.fromEntries(permissions.map((permission) => [permission.roleId, cloneRolePermissions(permission)]));
+
+      setAccessRoles(roles);
+      setAccessOriginalPermissionsByRole(permissionsByRole);
+      setAccessDraftPermissionsByRole(Object.fromEntries(permissions.map((permission) => [permission.roleId, cloneRolePermissions(permission)])));
+    } catch (caught) {
+      resetReportAccessState(reportId);
+      setError(getErrorMessage(caught));
+    } finally {
+      setLoadingReportAccess(false);
+    }
+  }
+
+  async function handleSaveReportAccess() {
+    if (!accessReportId || !hasReportAccessChanges) return;
+
+    setSavingReportAccess(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const changedDrafts = Object.entries(accessDraftPermissionsByRole)
+        .filter(([roleId, draft]) => {
+          const original = accessOriginalPermissionsByRole[roleId];
+          return original ? rolePermissionDraftChanged(original, draft) : false;
+        });
+      const updatedPermissions = await Promise.all(
+        changedDrafts.map(([roleId, draft]) =>
+          updateRolePermissions(roleId, {
+            permissions: draft.permissions,
+            formPermissions: draft.formPermissions,
+            reportPermissions: draft.reportPermissions,
+            fieldPermissions: draft.fieldPermissions
+          })
+        )
+      );
+      const nextOriginal = { ...accessOriginalPermissionsByRole };
+      const nextDrafts = { ...accessDraftPermissionsByRole };
+
+      for (const permissions of updatedPermissions) {
+        nextOriginal[permissions.roleId] = cloneRolePermissions(permissions);
+        nextDrafts[permissions.roleId] = cloneRolePermissions(permissions);
+      }
+
+      setAccessOriginalPermissionsByRole(nextOriginal);
+      setAccessDraftPermissionsByRole(nextDrafts);
+      setNotice("Report access saved.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSavingReportAccess(false);
+    }
+  }
+
+  function toggleReportMenuAccess(roleId: string, enabled: boolean) {
+    updateReportAccessDraft(roleId, (draft) => ({
+      ...draft,
+      permissions: setGlobalPermission(draft.permissions, reportAccessMenuPermission, enabled)
+    }));
+  }
+
+  function toggleReportPlatformManage(roleId: string, enabled: boolean) {
+    updateReportAccessDraft(roleId, (draft) => ({
+      ...draft,
+      permissions: setGlobalPermission(draft.permissions, reportAccessPlatformManagePermission, enabled)
+    }));
+  }
+
+  function toggleSourceFormAccess(roleId: string, action: (typeof reportAccessFormActions)[number], enabled: boolean) {
+    if (!accessReport) return;
+
+    updateReportAccessDraft(roleId, (draft) => ({
+      ...draft,
+      formPermissions: setFormAccessPermission(draft.formPermissions, accessReport.formId, action, enabled)
+    }));
+  }
+
+  function toggleReportAccess(roleId: string, action: ReportAccessAction, enabled: boolean) {
+    if (!accessReport) return;
+
+    updateReportAccessDraft(roleId, (draft) => grantReportAccessBundle(draft, accessReport.formId, accessReport.id, action, enabled));
+  }
+
+  function updateReportAccessDraft(roleId: string, updater: (draft: RolePermissionsDto) => RolePermissionsDto) {
+    setAccessDraftPermissionsByRole((current) => {
+      const draft = current[roleId];
+
+      if (!draft) {
+        return current;
+      }
+
+      return { ...current, [roleId]: updater(cloneRolePermissions(draft)) };
+    });
+  }
+
+  function resetReportAccessState(reportId = "") {
+    setAccessReportId(reportId);
+    setAccessRoles([]);
+    setAccessOriginalPermissionsByRole({});
+    setAccessDraftPermissionsByRole({});
+    setLoadingReportAccess(false);
+    setSavingReportAccess(false);
   }
 
   function loadReportIntoBuilder(report: ListReportDetail, options: { mode: "edit" | "duplicate" }) {
@@ -997,6 +1160,95 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
+      {accessReport ? (
+        <Card data-print-hide="true">
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Report access</CardTitle>
+                <CardDescription>{accessReport.name}</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={savingReportAccess} onClick={() => resetReportAccessState()} variant="outline">
+                  <X className="size-4" />
+                  Close
+                </Button>
+                <Button disabled={loadingReportAccess || savingReportAccess || !hasReportAccessChanges} onClick={() => void handleSaveReportAccess()}>
+                  <Save className="size-4" />
+                  {savingReportAccess ? "Saving..." : "Save access"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingReportAccess ? (
+              <div className="rounded-xl border border-dashed border-border bg-muted/40 p-8 text-center">
+                <RefreshCw className="mx-auto size-8 animate-spin text-muted-foreground" />
+                <p className="mt-3 text-sm font-bold text-foreground">Loading report access</p>
+              </div>
+            ) : accessRoles.length > 0 ? (
+              <div className="grid gap-3">
+                {accessRoles.map((role) => {
+                  const draft = accessDraftPermissionsByRole[role.id];
+
+                  if (!draft) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 xl:grid-cols-[minmax(12rem,1fr)_minmax(0,3fr)]" key={role.id}>
+                      <div>
+                        <p className="font-bold text-foreground">{role.name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{role.description || (role.isActive ? "Active role" : "Inactive role")}</p>
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-3">
+                        <div className="grid gap-2">
+                          <p className="text-xs font-bold uppercase text-muted-foreground">Menu and platform</p>
+                          <Checkbox
+                            checked={draft.permissions.includes(reportAccessMenuPermission)}
+                            label="Show Reports menu"
+                            onChange={(event) => toggleReportMenuAccess(role.id, event.target.checked)}
+                          />
+                          <Checkbox
+                            checked={draft.permissions.includes(reportAccessPlatformManagePermission)}
+                            label="Manage reports"
+                            onChange={(event) => toggleReportPlatformManage(role.id, event.target.checked)}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <p className="text-xs font-bold uppercase text-muted-foreground">Source form access</p>
+                          {reportAccessFormActions.map((action) => (
+                            <Checkbox
+                              checked={hasFormAccessPermission(draft.formPermissions, accessReport.formId, action)}
+                              key={action}
+                              label={reportAccessFormActionLabels[action]}
+                              onChange={(event) => toggleSourceFormAccess(role.id, action, event.target.checked)}
+                            />
+                          ))}
+                        </div>
+                        <div className="grid gap-2">
+                          <p className="text-xs font-bold uppercase text-muted-foreground">Saved report access</p>
+                          {reportAccessActions.map((action) => (
+                            <Checkbox
+                              checked={hasReportAccessPermission(draft.reportPermissions, accessReport.id, action)}
+                              key={action}
+                              label={reportAccessActionLabels[action]}
+                              onChange={(event) => toggleReportAccess(role.id, action, event.target.checked)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState title="No roles" description="Create roles before assigning report access." />
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="print-card" data-print-hide={selectedPrintTemplate ? "true" : undefined}>
         <CardHeader data-print-hide="true">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1310,6 +1562,16 @@ function filterRequiresValue(operator: ReportFilterOperator): boolean {
 
 function isSupportedFilterOperator(value: string | undefined): value is ReportFilterOperator {
   return filterOperatorOptions.some((option) => option.value === value);
+}
+
+function cloneRolePermissions(permissions: RolePermissionsDto): RolePermissionsDto {
+  return {
+    roleId: permissions.roleId,
+    permissions: [...permissions.permissions],
+    formPermissions: permissions.formPermissions.map((permission) => ({ ...permission })),
+    reportPermissions: permissions.reportPermissions.map((permission) => ({ ...permission })),
+    fieldPermissions: permissions.fieldPermissions.map((permission) => ({ ...permission }))
+  };
 }
 
 function formatDate(value: string | null | undefined): string {

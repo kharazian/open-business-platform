@@ -296,6 +296,20 @@ test("reports page exposes saved report edit duplicate and delete management", (
   assert.equal(source.includes("Save changes"), true);
 });
 
+test("reports page exposes inline saved report access controls", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const accessSource = readFileSync(new URL("./reportAccess.ts", import.meta.url), "utf8");
+
+  assert.equal(source.includes("handleOpenReportAccess"), true);
+  assert.equal(source.includes("handleSaveReportAccess"), true);
+  assert.equal(source.includes("roles.manage"), true);
+  assert.equal(source.includes("reportAccessMenuPermission"), true);
+  assert.equal(accessSource.includes("menu.reports"), true);
+  assert.equal(source.includes("Report access"), true);
+  assert.equal(source.includes("Show Reports menu"), true);
+  assert.equal(source.includes("updateRolePermissions"), true);
+});
+
 test("report builder field options use shared reportable metadata", () => {
   const schema = {
     schemaVersion: 1,

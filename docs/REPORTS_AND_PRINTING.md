@@ -28,7 +28,7 @@ V2 features:
 - Search: implemented at runtime in the report viewer for visible searchable columns
 - Per-column filters: implemented at runtime in the report viewer for visible columns
 - Row actions: implemented in the report viewer for record view, edit-mode open, inline delete with confirmation, and new record creation through existing record/form endpoints
-- Saved reports: implemented, including saved definition edit, duplicate-from-existing, and delete management actions
+- Saved reports: implemented, including saved definition edit, duplicate-from-existing, delete management actions, and inline role/menu/source-form access controls for admins
 - Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports
 - Print: implemented for the currently visible report viewer page
