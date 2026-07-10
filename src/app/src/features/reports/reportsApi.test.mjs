@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import * as api from "./api.ts";
-import { createListReportConfig, getReportFieldOptions } from "./builder.ts";
+import { createListReportConfig, getReportFieldOptions, toListReportFilters, toListReportSorts } from "./builder.ts";
 
 test("reports API client maps list report requests and errors", async () => {
   const calls = [];
@@ -310,6 +310,19 @@ test("reports page exposes inline saved report access controls", () => {
   assert.equal(source.includes("updateRolePermissions"), true);
 });
 
+test("reports page exposes multiple saved filters and sorts in the builder", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("filterDrafts"), true);
+  assert.equal(source.includes("sortDrafts"), true);
+  assert.equal(source.includes("handleAddFilterDraft"), true);
+  assert.equal(source.includes("handleRemoveFilterDraft"), true);
+  assert.equal(source.includes("handleAddSortDraft"), true);
+  assert.equal(source.includes("handleRemoveSortDraft"), true);
+  assert.equal(source.includes("Add filter"), true);
+  assert.equal(source.includes("Add sort"), true);
+});
+
 test("report builder field options use shared reportable metadata", () => {
   const schema = {
     schemaVersion: 1,
@@ -330,6 +343,28 @@ test("report builder field options use shared reportable metadata", () => {
   assert.equal(fields.find((field) => field.id === "department").type, "select");
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
+});
+
+test("report builder converts multiple filter and sort drafts into config arrays", () => {
+  const filters = toListReportFilters([
+    { id: "filter-1", fieldId: "department", operator: "equals", value: " HR " },
+    { id: "filter-2", fieldId: "status", operator: "is_not_empty", value: "ignored" },
+    { id: "filter-empty", fieldId: "", operator: "contains", value: "skip" }
+  ]);
+  const sorts = toListReportSorts([
+    { id: "sort-1", fieldId: "created_at", direction: "desc" },
+    { id: "sort-2", fieldId: "department", direction: "asc" },
+    { id: "sort-empty", fieldId: "", direction: "asc" }
+  ]);
+
+  assert.deepEqual(filters, [
+    { fieldId: "department", operator: "equals", value: "HR" },
+    { fieldId: "status", operator: "is_not_empty", value: null }
+  ]);
+  assert.deepEqual(sorts, [
+    { fieldId: "created_at", direction: "desc" },
+    { fieldId: "department", direction: "asc" }
+  ]);
 });
 
 test("report builder preserves selected column order and custom labels", () => {

@@ -21,7 +21,15 @@ import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing
 import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
-import { createListReportConfig, getReportFieldOptions } from "../builder";
+import {
+  createListReportConfig,
+  filterOperatorRequiresValue,
+  getReportFieldOptions,
+  toListReportFilters,
+  toListReportSorts,
+  type ReportFilterDraft,
+  type ReportSortDraft
+} from "../builder";
 import { createListReport, deleteListReport, downloadListReportCsv, executeListReport, getListReport, listReports, updateListReport, type ListReportRuntimeOptions } from "../api";
 import {
   grantReportAccessBundle,
@@ -44,7 +52,6 @@ import {
   type ListReportExecution,
   type ExecuteListReportOptions,
   type ListReportDetail,
-  type ListReportFilter,
   type ListReportSummary,
   type ReportFilterOperator,
   type ReportSortDirection
@@ -81,11 +88,8 @@ export function ReportsPage() {
   const [reportName, setReportName] = useState("");
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
   const [columnLabels, setColumnLabels] = useState<Record<string, string>>({});
-  const [filterFieldId, setFilterFieldId] = useState("");
-  const [filterOperator, setFilterOperator] = useState<ReportFilterOperator>("equals");
-  const [filterValue, setFilterValue] = useState("");
-  const [sortFieldId, setSortFieldId] = useState("created_at");
-  const [sortDirection, setSortDirection] = useState<ReportSortDirection>("desc");
+  const [filterDrafts, setFilterDrafts] = useState<ReportFilterDraft[]>([]);
+  const [sortDrafts, setSortDrafts] = useState<ReportSortDraft[]>([]);
   const [editingReportId, setEditingReportId] = useState("");
   const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
   const [managingReportId, setManagingReportId] = useState<string | null>(null);
@@ -249,6 +253,8 @@ export function ReportsPage() {
     if (fieldOptions.length === 0) {
       setSelectedFieldIds([]);
       setColumnLabels({});
+      setFilterDrafts([]);
+      setSortDrafts([]);
       return;
     }
 
@@ -266,6 +272,18 @@ export function ReportsPage() {
 
       return nextLabels;
     });
+
+    setFilterDrafts((current) => current.filter((draft) => fieldOptions.some((field) => field.id === draft.fieldId)));
+    setSortDrafts((current) => {
+      const validDrafts = current.filter((draft) => fieldOptions.some((field) => field.id === draft.fieldId));
+
+      if (validDrafts.length > 0) {
+        return validDrafts;
+      }
+
+      const defaultFieldId = fieldOptions.some((field) => field.id === "created_at") ? "created_at" : fieldOptions[0]?.id ?? "";
+      return defaultFieldId ? [{ id: createReportBuilderDraftId("sort"), fieldId: defaultFieldId, direction: "desc" }] : [];
+    });
   }, [fieldOptions]);
 
   const selectedForm = forms.find((form) => form.id === selectedFormId) ?? null;
@@ -275,8 +293,8 @@ export function ReportsPage() {
     fieldOptions,
     selectedFieldIds,
     columnLabels,
-    filters: buildFilters(),
-    sort: buildSort()
+    filters: toListReportFilters(filterDrafts),
+    sort: toListReportSorts(sortDrafts)
   });
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
   const editingReport = reports.find((report) => report.id === editingReportId) ?? null;
@@ -662,14 +680,21 @@ export function ReportsPage() {
     setEditingReportId(options.mode === "edit" ? report.id : "");
     setEditingReportConcurrencyStamp(options.mode === "edit" ? report.concurrencyStamp : "");
 
-    const firstFilter = report.config.filters.find((filter) => validFieldIds.has(filter.fieldId));
-    setFilterFieldId(firstFilter?.fieldId ?? "");
-    setFilterOperator(isSupportedFilterOperator(firstFilter?.operator) ? firstFilter.operator : "equals");
-    setFilterValue(firstFilter?.value ?? "");
-
-    const firstSort = report.config.sort.find((sort) => validFieldIds.has(sort.fieldId));
-    setSortFieldId(firstSort?.fieldId ?? getFallbackSortFieldId());
-    setSortDirection(firstSort?.direction === "asc" ? "asc" : "desc");
+    setFilterDrafts(report.config.filters
+      .filter((filter) => validFieldIds.has(filter.fieldId) && isSupportedFilterOperator(filter.operator))
+      .map((filter) => ({
+        id: createReportBuilderDraftId("filter"),
+        fieldId: filter.fieldId,
+        operator: filter.operator,
+        value: filter.value ?? ""
+      })));
+    setSortDrafts(report.config.sort
+      .filter((sort) => validFieldIds.has(sort.fieldId))
+      .map((sort) => ({
+        id: createReportBuilderDraftId("sort"),
+        fieldId: sort.fieldId,
+        direction: sort.direction === "asc" ? "asc" : "desc"
+      })));
   }
 
   function resetBuilderForNewReport(name = getDefaultReportName()) {
@@ -679,11 +704,8 @@ export function ReportsPage() {
     setReportNameError(undefined);
     setSelectedFieldIds(fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id));
     setColumnLabels(Object.fromEntries(fieldOptions.map((field) => [field.id, field.label])));
-    setFilterFieldId("");
-    setFilterOperator("equals");
-    setFilterValue("");
-    setSortFieldId(getFallbackSortFieldId());
-    setSortDirection("desc");
+    setFilterDrafts([]);
+    setSortDrafts(createDefaultSortDrafts());
   }
 
   function getDefaultReportName(): string {
@@ -692,6 +714,14 @@ export function ReportsPage() {
 
   function getFallbackSortFieldId(): string {
     return fieldOptions.some((field) => field.id === "created_at") ? "created_at" : fieldOptions[0]?.id ?? "";
+  }
+
+  function createDefaultSortDrafts(): ReportSortDraft[] {
+    const fallbackSortFieldId = getFallbackSortFieldId();
+
+    return fallbackSortFieldId
+      ? [{ id: createReportBuilderDraftId("sort"), fieldId: fallbackSortFieldId, direction: "desc" }]
+      : [];
   }
 
   function handleToggleField(fieldId: string, selected: boolean) {
@@ -734,16 +764,49 @@ export function ReportsPage() {
     setColumnLabels((current) => ({ ...current, [fieldId]: label }));
   }
 
-  function buildFilters(): ListReportFilter[] {
-    if (!filterFieldId) {
-      return [];
-    }
-
-    return [{ fieldId: filterFieldId, operator: filterOperator, value: filterRequiresValue(filterOperator) ? filterValue : null }];
+  function handleAddFilterDraft() {
+    setNotice(null);
+    setFilterDrafts((current) => [
+      ...current,
+      {
+        id: createReportBuilderDraftId("filter"),
+        fieldId: fieldOptions[0]?.id ?? "",
+        operator: "equals",
+        value: ""
+      }
+    ]);
   }
 
-  function buildSort() {
-    return sortFieldId ? [{ fieldId: sortFieldId, direction: sortDirection }] : [];
+  function handleRemoveFilterDraft(draftId: string) {
+    setNotice(null);
+    setFilterDrafts((current) => current.filter((draft) => draft.id !== draftId));
+  }
+
+  function updateFilterDraft(draftId: string, patch: Partial<Omit<ReportFilterDraft, "id">>) {
+    setNotice(null);
+    setFilterDrafts((current) => current.map((draft) => (draft.id === draftId ? { ...draft, ...patch } : draft)));
+  }
+
+  function handleAddSortDraft() {
+    setNotice(null);
+    setSortDrafts((current) => [
+      ...current,
+      {
+        id: createReportBuilderDraftId("sort"),
+        fieldId: getFallbackSortFieldId(),
+        direction: "desc"
+      }
+    ]);
+  }
+
+  function handleRemoveSortDraft(draftId: string) {
+    setNotice(null);
+    setSortDrafts((current) => current.filter((draft) => draft.id !== draftId));
+  }
+
+  function updateSortDraft(draftId: string, patch: Partial<Omit<ReportSortDraft, "id">>) {
+    setNotice(null);
+    setSortDrafts((current) => current.map((draft) => (draft.id === draftId ? { ...draft, ...patch } : draft)));
   }
 
   async function handleRunReport(reportId: string, page: number, overrides: Partial<ExecuteListReportOptions> = {}) {
@@ -1087,42 +1150,108 @@ export function ReportsPage() {
                     </div>
                   </div>
                 ) : null}
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <Select label="Filter field" onChange={(event) => setFilterFieldId(event.target.value)} value={filterFieldId}>
-                    {fieldSelectOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    disabled={!filterFieldId}
-                    label="Operator"
-                    onChange={(event) => setFilterOperator(event.target.value as ReportFilterOperator)}
-                    options={filterOperatorOptions}
-                    value={filterOperator}
-                  />
-                  <Input
-                    disabled={!filterFieldId || !filterRequiresValue(filterOperator)}
-                    label="Filter value"
-                    onChange={(event) => setFilterValue(event.target.value)}
-                    value={filterValue}
-                  />
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-foreground">Saved filters</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{previewConfig.filters.length} active</Badge>
+                      <Button onClick={handleAddFilterDraft} size="sm" variant="outline">
+                        <Plus className="size-4" />
+                        Add filter
+                      </Button>
+                    </div>
+                  </div>
+                  {filterDrafts.length > 0 ? (
+                    <div className="grid gap-2">
+                      {filterDrafts.map((filterDraft) => (
+                        <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_minmax(0,1fr)_auto]" key={filterDraft.id}>
+                          <Select
+                            label="Filter field"
+                            onChange={(event) => updateFilterDraft(filterDraft.id, { fieldId: event.target.value })}
+                            value={filterDraft.fieldId}
+                          >
+                            {fieldSelectOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </Select>
+                          <Select
+                            disabled={!filterDraft.fieldId}
+                            label="Operator"
+                            onChange={(event) => updateFilterDraft(filterDraft.id, { operator: event.target.value as ReportFilterOperator })}
+                            options={filterOperatorOptions}
+                            value={filterDraft.operator}
+                          />
+                          <Input
+                            disabled={!filterDraft.fieldId || !filterOperatorRequiresValue(filterDraft.operator)}
+                            label="Filter value"
+                            onChange={(event) => updateFilterDraft(filterDraft.id, { value: event.target.value })}
+                            value={filterDraft.value}
+                          />
+                          <div className="flex items-end">
+                            <Button
+                              aria-label="Remove filter"
+                              onClick={() => handleRemoveFilterDraft(filterDraft.id)}
+                              size="icon"
+                              title="Remove filter"
+                              variant="outline"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <Select label="Sort field" onChange={(event) => setSortFieldId(event.target.value)} value={sortFieldId}>
-                    {sortFieldSelectOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    label="Sort direction"
-                    onChange={(event) => setSortDirection(event.target.value as ReportSortDirection)}
-                    options={sortDirectionOptions}
-                    value={sortDirection}
-                  />
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-bold text-foreground">Saved sorts</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge>{previewConfig.sort.length} active</Badge>
+                      <Button onClick={handleAddSortDraft} size="sm" variant="outline">
+                        <Plus className="size-4" />
+                        Add sort
+                      </Button>
+                    </div>
+                  </div>
+                  {sortDrafts.length > 0 ? (
+                    <div className="grid gap-2">
+                      {sortDrafts.map((sortDraft) => (
+                        <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_auto]" key={sortDraft.id}>
+                          <Select
+                            label="Sort field"
+                            onChange={(event) => updateSortDraft(sortDraft.id, { fieldId: event.target.value })}
+                            value={sortDraft.fieldId}
+                          >
+                            {sortFieldSelectOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </Select>
+                          <Select
+                            label="Sort direction"
+                            onChange={(event) => updateSortDraft(sortDraft.id, { direction: event.target.value as ReportSortDirection })}
+                            options={sortDirectionOptions}
+                            value={sortDraft.direction}
+                          />
+                          <div className="flex items-end">
+                            <Button
+                              aria-label="Remove sort"
+                              onClick={() => handleRemoveSortDraft(sortDraft.id)}
+                              size="icon"
+                              title="Remove sort"
+                              variant="outline"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : (
@@ -1556,12 +1685,12 @@ function toReportTemplateExecution(execution: ListReportExecution): ReportTempla
   };
 }
 
-function filterRequiresValue(operator: ReportFilterOperator): boolean {
-  return operator === "equals" || operator === "contains";
-}
-
 function isSupportedFilterOperator(value: string | undefined): value is ReportFilterOperator {
   return filterOperatorOptions.some((option) => option.value === value);
+}
+
+function createReportBuilderDraftId(prefix: "filter" | "sort"): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function cloneRolePermissions(permissions: RolePermissionsDto): RolePermissionsDto {

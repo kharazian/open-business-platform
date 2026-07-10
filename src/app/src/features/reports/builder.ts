@@ -1,6 +1,6 @@
 import { getReportableFields, type ReportableField, type ReportableFieldOption } from "../forms/reportableFields";
 import type { FormSchema } from "../forms/types";
-import type { ListReportConfig, ListReportFilter, ListReportSort } from "./types";
+import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFilterOperator, ReportSortDirection } from "./types";
 
 export type ReportFieldOption = {
   id: string;
@@ -8,6 +8,19 @@ export type ReportFieldOption = {
   type: string;
   source: "form" | "system";
   options: ReportableFieldOption[];
+};
+
+export type ReportFilterDraft = {
+  id: string;
+  fieldId: string;
+  operator: ReportFilterOperator;
+  value: string;
+};
+
+export type ReportSortDraft = {
+  id: string;
+  fieldId: string;
+  direction: ReportSortDirection;
 };
 
 export function getReportFieldOptions(schema: FormSchema | null | undefined): ReportFieldOption[] {
@@ -39,6 +52,34 @@ export function createListReportConfig(input: {
     filters: input.filters ?? [],
     sort: input.sort ?? []
   };
+}
+
+export function toListReportFilters(drafts: ReportFilterDraft[]): ListReportFilter[] {
+  return drafts
+    .map((draft) => ({
+      fieldId: draft.fieldId.trim(),
+      operator: draft.operator,
+      value: filterOperatorRequiresValue(draft.operator) ? normalizeOptionalText(draft.value) : null
+    }))
+    .filter((filter) => filter.fieldId.length > 0);
+}
+
+export function toListReportSorts(drafts: ReportSortDraft[]): ListReportSort[] {
+  return drafts
+    .map((draft) => ({
+      fieldId: draft.fieldId.trim(),
+      direction: draft.direction
+    }))
+    .filter((sort) => sort.fieldId.length > 0);
+}
+
+export function filterOperatorRequiresValue(operator: ReportFilterOperator): boolean {
+  return operator === "equals" || operator === "contains";
+}
+
+function normalizeOptionalText(value: string): string | null {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
 }
 
 function toReportFieldOption(field: ReportableField): ReportFieldOption {
