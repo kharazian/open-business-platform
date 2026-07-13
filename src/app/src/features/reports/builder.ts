@@ -1,6 +1,6 @@
 import { getReportableFields, type ReportableField, type ReportableFieldOption } from "../forms/reportableFields";
 import type { FormSchema } from "../forms/types";
-import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFilterOperator, ReportSortDirection } from "./types";
+import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFilterOperator, ReportRowOpenAction, ReportSortDirection } from "./types";
 
 export type ReportFieldOption = {
   id: string;
@@ -56,6 +56,7 @@ export function createListReportConfig(input: {
   columnLabels?: Record<string, string | undefined>;
   filters?: ListReportFilter[];
   sort?: ListReportSort[];
+  rowOpenAction?: ReportRowOpenAction;
 }): ListReportConfig {
   const selectedFields = input.selectedFieldIds.filter((fieldId, index, fields) => fields.indexOf(fieldId) === index);
   const fieldsById = new Map(input.fieldOptions.map((field) => [field.id, field]));
@@ -73,7 +74,8 @@ export function createListReportConfig(input: {
     schemaVersion: 1,
     columns,
     filters: input.filters ?? [],
-    sort: input.sort ?? []
+    sort: input.sort ?? [],
+    rowOpenAction: input.rowOpenAction ?? "detail"
   };
 }
 

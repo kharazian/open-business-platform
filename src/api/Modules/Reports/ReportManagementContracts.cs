@@ -42,6 +42,20 @@ public static class ReportSortDirections
     };
 }
 
+public static class ListReportRowOpenActions
+{
+    public const string Detail = "detail";
+    public const string Edit = "edit";
+    public const string None = "none";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Detail,
+        Edit,
+        None
+    };
+}
+
 public static class ReportSystemFields
 {
     public const string Status = ReportableSystemFields.Status;
@@ -67,7 +81,8 @@ public sealed record ListReportConfigDefinition(
     int SchemaVersion,
     IReadOnlyList<ListReportColumnDefinition> Columns,
     IReadOnlyList<ListReportFilterDefinition> Filters,
-    IReadOnlyList<ListReportSortDefinition> Sort);
+    IReadOnlyList<ListReportSortDefinition> Sort,
+    string? RowOpenAction = null);
 
 public sealed record CreateListReportRequest(string Name, ListReportConfigDefinition Config);
 

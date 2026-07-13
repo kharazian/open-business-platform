@@ -279,7 +279,7 @@ test("reports page exposes record workflow actions from report rows", () => {
 
   assert.equal(source.includes("onOpenRecord"), true);
   assert.equal(source.includes("Open record detail"), true);
-  assert.equal(source.includes('role="button"'), true);
+  assert.equal(source.includes('role={rowCanOpen ? "button" : undefined}'), true);
   assert.equal(source.includes("ReportRowActionMenu"), true);
   assert.equal(source.includes("MoreHorizontal"), true);
   assert.equal(source.includes("Row actions"), true);
@@ -293,6 +293,15 @@ test("reports page exposes record workflow actions from report rows", () => {
   assert.equal(source.includes("Edit"), true);
   assert.equal(source.includes("Delete"), true);
   assert.equal(formsModuleSource.includes('permission: ["menu.forms", "menu.reports"]'), true);
+});
+
+test("reports page exposes saved row open behavior settings", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("rowOpenAction"), true);
+  assert.equal(source.includes("Row click opens"), true);
+  assert.equal(source.includes("openRecordFromReportRow"), true);
+  assert.equal(source.includes('value="none"'), true);
 });
 
 test("reports page exposes saved report edit duplicate and delete management", () => {
@@ -377,6 +386,7 @@ test("report builder field options use shared reportable metadata", () => {
   assert.equal(fields.find((field) => field.id === "department").type, "select");
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
+  assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department"] }).rowOpenAction, "detail");
 });
 
 test("report builder returns type-aware filter operators and value controls", () => {

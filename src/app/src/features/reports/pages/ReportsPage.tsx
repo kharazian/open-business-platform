@@ -60,7 +60,9 @@ import {
   type ListReportDetail,
   type ListReportSummary,
   reportFilterOperators,
+  reportRowOpenActions,
   type ReportFilterOperator,
+  type ReportRowOpenAction,
   type ReportSortDirection
 } from "../types";
 
@@ -70,6 +72,11 @@ const sortDirectionOptions = [
   { label: "Ascending", value: "asc" },
   { label: "Descending", value: "desc" }
 ];
+const rowOpenActionOptions = [
+  { label: "Record detail", value: "detail" },
+  { label: "Edit form", value: "edit" },
+  { label: "Do nothing", value: "none" }
+] satisfies Array<{ label: string; value: ReportRowOpenAction }>;
 
 export function ReportsPage() {
   const { user } = useAuth();
@@ -92,6 +99,7 @@ export function ReportsPage() {
   const [columnLabels, setColumnLabels] = useState<Record<string, string>>({});
   const [filterDrafts, setFilterDrafts] = useState<ReportFilterDraft[]>([]);
   const [sortDrafts, setSortDrafts] = useState<ReportSortDraft[]>([]);
+  const [rowOpenAction, setRowOpenAction] = useState<ReportRowOpenAction>("detail");
   const [showReportBuilderValidation, setShowReportBuilderValidation] = useState(false);
   const [editingReportId, setEditingReportId] = useState("");
   const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
@@ -298,7 +306,8 @@ export function ReportsPage() {
     selectedFieldIds,
     columnLabels,
     filters: toListReportFilters(filterDrafts),
-    sort: toListReportSorts(sortDrafts)
+    sort: toListReportSorts(sortDrafts),
+    rowOpenAction
   });
   const reportBuilderValidation = useMemo(
     () => validateReportBuilderDrafts({ fieldOptions, filterDrafts, sortDrafts }),
@@ -695,6 +704,7 @@ export function ReportsPage() {
     setReportName(options.mode === "duplicate" ? `Copy of ${report.name}` : report.name);
     setReportNameError(undefined);
     setShowReportBuilderValidation(false);
+    setRowOpenAction(getSupportedRowOpenAction(report.config.rowOpenAction));
     setEditingReportId(options.mode === "edit" ? report.id : "");
     setEditingReportConcurrencyStamp(options.mode === "edit" ? report.concurrencyStamp : "");
 
@@ -725,6 +735,7 @@ export function ReportsPage() {
     setColumnLabels(Object.fromEntries(fieldOptions.map((field) => [field.id, field.label])));
     setFilterDrafts([]);
     setSortDrafts(createDefaultSortDrafts());
+    setRowOpenAction("detail");
   }
 
   function getDefaultReportName(): string {
@@ -947,6 +958,17 @@ export function ReportsPage() {
 
     if (selectedReportId) {
       void handleRunReport(selectedReportId, 1, { filters: {} });
+    }
+  }
+
+  function openRecordFromReportRow(recordId: string) {
+    if (rowOpenAction === "edit") {
+      navigate(getRecordEditPath(recordId));
+      return;
+    }
+
+    if (rowOpenAction === "detail") {
+      navigate(getRecordDetailPath(recordId));
     }
   }
 
@@ -1331,6 +1353,17 @@ export function ReportsPage() {
                     </div>
                   ) : null}
                 </div>
+                <div className="grid gap-3 lg:max-w-sm">
+                  <Select
+                    label="Row click opens"
+                    onChange={(event) => setRowOpenAction(event.target.value as ReportRowOpenAction)}
+                    value={rowOpenAction}
+                  >
+                    <option value="detail">{rowOpenActionOptions[0].label}</option>
+                    <option value="edit">{rowOpenActionOptions[1].label}</option>
+                    <option value="none">{rowOpenActionOptions[2].label}</option>
+                  </Select>
+                </div>
               </div>
             ) : (
               <EmptyState title="No report fields" description="Save fields on this form before creating list reports." />
@@ -1555,9 +1588,10 @@ export function ReportsPage() {
                 onApplyFilters={applyReportColumnFilters}
                 onDeleteRecord={(recordId) => void handleDeleteReportRecord(recordId)}
                 onFilterChange={updateReportColumnFilter}
-                onOpenRecord={(recordId) => navigate(getRecordDetailPath(recordId))}
+                onOpenRecord={openRecordFromReportRow}
                 onSort={toggleReportSort}
                 deletingRecordId={deletingReportRecordId}
+                rowOpenAction={rowOpenAction}
                 running={runningReport}
                 sortDirection={reportSortDirection}
                 sortFieldId={reportSortFieldId}
@@ -1634,6 +1668,7 @@ function ReportExecutionTable({
   onFilterChange,
   onOpenRecord,
   onSort,
+  rowOpenAction,
   running,
   sortDirection,
   sortFieldId
@@ -1646,6 +1681,7 @@ function ReportExecutionTable({
   onFilterChange: (fieldId: string, value: string) => void;
   onOpenRecord: (recordId: string) => void;
   onSort: (fieldId: string) => void;
+  rowOpenAction: ReportRowOpenAction;
   running: boolean;
   sortDirection: ReportSortDirection;
   sortFieldId?: string;
@@ -1699,21 +1735,27 @@ function ReportExecutionTable({
             </tr>
           </thead>
           <tbody>
-            {execution.rows.map((row) => (
-              <tr
-                aria-label="Open record detail"
-                className="cursor-pointer border-t border-border transition hover:bg-muted/35 focus:bg-muted/35 focus:outline-none"
-                key={row.recordId}
-                onClick={() => onOpenRecord(row.recordId)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onOpenRecord(row.recordId);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
+            {execution.rows.map((row) => {
+              const rowCanOpen = rowOpenAction !== "none";
+              const rowOpenLabel = rowOpenAction === "edit" ? "Open record edit form" : "Open record detail";
+
+              return (
+                <tr
+                  aria-label={rowCanOpen ? rowOpenLabel : undefined}
+                  className={`border-t border-border transition ${rowCanOpen ? "cursor-pointer hover:bg-muted/35 focus:bg-muted/35 focus:outline-none" : ""}`}
+                  key={row.recordId}
+                  onClick={rowCanOpen ? () => onOpenRecord(row.recordId) : undefined}
+                  onKeyDown={rowCanOpen
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onOpenRecord(row.recordId);
+                        }
+                      }
+                    : undefined}
+                  role={rowCanOpen ? "button" : undefined}
+                  tabIndex={rowCanOpen ? 0 : undefined}
+                >
                 {execution.columns.map((column) => {
                   const value = row.cells[column.fieldId]?.displayValue?.trim();
 
@@ -1731,8 +1773,9 @@ function ReportExecutionTable({
                     recordId={row.recordId}
                   />
                 </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -1814,6 +1857,12 @@ function toReportTemplateExecution(execution: ListReportExecution): ReportTempla
 
 function isSupportedFilterOperator(value: string | undefined): value is ReportFilterOperator {
   return typeof value === "string" && (reportFilterOperators as readonly string[]).includes(value);
+}
+
+function getSupportedRowOpenAction(value: string | undefined): ReportRowOpenAction {
+  return typeof value === "string" && (reportRowOpenActions as readonly string[]).includes(value)
+    ? (value as ReportRowOpenAction)
+    : "detail";
 }
 
 function createReportBuilderDraftId(prefix: "filter" | "sort"): string {

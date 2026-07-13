@@ -58,6 +58,7 @@ public static class ListReportConfigValidator
         ValidateColumns(config.Columns, validFields, errors);
         ValidateFilters(config.Filters, validFields, errors);
         ValidateSort(config.Sort, validFields, errors);
+        ValidateRowOpenAction(config.RowOpenAction, errors);
 
         return new ReportValidationResult(errors);
     }
@@ -263,5 +264,18 @@ public static class ListReportConfigValidator
     {
         return TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
             || TimeOnly.TryParseExact(value, "HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+    }
+
+    private static void ValidateRowOpenAction(string? rowOpenAction, List<ReportValidationError> errors)
+    {
+        if (string.IsNullOrWhiteSpace(rowOpenAction))
+        {
+            return;
+        }
+
+        if (!ListReportRowOpenActions.Supported.Contains(rowOpenAction.Trim()))
+        {
+            errors.Add(new ReportValidationError("config.rowOpenAction", "report.row_open_action", "Row open action is not supported."));
+        }
     }
 }

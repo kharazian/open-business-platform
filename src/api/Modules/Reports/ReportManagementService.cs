@@ -493,7 +493,8 @@ public sealed class ReportManagementService
                 .ToArray(),
             (config.Sort ?? Array.Empty<ListReportSortDefinition>())
                 .Select(sort => new ListReportSortDefinition(sort.FieldId.Trim(), sort.Direction.Trim()))
-                .ToArray());
+                .ToArray(),
+            NormalizeRowOpenAction(config.RowOpenAction));
     }
 
     private static ListReportConfigDefinition RemoveHiddenColumns(
@@ -559,6 +560,14 @@ public sealed class ReportManagementService
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string NormalizeRowOpenAction(string? value)
+    {
+        var normalized = value?.Trim();
+        return normalized is not null && ListReportRowOpenActions.Supported.Contains(normalized)
+            ? normalized
+            : ListReportRowOpenActions.Detail;
     }
 
     private static void EnsureConcurrencyStamp(string currentStamp, string? requestedStamp)

@@ -27,7 +27,7 @@ V2 features:
 - Sorting: multiple saved sorts in the builder and config, inline duplicate/invalid sort validation, and report viewer headers can apply a runtime visible-column sort
 - Search: implemented at runtime in the report viewer for visible searchable columns
 - Per-column filters: implemented at runtime in the report viewer for visible columns
-- Row actions: implemented in the report viewer for row quick-open, compact row action menus, record view, edit-mode open, inline delete with confirmation, and new record creation through existing record/form endpoints
+- Row actions: implemented in the report viewer for configurable row quick-open behavior, compact row action menus, record view, edit-mode open, inline delete with confirmation, and new record creation through existing record/form endpoints
 - Saved reports: implemented, including saved definition edit, duplicate-from-existing, delete management actions, and inline role/menu/source-form access controls for admins
 - Default "All Records" report after form publishing: implemented
 - Runnable viewer: implemented for saved list reports
@@ -139,6 +139,7 @@ Later support:
       "fieldId": "created_at",
       "direction": "desc"
     }
-  ]
+  ],
+  "rowOpenAction": "detail"
 }
 ```

@@ -14,10 +14,12 @@ export const reportFilterOperators = [
   "is_not_empty"
 ] as const;
 export const reportSortDirections = ["asc", "desc"] as const;
+export const reportRowOpenActions = ["detail", "edit", "none"] as const;
 export const reportSystemFields = reportableSystemFields;
 
 export type ReportFilterOperator = (typeof reportFilterOperators)[number];
 export type ReportSortDirection = (typeof reportSortDirections)[number];
+export type ReportRowOpenAction = (typeof reportRowOpenActions)[number];
 
 export type ListReportColumn = {
   fieldId: string;
@@ -42,6 +44,7 @@ export type ListReportConfig = {
   columns: ListReportColumn[];
   filters: ListReportFilter[];
   sort: ListReportSort[];
+  rowOpenAction?: ReportRowOpenAction;
 };
 
 export type CreateListReportRequest = {

@@ -22,7 +22,8 @@ public static class DefaultListReportFactory
             1,
             columns,
             Array.Empty<ListReportFilterDefinition>(),
-            new[] { new ListReportSortDefinition(ReportableSystemFields.CreatedAt, ReportSortDirections.Desc) });
+            new[] { new ListReportSortDefinition(ReportableSystemFields.CreatedAt, ReportSortDirections.Desc) },
+            ListReportRowOpenActions.Detail);
     }
 
     private static int GetDefaultWidth(ReportableFieldMetadata field)

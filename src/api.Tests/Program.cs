@@ -3159,6 +3159,16 @@ AssertTrue(
             }
         }).Valid,
     "List report configs should allow type-aware numeric and date filter operators.");
+AssertTrue(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with { RowOpenAction = ListReportRowOpenActions.Edit }).Valid,
+    "List report configs should allow saved row-open behavior settings.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with { RowOpenAction = "modal" }).Valid,
+    "List report configs should reject unsupported row-open behavior settings.");
 AssertFalse(
     ListReportConfigValidator.Validate(
         reportingSchema,
