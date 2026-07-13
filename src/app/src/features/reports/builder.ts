@@ -10,6 +10,13 @@ export type ReportFieldOption = {
   options: ReportableFieldOption[];
 };
 
+export type ReportFilterOperatorOption = {
+  label: string;
+  value: ReportFilterOperator;
+};
+
+export type ReportFilterValueInputType = "text" | "number" | "date" | "datetime-local" | "time";
+
 export type ReportFilterDraft = {
   id: string;
   fieldId: string;
@@ -25,6 +32,7 @@ export type ReportSortDraft = {
 
 export type ReportFilterDraftValidationErrors = {
   fieldId?: string;
+  operator?: string;
   value?: string;
 };
 
@@ -89,7 +97,59 @@ export function toListReportSorts(drafts: ReportSortDraft[]): ListReportSort[] {
 }
 
 export function filterOperatorRequiresValue(operator: ReportFilterOperator): boolean {
-  return operator === "equals" || operator === "contains";
+  return operator !== "is_empty" && operator !== "is_not_empty";
+}
+
+export function getReportFilterOperatorOptions(field: ReportFieldOption | null | undefined): ReportFilterOperatorOption[] {
+  if (!field) {
+    return defaultFilterOperatorOptions;
+  }
+
+  if (isNumericReportField(field)) {
+    return numericFilterOperatorOptions;
+  }
+
+  if (isTemporalReportField(field)) {
+    return temporalFilterOperatorOptions;
+  }
+
+  if (isChoiceReportField(field)) {
+    return choiceFilterOperatorOptions;
+  }
+
+  return defaultFilterOperatorOptions;
+}
+
+export function getReportFilterValueInputType(field: ReportFieldOption | null | undefined): ReportFilterValueInputType {
+  if (!field) {
+    return "text";
+  }
+
+  if (isNumericReportField(field)) {
+    return "number";
+  }
+
+  if (field.type === "date") {
+    return "date";
+  }
+
+  if (field.type === "datetime") {
+    return "datetime-local";
+  }
+
+  if (field.type === "time") {
+    return "time";
+  }
+
+  return "text";
+}
+
+export function getReportFilterValueOptions(field: ReportFieldOption | null | undefined): Array<{ label: string; value: string }> {
+  if (!field || !isChoiceReportField(field)) {
+    return [];
+  }
+
+  return field.options.map((option) => ({ label: option.label, value: option.value }));
 }
 
 export function validateReportBuilderDrafts(input: {
@@ -121,6 +181,11 @@ export function validateReportBuilderDrafts(input: {
 
     if (!validFieldIds.has(fieldId)) {
       errors.fieldId = "Filter field is not available.";
+    }
+
+    const field = input.fieldOptions.find((option) => option.id === fieldId);
+    if (field && !getReportFilterOperatorOptions(field).some((option) => option.value === filterDraft.operator)) {
+      errors.operator = "Filter operator is not available for this field.";
     }
 
     if (filterOperatorRequiresValue(filterDraft.operator) && !filterDraft.value.trim()) {
@@ -163,6 +228,49 @@ function normalizeOptionalText(value: string): string | null {
 
 function hasValidationErrors(errors: ReportFilterDraftValidationErrors | ReportSortDraftValidationErrors): boolean {
   return Object.values(errors).some(Boolean);
+}
+
+const defaultFilterOperatorOptions: ReportFilterOperatorOption[] = [
+  { label: "Equals", value: "equals" },
+  { label: "Contains", value: "contains" },
+  { label: "Is empty", value: "is_empty" },
+  { label: "Is not empty", value: "is_not_empty" }
+];
+
+const numericFilterOperatorOptions: ReportFilterOperatorOption[] = [
+  { label: "Equals", value: "equals" },
+  { label: "Greater than", value: "greater_than" },
+  { label: "Greater or equal", value: "greater_or_equal" },
+  { label: "Less than", value: "less_than" },
+  { label: "Less or equal", value: "less_or_equal" },
+  { label: "Is empty", value: "is_empty" },
+  { label: "Is not empty", value: "is_not_empty" }
+];
+
+const temporalFilterOperatorOptions: ReportFilterOperatorOption[] = [
+  { label: "Equals", value: "equals" },
+  { label: "Before", value: "before" },
+  { label: "After", value: "after" },
+  { label: "Is empty", value: "is_empty" },
+  { label: "Is not empty", value: "is_not_empty" }
+];
+
+const choiceFilterOperatorOptions: ReportFilterOperatorOption[] = [
+  { label: "Equals", value: "equals" },
+  { label: "Is empty", value: "is_empty" },
+  { label: "Is not empty", value: "is_not_empty" }
+];
+
+function isNumericReportField(field: ReportFieldOption): boolean {
+  return field.type === "number" || field.type === "currency" || field.type === "percent" || field.type === "rating";
+}
+
+function isTemporalReportField(field: ReportFieldOption): boolean {
+  return field.type === "date" || field.type === "datetime" || field.type === "time";
+}
+
+function isChoiceReportField(field: ReportFieldOption): boolean {
+  return field.type === "select" || field.type === "radio" || field.type === "status";
 }
 
 function toReportFieldOption(field: ReportableField): ReportFieldOption {

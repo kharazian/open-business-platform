@@ -5,6 +5,37 @@ namespace OpenBusinessPlatform.Api.Modules.Reports;
 public static class ListReportConfigValidator
 {
     private const int SupportedSchemaVersion = 1;
+    private static readonly IReadOnlySet<string> DefaultFilterOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ReportFilterOperators.Equal,
+        ReportFilterOperators.Contains,
+        ReportFilterOperators.IsEmpty,
+        ReportFilterOperators.IsNotEmpty
+    };
+    private static readonly IReadOnlySet<string> NumericFilterOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ReportFilterOperators.Equal,
+        ReportFilterOperators.GreaterThan,
+        ReportFilterOperators.GreaterOrEqual,
+        ReportFilterOperators.LessThan,
+        ReportFilterOperators.LessOrEqual,
+        ReportFilterOperators.IsEmpty,
+        ReportFilterOperators.IsNotEmpty
+    };
+    private static readonly IReadOnlySet<string> TemporalFilterOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ReportFilterOperators.Equal,
+        ReportFilterOperators.Before,
+        ReportFilterOperators.After,
+        ReportFilterOperators.IsEmpty,
+        ReportFilterOperators.IsNotEmpty
+    };
+    private static readonly IReadOnlySet<string> ChoiceFilterOperators = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ReportFilterOperators.Equal,
+        ReportFilterOperators.IsEmpty,
+        ReportFilterOperators.IsNotEmpty
+    };
 
     public static ReportValidationResult Validate(FormSchemaDefinition schema, ListReportConfigDefinition? config)
     {
@@ -84,15 +115,20 @@ public static class ListReportConfigValidator
             var filter = filters[index];
             var path = $"config.filters[{index}]";
             var fieldId = filter.FieldId.Trim();
+            var filterOperator = filter.Operator.Trim();
 
             ValidateKnownField(fieldId, validFields, $"{path}.fieldId", errors);
 
-            if (!ReportFilterOperators.Supported.Contains(filter.Operator))
+            if (!ReportFilterOperators.Supported.Contains(filterOperator))
             {
                 errors.Add(new ReportValidationError($"{path}.operator", "report.filter.operator", "Filter operator is not supported."));
             }
+            else if (validFields.TryGetValue(fieldId, out var field) && !GetSupportedFilterOperators(field.Type).Contains(filterOperator))
+            {
+                errors.Add(new ReportValidationError($"{path}.operator", "report.filter.operator_field", "Filter operator is not supported for this field."));
+            }
 
-            if (RequiresFilterValue(filter.Operator) && string.IsNullOrWhiteSpace(filter.Value))
+            if (RequiresFilterValue(filterOperator) && string.IsNullOrWhiteSpace(filter.Value))
             {
                 errors.Add(new ReportValidationError($"{path}.value", "report.filter.value", "Filter value is required for this operator."));
             }
@@ -151,6 +187,26 @@ public static class ListReportConfigValidator
 
     private static bool RequiresFilterValue(string filterOperator)
     {
-        return filterOperator == ReportFilterOperators.Equal || filterOperator == ReportFilterOperators.Contains;
+        return filterOperator != ReportFilterOperators.IsEmpty && filterOperator != ReportFilterOperators.IsNotEmpty;
+    }
+
+    private static IReadOnlySet<string> GetSupportedFilterOperators(string fieldType)
+    {
+        if (FormFieldTypes.IsNumeric(fieldType))
+        {
+            return NumericFilterOperators;
+        }
+
+        if (fieldType is FormFieldTypes.Date or FormFieldTypes.Datetime or FormFieldTypes.Time)
+        {
+            return TemporalFilterOperators;
+        }
+
+        if (fieldType is FormFieldTypes.Select or FormFieldTypes.Radio or "status")
+        {
+            return ChoiceFilterOperators;
+        }
+
+        return DefaultFilterOperators;
     }
 }

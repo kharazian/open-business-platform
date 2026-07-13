@@ -25,9 +25,13 @@ import {
   createListReportConfig,
   filterOperatorRequiresValue,
   getReportFieldOptions,
+  getReportFilterOperatorOptions,
+  getReportFilterValueInputType,
+  getReportFilterValueOptions,
   toListReportFilters,
   toListReportSorts,
   validateReportBuilderDrafts,
+  type ReportFieldOption,
   type ReportFilterDraft,
   type ReportSortDraft
 } from "../builder";
@@ -54,18 +58,13 @@ import {
   type ExecuteListReportOptions,
   type ListReportDetail,
   type ListReportSummary,
+  reportFilterOperators,
   type ReportFilterOperator,
   type ReportSortDirection
 } from "../types";
 
 const reportPageSize = 10;
 
-const filterOperatorOptions = [
-  { label: "Equals", value: "equals" },
-  { label: "Contains", value: "contains" },
-  { label: "Is empty", value: "is_empty" },
-  { label: "Is not empty", value: "is_not_empty" }
-];
 const sortDirectionOptions = [
   { label: "Ascending", value: "asc" },
   { label: "Descending", value: "desc" }
@@ -783,14 +782,15 @@ export function ReportsPage() {
   }
 
   function handleAddFilterDraft() {
+    const field = fieldOptions[0] ?? null;
     setError(null);
     setNotice(null);
     setFilterDrafts((current) => [
       ...current,
       {
         id: createReportBuilderDraftId("filter"),
-        fieldId: fieldOptions[0]?.id ?? "",
-        operator: "equals",
+        fieldId: field?.id ?? "",
+        operator: getDefaultFilterOperator(field),
         value: ""
       }
     ]);
@@ -806,6 +806,30 @@ export function ReportsPage() {
     setError(null);
     setNotice(null);
     setFilterDrafts((current) => current.map((draft) => (draft.id === draftId ? { ...draft, ...patch } : draft)));
+  }
+
+  function handleFilterFieldChange(draftId: string, fieldId: string) {
+    const field = getFilterField(fieldId);
+    updateFilterDraft(draftId, {
+      fieldId,
+      operator: getDefaultFilterOperator(field),
+      value: ""
+    });
+  }
+
+  function handleFilterOperatorChange(draftId: string, operator: ReportFilterOperator) {
+    updateFilterDraft(draftId, {
+      operator,
+      value: filterOperatorRequiresValue(operator) ? "" : ""
+    });
+  }
+
+  function getFilterField(fieldId: string): ReportFieldOption | null {
+    return fieldOptions.find((field) => field.id === fieldId) ?? null;
+  }
+
+  function getDefaultFilterOperator(field: ReportFieldOption | null): ReportFilterOperator {
+    return getReportFilterOperatorOptions(field)[0]?.value ?? "equals";
   }
 
   function handleAddSortDraft() {
@@ -1187,47 +1211,72 @@ export function ReportsPage() {
                   </div>
                   {filterDrafts.length > 0 ? (
                     <div className="grid gap-2">
-                      {filterDrafts.map((filterDraft) => (
-                        <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_minmax(0,1fr)_auto]" key={filterDraft.id}>
-                          <Select
-                            error={filterErrorsById[filterDraft.id]?.fieldId}
-                            label="Filter field"
-                            onChange={(event) => updateFilterDraft(filterDraft.id, { fieldId: event.target.value })}
-                            value={filterDraft.fieldId}
-                          >
-                            {fieldSelectOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </Select>
-                          <Select
-                            disabled={!filterDraft.fieldId}
-                            label="Operator"
-                            onChange={(event) => updateFilterDraft(filterDraft.id, { operator: event.target.value as ReportFilterOperator })}
-                            options={filterOperatorOptions}
-                            value={filterDraft.operator}
-                          />
-                          <Input
-                            disabled={!filterDraft.fieldId || !filterOperatorRequiresValue(filterDraft.operator)}
-                            error={filterErrorsById[filterDraft.id]?.value}
-                            label="Filter value"
-                            onChange={(event) => updateFilterDraft(filterDraft.id, { value: event.target.value })}
-                            value={filterDraft.value}
-                          />
-                          <div className="flex items-end">
-                            <Button
-                              aria-label="Remove filter"
-                              onClick={() => handleRemoveFilterDraft(filterDraft.id)}
-                              size="icon"
-                              title="Remove filter"
-                              variant="outline"
+                      {filterDrafts.map((filterDraft) => {
+                        const filterField = getFilterField(filterDraft.fieldId);
+                        const filterValueOptions = getReportFilterValueOptions(filterField);
+                        const filterRequiresValue = filterOperatorRequiresValue(filterDraft.operator);
+
+                        return (
+                          <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_minmax(0,1fr)_auto]" key={filterDraft.id}>
+                            <Select
+                              error={filterErrorsById[filterDraft.id]?.fieldId}
+                              label="Filter field"
+                              onChange={(event) => handleFilterFieldChange(filterDraft.id, event.target.value)}
+                              value={filterDraft.fieldId}
                             >
-                              <Trash2 className="size-4" />
-                            </Button>
+                              {fieldSelectOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </Select>
+                            <Select
+                              disabled={!filterDraft.fieldId}
+                              error={filterErrorsById[filterDraft.id]?.operator}
+                              label="Operator"
+                              onChange={(event) => handleFilterOperatorChange(filterDraft.id, event.target.value as ReportFilterOperator)}
+                              options={getReportFilterOperatorOptions(filterField)}
+                              value={filterDraft.operator}
+                            />
+                            {filterRequiresValue && filterValueOptions.length > 0 ? (
+                              <Select
+                                disabled={!filterDraft.fieldId}
+                                error={filterErrorsById[filterDraft.id]?.value}
+                                label="Filter value"
+                                onChange={(event) => updateFilterDraft(filterDraft.id, { value: event.target.value })}
+                                value={filterDraft.value}
+                              >
+                                <option value="">Choose value</option>
+                                {filterValueOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </Select>
+                            ) : (
+                              <Input
+                                disabled={!filterDraft.fieldId || !filterRequiresValue}
+                                error={filterErrorsById[filterDraft.id]?.value}
+                                label="Filter value"
+                                onChange={(event) => updateFilterDraft(filterDraft.id, { value: event.target.value })}
+                                type={getReportFilterValueInputType(filterField)}
+                                value={filterDraft.value}
+                              />
+                            )}
+                            <div className="flex items-end">
+                              <Button
+                                aria-label="Remove filter"
+                                onClick={() => handleRemoveFilterDraft(filterDraft.id)}
+                                size="icon"
+                                title="Remove filter"
+                                variant="outline"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -1713,7 +1762,7 @@ function toReportTemplateExecution(execution: ListReportExecution): ReportTempla
 }
 
 function isSupportedFilterOperator(value: string | undefined): value is ReportFilterOperator {
-  return filterOperatorOptions.some((option) => option.value === value);
+  return typeof value === "string" && (reportFilterOperators as readonly string[]).includes(value);
 }
 
 function createReportBuilderDraftId(prefix: "filter" | "sort"): string {

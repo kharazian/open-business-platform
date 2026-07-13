@@ -3147,6 +3147,26 @@ AssertTrue(
             Sort = new[] { new ListReportSortDefinition(ReportableSystemFields.OwnerId, ReportSortDirections.Asc) }
         }).Valid,
     "List report configs should validate against normalized system field metadata.");
+AssertTrue(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with
+        {
+            Filters = new[]
+            {
+                new ListReportFilterDefinition("salary", ReportFilterOperators.GreaterThan, "90000"),
+                new ListReportFilterDefinition(ReportableSystemFields.CreatedAt, ReportFilterOperators.After, sampleCreatedAt.ToString("O"))
+            }
+        }).Valid,
+    "List report configs should allow type-aware numeric and date filter operators.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with
+        {
+            Filters = new[] { new ListReportFilterDefinition("employee_name", ReportFilterOperators.GreaterThan, "90000") }
+        }).Valid,
+    "List report configs should reject numeric filter operators for text fields.");
 AssertFalse(
     ListReportConfigValidator.Validate(
         publishableSchema,
@@ -3310,6 +3330,42 @@ var runtimeFullExecutionReport = ListReportExecutionEngine.ExecuteAll(
         Filters: new Dictionary<string, string?> { ["employee_name"] = "j" }));
 AssertEqual(2, runtimeFullExecutionReport.Rows.Count, "Full report execution should apply runtime column filters for CSV export and report PDF data.");
 AssertEqual("Jane Cooper", runtimeFullExecutionReport.Rows.First().Cells["employee_name"].DisplayValue, "Full report execution should apply runtime sort for CSV export and report PDF data.");
+var numericComparisonReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig with
+    {
+        Filters = new[]
+        {
+            new ListReportFilterDefinition(ReportableSystemFields.Status, ReportFilterOperators.Equal, RecordStatuses.Active),
+            new ListReportFilterDefinition("salary", ReportFilterOperators.GreaterThan, "90000")
+        }
+    },
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 10));
+AssertEqual(1, numericComparisonReport.TotalCount, "Saved numeric filters should compare numeric values instead of text.");
+AssertEqual("Jane Cooper", numericComparisonReport.Rows.Single().Cells["employee_name"].DisplayValue, "Saved numeric filters should keep records above the configured threshold.");
+var dateComparisonReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Open employees",
+    "Employee information",
+    executionConfig with
+    {
+        Filters = new[]
+        {
+            new ListReportFilterDefinition(ReportableSystemFields.Status, ReportFilterOperators.Equal, RecordStatuses.Active),
+            new ListReportFilterDefinition(ReportableSystemFields.CreatedAt, ReportFilterOperators.After, sampleCreatedAt.AddSeconds(30).ToString("O"))
+        }
+    },
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 10));
+AssertEqual(1, dateComparisonReport.TotalCount, "Saved date filters should compare date values instead of text.");
+AssertEqual("Jane Cooper", dateComparisonReport.Rows.Single().Cells["employee_name"].DisplayValue, "Saved date filters should keep records after the configured date.");
 AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Reports", "ReportsEndpoints.cs"))
         .Contains("ExportListReportCsvAsync(\n                    httpContext.User,\n                    formId,\n                    reportId,\n                    new RunListReportRequest(1, 100, search, sortFieldId, sortDirection, GetReportFilterValues(httpContext))", StringComparison.Ordinal),

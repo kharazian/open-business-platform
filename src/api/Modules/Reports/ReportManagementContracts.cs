@@ -6,6 +6,12 @@ public static class ReportFilterOperators
 {
     public const string Equal = "equals";
     public const string Contains = "contains";
+    public const string GreaterThan = "greater_than";
+    public const string GreaterOrEqual = "greater_or_equal";
+    public const string LessThan = "less_than";
+    public const string LessOrEqual = "less_or_equal";
+    public const string Before = "before";
+    public const string After = "after";
     public const string IsEmpty = "is_empty";
     public const string IsNotEmpty = "is_not_empty";
 
@@ -13,6 +19,12 @@ public static class ReportFilterOperators
     {
         Equal,
         Contains,
+        GreaterThan,
+        GreaterOrEqual,
+        LessThan,
+        LessOrEqual,
+        Before,
+        After,
         IsEmpty,
         IsNotEmpty
     };

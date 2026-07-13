@@ -1,7 +1,18 @@
 import { reportableSystemFields } from "../forms/reportableFields";
 import type { AuditedEntityDto, ConcurrencyStampedDto, EntityId } from "../../types/entities";
 
-export const reportFilterOperators = ["equals", "contains", "is_empty", "is_not_empty"] as const;
+export const reportFilterOperators = [
+  "equals",
+  "contains",
+  "greater_than",
+  "greater_or_equal",
+  "less_than",
+  "less_or_equal",
+  "before",
+  "after",
+  "is_empty",
+  "is_not_empty"
+] as const;
 export const reportSortDirections = ["asc", "desc"] as const;
 export const reportSystemFields = reportableSystemFields;
 

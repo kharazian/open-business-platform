@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import * as api from "./api.ts";
-import { createListReportConfig, getReportFieldOptions, toListReportFilters, toListReportSorts, validateReportBuilderDrafts } from "./builder.ts";
+import {
+  createListReportConfig,
+  getReportFieldOptions,
+  getReportFilterOperatorOptions,
+  getReportFilterValueInputType,
+  getReportFilterValueOptions,
+  toListReportFilters,
+  toListReportSorts,
+  validateReportBuilderDrafts
+} from "./builder.ts";
 
 test("reports API client maps list report requests and errors", async () => {
   const calls = [];
@@ -333,6 +342,15 @@ test("reports page validates saved filter and sort drafts before save", () => {
   assert.equal(source.includes("Fix the highlighted report builder fields before saving."), true);
 });
 
+test("reports page exposes type-aware saved filter controls", () => {
+  const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("getReportFilterOperatorOptions"), true);
+  assert.equal(source.includes("getReportFilterValueInputType"), true);
+  assert.equal(source.includes("getReportFilterValueOptions"), true);
+  assert.equal(source.includes("Choose value"), true);
+});
+
 test("report builder field options use shared reportable metadata", () => {
   const schema = {
     schemaVersion: 1,
@@ -353,6 +371,39 @@ test("report builder field options use shared reportable metadata", () => {
   assert.equal(fields.find((field) => field.id === "department").type, "select");
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
+});
+
+test("report builder returns type-aware filter operators and value controls", () => {
+  const numberField = { id: "salary", label: "Salary", type: "number", source: "form", options: [] };
+  const dateField = { id: "created_at", label: "Created date", type: "datetime", source: "system", options: [] };
+  const choiceField = {
+    id: "department",
+    label: "Department",
+    type: "select",
+    source: "form",
+    options: [
+      { id: "opt_hr", label: "Human Resources", value: "hr" },
+      { id: "opt_finance", label: "Finance", value: "finance" }
+    ]
+  };
+
+  assert.deepEqual(getReportFilterOperatorOptions(numberField).map((option) => option.value), [
+    "equals",
+    "greater_than",
+    "greater_or_equal",
+    "less_than",
+    "less_or_equal",
+    "is_empty",
+    "is_not_empty"
+  ]);
+  assert.deepEqual(getReportFilterOperatorOptions(dateField).map((option) => option.value), ["equals", "before", "after", "is_empty", "is_not_empty"]);
+  assert.deepEqual(getReportFilterOperatorOptions(choiceField).map((option) => option.value), ["equals", "is_empty", "is_not_empty"]);
+  assert.equal(getReportFilterValueInputType(numberField), "number");
+  assert.equal(getReportFilterValueInputType(dateField), "datetime-local");
+  assert.deepEqual(getReportFilterValueOptions(choiceField), [
+    { label: "Human Resources", value: "hr" },
+    { label: "Finance", value: "finance" }
+  ]);
 });
 
 test("report builder converts multiple filter and sort drafts into config arrays", () => {
@@ -388,7 +439,8 @@ test("report builder validates active filters and duplicate sorts", () => {
     filterDrafts: [
       { id: "filter-empty", fieldId: "", operator: "equals", value: "" },
       { id: "filter-missing", fieldId: "department", operator: "equals", value: " " },
-      { id: "filter-unknown", fieldId: "missing_field", operator: "is_not_empty", value: "" }
+      { id: "filter-unknown", fieldId: "missing_field", operator: "is_not_empty", value: "" },
+      { id: "filter-unsupported", fieldId: "department", operator: "greater_than", value: "10" }
     ],
     sortDrafts: [
       { id: "sort-created-a", fieldId: "created_at", direction: "desc" },
@@ -402,6 +454,7 @@ test("report builder validates active filters and duplicate sorts", () => {
   assert.equal(validation.filterErrorsById["filter-empty"], undefined);
   assert.equal(validation.filterErrorsById["filter-missing"].value, "Filter value is required.");
   assert.equal(validation.filterErrorsById["filter-unknown"].fieldId, "Filter field is not available.");
+  assert.equal(validation.filterErrorsById["filter-unsupported"].operator, "Filter operator is not available for this field.");
   assert.equal(validation.sortErrorsById["sort-created-a"].fieldId, "Sort field is already used.");
   assert.equal(validation.sortErrorsById["sort-created-b"].fieldId, "Sort field is already used.");
   assert.equal(validation.sortErrorsById["sort-empty"].fieldId, "Sort field is required.");

@@ -115,7 +115,7 @@ public static class ListReportExecutionEngine
                 displayValuesByRecordId?.TryGetValue(record.Id, out var displayValues) == true
                     ? displayValues
                     : new Dictionary<string, string>(StringComparer.Ordinal)))
-            .Where(record => MatchesFilters(record, config.Filters))
+            .Where(record => MatchesFilters(record, config.Filters, fieldsById))
             .Where(record => MatchesRuntimeFilters(record, runtimeFilters))
             .Where(record => MatchesSearch(record, columns, fieldsById, normalizedSearch))
             .ToArray();
@@ -149,9 +149,12 @@ public static class ListReportExecutionEngine
             .ToArray();
     }
 
-    private static bool MatchesFilters(PreparedReportRecord record, IReadOnlyList<ListReportFilterDefinition>? filters)
+    private static bool MatchesFilters(
+        PreparedReportRecord record,
+        IReadOnlyList<ListReportFilterDefinition>? filters,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById)
     {
-        return filters is null || filters.All(filter => MatchesFilter(record, filter));
+        return filters is null || filters.All(filter => MatchesFilter(record, filter, fieldsById));
     }
 
     private static IReadOnlyDictionary<string, string> NormalizeRuntimeFilters(
@@ -179,15 +182,26 @@ public static class ListReportExecutionEngine
             ToSearchText(GetComparableFieldValue(record, filter.Key)).Contains(filter.Value, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool MatchesFilter(PreparedReportRecord record, ListReportFilterDefinition filter)
+    private static bool MatchesFilter(
+        PreparedReportRecord record,
+        ListReportFilterDefinition filter,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById)
     {
-        var value = GetComparableFieldValue(record, filter.FieldId.Trim());
+        var fieldId = filter.FieldId.Trim();
+        var value = GetComparableFieldValue(record, fieldId);
         var filterValue = Normalize(filter.Value);
+        var fieldType = fieldsById.TryGetValue(fieldId, out var field) ? field.Type : string.Empty;
 
         return filter.Operator.Trim() switch
         {
             ReportFilterOperators.Equal => string.Equals(ToSearchText(value), filterValue, StringComparison.OrdinalIgnoreCase),
             ReportFilterOperators.Contains => filterValue is not null && ToSearchText(value).Contains(filterValue, StringComparison.OrdinalIgnoreCase),
+            ReportFilterOperators.GreaterThan => CompareFilterValues(value, filterValue, fieldType) is > 0,
+            ReportFilterOperators.GreaterOrEqual => CompareFilterValues(value, filterValue, fieldType) is >= 0,
+            ReportFilterOperators.LessThan => CompareFilterValues(value, filterValue, fieldType) is < 0,
+            ReportFilterOperators.LessOrEqual => CompareFilterValues(value, filterValue, fieldType) is <= 0,
+            ReportFilterOperators.Before => CompareFilterValues(value, filterValue, fieldType) is < 0,
+            ReportFilterOperators.After => CompareFilterValues(value, filterValue, fieldType) is > 0,
             ReportFilterOperators.IsEmpty => IsEmptyValue(value),
             ReportFilterOperators.IsNotEmpty => !IsEmptyValue(value),
             _ => true
@@ -440,6 +454,54 @@ public static class ListReportExecutionEngine
                 return true;
             default:
                 dateTime = default;
+                return false;
+        }
+    }
+
+    private static int? CompareFilterValues(object? value, string? filterValue, string fieldType)
+    {
+        if (value is null || filterValue is null)
+        {
+            return null;
+        }
+
+        if (FormFieldTypes.IsNumeric(fieldType)
+            && TryConvertDecimal(value, out var number)
+            && decimal.TryParse(filterValue, NumberStyles.Number, CultureInfo.InvariantCulture, out var filterNumber))
+        {
+            return number.CompareTo(filterNumber);
+        }
+
+        if (string.Equals(fieldType, FormFieldTypes.Time, StringComparison.Ordinal)
+            && TryConvertTime(value, out var time)
+            && TimeSpan.TryParse(filterValue, CultureInfo.InvariantCulture, out var filterTime))
+        {
+            return time.CompareTo(filterTime);
+        }
+
+        if ((string.Equals(fieldType, FormFieldTypes.Date, StringComparison.Ordinal)
+                || string.Equals(fieldType, FormFieldTypes.Datetime, StringComparison.Ordinal))
+            && TryConvertDateTime(value, out var dateTime)
+            && DateTimeOffset.TryParse(filterValue, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var filterDateTime))
+        {
+            return dateTime.CompareTo(filterDateTime);
+        }
+
+        return string.Compare(ToSearchText(value), filterValue, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryConvertTime(object value, out TimeSpan time)
+    {
+        switch (value)
+        {
+            case TimeSpan timeSpan:
+                time = timeSpan;
+                return true;
+            case string text when TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out var parsed):
+                time = parsed;
+                return true;
+            default:
+                time = default;
                 return false;
         }
     }
