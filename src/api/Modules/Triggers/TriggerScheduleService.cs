@@ -18,6 +18,54 @@ public sealed class TriggerScheduleService
         this.triggerExecution = triggerExecution;
     }
 
+    public async Task<TriggerScheduledRunResultDto> RunScheduleNowAsync(Guid triggerId, CancellationToken cancellationToken)
+    {
+        var trigger = await dbContext.Triggers
+            .FirstOrDefaultAsync(candidate => candidate.Id == triggerId && !candidate.IsDeleted, cancellationToken);
+
+        if (trigger is null)
+        {
+            throw new TriggerManagementException(StatusCodes.Status404NotFound, "Trigger was not found.");
+        }
+
+        if (!TriggerEvents.IsScheduled(trigger.EventName))
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Only scheduled triggers can be run manually.");
+        }
+
+        if (!trigger.IsEnabled)
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Disabled scheduled triggers cannot be run manually.");
+        }
+
+        var schedule = DeserializeSchedule(trigger.ScheduleJson);
+
+        if (schedule is null)
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "Schedule metadata is not available for this trigger.");
+        }
+
+        var runAt = DateTimeOffset.UtcNow;
+        var nextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, runAt);
+        var log = await triggerExecution.ExecuteScheduledAsync(
+            trigger,
+            runAt,
+            runAt,
+            nextRunAt,
+            TriggerScheduleRunSources.Manual,
+            cancellationToken);
+        var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+
+        trigger.ScheduleLastRunAt = completedAt;
+        trigger.ScheduleNextRunAt = nextRunAt;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new TriggerScheduledRunResultDto(
+            TriggerDefinitionService.ToLogDto(log),
+            trigger.ScheduleNextRunAt,
+            trigger.ScheduleLastRunAt);
+    }
+
     public async Task<int> ProcessDueSchedulesAsync(CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;

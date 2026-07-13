@@ -129,7 +129,7 @@ Recommended fields:
 - Retry policy
 - Owner and permission metadata
 
-The scheduler executes due enabled trigger definitions and writes normal trigger logs with schedule metadata for due time, lock time, completion time, final status, next run when available, and skip reason when persisted schedule metadata cannot be used. V4/V8 scheduled triggers do not support record conditions or record-dependent actions.
+The scheduler executes due enabled trigger definitions and writes normal trigger logs with schedule metadata for due time, lock time, completion time, final status, run source, next run when available, and skip reason when persisted schedule metadata cannot be used. Form managers can also run an enabled scheduled trigger immediately through a protected manual-run endpoint; that path uses the same execution/logging behavior and records `runSource = "manual"`. V4/V8 scheduled triggers do not support record conditions or record-dependent actions.
 
 Scheduled workflow starts use a separate `scheduled_start_workflow` action instead of reusing the current-record `start_workflow` action. The action must name an eligible enabled/published same-form workflow and a record selection mode: all records without active workflow, status equals, or field equals. Runtime selection ignores records that already have workflow state, writes the same workflow history/audit shape as trigger-started workflows, records per-record outcomes in the trigger log, and does not dispatch recursive status-changed trigger events.
 

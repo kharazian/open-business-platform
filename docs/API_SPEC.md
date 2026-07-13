@@ -2250,7 +2250,34 @@ Failed first-attempt trigger executions are scheduled through the trigger's conf
 
 The hosted retry worker replays due failed logs through the trigger's current action list, matching manual retry semantics. Disabled triggers or triggers with automatic retries disabled are not retried automatically; their pending failed logs surface `disabled`. Retries stop once `autoRetryAttemptCount` reaches `autoRetryMaxAttempts`.
 
-Scheduled trigger logs use `entityType = "Schedule"` and include `schedule` metadata in `input` and `result` JSON. The metadata records due time, lock time, completion time, final status, and skip reason when a persisted due schedule cannot be processed. Action failures still write `failed` logs and use the normal trigger retry policy.
+Scheduled trigger logs use `entityType = "Schedule"` and include `schedule` metadata in `input` and `result` JSON. The metadata records due time, lock time, completion time, final status, `runSource` (`worker` or `manual`), and skip reason when a persisted due schedule cannot be processed. Action failures still write `failed` logs and use the normal trigger retry policy.
+
+### Run scheduled trigger now
+
+`POST /api/triggers/{triggerId}/schedule/run`
+
+Requires form `manage` or `forms.manage_all` access for the trigger's form. The trigger must be enabled, must use a scheduled event, and must have valid schedule metadata. The backend executes the trigger through the same scheduled execution path as the hosted worker, writes a normal trigger execution log with `schedule.runSource = "manual"`, updates `scheduleLastRunAt`, recalculates `scheduleNextRunAt`, and returns `201 Created`.
+
+Response:
+
+```json
+{
+  "log": {
+    "id": "...",
+    "triggerId": "...",
+    "status": "success",
+    "entityType": "Schedule",
+    "result": {
+      "schedule": {
+        "runSource": "manual"
+      },
+      "actions": []
+    }
+  },
+  "scheduleNextRunAt": "2026-06-11T12:00:00Z",
+  "scheduleLastRunAt": "2026-06-10T12:00:01Z"
+}
+```
 
 ### Retry failed trigger log
 

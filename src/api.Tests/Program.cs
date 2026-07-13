@@ -1223,6 +1223,15 @@ AssertEqual(
     DateTimeOffset.Parse("2026-02-28T08:00:00Z"),
     TriggerScheduleCalculator.CalculateNextRun(monthlyLastDayCandidateSchedule, DateTimeOffset.Parse("2026-02-01T00:00:00Z")),
     "Monthly schedule calculation should clamp explicit day-of-month contracts to shorter months.");
+AssertEqual("manual", TriggerScheduleRunSources.Manual, "Scheduled trigger run metadata should expose manual run sources.");
+var manualScheduleMetadata = new TriggerScheduledRunMetadata(
+    DateTimeOffset.Parse("2026-06-10T12:00:00Z"),
+    DateTimeOffset.Parse("2026-06-10T12:00:00Z"),
+    RunSource: TriggerScheduleRunSources.Manual);
+AssertEqual(
+    TriggerScheduleRunSources.Manual,
+    manualScheduleMetadata.RunSource,
+    "Manually run scheduled trigger logs should identify their run source.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
@@ -2213,7 +2222,10 @@ var retryLogDto = new TriggerExecutionLogDto(
     DateTimeOffset.UtcNow,
     retrySourceLogId);
 AssertEqual(retrySourceLogId, retryLogDto.RetryOfLogId, "Trigger log DTOs should expose retry source metadata.");
+var scheduledRunResultDto = new TriggerScheduledRunResultDto(retryLogDto, DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow);
+AssertEqual(retryLogDto.Id, scheduledRunResultDto.Log.Id, "Scheduled trigger run responses should include the created execution log.");
 AssertNotNull(typeof(TriggerExecutionService).GetMethod(nameof(TriggerExecutionService.RetryFailedLogAsync)), "Trigger execution service should expose manual failed-log retry.");
+AssertNotNull(typeof(TriggerScheduleService).GetMethod(nameof(TriggerScheduleService.RunScheduleNowAsync)), "Trigger schedule service should expose manual scheduled-trigger runs.");
 AssertNotNull(typeof(ReportManagementService).GetMethod(nameof(ReportManagementService.ExecuteListReportAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Report execution should receive the current principal.");
 AssertNotNull(typeof(ChartAggregationService).GetMethod(nameof(ChartAggregationService.PreviewAsync))?.GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(ClaimsPrincipal)), "Chart previews should receive the current principal.");
 var reportRecordAccessAction = typeof(ReportManagementService).GetMethod(

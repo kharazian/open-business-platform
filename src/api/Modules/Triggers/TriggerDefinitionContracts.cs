@@ -133,6 +133,12 @@ public static class TriggerExecutionStatuses
     public const string Skipped = "skipped";
 }
 
+public static class TriggerScheduleRunSources
+{
+    public const string Worker = "worker";
+    public const string Manual = "manual";
+}
+
 public static class TriggerWorkflowStartResultStatuses
 {
     public const string Started = "started";
@@ -180,7 +186,8 @@ public sealed record TriggerScheduledRunMetadata(
     DateTimeOffset? CompletedAt = null,
     DateTimeOffset? NextRunAt = null,
     string? Status = null,
-    string? SkipReason = null);
+    string? SkipReason = null,
+    string RunSource = TriggerScheduleRunSources.Worker);
 
 public sealed record TriggerConditionDefinition(
     string Type,
@@ -327,6 +334,11 @@ public sealed record TriggerExecutionLogDto(
     int AutoRetryAttemptCount = 0,
     int AutoRetryMaxAttempts = 0,
     DateTimeOffset? AutoRetryNextAttemptAt = null);
+
+public sealed record TriggerScheduledRunResultDto(
+    TriggerExecutionLogDto Log,
+    DateTimeOffset? ScheduleNextRunAt,
+    DateTimeOffset? ScheduleLastRunAt);
 
 public sealed record TriggerValidationError(string Path, string Code, string Message);
 

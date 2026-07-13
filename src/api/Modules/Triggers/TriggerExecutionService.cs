@@ -97,6 +97,23 @@ public sealed class TriggerExecutionService
         DateTimeOffset? nextRunAt,
         CancellationToken cancellationToken)
     {
+        return await ExecuteScheduledAsync(
+            trigger,
+            scheduledAt,
+            lockedAt,
+            nextRunAt,
+            TriggerScheduleRunSources.Worker,
+            cancellationToken);
+    }
+
+    public async Task<TriggerExecutionLog> ExecuteScheduledAsync(
+        TriggerDefinition trigger,
+        DateTimeOffset scheduledAt,
+        DateTimeOffset? lockedAt,
+        DateTimeOffset? nextRunAt,
+        string runSource,
+        CancellationToken cancellationToken)
+    {
         if (!TriggerEvents.IsScheduled(trigger.EventName))
         {
             throw new TriggerManagementException(StatusCodes.Status409Conflict, "Only scheduled triggers can be executed by the schedule worker.");
@@ -134,7 +151,11 @@ public sealed class TriggerExecutionService
             "Schedule",
             trigger.Id,
             cancellationToken,
-            new TriggerScheduledRunMetadata(scheduledAt, lockedAt ?? DateTimeOffset.UtcNow, NextRunAt: nextRunAt));
+            new TriggerScheduledRunMetadata(
+                scheduledAt,
+                lockedAt ?? DateTimeOffset.UtcNow,
+                NextRunAt: nextRunAt,
+                RunSource: runSource));
     }
 
     public async Task<TriggerExecutionLog> SkipScheduledAsync(

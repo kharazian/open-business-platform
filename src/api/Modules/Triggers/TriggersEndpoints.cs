@@ -157,6 +157,33 @@ public static class TriggersEndpoints
             });
         });
 
+        triggerGroup.MapPost("/{triggerId:guid}/schedule/run", async (
+            Guid triggerId,
+            TriggerDefinitionService triggerDefinitions,
+            TriggerScheduleService triggerSchedules,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await triggerDefinitions.GetTriggerFormIdAsync(triggerId, cancellationToken);
+
+            if (formId is null)
+            {
+                return Results.NotFound(new TriggerErrorResponse("Trigger was not found."));
+            }
+
+            if (!await CanManageFormAsync(permissionService, httpContext, formId.Value, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleTriggerRequestAsync(async () =>
+            {
+                var result = await triggerSchedules.RunScheduleNowAsync(triggerId, cancellationToken);
+                return Results.Created($"/api/triggers/{triggerId}/logs/{result.Log.Id}", result);
+            });
+        });
+
         return endpoints;
     }
 
