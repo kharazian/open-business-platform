@@ -87,6 +87,22 @@ test("integrations API client manages secret-safe connector configs", async () =
   assert.equal(JSON.parse(calls[1].init.body).secrets.apiToken, "raw-token");
 });
 
+test("integrations API client downloads protected export artifacts", async () => {
+  const calls = [];
+  const blob = new Blob(["email\njane@example.test"], { type: "text/csv" });
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    return { ok: true, blob: async () => blob };
+  };
+
+  const downloaded = await api.downloadExternalExportArtifact("export-1", fetcher);
+
+  assert.equal(downloaded, blob);
+  assert.deepEqual(calls.map((call) => `${call.init.method} ${call.input}`), [
+    "GET /api/integrations/exports/export-1/artifact"
+  ]);
+});
+
 test("integrations API client manages webhook listeners, imports, and exports", async () => {
   const calls = [];
   const fetcher = async (input, init = {}) => {

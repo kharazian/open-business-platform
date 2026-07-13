@@ -18,6 +18,7 @@ import {
   createIntegrationConnector,
   createIntegrationApiKey,
   createRecordImportJob,
+  downloadExternalExportArtifact,
   listExternalExportJobs,
   listIntegrationConnectors,
   listIncomingWebhookListeners,
@@ -143,6 +144,7 @@ export function IntegrationsPage() {
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [savingImport, setSavingImport] = useState(false);
   const [savingExport, setSavingExport] = useState(false);
+  const [downloadingArtifactId, setDownloadingArtifactId] = useState<string | null>(null);
   const [lastExportContent, setLastExportContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -439,6 +441,22 @@ export function IntegrationsPage() {
       setError(getErrorMessage(caught));
     } finally {
       setSavingExport(false);
+    }
+  }
+
+  async function handleDownloadExportArtifact(job: ExternalExportJobSummaryDto) {
+    setDownloadingArtifactId(job.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const artifact = await downloadExternalExportArtifact(job.id);
+      downloadBlob(artifact, job.artifactFileName ?? `export-${job.id}.${job.format}`);
+      setNotice("Export artifact downloaded.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setDownloadingArtifactId(null);
     }
   }
 
@@ -745,7 +763,20 @@ export function IntegrationsPage() {
                 { header: "Format", accessor: "format" },
                 { header: "Status", render: (job) => renderJobStatus(job.status) },
                 { header: "Rows", accessor: "rowCount" },
-                { header: "Completed", render: (job) => formatIntegrationDate(job.completedAt) }
+                { header: "Completed", render: (job) => formatIntegrationDate(job.completedAt) },
+                {
+                  header: "Artifact",
+                  render: (job) => (
+                    <Button
+                      disabled={downloadingArtifactId === job.id || job.status !== "succeeded" || !job.artifactFileName}
+                      onClick={() => void handleDownloadExportArtifact(job)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Download className="size-4" />Download
+                    </Button>
+                  )
+                }
               ]}
             />
           ) : null}
@@ -863,4 +894,15 @@ function parseJsonObject(value: string, label: string): Record<string, unknown> 
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Integration operation failed.";
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }

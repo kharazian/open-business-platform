@@ -50,6 +50,46 @@ public sealed class ExternalExportJobService
         return job is null ? null : ToDetailDto(job);
     }
 
+    public async Task<ExternalExportArtifactDownloadDto?> GetArtifactAsync(
+        Guid exportJobId,
+        Guid? downloadedById,
+        CancellationToken cancellationToken)
+    {
+        var job = await dbContext.ExternalExportJobs
+            .SingleOrDefaultAsync(candidate => candidate.Id == exportJobId, cancellationToken);
+
+        if (job is null)
+        {
+            return null;
+        }
+
+        if (!string.Equals(job.Status, ExternalExportJobStatuses.Succeeded, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(job.ArtifactContent)
+            || string.IsNullOrWhiteSpace(job.ArtifactFileName)
+            || string.IsNullOrWhiteSpace(job.ArtifactContentType))
+        {
+            throw new ExternalExportException(StatusCodes.Status409Conflict, "Export artifact is not available.");
+        }
+
+        dbContext.AuditLogs.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            EntityType = "ExternalExportJob",
+            EntityId = job.Id,
+            Action = "external_export_artifact_downloaded",
+            UserId = downloadedById,
+            MetadataJson = JsonSerializer.SerializeToDocument(new
+            {
+                job.ArtifactFileName,
+                job.ArtifactContentType,
+                job.ArtifactSizeBytes
+            }, JsonOptions)
+        });
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ExternalExportArtifactDownloadDto(job.ArtifactFileName, job.ArtifactContentType, job.ArtifactContent);
+    }
+
     public async Task<ExternalExportJobDetailDto> CreateAsync(
         ClaimsPrincipal principal,
         CreateExternalExportJobRequest request,

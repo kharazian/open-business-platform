@@ -93,6 +93,11 @@ public sealed record ExternalExportJobDetailDto(
     DateTimeOffset? UpdatedAt,
     Guid? UpdatedById);
 
+public sealed record ExternalExportArtifactDownloadDto(
+    string FileName,
+    string ContentType,
+    string Content);
+
 public sealed class ExternalExportException : Exception
 {
     public ExternalExportException(int statusCode, string message)

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Records;
@@ -407,6 +408,30 @@ public static class IntegrationsEndpoints
 
             var job = await exportJobs.GetAsync(exportJobId, cancellationToken);
             return job is null ? Results.NotFound() : Results.Ok(job);
+        });
+
+        exports.MapGet("/{exportJobId:guid}/artifact", async (
+            Guid exportJobId,
+            ExternalExportJobService exportJobs,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var artifact = await exportJobs.GetArtifactAsync(exportJobId, GetCurrentUserId(httpContext), cancellationToken);
+                return artifact is null
+                    ? Results.NotFound()
+                    : Results.File(
+                        Encoding.UTF8.GetBytes(artifact.Content),
+                        artifact.ContentType,
+                        fileDownloadName: artifact.FileName);
+            });
         });
 
         exports.MapPost("", async (

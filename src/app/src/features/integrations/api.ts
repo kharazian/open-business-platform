@@ -25,7 +25,14 @@ type ApiFetchResponse = {
   json: () => Promise<unknown>;
 };
 
+type ApiBlobResponse = {
+  ok: boolean;
+  status?: number;
+  blob: () => Promise<Blob>;
+};
+
 export type IntegrationsFetcher = (input: string, init?: RequestInit) => Promise<ApiFetchResponse>;
+export type IntegrationsBinaryFetcher = (input: string, init?: RequestInit) => Promise<ApiBlobResponse>;
 
 export class IntegrationsApiError extends Error {
   constructor(message: string) {
@@ -35,6 +42,7 @@ export class IntegrationsApiError extends Error {
 }
 
 const defaultFetcher: IntegrationsFetcher = (input, init) => fetch(input, init);
+const defaultBinaryFetcher: IntegrationsBinaryFetcher = (input, init) => fetch(input, init);
 
 export async function listIntegrationApiKeys(fetcher: IntegrationsFetcher = defaultFetcher): Promise<IntegrationApiKeyDto[]> {
   return requestItems<IntegrationApiKeyDto>("/api/integrations/api-keys", { method: "GET", credentials: "include" }, fetcher);
@@ -238,6 +246,22 @@ export async function createExternalExportJob(
     },
     fetcher
   );
+}
+
+export async function downloadExternalExportArtifact(
+  exportJobId: string,
+  fetcher: IntegrationsBinaryFetcher = defaultBinaryFetcher
+): Promise<Blob> {
+  const response = await fetcher(
+    `/api/integrations/exports/${encodeURIComponent(exportJobId)}/artifact`,
+    { method: "GET", credentials: "include" }
+  );
+
+  if (!response.ok) {
+    throw new IntegrationsApiError("Export artifact download failed.");
+  }
+
+  return await response.blob();
 }
 
 async function requestItems<T>(input: string, init: RequestInit, fetcher: IntegrationsFetcher): Promise<T[]> {

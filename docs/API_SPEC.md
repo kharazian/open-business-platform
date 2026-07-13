@@ -566,6 +566,10 @@ Lists recent export jobs.
 
 Returns one export job, including protected artifact content, or `404`.
 
+`GET /api/integrations/exports/{exportJobId}/artifact`
+
+Downloads the stored export artifact as a file response. Requires `integrations.manage`; no public artifact URL is generated. The endpoint returns `404` when the export job does not exist, `409` when the job has no completed artifact, and writes `external_export_artifact_downloaded` audit entries for successful downloads.
+
 `POST /api/integrations/exports`
 
 Creates and runs an export job synchronously for the first foundation slice.
@@ -627,7 +631,7 @@ Response: `201 Created`
 }
 ```
 
-Completed exports write outbound `export` integration logs with source `ExternalExportJob`, row counts, artifact metadata, and safe request metadata.
+Completed exports write outbound `export` integration logs with source `ExternalExportJob`, row counts, artifact metadata, and safe request metadata. Artifact downloads are permission-protected and audited separately from export creation.
 
 ### Dashboard summary
 

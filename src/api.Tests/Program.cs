@@ -700,6 +700,11 @@ AssertTrue(jsonArtifact.Content.Contains("\"email\"", StringComparison.Ordinal),
 AssertFalse(jsonArtifact.Content.Contains("hidden_salary", StringComparison.Ordinal), "External JSON export artifacts should exclude cells without visible columns.");
 AssertNotNull(typeof(ExternalExportJobService).GetMethod(nameof(ExternalExportJobService.CreateAsync)), "External export job service should expose create handling.");
 AssertNotNull(typeof(ExternalExportJobService).GetMethod(nameof(ExternalExportJobService.GetAsync)), "External export job service should expose query handling.");
+AssertNotNull(typeof(ExternalExportJobService).GetMethod(nameof(ExternalExportJobService.GetArtifactAsync)), "External export job service should expose protected artifact downloads.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Integrations", "IntegrationsEndpoints.cs"))
+        .Contains("/{exportJobId:guid}/artifact", StringComparison.Ordinal),
+    "Integration endpoints should expose protected export artifact downloads.");
 var sensitiveMetadata = new Dictionary<string, object?>
 {
     ["Authorization"] = "Bearer secret",

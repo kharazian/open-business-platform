@@ -124,14 +124,14 @@ Needed support:
 - File import jobs for CSV, JSON, EDI, and other structured payloads.
 - Mapping definitions from external payload fields to form fields.
 - File history records with status, direction, source system, document type, remote path, work file ID, and related record links.
-- Export jobs that generate CSV, JSON, EDI-like text, PDF, or partner-specific payloads.
+- Export jobs that generate protected CSV/JSON artifacts are implemented; EDI-like text, PDF, and partner-specific payloads remain later extensions.
 - Retry state including retry count, max attempts, retry interval, last retry time, and next retry time.
 - Safe file deletion/archive operations after successful processing when configured.
 
 Implementation direction:
 
 - Treat file processing as integration jobs, not as form scripts.
-- Keep generated files and artifacts permission-filtered and auditable.
+- Keep generated files and artifacts permission-filtered and auditable; protected export artifact downloads are implemented without public links.
 
 ### 7. Scheduled Automation and Queues
 
