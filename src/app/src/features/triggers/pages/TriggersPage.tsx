@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, ListChecks, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Activity, ListChecks, Play, Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -19,7 +19,7 @@ import { listDepartments, listGroups, listUsers } from "../../users/api";
 import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
 import { listWorkflows } from "../../workflows/api";
 import type { WorkflowSummary } from "../../workflows/types";
-import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, updateTrigger } from "../api";
+import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, runScheduledTriggerNow, updateTrigger } from "../api";
 import {
   buildTriggerRequest,
   createDefaultTriggerSchedule,
@@ -75,6 +75,7 @@ export function TriggersPage() {
   const [loadingTrigger, setLoadingTrigger] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
+  const [runningScheduleNow, setRunningScheduleNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lookupWarning, setLookupWarning] = useState<string | null>(null);
@@ -109,6 +110,7 @@ export function TriggersPage() {
   const eligibleWorkflows = workflows.filter((workflow) => workflow.isEnabled && workflow.status === "published" && Boolean(workflow.currentVersionId));
   const errorMap = useMemo(() => createValidationErrorMap(validationErrors), [validationErrors]);
   const scheduledEvent = isScheduledTriggerEvent(draft.eventName);
+  const selectedTriggerCanRunSchedule = Boolean(selectedTrigger && selectedTrigger.isEnabled && isScheduledTriggerEvent(selectedTrigger.eventName));
 
   async function loadInitialData() {
     setLoadingInitial(true);
@@ -290,6 +292,32 @@ export function TriggersPage() {
       setError(getErrorMessage(caught));
     } finally {
       setRetryingLogId(null);
+    }
+  }
+
+  async function handleRunScheduleNow() {
+    if (!selectedTriggerId || !selectedFormId) return;
+
+    setRunningScheduleNow(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const result = await runScheduledTriggerNow(selectedTriggerId);
+      const [detail, triggerItems, triggerLogs] = await Promise.all([
+        getTrigger(selectedTriggerId),
+        listTriggers(selectedFormId),
+        listTriggerLogs(selectedTriggerId)
+      ]);
+
+      setDraft(createTriggerDraftFromDetail(detail));
+      setTriggers(triggerItems);
+      setLogs(triggerLogs);
+      setNotice(getScheduledRunNotice(result.log));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setRunningScheduleNow(false);
     }
   }
 
@@ -596,9 +624,17 @@ export function TriggersPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Execution logs</CardTitle>
-              <CardDescription>Matching trigger executions, newest first.</CardDescription>
+            <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Execution logs</CardTitle>
+                <CardDescription>Matching trigger executions, newest first.</CardDescription>
+              </div>
+              {selectedTriggerCanRunSchedule ? (
+                <Button disabled={loadingTrigger || runningScheduleNow} onClick={() => void handleRunScheduleNow()} size="sm" variant="outline">
+                  <Play className="size-4" />
+                  {runningScheduleNow ? "Running..." : "Run now"}
+                </Button>
+              ) : null}
             </CardHeader>
             <CardContent>
               {loadingTrigger ? (
@@ -1019,6 +1055,7 @@ function FieldSelect({ error, fields, onChange, value }: { error?: string; field
 function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog; onRetry: (logId: string) => void; retrying: boolean }) {
   const status = formatTriggerLogStatus(log.status);
   const retryState = formatTriggerRetryState(log.retryState, log.autoRetryAttemptCount, log.autoRetryMaxAttempts);
+  const runSource = getScheduleRunSource(log);
 
   return (
     <div className="rounded-xl border border-border bg-card/70 p-4">
@@ -1032,6 +1069,7 @@ function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog;
               <p className="font-bold text-foreground">{formatTriggerEventLabel(log.eventName)}</p>
               <Badge variant={status.variant}>{status.label}</Badge>
               {retryState ? <Badge>{retryState}</Badge> : null}
+              {runSource ? <Badge>{formatScheduleRunSource(runSource)}</Badge> : null}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {log.entityType} {log.entityId}
@@ -1060,6 +1098,38 @@ function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog;
       </div>
     </div>
   );
+}
+
+function getScheduledRunNotice(log: TriggerExecutionLog): string {
+  if (log.status === "success") {
+    return "Scheduled trigger ran successfully.";
+  }
+
+  if (log.status === "failed") {
+    return "Scheduled trigger run created a failed log.";
+  }
+
+  return "Scheduled trigger run was skipped.";
+}
+
+function getScheduleRunSource(log: TriggerExecutionLog): string | null {
+  return readScheduleRunSource(log.result) ?? readScheduleRunSource(log.input);
+}
+
+function readScheduleRunSource(value: unknown): string | null {
+  if (!isPlainObject(value) || !isPlainObject(value.schedule) || typeof value.schedule.runSource !== "string") {
+    return null;
+  }
+
+  return value.schedule.runSource;
+}
+
+function formatScheduleRunSource(runSource: string): string {
+  return runSource === "manual" ? "Manual run" : "Scheduled run";
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function JsonBlock({ label, value }: { label: string; value: unknown }) {

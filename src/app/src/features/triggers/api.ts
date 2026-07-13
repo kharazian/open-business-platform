@@ -2,6 +2,7 @@ import type {
   CreateTriggerRequest,
   TriggerDetail,
   TriggerExecutionLog,
+  TriggerScheduledRunResult,
   TriggerSummary,
   TriggerValidationError,
   UpdateTriggerRequest
@@ -92,6 +93,17 @@ export async function retryTriggerLog(
 ): Promise<TriggerExecutionLog> {
   return requestJson<TriggerExecutionLog>(
     `/api/triggers/${encodeURIComponent(triggerId)}/logs/${encodeURIComponent(logId)}/retry`,
+    { method: "POST", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function runScheduledTriggerNow(
+  triggerId: string,
+  fetcher: TriggersFetcher = defaultFetcher
+): Promise<TriggerScheduledRunResult> {
+  return requestJson<TriggerScheduledRunResult>(
+    `/api/triggers/${encodeURIComponent(triggerId)}/schedule/run`,
     { method: "POST", credentials: "include" },
     fetcher
   );

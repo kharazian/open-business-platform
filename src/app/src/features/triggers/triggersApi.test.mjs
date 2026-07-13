@@ -151,6 +151,36 @@ test("trigger API client maps management requests, logs, and validation errors",
       };
     }
 
+    if (input === "/api/triggers/trigger-2/schedule/run" && init.method === "POST") {
+      return {
+        ok: true,
+        json: async () => ({
+          log: {
+            id: "log-3",
+            triggerId: "trigger-2",
+            formId: "form-1",
+            eventName: "schedule.daily",
+            entityType: "Schedule",
+            entityId: "trigger-2",
+            status: "success",
+            input: {
+              schedule: { runSource: "manual" }
+            },
+            result: {
+              schedule: { runSource: "manual" },
+              actions: []
+            },
+            errorMessage: null,
+            startedAt: "2026-06-02T12:22:00.000Z",
+            completedAt: "2026-06-02T12:22:01.000Z",
+            createdAt: "2026-06-02T12:22:00.000Z"
+          },
+          scheduleNextRunAt: "2026-06-03T12:22:00.000Z",
+          scheduleLastRunAt: "2026-06-02T12:22:01.000Z"
+        })
+      };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -160,6 +190,7 @@ test("trigger API client maps management requests, logs, and validation errors",
   const updated = await api.updateTrigger("trigger-2", { ...createRequest, isEnabled: false, concurrencyStamp: "trigger-stamp-2" }, fetcher);
   const logs = await api.listTriggerLogs("trigger-2", fetcher);
   const retriedLog = await api.retryTriggerLog("trigger-2", "log-1", fetcher);
+  const scheduledRun = await api.runScheduledTriggerNow("trigger-2", fetcher);
 
   assert.equal(summaries[0].name, "Route HR submissions");
   assert.equal(summaries[0].conditionCount, 1);
@@ -170,6 +201,8 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(logs[0].result.actions[0].type, "write_audit_entry");
   assert.equal(retriedLog.retryOfLogId, "log-1");
   assert.equal(retriedLog.result.retry.sourceLogId, "log-1");
+  assert.equal(scheduledRun.log.result.schedule.runSource, "manual");
+  assert.equal(scheduledRun.scheduleNextRunAt, "2026-06-03T12:22:00.000Z");
   assert.equal(calls[0].input, "/api/forms/form-1/triggers");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -192,6 +225,9 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(calls[5].input, "/api/triggers/trigger-2/logs/log-1/retry");
   assert.equal(calls[5].init.method, "POST");
   assert.equal(calls[5].init.credentials, "include");
+  assert.equal(calls[6].input, "/api/triggers/trigger-2/schedule/run");
+  assert.equal(calls[6].init.method, "POST");
+  assert.equal(calls[6].init.credentials, "include");
 
   await assert.rejects(
     () => api.listTriggers("form-1", async () => ({ ok: true, json: async () => ({}) })),

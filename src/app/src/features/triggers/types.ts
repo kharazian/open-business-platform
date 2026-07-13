@@ -176,6 +176,12 @@ export type TriggerExecutionLog = {
   createdAt: string;
 };
 
+export type TriggerScheduledRunResult = {
+  log: TriggerExecutionLog;
+  scheduleNextRunAt?: string | null;
+  scheduleLastRunAt?: string | null;
+};
+
 export type TriggerValidationError = {
   path: string;
   code: string;
