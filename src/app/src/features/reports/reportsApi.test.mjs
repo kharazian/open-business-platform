@@ -280,6 +280,9 @@ test("reports page exposes record workflow actions from report rows", () => {
   assert.equal(source.includes("onOpenRecord"), true);
   assert.equal(source.includes("Open record detail"), true);
   assert.equal(source.includes('role="button"'), true);
+  assert.equal(source.includes("ReportRowActionMenu"), true);
+  assert.equal(source.includes("MoreHorizontal"), true);
+  assert.equal(source.includes("Row actions"), true);
   assert.equal(source.includes("deleteRecord"), true);
   assert.equal(source.includes("handleDeleteReportRecord"), true);
   assert.equal(source.includes("getRecordDetailPath"), true);

@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, MoreHorizontal, Play, Plus, Printer, RefreshCw, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -7,6 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { Dropdown } from "../../../components/ui/Dropdown";
 import { Input } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
@@ -1723,25 +1724,12 @@ function ReportExecutionTable({
                   );
                 })}
                 <td className="px-4 py-3" data-print-hide="true" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                  <div className="flex flex-wrap gap-2">
-                    <ReportActionLink to={getRecordDetailPath(row.recordId)}>
-                      <Eye className="size-4" />
-                      View
-                    </ReportActionLink>
-                    <ReportActionLink to={getRecordEditPath(row.recordId)}>
-                      <Edit3 className="size-4" />
-                      Edit
-                    </ReportActionLink>
-                    <Button
-                      disabled={running || deletingRecordId === row.recordId}
-                      onClick={() => onDeleteRecord(row.recordId)}
-                      size="sm"
-                      variant="danger"
-                    >
-                      <Trash2 className="size-4" />
-                      {deletingRecordId === row.recordId ? "Deleting..." : "Delete"}
-                    </Button>
-                  </div>
+                  <ReportRowActionMenu
+                    deleting={deletingRecordId === row.recordId}
+                    disabled={running}
+                    onDelete={() => onDeleteRecord(row.recordId)}
+                    recordId={row.recordId}
+                  />
                 </td>
               </tr>
             ))}
@@ -1755,11 +1743,57 @@ function ReportExecutionTable({
 function ReportActionLink({ children, to }: { children: ReactNode; to: string }) {
   return (
     <Link
-      className="control-transition inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground hover:bg-muted"
+      className="control-transition flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-foreground hover:bg-muted"
       to={to}
     >
       {children}
     </Link>
+  );
+}
+
+function ReportRowActionMenu({
+  deleting,
+  disabled,
+  onDelete,
+  recordId
+}: {
+  deleting: boolean;
+  disabled: boolean;
+  onDelete: () => void;
+  recordId: string;
+}) {
+  return (
+    <Dropdown
+      align="right"
+      ariaLabel="Row actions"
+      closeOnContentClick
+      contentClassName="min-w-44"
+      trigger={(
+        <span className="control-transition inline-flex size-9 items-center justify-center rounded-xl border border-border bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <MoreHorizontal className="size-4" />
+        </span>
+      )}
+    >
+      <div className="grid gap-1">
+        <ReportActionLink to={getRecordDetailPath(recordId)}>
+          <Eye className="size-4" />
+          View
+        </ReportActionLink>
+        <ReportActionLink to={getRecordEditPath(recordId)}>
+          <Edit3 className="size-4" />
+          Edit
+        </ReportActionLink>
+        <button
+          className="control-transition flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={disabled || deleting}
+          onClick={onDelete}
+          type="button"
+        >
+          <Trash2 className="size-4" />
+          {deleting ? "Deleting..." : "Delete"}
+        </button>
+      </div>
+    </Dropdown>
   );
 }
 
