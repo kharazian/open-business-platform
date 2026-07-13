@@ -2860,9 +2860,17 @@ AssertTrue(
         .Contains("/{recordId:guid}/subtables/{fieldId}/rows", StringComparison.Ordinal),
     "Records endpoints should expose a parent-record scoped sub-table rows route.");
 AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
+        .Contains("/{recordId:guid}/timeline", StringComparison.Ordinal),
+    "Records endpoints should expose a permission-checked record activity timeline route.");
+AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
     "Record lookup service should be registered for endpoint injection.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
+        .Contains("AddScoped<RecordTimelineService>", StringComparison.Ordinal),
+    "Record timeline service should be registered for endpoint injection.");
 AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordLookupContracts.cs"))
         .Contains("DependencyValues", StringComparison.Ordinal),
@@ -2973,6 +2981,22 @@ var recordDetail = new FormRecordDetailDto(
     null);
 AssertEqual(publishableSchema, recordDetail.Schema, "Record details should return the immutable form version schema used at submission.");
 AssertTypeAssignable<object, RecordQueryService>();
+AssertTypeAssignable<object, RecordTimelineService>();
+var recordTimeline = new RecordTimelineDto(
+    recordDto.Id,
+    new[]
+    {
+        new RecordTimelineEntryDto(
+            "audit:55555555555555555555555555555555",
+            RecordTimelineSources.Audit,
+            "record_updated",
+            null,
+            "record updated",
+            sampleUpdatedAt,
+            sampleUserId)
+    });
+AssertEqual(RecordTimelineSources.Audit, recordTimeline.Items.Single().Source, "Record timeline entries should expose their event source.");
+AssertEqual("record updated", recordTimeline.Items.Single().Summary, "Record timeline entries should expose a display summary without raw metadata.");
 
 var updateRecordRequest = new UpdateRecordRequest(
     new Dictionary<string, object?>

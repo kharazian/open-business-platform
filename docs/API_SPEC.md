@@ -1520,6 +1520,33 @@ Response:
 
 Record detail returns the immutable schema from the stored `formVersionId` so values can be interpreted as they were at submission time. Hidden field values are omitted, and read-only field ids tell the client which returned values cannot be edited by the current user. `displayValues` hydrates visible lookup labels for read-only display and edit controls; clients still submit the raw IDs from `values`.
 
+### Get record timeline
+
+`GET /api/records/{recordId}/timeline?limit=25`
+
+Requires the same backend form `view`, form `manage`, or `forms.manage_all` access and matching V3 record scope as record detail. `limit` defaults to `25` and is clamped to `1` through `50`.
+
+The response combines summarized record audit entries, workflow history, trigger execution logs, and integration logs for the selected record. It intentionally does not return raw audit before/after JSON, trigger payloads, integration metadata, record values, hidden fields, or secrets.
+
+Response:
+
+```json
+{
+  "recordId": "55555555-5555-5555-5555-555555555555",
+  "items": [
+    {
+      "id": "audit:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source": "audit",
+      "action": "record_updated",
+      "status": null,
+      "summary": "record updated",
+      "occurredAt": "2026-05-21T13:30:00Z",
+      "actorUserId": "22222222-2222-2222-2222-222222222222"
+    }
+  ]
+}
+```
+
 ### Update record
 
 `PUT /api/records/{recordId}`

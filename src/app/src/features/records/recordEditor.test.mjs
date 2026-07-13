@@ -49,3 +49,14 @@ test("record detail page can start directly in edit mode from route query", () =
   assert.equal(source.includes("useSearchParams"), true);
   assert.equal(source.includes("isRecordEditMode"), true);
 });
+
+test("record detail page exposes a record activity timeline panel", () => {
+  const source = readFileSync(new URL("./pages/RecordDetailPage.tsx", import.meta.url), "utf8");
+  const apiSource = readFileSync(new URL("../forms/api.ts", import.meta.url), "utf8");
+
+  assert.equal(apiSource.includes("getRecordTimeline"), true);
+  assert.equal(apiSource.includes("/timeline?"), true);
+  assert.equal(source.includes("ActivityTimelinePanel"), true);
+  assert.equal(source.includes("Recent audit, workflow, trigger, and integration events"), true);
+  assert.equal(source.includes("timelineLoading"), true);
+});

@@ -140,6 +140,21 @@ export type SubTableRowsResult = {
   items: SubTableRow[];
 };
 
+export type RecordTimelineEntry = {
+  id: string;
+  source: "audit" | "workflow" | "trigger" | "integration";
+  action: string;
+  status?: string | null;
+  summary: string;
+  occurredAt: string;
+  actorUserId?: string | null;
+};
+
+export type RecordTimeline = {
+  recordId: string;
+  items: RecordTimelineEntry[];
+};
+
 export class FormsApiError extends Error {
   readonly errors: ValidationError[];
 
@@ -312,6 +327,17 @@ export async function listSubTableRows(
 export async function getRecord(recordId: string, fetcher: FormsFetcher = defaultFetcher): Promise<FormRecordDetail> {
   return requestJson<FormRecordDetail>(
     `/api/records/${encodeURIComponent(recordId)}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function getRecordTimeline(recordId: string, limit = 25, fetcher: FormsFetcher = defaultFetcher): Promise<RecordTimeline> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", String(limit));
+
+  return requestJson<RecordTimeline>(
+    `/api/records/${encodeURIComponent(recordId)}/timeline?${searchParams.toString()}`,
     { method: "GET", credentials: "include" },
     fetcher
   );

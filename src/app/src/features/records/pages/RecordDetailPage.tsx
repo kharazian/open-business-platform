@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Edit3, FileDown, GitBranch, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit3, FileDown, GitBranch, History, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -10,7 +10,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { FormRenderer, SubTablePreviewField } from "../../forms/components/FormRenderer";
-import { deleteRecord, getRecord, updateRecord, type FormRecordDetail } from "../../forms/api";
+import { deleteRecord, getRecord, getRecordTimeline, updateRecord, type FormRecordDetail, type RecordTimeline } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
@@ -43,6 +43,9 @@ export function RecordDetailPage() {
   const [workflowAction, setWorkflowAction] = useState<string | null>(null);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState("");
+  const [timeline, setTimeline] = useState<RecordTimeline | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
   const [recordPrintTemplates, setRecordPrintTemplates] = useState<PrintTemplateSummary[]>([]);
   const [selectedPrintTemplateId, setSelectedPrintTemplateId] = useState("");
   const [selectedPrintTemplate, setSelectedPrintTemplate] = useState<PrintTemplateRenderDetail | null>(null);
@@ -115,12 +118,17 @@ export function RecordDetailPage() {
     setLoading(true);
     setError(null);
     setWorkflowError(null);
+    setTimelineError(null);
     setPrintTemplateError(null);
 
     try {
       const [loadedRecord, loadedWorkflowState] = await Promise.all([getRecord(resolvedRecordId), getRecordWorkflow(resolvedRecordId)]);
-      const templates = await loadRecordPrintTemplates(loadedRecord.formId);
+      const [templates, loadedTimeline] = await Promise.all([
+        loadRecordPrintTemplates(loadedRecord.formId),
+        loadRecordTimeline(loadedRecord.id)
+      ]);
       setRecord(loadedRecord);
+      setTimeline(loadedTimeline);
       setRecordPrintTemplates(templates);
       setSelectedPrintTemplateId((current) => templates.some((template) => template.id === current) ? current : "");
       setDraftValues(createRecordEditDraft(loadedRecord));
@@ -141,6 +149,25 @@ export function RecordDetailPage() {
       setPrintTemplateError(getErrorMessage(caught));
       return [];
     }
+  }
+
+  async function loadRecordTimeline(targetRecordId: string): Promise<RecordTimeline | null> {
+    setTimelineLoading(true);
+    setTimelineError(null);
+
+    try {
+      return await getRecordTimeline(targetRecordId);
+    } catch (caught) {
+      setTimelineError(getErrorMessage(caught));
+      return null;
+    } finally {
+      setTimelineLoading(false);
+    }
+  }
+
+  async function refreshTimeline(targetRecordId = resolvedRecordId) {
+    if (!targetRecordId) return;
+    setTimeline(await loadRecordTimeline(targetRecordId));
   }
 
   function startEditing() {
@@ -181,6 +208,7 @@ export function RecordDetailPage() {
       setValidationErrors([]);
       setEditing(false);
       await refreshWorkflowState(updatedRecord.id);
+      await refreshTimeline(updatedRecord.id);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -226,6 +254,7 @@ export function RecordDetailPage() {
       const updatedRecord = await getRecord(record.id);
       setRecord(updatedRecord);
       setDraftValues(createRecordEditDraft(updatedRecord));
+      await refreshTimeline(updatedRecord.id);
     } catch (caught) {
       setWorkflowError(getErrorMessage(caught));
     } finally {
@@ -247,6 +276,7 @@ export function RecordDetailPage() {
       const updatedRecord = await getRecord(record.id);
       setRecord(updatedRecord);
       setDraftValues(createRecordEditDraft(updatedRecord));
+      await refreshTimeline(updatedRecord.id);
     } catch (caught) {
       setWorkflowError(getErrorMessage(caught));
     } finally {
@@ -422,6 +452,15 @@ export function RecordDetailPage() {
               onTransition={(transition) => void executeWorkflowTransition(transition)}
               selectedWorkflowId={selectedWorkflowId}
               state={workflowState}
+            />
+          </div>
+
+          <div data-print-hide={selectedPrintTemplate ? "true" : undefined}>
+            <ActivityTimelinePanel
+              error={timelineError}
+              loading={timelineLoading}
+              onRefresh={() => void refreshTimeline(record.id)}
+              timeline={timeline}
             />
           </div>
 
@@ -638,6 +677,62 @@ function WorkflowHistoryList({ state }: { state: RecordWorkflowState }) {
   );
 }
 
+function ActivityTimelinePanel({
+  error,
+  loading,
+  onRefresh,
+  timeline
+}: {
+  error: string | null;
+  loading: boolean;
+  onRefresh: () => void;
+  timeline: RecordTimeline | null;
+}) {
+  return (
+    <Card data-print-hide="true">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <History className="size-5" />
+            Activity
+          </CardTitle>
+          <CardDescription>Recent audit, workflow, trigger, and integration events for this record.</CardDescription>
+        </div>
+        <Button disabled={loading} onClick={onRefresh} size="sm" variant="outline">
+          <RefreshCw className="size-4" />
+          Refresh
+        </Button>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {error ? <Alert title="Activity timeline">{error}</Alert> : null}
+        {loading && !timeline ? (
+          <Skeleton className="h-28" />
+        ) : timeline && timeline.items.length > 0 ? (
+          <div className="grid gap-2">
+            {timeline.items.map((item) => (
+              <div className="grid gap-1 rounded-xl border border-border bg-card-muted px-3 py-2" key={item.id}>
+                <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-foreground">
+                  <Badge variant="default">{formatTimelineSource(item.source)}</Badge>
+                  <span>{item.summary}</span>
+                  {item.status ? <Badge variant={getTimelineStatusVariant(item.status)}>{item.status}</Badge> : null}
+                </div>
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {formatDateTime(item.occurredAt)}
+                  {item.actorUserId ? ` by ${shortId(item.actorUserId)}` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-border bg-card-muted px-4 py-3 text-sm font-semibold text-muted-foreground">
+            No activity has been recorded for this record yet.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function LinkButton({ children, to }: { children: ReactNode; to: string }) {
   return (
     <Link
@@ -686,6 +781,19 @@ function formatWorkflowAction(action: string): string {
   if (action === "workflow_started") return "Started";
   if (action === "workflow_transitioned") return "Transitioned";
   return action.replaceAll("_", " ");
+}
+
+function formatTimelineSource(source: RecordTimeline["items"][number]["source"]): string {
+  if (source === "audit") return "Audit";
+  if (source === "workflow") return "Workflow";
+  if (source === "trigger") return "Trigger";
+  return "Integration";
+}
+
+function getTimelineStatusVariant(status: string): "default" | "danger" | "success" {
+  if (status === "failed" || status === "error") return "danger";
+  if (status === "succeeded" || status === "completed" || status === "success") return "success";
+  return "default";
 }
 
 function downloadBlob(blob: Blob, fileName: string) {

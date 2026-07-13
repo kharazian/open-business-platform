@@ -156,6 +156,38 @@ public static class RecordsEndpoints
             });
         });
 
+        detailGroup.MapGet("/{recordId:guid}/timeline", async (
+            Guid recordId,
+            int? limit,
+            RecordQueryService recordQuery,
+            RecordTimelineService recordTimeline,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+            {
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            }
+
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.View, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var timeline = await recordTimeline.ListTimelineAsync(
+                    httpContext.User,
+                    recordId,
+                    limit ?? 25,
+                    permissionService,
+                    cancellationToken);
+                return Results.Ok(timeline);
+            });
+        });
+
         detailGroup.MapPut("/{recordId:guid}", async (
             Guid recordId,
             UpdateRecordRequest request,

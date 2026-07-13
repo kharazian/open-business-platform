@@ -85,7 +85,7 @@ Operational apps need record detail pages that act as workspaces, not only field
 Needed support:
 
 - Related records panels.
-- Record timeline with audit, integration, trigger, workflow, and notification events.
+- Record timeline with audit, workflow, trigger, and integration events implemented on record detail pages; notification timeline events can be added when notification management expands.
 - Safe record actions such as reprocess, retry, hold, release, cancel, send, export, and generate document.
 - Field grouping and section visibility in detail views.
 - Permission-aware edit/read-only/hidden states.
