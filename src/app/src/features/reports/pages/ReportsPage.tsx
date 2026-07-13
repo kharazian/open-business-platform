@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, Play, Plus, Printer, RefreshCw, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -72,6 +72,7 @@ const sortDirectionOptions = [
 
 export function ReportsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
@@ -1553,6 +1554,7 @@ export function ReportsPage() {
                 onApplyFilters={applyReportColumnFilters}
                 onDeleteRecord={(recordId) => void handleDeleteReportRecord(recordId)}
                 onFilterChange={updateReportColumnFilter}
+                onOpenRecord={(recordId) => navigate(getRecordDetailPath(recordId))}
                 onSort={toggleReportSort}
                 deletingRecordId={deletingReportRecordId}
                 running={runningReport}
@@ -1629,6 +1631,7 @@ function ReportExecutionTable({
   onApplyFilters,
   onDeleteRecord,
   onFilterChange,
+  onOpenRecord,
   onSort,
   running,
   sortDirection,
@@ -1640,6 +1643,7 @@ function ReportExecutionTable({
   onApplyFilters: () => void;
   onDeleteRecord: (recordId: string) => void;
   onFilterChange: (fieldId: string, value: string) => void;
+  onOpenRecord: (recordId: string) => void;
   onSort: (fieldId: string) => void;
   running: boolean;
   sortDirection: ReportSortDirection;
@@ -1695,7 +1699,20 @@ function ReportExecutionTable({
           </thead>
           <tbody>
             {execution.rows.map((row) => (
-              <tr className="border-t border-border" key={row.recordId}>
+              <tr
+                aria-label="Open record detail"
+                className="cursor-pointer border-t border-border transition hover:bg-muted/35 focus:bg-muted/35 focus:outline-none"
+                key={row.recordId}
+                onClick={() => onOpenRecord(row.recordId)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpenRecord(row.recordId);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 {execution.columns.map((column) => {
                   const value = row.cells[column.fieldId]?.displayValue?.trim();
 
@@ -1705,7 +1722,7 @@ function ReportExecutionTable({
                     </td>
                   );
                 })}
-                <td className="px-4 py-3" data-print-hide="true">
+                <td className="px-4 py-3" data-print-hide="true" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
                   <div className="flex flex-wrap gap-2">
                     <ReportActionLink to={getRecordDetailPath(row.recordId)}>
                       <Eye className="size-4" />

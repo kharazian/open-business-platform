@@ -277,6 +277,9 @@ test("reports page exposes record workflow actions from report rows", () => {
   const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
   const formsModuleSource = readFileSync(new URL("../../modules/forms/module.tsx", import.meta.url), "utf8");
 
+  assert.equal(source.includes("onOpenRecord"), true);
+  assert.equal(source.includes("Open record detail"), true);
+  assert.equal(source.includes('role="button"'), true);
   assert.equal(source.includes("deleteRecord"), true);
   assert.equal(source.includes("handleDeleteReportRecord"), true);
   assert.equal(source.includes("getRecordDetailPath"), true);

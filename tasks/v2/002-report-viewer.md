@@ -21,7 +21,7 @@ Read:
 
 ## Current Status
 
-Completed for the current V2 slice. Saved list reports can run against real form records through the backend report execution path with saved filters, runtime search, saved sort, pagination, display-ready cells, form view permission checks, and frontend viewer controls in the reports workspace.
+Completed for the current V2 slice. Saved list reports can run against real form records through the backend report execution path with saved filters, runtime search, saved sort, pagination, display-ready cells, form view permission checks, row quick-open, and frontend viewer controls in the reports workspace.
 
 ## Out of Scope
 
