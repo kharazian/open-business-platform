@@ -27,6 +27,7 @@ import {
   getReportFieldOptions,
   toListReportFilters,
   toListReportSorts,
+  validateReportBuilderDrafts,
   type ReportFilterDraft,
   type ReportSortDraft
 } from "../builder";
@@ -90,6 +91,7 @@ export function ReportsPage() {
   const [columnLabels, setColumnLabels] = useState<Record<string, string>>({});
   const [filterDrafts, setFilterDrafts] = useState<ReportFilterDraft[]>([]);
   const [sortDrafts, setSortDrafts] = useState<ReportSortDraft[]>([]);
+  const [showReportBuilderValidation, setShowReportBuilderValidation] = useState(false);
   const [editingReportId, setEditingReportId] = useState("");
   const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
   const [managingReportId, setManagingReportId] = useState<string | null>(null);
@@ -220,6 +222,7 @@ export function ReportsPage() {
     setEditingReportId("");
     setEditingReportConcurrencyStamp("");
     setManagingReportId(null);
+    setShowReportBuilderValidation(false);
     resetReportAccessState();
     setReportNameError(undefined);
 
@@ -296,6 +299,12 @@ export function ReportsPage() {
     filters: toListReportFilters(filterDrafts),
     sort: toListReportSorts(sortDrafts)
   });
+  const reportBuilderValidation = useMemo(
+    () => validateReportBuilderDrafts({ fieldOptions, filterDrafts, sortDrafts }),
+    [fieldOptions, filterDrafts, sortDrafts]
+  );
+  const filterErrorsById = showReportBuilderValidation ? reportBuilderValidation.filterErrorsById : {};
+  const sortErrorsById = showReportBuilderValidation ? reportBuilderValidation.sortErrorsById : {};
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
   const editingReport = reports.find((report) => report.id === editingReportId) ?? null;
   const accessReport = reports.find((report) => report.id === accessReportId) ?? null;
@@ -433,6 +442,13 @@ export function ReportsPage() {
       return;
     }
 
+    if (!reportBuilderValidation.isValid) {
+      setShowReportBuilderValidation(true);
+      setError("Fix the highlighted report builder fields before saving.");
+      return;
+    }
+
+    setShowReportBuilderValidation(false);
     setSavingReport(true);
 
     try {
@@ -677,6 +693,7 @@ export function ReportsPage() {
     setColumnLabels(labels);
     setReportName(options.mode === "duplicate" ? `Copy of ${report.name}` : report.name);
     setReportNameError(undefined);
+    setShowReportBuilderValidation(false);
     setEditingReportId(options.mode === "edit" ? report.id : "");
     setEditingReportConcurrencyStamp(options.mode === "edit" ? report.concurrencyStamp : "");
 
@@ -702,6 +719,7 @@ export function ReportsPage() {
     setEditingReportConcurrencyStamp("");
     setReportName(name);
     setReportNameError(undefined);
+    setShowReportBuilderValidation(false);
     setSelectedFieldIds(fieldOptions.slice(0, Math.min(5, fieldOptions.length)).map((field) => field.id));
     setColumnLabels(Object.fromEntries(fieldOptions.map((field) => [field.id, field.label])));
     setFilterDrafts([]);
@@ -765,6 +783,7 @@ export function ReportsPage() {
   }
 
   function handleAddFilterDraft() {
+    setError(null);
     setNotice(null);
     setFilterDrafts((current) => [
       ...current,
@@ -778,16 +797,19 @@ export function ReportsPage() {
   }
 
   function handleRemoveFilterDraft(draftId: string) {
+    setError(null);
     setNotice(null);
     setFilterDrafts((current) => current.filter((draft) => draft.id !== draftId));
   }
 
   function updateFilterDraft(draftId: string, patch: Partial<Omit<ReportFilterDraft, "id">>) {
+    setError(null);
     setNotice(null);
     setFilterDrafts((current) => current.map((draft) => (draft.id === draftId ? { ...draft, ...patch } : draft)));
   }
 
   function handleAddSortDraft() {
+    setError(null);
     setNotice(null);
     setSortDrafts((current) => [
       ...current,
@@ -800,11 +822,13 @@ export function ReportsPage() {
   }
 
   function handleRemoveSortDraft(draftId: string) {
+    setError(null);
     setNotice(null);
     setSortDrafts((current) => current.filter((draft) => draft.id !== draftId));
   }
 
   function updateSortDraft(draftId: string, patch: Partial<Omit<ReportSortDraft, "id">>) {
+    setError(null);
     setNotice(null);
     setSortDrafts((current) => current.map((draft) => (draft.id === draftId ? { ...draft, ...patch } : draft)));
   }
@@ -1166,6 +1190,7 @@ export function ReportsPage() {
                       {filterDrafts.map((filterDraft) => (
                         <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_minmax(0,1fr)_auto]" key={filterDraft.id}>
                           <Select
+                            error={filterErrorsById[filterDraft.id]?.fieldId}
                             label="Filter field"
                             onChange={(event) => updateFilterDraft(filterDraft.id, { fieldId: event.target.value })}
                             value={filterDraft.fieldId}
@@ -1185,6 +1210,7 @@ export function ReportsPage() {
                           />
                           <Input
                             disabled={!filterDraft.fieldId || !filterOperatorRequiresValue(filterDraft.operator)}
+                            error={filterErrorsById[filterDraft.id]?.value}
                             label="Filter value"
                             onChange={(event) => updateFilterDraft(filterDraft.id, { value: event.target.value })}
                             value={filterDraft.value}
@@ -1221,6 +1247,7 @@ export function ReportsPage() {
                       {sortDrafts.map((sortDraft) => (
                         <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,14rem)_auto]" key={sortDraft.id}>
                           <Select
+                            error={sortErrorsById[sortDraft.id]?.fieldId}
                             label="Sort field"
                             onChange={(event) => updateSortDraft(sortDraft.id, { fieldId: event.target.value })}
                             value={sortDraft.fieldId}

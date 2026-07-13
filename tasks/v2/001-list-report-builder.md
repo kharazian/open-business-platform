@@ -21,7 +21,7 @@ Read:
 
 ## Current Status
 
-Completed for the current V2 slice. Users with report management and form manage access can save list report definitions with selected, reordered, and custom-labeled columns, multiple saved UI filters, and multiple saved UI sorts. The backend persists report config JSONB, validates config against the form schema plus supported system fields, checks permissions, and writes report audit entries.
+Completed for the current V2 slice. Users with report management and form manage access can save list report definitions with selected, reordered, and custom-labeled columns, multiple saved UI filters, and multiple saved UI sorts. The builder shows inline validation for active filters that require values plus invalid or duplicate sort fields before save. The backend persists report config JSONB, validates config against the form schema plus supported system fields, checks permissions, and writes report audit entries.
 
 ## Out of Scope
 
