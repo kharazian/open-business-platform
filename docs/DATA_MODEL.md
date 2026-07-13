@@ -140,6 +140,32 @@ Foreign keys:
 - created_by_id -> users.id, set null on delete
 - revoked_by_id -> users.id, set null on delete
 
+### integration_connectors
+
+Stores secret-safe connector configuration metadata for external systems such as SFTP, file storage, vendor APIs, and webhooks. Raw secret values are not stored in this table; `secret_metadata_json` stores configured secret names only.
+
+Fields:
+
+- id uuid
+- name
+- connector_key stable normalized connector identity
+- type: sftp, file_storage, vendor_api, webhook
+- config_json JSONB sanitized non-secret config
+- secret_metadata_json JSONB configured secret names only
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created_at
+- created_by_id nullable
+- updated_at nullable
+- updated_by_id nullable
+
+Indexes:
+
+- unique connector_key
+- type
+- is_active
+
 ### integration_logs
 
 Stores observable inbound/outbound integration attempts. Metadata columns must store only sanitized request/response metadata, not raw request bodies, secret headers, raw API keys, or hidden field values.

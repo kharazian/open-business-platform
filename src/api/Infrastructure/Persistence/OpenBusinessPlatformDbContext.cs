@@ -69,6 +69,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<IntegrationApiKey> IntegrationApiKeys => Set<IntegrationApiKey>();
 
+    public DbSet<IntegrationConnector> IntegrationConnectors => Set<IntegrationConnector>();
+
     public DbSet<IntegrationLogEntry> IntegrationLogs => Set<IntegrationLogEntry>();
 
     public DbSet<IncomingWebhookListener> IncomingWebhookListeners => Set<IncomingWebhookListener>();
@@ -859,6 +861,22 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(apiKey => apiKey.RevokedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<IntegrationConnector>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "integration_connectors");
+            entity.HasIndex(connector => connector.ConnectorKey).IsUnique();
+            entity.HasIndex(connector => connector.Type);
+            entity.HasIndex(connector => connector.IsActive);
+            entity.Property(connector => connector.Name).HasColumnName("name").HasMaxLength(160).IsRequired();
+            entity.Property(connector => connector.ConnectorKey).HasColumnName("connector_key").HasMaxLength(120).IsRequired();
+            entity.Property(connector => connector.Type).HasColumnName("type").HasMaxLength(40).IsRequired();
+            entity.Property(connector => connector.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(connector => connector.SecretMetadataJson).HasColumnName("secret_metadata_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(connector => connector.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(connector => connector.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(64).IsRequired();
+            entity.Property(connector => connector.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<IntegrationLogEntry>(entity =>

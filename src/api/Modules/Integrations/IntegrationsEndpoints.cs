@@ -103,6 +103,79 @@ public static class IntegrationsEndpoints
             });
         });
 
+        var connectors = endpoints.MapGroup("/api/integrations/connectors")
+            .WithTags("Integrations")
+            .RequireAuthorization();
+
+        connectors.MapGet("", async (
+            IntegrationConnectorService connectorService,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(new { items = await connectorService.ListAsync(cancellationToken) });
+        });
+
+        connectors.MapGet("/{connectorId:guid}", async (
+            Guid connectorId,
+            IntegrationConnectorService connectorService,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            var connector = await connectorService.GetAsync(connectorId, cancellationToken);
+            return connector is null ? Results.NotFound() : Results.Ok(connector);
+        });
+
+        connectors.MapPost("", async (
+            UpsertIntegrationConnectorRequest request,
+            IntegrationConnectorService connectorService,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var connector = await connectorService.CreateAsync(request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Created($"/api/integrations/connectors/{connector.Id}", connector);
+            });
+        });
+
+        connectors.MapPut("/{connectorId:guid}", async (
+            Guid connectorId,
+            UpsertIntegrationConnectorRequest request,
+            IntegrationConnectorService connectorService,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageIntegrationsAsync(permissionService, httpContext, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleIntegrationRequestAsync(async () =>
+            {
+                var connector = await connectorService.UpdateAsync(connectorId, request, GetCurrentUserId(httpContext), cancellationToken);
+                return connector is null ? Results.NotFound() : Results.Ok(connector);
+            });
+        });
+
         var logs = endpoints.MapGroup("/api/integrations/logs")
             .WithTags("Integrations")
             .RequireAuthorization();
@@ -452,6 +525,10 @@ public static class IntegrationsEndpoints
         catch (IntegrationApiKeyException exception)
         {
             return Results.Json(new IntegrationApiKeyErrorResponse(exception.Message), statusCode: exception.StatusCode);
+        }
+        catch (IntegrationConnectorException exception)
+        {
+            return Results.Json(new IntegrationConnectorErrorResponse(exception.Message), statusCode: exception.StatusCode);
         }
         catch (RecordSubmissionException exception)
         {

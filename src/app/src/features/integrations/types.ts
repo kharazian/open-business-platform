@@ -84,6 +84,27 @@ export type IntegrationLogFilters = {
   since?: string;
 };
 
+export type IntegrationConnectorType = "sftp" | "file_storage" | "vendor_api" | "webhook";
+
+export type IntegrationConnectorDto = AuditedEntityDto & ConcurrencyStampedDto & {
+  name: string;
+  connectorKey: string;
+  type: IntegrationConnectorType;
+  config: Record<string, unknown>;
+  configuredSecretNames: string[];
+  isActive: boolean;
+};
+
+export type UpsertIntegrationConnectorRequest = {
+  name: string;
+  connectorKey: string;
+  type: IntegrationConnectorType;
+  config?: Record<string, unknown> | null;
+  secrets?: Record<string, string | null> | null;
+  isActive: boolean;
+  concurrencyStamp?: string | null;
+};
+
 export type IncomingWebhookListenerAction = "create" | "upsert";
 export type IncomingWebhookListenerAuthMode = "api_key" | "listener_secret";
 
@@ -216,3 +237,5 @@ export const integrationApiKeyScopes: IntegrationApiKeyScope[] = [
   "integrations.records.create",
   "integrations.webhooks.receive"
 ];
+
+export const integrationConnectorTypes: IntegrationConnectorType[] = ["sftp", "file_storage", "vendor_api", "webhook"];

@@ -1,6 +1,7 @@
 import type {
   CreateIntegrationApiKeyRequest,
   CreateExternalExportJobRequest,
+  IntegrationConnectorDto,
   CreateRecordImportJobRequest,
   ExternalExportJobDetailDto,
   ExternalExportJobSummaryDto,
@@ -14,6 +15,7 @@ import type {
   RecordImportJobSummaryDto,
   RevokeIntegrationApiKeyRequest,
   RotateIntegrationApiKeyRequest,
+  UpsertIntegrationConnectorRequest,
   UpsertIncomingWebhookListenerRequest
 } from "./types";
 
@@ -80,6 +82,43 @@ export async function rotateIntegrationApiKey(
     `/api/integrations/api-keys/${encodeURIComponent(apiKeyId)}/rotate`,
     {
       method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function listIntegrationConnectors(fetcher: IntegrationsFetcher = defaultFetcher): Promise<IntegrationConnectorDto[]> {
+  return requestItems<IntegrationConnectorDto>("/api/integrations/connectors", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function createIntegrationConnector(
+  request: UpsertIntegrationConnectorRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<IntegrationConnectorDto> {
+  return requestJson<IntegrationConnectorDto>(
+    "/api/integrations/connectors",
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    },
+    fetcher
+  );
+}
+
+export async function updateIntegrationConnector(
+  connectorId: string,
+  request: UpsertIntegrationConnectorRequest,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<IntegrationConnectorDto> {
+  return requestJson<IntegrationConnectorDto>(
+    `/api/integrations/connectors/${encodeURIComponent(connectorId)}`,
+    {
+      method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request)

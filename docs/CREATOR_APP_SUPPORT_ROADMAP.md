@@ -101,12 +101,12 @@ Creator-style apps often combine records with external systems.
 
 Needed support:
 
-- SFTP connector configuration with host, port, paths, credentials, and active state.
-- File storage connector abstraction for systems such as WorkDrive, S3-compatible storage, or local development storage.
-- Vendor API connector configuration for systems such as Shopify or ERP/EDI providers.
+- SFTP connector configuration with host, port, paths, configured secret names, and active state is now persisted as secret-safe connector metadata.
+- File storage connector abstraction for systems such as WorkDrive, S3-compatible storage, or local development storage now has a stored connector type and metadata foundation.
+- Vendor API connector configuration for systems such as Shopify or ERP/EDI providers now has a stored connector type and metadata foundation.
 - Webhook listener and outbound webhook support.
-- Secret storage with encryption or provider-backed secret management.
-- Credential masking in UI and API responses.
+- Secret storage with encryption or provider-backed secret management remains a later execution-layer improvement; current connector configs discard raw secret values and keep only configured secret names.
+- Credential masking in UI and API responses is implemented for connector config metadata and existing key/webhook surfaces.
 - Connector test actions with audit logs.
 
 Implementation direction:

@@ -37,6 +37,56 @@ test("integrations API client manages API keys and retry requests", async () => 
   assert.equal(calls[4].input, "/api/integrations/logs/log-1/retry-request");
 });
 
+test("integrations API client manages secret-safe connector configs", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+
+    if (input === "/api/integrations/connectors" && init.method === "GET") {
+      return { ok: true, json: async () => ({ items: [{ id: "connector-1", connectorKey: "warehouse-sftp", configuredSecretNames: ["password"] }] }) };
+    }
+
+    if (input === "/api/integrations/connectors" && init.method === "POST") {
+      return { ok: true, json: async () => ({ id: "connector-2", connectorKey: "erp-api", configuredSecretNames: ["apiToken"] }) };
+    }
+
+    if (input === "/api/integrations/connectors/connector-1" && init.method === "PUT") {
+      return { ok: true, json: async () => ({ id: "connector-1", isActive: false, configuredSecretNames: ["password"] }) };
+    }
+
+    return { ok: false, json: async () => ({ message: `Unexpected ${init.method} ${input}` }) };
+  };
+
+  const connectors = await api.listIntegrationConnectors(fetcher);
+  const created = await api.createIntegrationConnector({
+    name: "ERP API",
+    connectorKey: "erp-api",
+    type: "vendor_api",
+    config: { baseUrl: "https://api.example.test", apiToken: "raw-token" },
+    secrets: { apiToken: "raw-token" },
+    isActive: true
+  }, fetcher);
+  const updated = await api.updateIntegrationConnector("connector-1", {
+    name: "Warehouse SFTP",
+    connectorKey: "warehouse-sftp",
+    type: "sftp",
+    config: { host: "sftp.example.test" },
+    secrets: null,
+    isActive: false,
+    concurrencyStamp: "stamp"
+  }, fetcher);
+
+  assert.equal(connectors[0].connectorKey, "warehouse-sftp");
+  assert.deepEqual(created.configuredSecretNames, ["apiToken"]);
+  assert.equal(updated.isActive, false);
+  assert.deepEqual(calls.map((call) => `${call.init.method} ${call.input}`), [
+    "GET /api/integrations/connectors",
+    "POST /api/integrations/connectors",
+    "PUT /api/integrations/connectors/connector-1"
+  ]);
+  assert.equal(JSON.parse(calls[1].init.body).secrets.apiToken, "raw-token");
+});
+
 test("integrations API client manages webhook listeners, imports, and exports", async () => {
   const calls = [];
   const fetcher = async (input, init = {}) => {

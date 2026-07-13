@@ -128,6 +128,7 @@ AssertTable<PrintTemplateVersion>(model, "print_template_versions");
 AssertTable<Notification>(model, "notifications");
 AssertTable<NotificationPreference>(model, "notification_preferences");
 AssertTable<IntegrationApiKey>(model, "integration_api_keys");
+AssertTable<IntegrationConnector>(model, "integration_connectors");
 AssertTable<IntegrationLogEntry>(model, "integration_logs");
 AssertTable<IncomingWebhookListener>(model, "incoming_webhook_listeners");
 AssertTable<RecordImportJob>(model, "record_import_jobs");
@@ -161,6 +162,7 @@ AssertTypeAssignable<CreationAuditedEntity<Guid>, PrintTemplateVersion>();
 AssertTypeAssignable<Entity<Guid>, Notification>();
 AssertTypeAssignable<Entity<Guid>, NotificationPreference>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationApiKey>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationConnector>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IntegrationLogEntry>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, IncomingWebhookListener>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, RecordImportJob>();
@@ -193,6 +195,7 @@ AssertGuidId<PrintTemplateVersion>(model);
 AssertGuidId<Notification>(model);
 AssertGuidId<NotificationPreference>(model);
 AssertGuidId<IntegrationApiKey>(model);
+AssertGuidId<IntegrationConnector>(model);
 AssertGuidId<IntegrationLogEntry>(model);
 AssertGuidId<IncomingWebhookListener>(model);
 AssertGuidId<RecordImportJob>(model);
@@ -230,6 +233,8 @@ AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ConfigJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ConfigJson));
 AssertJsonColumn<Notification>(model, nameof(Notification.MetadataJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ScopesJson));
+AssertJsonColumn<IntegrationConnector>(model, nameof(IntegrationConnector.ConfigJson));
+AssertJsonColumn<IntegrationConnector>(model, nameof(IntegrationConnector.SecretMetadataJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.RequestMetadataJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ResponseMetadataJson));
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.MappingJson));
@@ -252,6 +257,7 @@ AssertJsonColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.ExtraPrope
 AssertJsonColumn<PrintTemplate>(model, nameof(PrintTemplate.ExtraPropertiesJson));
 AssertJsonColumn<PrintTemplateVersion>(model, nameof(PrintTemplateVersion.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.ExtraPropertiesJson));
+AssertJsonColumn<IntegrationConnector>(model, nameof(IntegrationConnector.ExtraPropertiesJson));
 AssertJsonColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.ExtraPropertiesJson));
 AssertJsonColumn<IncomingWebhookListener>(model, nameof(IncomingWebhookListener.ExtraPropertiesJson));
 AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.ExtraPropertiesJson));
@@ -316,6 +322,12 @@ AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedIp), "la
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.LastUsedUserAgent), "last_used_user_agent", "Integration API keys should track last use user agent metadata.");
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedAt), "revoked_at", "Integration API keys should track revocation time.");
 AssertColumn<IntegrationApiKey>(model, nameof(IntegrationApiKey.RevokedById), "revoked_by_id", "Integration API keys should track the revoking user.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.Name), "name", "Integration connectors should store a display name.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.ConnectorKey), "connector_key", "Integration connectors should store a stable connector key.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.Type), "type", "Integration connectors should store the connector type.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.ConfigJson), "config_json", "Integration connectors should store sanitized config JSON.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.SecretMetadataJson), "secret_metadata_json", "Integration connectors should store secret metadata without raw secrets.");
+AssertColumn<IntegrationConnector>(model, nameof(IntegrationConnector.IsActive), "is_active", "Integration connectors should store active state.");
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.Direction), "direction", "Integration logs should store inbound/outbound direction.");
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.IntegrationType), "integration_type", "Integration logs should store integration type.");
 AssertColumn<IntegrationLogEntry>(model, nameof(IntegrationLogEntry.IntegrationKey), "integration_key", "Integration logs should store stable integration identity.");
@@ -373,6 +385,7 @@ AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.CompletedAt), "c
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyHash) }, "Integration API key hashes should be unique.");
+AssertUniqueIndex<IntegrationConnector>(model, new[] { nameof(IntegrationConnector.ConnectorKey) }, "Integration connector keys should be unique.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.ListenerKey) }, "Incoming webhook listener route keys should be unique.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.SecretPrefix) }, "Incoming webhook listener secret prefixes should be unique for lookup.");
 AssertUniqueIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.ImportJobId), nameof(RecordImportJobRow.RowNumber) }, "Record import job rows should be unique per source row.");
@@ -381,6 +394,8 @@ AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.IsActive)
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.LastUsedAt) }, "Integration API keys should be indexed by last use time.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.RevokedAt) }, "Integration API keys should be indexed by revocation time.");
 AssertIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.CreatedById) }, "Integration API keys should be indexed by creator.");
+AssertIndex<IntegrationConnector>(model, new[] { nameof(IntegrationConnector.Type) }, "Integration connectors should be indexed by type.");
+AssertIndex<IntegrationConnector>(model, new[] { nameof(IntegrationConnector.IsActive) }, "Integration connectors should be indexed by active state.");
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.IntegrationKey) }, "Integration logs should be indexed by integration identity.");
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.Direction) }, "Integration logs should be indexed by direction.");
 AssertIndex<IntegrationLogEntry>(model, new[] { nameof(IntegrationLogEntry.IntegrationType) }, "Integration logs should be indexed by integration type.");
@@ -488,6 +503,9 @@ AssertFalse(apiKeyHasher.Verify($"{generatedApiKey.RawKey}x", generatedApiKey.Ke
 AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.Authenticate), "Integration API key scopes should include conservative authentication scope.");
 AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.RecordsRead), "Integration API key scopes should include explicit record read scope.");
 AssertTrue(IntegrationApiKeyScopes.Supported.Contains(IntegrationApiKeyScopes.RecordsCreate), "Integration API key scopes should include explicit record create scope.");
+AssertTrue(IntegrationConnectorTypes.Supported.Contains(IntegrationConnectorTypes.Sftp), "Integration connectors should support SFTP configuration.");
+AssertTrue(IntegrationConnectorTypes.Supported.Contains(IntegrationConnectorTypes.FileStorage), "Integration connectors should support file storage configuration.");
+AssertTrue(IntegrationConnectorTypes.Supported.Contains(IntegrationConnectorTypes.VendorApi), "Integration connectors should support vendor API configuration.");
 AssertFalse(
     IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = false }),
     "Inactive integration API keys should not authenticate.");
@@ -2061,6 +2079,17 @@ AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKe
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RevokeAsync)), "Integration API key service should revoke active keys.");
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.RotateAsync)), "Integration API key service should rotate keys and return the new raw key once.");
 AssertNotNull(typeof(IntegrationApiKeyService).GetMethod(nameof(IntegrationApiKeyService.AuthenticateAsync)), "Integration API key service should authenticate raw keys for API requests.");
+AssertNotNull(typeof(IntegrationConnectorService).GetMethod(nameof(IntegrationConnectorService.ListAsync)), "Integration connector service should list saved connector configurations.");
+AssertNotNull(typeof(IntegrationConnectorService).GetMethod(nameof(IntegrationConnectorService.CreateAsync)), "Integration connector service should create connector configs without returning raw secrets.");
+AssertNotNull(typeof(IntegrationConnectorService).GetMethod(nameof(IntegrationConnectorService.UpdateAsync)), "Integration connector service should update connector configs with concurrency checks.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Integrations", "IntegrationsEndpoints.cs"))
+        .Contains("/api/integrations/connectors", StringComparison.Ordinal),
+    "Integration endpoints should expose connector management routes.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
+        .Contains("AddScoped<IntegrationConnectorService>", StringComparison.Ordinal),
+    "Integration connector service should be registered for endpoint injection.");
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.ListAsync)), "Integration log service should list observable integration attempts.");
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.GetAsync)), "Integration log service should get one integration attempt.");
 AssertNotNull(typeof(IntegrationLogService).GetMethod(nameof(IntegrationLogService.RecordAsync)), "Integration log service should record sanitized integration attempts.");

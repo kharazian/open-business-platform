@@ -151,6 +151,80 @@ Request:
 
 Future integration endpoints can opt into the `IntegrationApiKey` authentication scheme. Requests may pass the key as `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`. A successful API-key authentication updates `lastUsedAt`, `lastUsedIp`, and `lastUsedUserAgent` only when the key is still active and non-revoked.
 
+### Integration connectors
+
+Integration connector configuration uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.
+
+Connectors persist non-secret configuration in sanitized JSON and store only configured secret names. Raw secret values accepted by create/update requests are discarded after the backend records which secret slots are configured. List/get/update responses never include raw secret values.
+
+Supported connector types:
+
+- `sftp`
+- `file_storage`
+- `vendor_api`
+- `webhook`
+
+`GET /api/integrations/connectors`
+
+Lists connector configurations:
+
+```json
+{
+  "items": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "name": "Warehouse SFTP",
+      "connectorKey": "warehouse-sftp",
+      "type": "sftp",
+      "config": {
+        "host": "sftp.example.test",
+        "port": 22
+      },
+      "configuredSecretNames": ["password"],
+      "isActive": true,
+      "concurrencyStamp": "stamp",
+      "createdAt": "2026-07-13T21:24:00Z",
+      "createdById": null,
+      "updatedAt": null,
+      "updatedById": null
+    }
+  ]
+}
+```
+
+`GET /api/integrations/connectors/{connectorId}`
+
+Returns one connector configuration or `404`.
+
+`POST /api/integrations/connectors`
+
+Creates a connector configuration.
+
+Request:
+
+```json
+{
+  "name": "Warehouse SFTP",
+  "connectorKey": "warehouse-sftp",
+  "type": "sftp",
+  "config": {
+    "host": "sftp.example.test",
+    "port": 22,
+    "password": "redacted by backend sanitizer"
+  },
+  "secrets": {
+    "password": "raw value discarded after create"
+  },
+  "isActive": true
+}
+```
+
+Response: `201 Created` with the saved connector DTO. Sensitive config keys such as password, secret, token, API key, authorization, and cookie are replaced with `[redacted]`; `secrets` values are not persisted.
+
+`PUT /api/integrations/connectors/{connectorId}`
+
+Updates a connector configuration. The request shape matches create and includes `concurrencyStamp`. If `secrets` is `null`, existing configured secret names are preserved; if `secrets` is supplied, the configured secret name list is replaced by non-empty secret keys from the request. Updates write `integration_connector_updated` audit entries and return `409` for stale concurrency stamps.
+
 ### Public/internal record API v1
 
 The public/internal record API uses the `IntegrationApiKey` authentication scheme. Requests must pass a valid API key by `Authorization: Bearer <rawKey>` or `X-OBP-API-Key: <rawKey>`.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Download, KeyRound, RefreshCw, RotateCcw, ShieldOff, Upload, Webhook } from "lucide-react";
+import { Copy, Download, KeyRound, Plug, RefreshCw, RotateCcw, ShieldOff, Upload, Webhook } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -15,9 +15,11 @@ import { Textarea } from "../../../components/ui/Textarea";
 import {
   createExternalExportJob,
   createIncomingWebhookListener,
+  createIntegrationConnector,
   createIntegrationApiKey,
   createRecordImportJob,
   listExternalExportJobs,
+  listIntegrationConnectors,
   listIncomingWebhookListeners,
   listIntegrationApiKeys,
   listIntegrationLogs,
@@ -26,11 +28,13 @@ import {
   revokeIntegrationApiKey,
   rotateIncomingWebhookListenerSecret,
   rotateIntegrationApiKey,
+  updateIntegrationConnector,
   updateIncomingWebhookListener
 } from "../api";
 import { filterIntegrationLogs, formatIntegrationDate, formatMetadata, isIntegrationLogRetryEligible } from "../operations";
 import {
   integrationApiKeyScopes,
+  integrationConnectorTypes,
   type ExternalExportJobFormat,
   type ExternalExportJobSourceType,
   type ExternalExportJobSummaryDto,
@@ -39,12 +43,14 @@ import {
   type IncomingWebhookListenerDto,
   type IntegrationApiKeyDto,
   type IntegrationApiKeyScope,
+  type IntegrationConnectorDto,
+  type IntegrationConnectorType,
   type IntegrationLogDto,
   type IntegrationLogFilters,
   type RecordImportJobSummaryDto
 } from "../types";
 
-type TabKey = "keys" | "webhooks" | "imports" | "exports" | "logs";
+type TabKey = "keys" | "connectors" | "webhooks" | "imports" | "exports" | "logs";
 
 const emptyKeyForm = {
   name: "",
@@ -65,6 +71,17 @@ const defaultImportMapping = JSON.stringify({
   ]
 }, null, 2);
 
+const defaultConnectorConfig = JSON.stringify({
+  host: "sftp.example.test",
+  port: 22,
+  path: "/inbound"
+}, null, 2);
+
+const defaultConnectorSecrets = JSON.stringify({
+  username: "configured-user",
+  password: "paste-secret-once"
+}, null, 2);
+
 const emptyWebhookForm = {
   name: "",
   listenerKey: "",
@@ -73,6 +90,15 @@ const emptyWebhookForm = {
   authMode: "listener_secret" as IncomingWebhookListenerAuthMode,
   safeLookupFieldId: "",
   mappingJson: defaultWebhookMapping,
+  isActive: true
+};
+
+const emptyConnectorForm = {
+  name: "",
+  connectorKey: "",
+  type: "sftp" as IntegrationConnectorType,
+  configJson: defaultConnectorConfig,
+  secretsJson: defaultConnectorSecrets,
   isActive: true
 };
 
@@ -96,11 +122,13 @@ const emptyExportForm = {
 export function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("keys");
   const [apiKeys, setApiKeys] = useState<IntegrationApiKeyDto[]>([]);
+  const [connectors, setConnectors] = useState<IntegrationConnectorDto[]>([]);
   const [logs, setLogs] = useState<IntegrationLogDto[]>([]);
   const [webhookListeners, setWebhookListeners] = useState<IncomingWebhookListenerDto[]>([]);
   const [importJobs, setImportJobs] = useState<RecordImportJobSummaryDto[]>([]);
   const [exportJobs, setExportJobs] = useState<ExternalExportJobSummaryDto[]>([]);
   const [keyForm, setKeyForm] = useState(emptyKeyForm);
+  const [connectorForm, setConnectorForm] = useState(emptyConnectorForm);
   const [webhookForm, setWebhookForm] = useState(emptyWebhookForm);
   const [importForm, setImportForm] = useState(emptyImportForm);
   const [exportForm, setExportForm] = useState(emptyExportForm);
@@ -111,6 +139,7 @@ export function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState(false);
+  const [savingConnector, setSavingConnector] = useState(false);
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [savingImport, setSavingImport] = useState(false);
   const [savingExport, setSavingExport] = useState(false);
@@ -129,14 +158,16 @@ export function IntegrationsPage() {
     setError(null);
 
     try {
-      const [keyItems, logItems, listenerItems, importItems, exportItems] = await Promise.all([
+      const [keyItems, connectorItems, logItems, listenerItems, importItems, exportItems] = await Promise.all([
         listIntegrationApiKeys(),
+        listIntegrationConnectors(),
         listIntegrationLogs(),
         listIncomingWebhookListeners(),
         listRecordImportJobs(),
         listExternalExportJobs()
       ]);
       setApiKeys(keyItems);
+      setConnectors(connectorItems);
       setLogs(logItems);
       setWebhookListeners(listenerItems);
       setImportJobs(importItems);
@@ -217,6 +248,56 @@ export function IntegrationsPage() {
       setLogs((current) => current.map((item) => item.id === retried.id ? retried : item));
       setSelectedLog(retried);
       setNotice("Retry requested and audit metadata recorded.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleCreateConnector() {
+    setSavingConnector(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const config = parseJsonObject(connectorForm.configJson, "Connector config");
+      const secrets = parseJsonObject(connectorForm.secretsJson, "Connector secrets");
+      const created = await createIntegrationConnector({
+        name: connectorForm.name,
+        connectorKey: connectorForm.connectorKey,
+        type: connectorForm.type,
+        config,
+        secrets: Object.fromEntries(Object.entries(secrets).map(([key, value]) => [key, value === null ? null : String(value)])),
+        isActive: connectorForm.isActive
+      });
+      setConnectors((current) => [created, ...current]);
+      setConnectorForm(emptyConnectorForm);
+      setNotice("Connector saved. Raw secret values were discarded after recording configured secret names.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setSavingConnector(false);
+    }
+  }
+
+  async function handleToggleConnector(connector: IntegrationConnectorDto) {
+    setBusyId(connector.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const updated = await updateIntegrationConnector(connector.id, {
+        name: connector.name,
+        connectorKey: connector.connectorKey,
+        type: connector.type,
+        config: connector.config,
+        secrets: null,
+        isActive: !connector.isActive,
+        concurrencyStamp: connector.concurrencyStamp
+      });
+      setConnectors((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setNotice(updated.isActive ? "Connector enabled." : "Connector disabled.");
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -400,6 +481,7 @@ export function IntegrationsPage() {
         onChange={(value) => setActiveTab(value as TabKey)}
         tabs={[
           { label: "API keys", value: "keys", content: renderApiKeys() },
+          { label: "Connectors", value: "connectors", content: renderConnectors() },
           { label: "Webhooks", value: "webhooks", content: renderWebhooks() },
           { label: "Imports", value: "imports", content: renderImports() },
           { label: "Exports", value: "exports", content: renderExports() },
@@ -458,6 +540,56 @@ export function IntegrationsPage() {
                       <Button disabled={busyId === key.id || Boolean(key.revokedAt)} onClick={() => void handleRotateKey(key)} size="sm" variant="outline"><RotateCcw className="size-4" />Rotate</Button>
                       <Button disabled={busyId === key.id || Boolean(key.revokedAt)} onClick={() => void handleRevokeKey(key)} size="sm" variant="danger"><ShieldOff className="size-4" />Revoke</Button>
                     </div>
+                  )
+                }
+              ]}
+            />
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function renderConnectors() {
+    return (
+      <div className="grid gap-4 xl:grid-cols-[minmax(280px,420px)_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Create connector</CardTitle>
+            <CardDescription>Store sanitized connector settings and secret slot names only.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input label="Name" value={connectorForm.name} onChange={(event) => setConnectorForm((current) => ({ ...current, name: event.target.value }))} />
+            <Input label="Connector key" value={connectorForm.connectorKey} onChange={(event) => setConnectorForm((current) => ({ ...current, connectorKey: event.target.value }))} />
+            <Select label="Type" value={connectorForm.type} onChange={(event) => setConnectorForm((current) => ({ ...current, type: event.target.value as IntegrationConnectorType }))}>
+              {integrationConnectorTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+            </Select>
+            <Textarea label="Config JSON" rows={6} value={connectorForm.configJson} onChange={(event) => setConnectorForm((current) => ({ ...current, configJson: event.target.value }))} />
+            <Textarea label="Secret slots JSON" rows={5} value={connectorForm.secretsJson} onChange={(event) => setConnectorForm((current) => ({ ...current, secretsJson: event.target.value }))} />
+            <Checkbox checked={connectorForm.isActive} label="Active" onChange={(event) => setConnectorForm((current) => ({ ...current, isActive: event.target.checked }))} />
+            <Button disabled={savingConnector || !connectorForm.name.trim() || !connectorForm.connectorKey.trim()} onClick={() => void handleCreateConnector()}>
+              <Plug className="size-4" />Create connector
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-3">
+          {!loading && connectors.length === 0 ? <EmptyState title="No connectors" description="Create a connector to describe external SFTP, file storage, vendor API, or webhook settings." /> : null}
+          {connectors.length > 0 ? (
+            <Table
+              data={connectors}
+              columns={[
+                { header: "Name", render: (connector) => <span className="font-bold">{connector.name}</span> },
+                { header: "Key", accessor: "connectorKey" },
+                { header: "Type", accessor: "type" },
+                { header: "Secrets", render: (connector) => connector.configuredSecretNames.length > 0 ? connector.configuredSecretNames.join(", ") : "-" },
+                { header: "Status", render: (connector) => connector.isActive ? <Badge variant="success">Active</Badge> : <Badge>Inactive</Badge> },
+                {
+                  header: "Actions",
+                  render: (connector) => (
+                    <Button disabled={busyId === connector.id} onClick={() => void handleToggleConnector(connector)} size="sm" variant="outline">
+                      {connector.isActive ? "Disable" : "Enable"}
+                    </Button>
                   )
                 }
               ]}
