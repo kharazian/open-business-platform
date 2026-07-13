@@ -1,3 +1,4 @@
+using System.Globalization;
 using OpenBusinessPlatform.Api.Modules.Forms;
 
 namespace OpenBusinessPlatform.Api.Modules.Reports;
@@ -116,6 +117,7 @@ public static class ListReportConfigValidator
             var path = $"config.filters[{index}]";
             var fieldId = filter.FieldId.Trim();
             var filterOperator = filter.Operator.Trim();
+            validFields.TryGetValue(fieldId, out var field);
 
             ValidateKnownField(fieldId, validFields, $"{path}.fieldId", errors);
 
@@ -123,7 +125,7 @@ public static class ListReportConfigValidator
             {
                 errors.Add(new ReportValidationError($"{path}.operator", "report.filter.operator", "Filter operator is not supported."));
             }
-            else if (validFields.TryGetValue(fieldId, out var field) && !GetSupportedFilterOperators(field.Type).Contains(filterOperator))
+            else if (field is not null && !GetSupportedFilterOperators(field.Type).Contains(filterOperator))
             {
                 errors.Add(new ReportValidationError($"{path}.operator", "report.filter.operator_field", "Filter operator is not supported for this field."));
             }
@@ -131,6 +133,10 @@ public static class ListReportConfigValidator
             if (RequiresFilterValue(filterOperator) && string.IsNullOrWhiteSpace(filter.Value))
             {
                 errors.Add(new ReportValidationError($"{path}.value", "report.filter.value", "Filter value is required for this operator."));
+            }
+            else if (field is not null && RequiresFilterValue(filterOperator) && !string.IsNullOrWhiteSpace(filter.Value))
+            {
+                ValidateFilterValue(field, filter.Value, $"{path}.value", errors);
             }
         }
     }
@@ -208,5 +214,54 @@ public static class ListReportConfigValidator
         }
 
         return DefaultFilterOperators;
+    }
+
+    private static void ValidateFilterValue(
+        ReportableFieldMetadata field,
+        string value,
+        string path,
+        List<ReportValidationError> errors)
+    {
+        var normalizedValue = value.Trim();
+
+        if (FormFieldTypes.IsNumeric(field.Type)
+            && !decimal.TryParse(normalizedValue, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+        {
+            errors.Add(new ReportValidationError(path, "report.filter.value_number", "Filter value must be a number."));
+            return;
+        }
+
+        if (string.Equals(field.Type, FormFieldTypes.Time, StringComparison.Ordinal)
+            && !IsValidTimeFilterValue(normalizedValue))
+        {
+            errors.Add(new ReportValidationError(path, "report.filter.value_time", "Filter value must be a valid time."));
+            return;
+        }
+
+        if ((string.Equals(field.Type, FormFieldTypes.Date, StringComparison.Ordinal)
+                || string.Equals(field.Type, FormFieldTypes.Datetime, StringComparison.Ordinal))
+            && !DateTimeOffset.TryParse(normalizedValue, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _))
+        {
+            errors.Add(new ReportValidationError(path, "report.filter.value_date", "Filter value must be a valid date/time."));
+            return;
+        }
+
+        if (field.Options.Count > 0
+            && IsChoiceFilterField(field.Type)
+            && !field.Options.Any(option => string.Equals(option.Value, normalizedValue, StringComparison.Ordinal)))
+        {
+            errors.Add(new ReportValidationError(path, "report.filter.value_option", "Choose an available filter value."));
+        }
+    }
+
+    private static bool IsChoiceFilterField(string fieldType)
+    {
+        return fieldType is FormFieldTypes.Select or FormFieldTypes.Radio or "status";
+    }
+
+    private static bool IsValidTimeFilterValue(string value)
+    {
+        return TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+            || TimeOnly.TryParseExact(value, "HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
     }
 }

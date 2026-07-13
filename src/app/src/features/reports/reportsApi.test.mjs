@@ -431,7 +431,16 @@ test("report builder converts multiple filter and sort drafts into config arrays
 test("report builder validates active filters and duplicate sorts", () => {
   const fieldOptions = [
     { id: "department", label: "Department", type: "select", source: "form", options: [] },
-    { id: "created_at", label: "Created date", type: "datetime", source: "system", options: [] }
+    {
+      id: "team",
+      label: "Team",
+      type: "select",
+      source: "form",
+      options: [{ id: "opt_hr", label: "Human Resources", value: "hr" }]
+    },
+    { id: "salary", label: "Salary", type: "number", source: "form", options: [] },
+    { id: "created_at", label: "Created date", type: "datetime", source: "system", options: [] },
+    { id: "start_time", label: "Start time", type: "time", source: "form", options: [] }
   ];
 
   const validation = validateReportBuilderDrafts({
@@ -440,7 +449,11 @@ test("report builder validates active filters and duplicate sorts", () => {
       { id: "filter-empty", fieldId: "", operator: "equals", value: "" },
       { id: "filter-missing", fieldId: "department", operator: "equals", value: " " },
       { id: "filter-unknown", fieldId: "missing_field", operator: "is_not_empty", value: "" },
-      { id: "filter-unsupported", fieldId: "department", operator: "greater_than", value: "10" }
+      { id: "filter-unsupported", fieldId: "department", operator: "greater_than", value: "10" },
+      { id: "filter-number", fieldId: "salary", operator: "greater_than", value: "abc" },
+      { id: "filter-date", fieldId: "created_at", operator: "after", value: "not-a-date" },
+      { id: "filter-time", fieldId: "start_time", operator: "before", value: "99:99" },
+      { id: "filter-choice", fieldId: "team", operator: "equals", value: "finance" }
     ],
     sortDrafts: [
       { id: "sort-created-a", fieldId: "created_at", direction: "desc" },
@@ -455,6 +468,10 @@ test("report builder validates active filters and duplicate sorts", () => {
   assert.equal(validation.filterErrorsById["filter-missing"].value, "Filter value is required.");
   assert.equal(validation.filterErrorsById["filter-unknown"].fieldId, "Filter field is not available.");
   assert.equal(validation.filterErrorsById["filter-unsupported"].operator, "Filter operator is not available for this field.");
+  assert.equal(validation.filterErrorsById["filter-number"].value, "Filter value must be a number.");
+  assert.equal(validation.filterErrorsById["filter-date"].value, "Filter value must be a valid date/time.");
+  assert.equal(validation.filterErrorsById["filter-time"].value, "Filter value must be a valid time.");
+  assert.equal(validation.filterErrorsById["filter-choice"].value, "Choose an available filter value.");
   assert.equal(validation.sortErrorsById["sort-created-a"].fieldId, "Sort field is already used.");
   assert.equal(validation.sortErrorsById["sort-created-b"].fieldId, "Sort field is already used.");
   assert.equal(validation.sortErrorsById["sort-empty"].fieldId, "Sort field is required.");

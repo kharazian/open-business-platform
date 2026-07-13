@@ -3169,6 +3169,22 @@ AssertFalse(
     "List report configs should reject numeric filter operators for text fields.");
 AssertFalse(
     ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with
+        {
+            Filters = new[] { new ListReportFilterDefinition("salary", ReportFilterOperators.GreaterThan, "not-a-number") }
+        }).Valid,
+    "List report configs should reject invalid numeric comparison values.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        listReportConfig with
+        {
+            Filters = new[] { new ListReportFilterDefinition(ReportableSystemFields.CreatedAt, ReportFilterOperators.After, "not-a-date") }
+        }).Valid,
+    "List report configs should reject invalid date comparison values.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
         publishableSchema,
         listReportConfig with
         {

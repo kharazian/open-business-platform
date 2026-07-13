@@ -1685,7 +1685,7 @@ Request:
 }
 ```
 
-Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
+Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Filter values are validated against the selected field type before save. Supported sort directions are `asc` and `desc`. Creating a report writes a `report_created` audit entry.
 
 ### Get report
 

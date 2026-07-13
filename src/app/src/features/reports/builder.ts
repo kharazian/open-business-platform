@@ -192,6 +192,14 @@ export function validateReportBuilderDrafts(input: {
       errors.value = "Filter value is required.";
     }
 
+    if (field && filterOperatorRequiresValue(filterDraft.operator) && filterDraft.value.trim()) {
+      const valueError = validateFilterValueForField(field, filterDraft.value);
+
+      if (valueError) {
+        errors.value = valueError;
+      }
+    }
+
     if (hasValidationErrors(errors)) {
       filterErrorsById[filterDraft.id] = errors;
     }
@@ -271,6 +279,33 @@ function isTemporalReportField(field: ReportFieldOption): boolean {
 
 function isChoiceReportField(field: ReportFieldOption): boolean {
   return field.type === "select" || field.type === "radio" || field.type === "status";
+}
+
+function validateFilterValueForField(field: ReportFieldOption, value: string): string | undefined {
+  const normalizedValue = value.trim();
+
+  if (isNumericReportField(field) && !Number.isFinite(Number(normalizedValue))) {
+    return "Filter value must be a number.";
+  }
+
+  if (field.type === "time" && !isValidTimeValue(normalizedValue)) {
+    return "Filter value must be a valid time.";
+  }
+
+  if ((field.type === "date" || field.type === "datetime") && Number.isNaN(Date.parse(normalizedValue))) {
+    return "Filter value must be a valid date/time.";
+  }
+
+  const valueOptions = getReportFilterValueOptions(field);
+  if (valueOptions.length > 0 && !valueOptions.some((option) => option.value === normalizedValue)) {
+    return "Choose an available filter value.";
+  }
+
+  return undefined;
+}
+
+function isValidTimeValue(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(value);
 }
 
 function toReportFieldOption(field: ReportableField): ReportFieldOption {
