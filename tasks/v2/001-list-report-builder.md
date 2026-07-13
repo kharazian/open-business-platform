@@ -21,7 +21,7 @@ Read:
 
 ## Current Status
 
-Completed for the current V2 slice. Users with report management and form manage access can save list report definitions with selected, reordered, and custom-labeled columns, multiple saved UI filters, and multiple saved UI sorts. The builder shows inline validation for active filters that require values plus invalid or duplicate sort fields before save. Saved filters now expose type-aware operators, inputs, and value validation for text, choice, numeric, date, datetime, and time fields. The backend persists report config JSONB, validates config against the form schema plus supported system fields, checks permissions, executes type-aware saved filters, and writes report audit entries.
+Completed for the current V2 slice. Users with report management and form manage access can save list report definitions with selected, reordered, and custom-labeled columns, multiple saved UI filters, and multiple saved UI sorts. The builder shows inline validation for active filters that require values plus invalid or duplicate sort fields before save. Saved filters now expose type-aware operators, inputs, and value validation for text, choice, numeric, date, datetime, and time fields. Lookup saved filters can match raw selected record IDs or resolved labels. The backend persists report config JSONB, validates config against the form schema plus supported system fields, checks permissions, executes type-aware saved filters, and writes report audit entries.
 
 ## Out of Scope
 

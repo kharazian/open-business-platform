@@ -3425,6 +3425,70 @@ var lookupReport = ListReportExecutionEngine.Execute(
     });
 AssertEqual("33333333-3333-3333-3333-333333333333", lookupReport.Rows.Single().Cells["customer"].Value, "Lookup report cells should preserve raw selected record ids.");
 AssertEqual("Acme Corp", lookupReport.Rows.Single().Cells["customer"].DisplayValue, "Lookup report cells should display resolved lookup labels.");
+var rawLookupFilterReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Orders",
+    "Order form",
+    new ListReportConfigDefinition(
+        1,
+        new[] { new ListReportColumnDefinition("customer", "Customer", true, 180) },
+        new[] { new ListReportFilterDefinition("customer", ReportFilterOperators.Equal, "33333333-3333-3333-3333-333333333333") },
+        Array.Empty<ListReportSortDefinition>()),
+    lookupSchema,
+    new[]
+    {
+        new FormRecord
+        {
+            Id = lookupReportRecordId,
+            FormId = sampleDepartmentId,
+            FormVersionId = publishedVersion.Id,
+            Status = RecordStatuses.Active,
+            ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+            {
+                ["customer"] = "33333333-3333-3333-3333-333333333333"
+            }),
+            CreatedAt = sampleCreatedAt
+        }
+    },
+    new RunListReportRequest(),
+    displayValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, string>>
+    {
+        [lookupReportRecordId] = new Dictionary<string, string> { ["customer"] = "Acme Corp" }
+    });
+AssertEqual(1, rawLookupFilterReport.TotalCount, "Saved lookup equality filters should match raw selected record ids.");
+var labelLookupFilterReport = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Orders",
+    "Order form",
+    new ListReportConfigDefinition(
+        1,
+        new[] { new ListReportColumnDefinition("customer", "Customer", true, 180) },
+        new[] { new ListReportFilterDefinition("customer", ReportFilterOperators.Equal, "Acme Corp") },
+        Array.Empty<ListReportSortDefinition>()),
+    lookupSchema,
+    new[]
+    {
+        new FormRecord
+        {
+            Id = lookupReportRecordId,
+            FormId = sampleDepartmentId,
+            FormVersionId = publishedVersion.Id,
+            Status = RecordStatuses.Active,
+            ValuesJson = JsonSerializer.SerializeToDocument(new Dictionary<string, object?>
+            {
+                ["customer"] = "33333333-3333-3333-3333-333333333333"
+            }),
+            CreatedAt = sampleCreatedAt
+        }
+    },
+    new RunListReportRequest(),
+    displayValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, string>>
+    {
+        [lookupReportRecordId] = new Dictionary<string, string> { ["customer"] = "Acme Corp" }
+    });
+AssertEqual(1, labelLookupFilterReport.TotalCount, "Saved lookup equality filters should also match resolved display labels.");
 
 var csvReport = new ListReportExecutionDto(
     reportSummary.Id,

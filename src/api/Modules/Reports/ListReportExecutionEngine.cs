@@ -189,13 +189,14 @@ public static class ListReportExecutionEngine
     {
         var fieldId = filter.FieldId.Trim();
         var value = GetComparableFieldValue(record, fieldId);
+        var filterableValues = GetFilterableFieldValues(record, fieldId);
         var filterValue = Normalize(filter.Value);
         var fieldType = fieldsById.TryGetValue(fieldId, out var field) ? field.Type : string.Empty;
 
         return filter.Operator.Trim() switch
         {
-            ReportFilterOperators.Equal => string.Equals(ToSearchText(value), filterValue, StringComparison.OrdinalIgnoreCase),
-            ReportFilterOperators.Contains => filterValue is not null && ToSearchText(value).Contains(filterValue, StringComparison.OrdinalIgnoreCase),
+            ReportFilterOperators.Equal => filterableValues.Any(candidate => string.Equals(ToSearchText(candidate), filterValue, StringComparison.OrdinalIgnoreCase)),
+            ReportFilterOperators.Contains => filterValue is not null && filterableValues.Any(candidate => ToSearchText(candidate).Contains(filterValue, StringComparison.OrdinalIgnoreCase)),
             ReportFilterOperators.GreaterThan => CompareFilterValues(value, filterValue, fieldType) is > 0,
             ReportFilterOperators.GreaterOrEqual => CompareFilterValues(value, filterValue, fieldType) is >= 0,
             ReportFilterOperators.LessThan => CompareFilterValues(value, filterValue, fieldType) is < 0,
@@ -330,6 +331,19 @@ public static class ListReportExecutionEngine
         return record.DisplayValues.TryGetValue(fieldId, out var displayValue)
             ? displayValue
             : GetFieldValue(record, fieldId);
+    }
+
+    private static IReadOnlyList<object?> GetFilterableFieldValues(PreparedReportRecord record, string fieldId)
+    {
+        var rawValue = GetFieldValue(record, fieldId);
+
+        if (!record.DisplayValues.TryGetValue(fieldId, out var displayValue)
+            || string.Equals(ToSearchText(rawValue), displayValue, StringComparison.OrdinalIgnoreCase))
+        {
+            return [rawValue];
+        }
+
+        return [rawValue, displayValue];
     }
 
     private static IReadOnlyDictionary<string, object?> DeserializeValues(JsonDocument valuesJson)

@@ -1732,7 +1732,7 @@ Response: `204 No Content`. Deleting a report soft-deletes the saved definition 
 
 Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
 
-Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, optional runtime per-column filters, runtime sort when a visible column is selected, saved sort fallback, and pagination before returning display-ready cells. Runtime filters use `filter.<fieldId>` query parameters and are limited to visible execution columns after hidden-field rules are applied. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
+Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, optional runtime per-column filters, runtime sort when a visible column is selected, saved sort fallback, and pagination before returning display-ready cells. Runtime filters use `filter.<fieldId>` query parameters and are limited to visible execution columns after hidden-field rules are applied. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; saved lookup equality/contains filters can match either the raw ID or resolved label. Report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
 
 Response:
 
