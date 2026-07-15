@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, transactional trigger event outbox, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -22,7 +22,7 @@ The current migrations include:
 - `forms`, `form_versions`
 - `records`
 - `reports`
-- `triggers`, `trigger_logs`
+- `triggers`, `trigger_logs`, `trigger_event_outbox`
 - `workflow_definitions`, `workflow_definition_versions`, `workflow_history`, `workflow_approval_tasks`
 - `notifications`
 - `notification_preferences`
@@ -321,7 +321,7 @@ Foreign keys:
 
 ### external_export_jobs
 
-Stores outbound export jobs for permission-filtered form record or saved list report data. The first slice stores protected artifact content directly on the job detail and does not create public download links.
+Stores outbound export jobs for permission-filtered form record or saved list report data. Artifact content is stored with the job but is omitted from create/detail DTOs and can be retrieved only through the permission-protected, audited artifact endpoint. No public download links are created.
 
 Fields:
 
@@ -679,6 +679,7 @@ Fields:
 - schedule_json JSONB nullable
 - schedule_next_run_at nullable
 - schedule_last_run_at nullable
+- schedule_locked_at nullable atomic worker/manual-run lease timestamp
 - concurrency_stamp
 - extra_properties_json JSONB
 - created_by_id
@@ -733,6 +734,37 @@ Indexes:
 - created_at
 
 Trigger logs persist matching trigger executions. The first V4 slice does not write skipped logs by default for non-matching triggers. Action failures write failed logs and do not roll back the original record change that dispatched the trigger event. V4 task 004 stores manual retry links in existing JSONB payloads through `input_json.retry.sourceLogId` and `result_json.retry.sourceLogId`, so no schema migration is required for manual failed-log retry recovery. V4 task 009 adds automatic retry metadata on failed source logs, with a conservative three-attempt default, a due-time index, lock/completed/exhausted/disabled timestamps, and fresh retry logs linked through the same retry JSON metadata as manual retries. V4 task 010 lets the source trigger's retry policy control the initial retry schedule and writes scheduled trigger executions with `entity_type = Schedule`. V8 task 007 stores schedule run metadata in scheduled log JSON payloads for due time, lock time, completion time, final status, and skip reason when a due persisted schedule cannot be processed. V8 task 008 scheduled workflow starts add selected record counts and per-record workflow-start results to trigger log result JSON.
+
+### trigger_event_outbox
+
+Stores internal record-event envelopes transactionally with record and workflow mutations. Form-scoped operational APIs expose delivery metadata only; `payload_json` is never returned.
+
+Fields:
+
+- id
+- form_id
+- record_id
+- event_name
+- payload_json JSONB
+- status: pending, processing, completed, dead_letter
+- attempt_count
+- max_attempts
+- next_attempt_at
+- locked_at nullable
+- claim_id nullable
+- completed_at nullable
+- dead_lettered_at nullable
+- error_message nullable
+- created_at
+
+Indexes:
+
+- status + next_attempt_at
+- locked_at
+- form_id
+- record_id
+
+The worker uses `claim_id` as a fencing token so a stale worker cannot complete a message reclaimed after the five-minute lease. Delivery failures retry at most five times with bounded exponential backoff. A daily bounded retention worker deletes completed messages after 30 days, up to 500 per pass. Dead letters are retained until an authorized form manager replays them; replay resets delivery state atomically and writes an audit entry.
 
 ## Workflows
 

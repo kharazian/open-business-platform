@@ -33,6 +33,8 @@ public sealed class TriggerDefinition : FullAuditedAggregateRoot<Guid>, IHasConc
 
     public DateTimeOffset? ScheduleLastRunAt { get; set; }
 
+    public DateTimeOffset? ScheduleLockedAt { get; set; }
+
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }

@@ -181,6 +181,53 @@ test("trigger API client maps management requests, logs, and validation errors",
       };
     }
 
+    if (input === "/api/forms/form-1/triggers/outbox?status=dead_letter" && init.method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          summary: {
+            formId: "form-1",
+            pendingCount: 1,
+            processingCount: 0,
+            completedCount: 12,
+            deadLetterCount: 1,
+            oldestPendingAt: "2026-06-02T12:25:00.000Z",
+            healthStatus: "attention"
+          },
+          items: [{
+            id: "outbox-1",
+            formId: "form-1",
+            recordId: "record-1",
+            eventName: "record.created",
+            status: "dead_letter",
+            attemptCount: 5,
+            maxAttempts: 5,
+            nextAttemptAt: "2026-06-02T12:24:00.000Z",
+            deadLetteredAt: "2026-06-02T12:24:00.000Z",
+            errorMessage: "Database temporarily unavailable.",
+            createdAt: "2026-06-02T12:20:00.000Z"
+          }]
+        })
+      };
+    }
+
+    if (input === "/api/forms/form-1/triggers/outbox/outbox-1/replay" && init.method === "POST") {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "outbox-1",
+          formId: "form-1",
+          recordId: "record-1",
+          eventName: "record.created",
+          status: "pending",
+          attemptCount: 0,
+          maxAttempts: 5,
+          nextAttemptAt: "2026-06-02T12:30:00.000Z",
+          createdAt: "2026-06-02T12:20:00.000Z"
+        })
+      };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -191,6 +238,8 @@ test("trigger API client maps management requests, logs, and validation errors",
   const logs = await api.listTriggerLogs("trigger-2", fetcher);
   const retriedLog = await api.retryTriggerLog("trigger-2", "log-1", fetcher);
   const scheduledRun = await api.runScheduledTriggerNow("trigger-2", fetcher);
+  const outbox = await api.getTriggerOutboxOperations("form-1", fetcher);
+  const replayedOutboxMessage = await api.replayTriggerOutboxMessage("form-1", "outbox-1", fetcher);
 
   assert.equal(summaries[0].name, "Route HR submissions");
   assert.equal(summaries[0].conditionCount, 1);
@@ -203,6 +252,10 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(retriedLog.result.retry.sourceLogId, "log-1");
   assert.equal(scheduledRun.log.result.schedule.runSource, "manual");
   assert.equal(scheduledRun.scheduleNextRunAt, "2026-06-03T12:22:00.000Z");
+  assert.equal(outbox.summary.healthStatus, "attention");
+  assert.equal(outbox.items[0].status, "dead_letter");
+  assert.equal("payloadJson" in outbox.items[0], false);
+  assert.equal(replayedOutboxMessage.status, "pending");
   assert.equal(calls[0].input, "/api/forms/form-1/triggers");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -228,6 +281,12 @@ test("trigger API client maps management requests, logs, and validation errors",
   assert.equal(calls[6].input, "/api/triggers/trigger-2/schedule/run");
   assert.equal(calls[6].init.method, "POST");
   assert.equal(calls[6].init.credentials, "include");
+  assert.equal(calls[7].input, "/api/forms/form-1/triggers/outbox?status=dead_letter");
+  assert.equal(calls[7].init.method, "GET");
+  assert.equal(calls[7].init.credentials, "include");
+  assert.equal(calls[8].input, "/api/forms/form-1/triggers/outbox/outbox-1/replay");
+  assert.equal(calls[8].init.method, "POST");
+  assert.equal(calls[8].init.credentials, "include");
 
   await assert.rejects(
     () => api.listTriggers("form-1", async () => ({ ok: true, json: async () => ({}) })),

@@ -416,6 +416,7 @@ public sealed class IdentityManagementService
             return null;
         }
 
+        EnsureConcurrencyStamp(role.ConcurrencyStamp, request.ConcurrencyStamp);
         role.Permissions.Clear();
         role.FormPermissions.Clear();
         role.ReportPermissions.Clear();
@@ -456,6 +457,7 @@ public sealed class IdentityManagementService
         }
 
         AddAudit("Role", role.Id, "role_permissions_changed");
+        dbContext.Entry(role).Property(item => item.ConcurrencyStamp).IsModified = true;
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return await GetRolePermissionsAsync(role.Id, cancellationToken);
@@ -710,6 +712,7 @@ public sealed class IdentityManagementService
     {
         return new RolePermissionsDto(
             role.Id,
+            role.ConcurrencyStamp,
             role.Permissions.Select(permission => permission.Permission).OrderBy(permission => permission).ToArray(),
             role.FormPermissions
                 .Select(permission => new RoleFormPermissionDto(permission.FormId, permission.Action, permission.Scope))

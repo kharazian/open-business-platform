@@ -7,6 +7,7 @@ namespace OpenBusinessPlatform.Api.Modules.Triggers;
 public sealed class TriggerScheduleService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    public static TimeSpan ClaimLease { get; } = TimeSpan.FromMinutes(5);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerExecutionService triggerExecution;
 
@@ -21,6 +22,7 @@ public sealed class TriggerScheduleService
     public async Task<TriggerScheduledRunResultDto> RunScheduleNowAsync(Guid triggerId, CancellationToken cancellationToken)
     {
         var trigger = await dbContext.Triggers
+            .AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.Id == triggerId && !candidate.IsDeleted, cancellationToken);
 
         if (trigger is null)
@@ -46,69 +48,99 @@ public sealed class TriggerScheduleService
         }
 
         var runAt = DateTimeOffset.UtcNow;
-        var nextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, runAt);
-        var log = await triggerExecution.ExecuteScheduledAsync(
-            trigger,
-            runAt,
-            runAt,
-            nextRunAt,
-            TriggerScheduleRunSources.Manual,
-            cancellationToken);
-        var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+        if (!await TryClaimScheduleAsync(trigger.Id, runAt, requireDue: false, cancellationToken))
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "This scheduled trigger is already running.");
+        }
 
-        trigger.ScheduleLastRunAt = completedAt;
-        trigger.ScheduleNextRunAt = nextRunAt;
-        await dbContext.SaveChangesAsync(cancellationToken);
+        trigger = await dbContext.Triggers
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == triggerId, cancellationToken);
+        var nextRunAt = trigger.ScheduleNextRunAt is { } existingNextRunAt && existingNextRunAt > runAt
+            ? existingNextRunAt
+            : TriggerScheduleCalculator.CalculateNextRun(schedule, runAt);
 
-        return new TriggerScheduledRunResultDto(
-            TriggerDefinitionService.ToLogDto(log),
-            trigger.ScheduleNextRunAt,
-            trigger.ScheduleLastRunAt);
+        try
+        {
+            var log = await triggerExecution.ExecuteScheduledAsync(
+                trigger,
+                runAt,
+                runAt,
+                nextRunAt,
+                TriggerScheduleRunSources.Manual,
+                cancellationToken);
+            var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+            await CompleteClaimAsync(trigger.Id, runAt, completedAt, nextRunAt, cancellationToken);
+
+            return new TriggerScheduledRunResultDto(
+                TriggerDefinitionService.ToLogDto(log),
+                nextRunAt,
+                completedAt);
+        }
+        catch
+        {
+            await ReleaseClaimAsync(trigger.Id, runAt, cancellationToken);
+            throw;
+        }
     }
 
     public async Task<int> ProcessDueSchedulesAsync(CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
-        var dueTriggers = await dbContext.Triggers
+        var dueTriggerIds = await dbContext.Triggers
+            .AsNoTracking()
             .Where(trigger =>
                 trigger.IsEnabled
                 && !trigger.IsDeleted
                 && trigger.ScheduleNextRunAt != null
-                && trigger.ScheduleNextRunAt <= now)
+                && trigger.ScheduleNextRunAt <= now
+                && (trigger.ScheduleLockedAt == null || trigger.ScheduleLockedAt < now - ClaimLease))
             .OrderBy(trigger => trigger.ScheduleNextRunAt)
+            .Select(trigger => trigger.Id)
             .Take(10)
             .ToArrayAsync(cancellationToken);
         var processedCount = 0;
 
-        foreach (var trigger in dueTriggers)
+        foreach (var triggerId in dueTriggerIds)
         {
-            var schedule = DeserializeSchedule(trigger.ScheduleJson);
-            var dueAt = trigger.ScheduleNextRunAt ?? now;
             var lockedAt = DateTimeOffset.UtcNow;
-
-            if (schedule is null)
+            if (!await TryClaimScheduleAsync(triggerId, lockedAt, requireDue: true, cancellationToken))
             {
-                await triggerExecution.SkipScheduledAsync(
-                    trigger,
-                    dueAt,
-                    lockedAt,
-                    "schedule_metadata_unavailable",
-                    cancellationToken);
-                trigger.ScheduleLastRunAt = lockedAt;
-                trigger.ScheduleNextRunAt = null;
-                await dbContext.SaveChangesAsync(cancellationToken);
-                processedCount += 1;
                 continue;
             }
 
-            var nextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, lockedAt);
-            var log = await triggerExecution.ExecuteScheduledAsync(trigger, dueAt, lockedAt, nextRunAt, cancellationToken);
-            var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+            var trigger = await dbContext.Triggers
+                .AsNoTracking()
+                .SingleAsync(candidate => candidate.Id == triggerId, cancellationToken);
+            var schedule = DeserializeSchedule(trigger.ScheduleJson);
+            var dueAt = trigger.ScheduleNextRunAt ?? now;
 
-            trigger.ScheduleLastRunAt = completedAt;
-            trigger.ScheduleNextRunAt = nextRunAt;
-            await dbContext.SaveChangesAsync(cancellationToken);
-            processedCount += 1;
+            try
+            {
+                if (schedule is null)
+                {
+                    await triggerExecution.SkipScheduledAsync(
+                        trigger,
+                        dueAt,
+                        lockedAt,
+                        "schedule_metadata_unavailable",
+                        cancellationToken);
+                    await CompleteClaimAsync(trigger.Id, lockedAt, lockedAt, null, cancellationToken);
+                    processedCount += 1;
+                    continue;
+                }
+
+                var nextRunAt = TriggerScheduleCalculator.CalculateNextRun(schedule, lockedAt);
+                var log = await triggerExecution.ExecuteScheduledAsync(trigger, dueAt, lockedAt, nextRunAt, cancellationToken);
+                var completedAt = log.CompletedAt ?? DateTimeOffset.UtcNow;
+                await CompleteClaimAsync(trigger.Id, lockedAt, completedAt, nextRunAt, cancellationToken);
+                processedCount += 1;
+            }
+            catch
+            {
+                await ReleaseClaimAsync(trigger.Id, lockedAt, cancellationToken);
+                throw;
+            }
         }
 
         return processedCount;
@@ -118,5 +150,61 @@ public sealed class TriggerScheduleService
     {
         var schedule = scheduleJson?.RootElement.Deserialize<TriggerScheduleDefinition>(JsonOptions);
         return TriggerDefinitionValidator.NormalizeSchedule(schedule);
+    }
+
+    private async Task<bool> TryClaimScheduleAsync(
+        Guid triggerId,
+        DateTimeOffset lockedAt,
+        bool requireDue,
+        CancellationToken cancellationToken)
+    {
+        var expiredBefore = lockedAt - ClaimLease;
+        var candidates = dbContext.Triggers.Where(trigger =>
+            trigger.Id == triggerId
+            && trigger.IsEnabled
+            && !trigger.IsDeleted
+            && (trigger.ScheduleLockedAt == null || trigger.ScheduleLockedAt < expiredBefore));
+
+        if (requireDue)
+        {
+            candidates = candidates.Where(trigger =>
+                trigger.ScheduleNextRunAt != null && trigger.ScheduleNextRunAt <= lockedAt);
+        }
+
+        var claimed = await candidates.ExecuteUpdateAsync(
+            updates => updates.SetProperty(trigger => trigger.ScheduleLockedAt, lockedAt),
+            cancellationToken);
+        return claimed == 1;
+    }
+
+    private async Task CompleteClaimAsync(
+        Guid triggerId,
+        DateTimeOffset lockedAt,
+        DateTimeOffset completedAt,
+        DateTimeOffset? nextRunAt,
+        CancellationToken cancellationToken)
+    {
+        var updated = await dbContext.Triggers
+            .Where(trigger => trigger.Id == triggerId && trigger.ScheduleLockedAt == lockedAt)
+            .ExecuteUpdateAsync(
+                updates => updates
+                    .SetProperty(trigger => trigger.ScheduleLastRunAt, completedAt)
+                    .SetProperty(trigger => trigger.ScheduleNextRunAt, nextRunAt)
+                    .SetProperty(trigger => trigger.ScheduleLockedAt, (DateTimeOffset?)null),
+                cancellationToken);
+
+        if (updated != 1)
+        {
+            throw new TriggerManagementException(StatusCodes.Status409Conflict, "The scheduled trigger claim was lost before completion.");
+        }
+    }
+
+    private async Task ReleaseClaimAsync(Guid triggerId, DateTimeOffset lockedAt, CancellationToken cancellationToken)
+    {
+        await dbContext.Triggers
+            .Where(trigger => trigger.Id == triggerId && trigger.ScheduleLockedAt == lockedAt)
+            .ExecuteUpdateAsync(
+                updates => updates.SetProperty(trigger => trigger.ScheduleLockedAt, (DateTimeOffset?)null),
+                cancellationToken);
     }
 }

@@ -13,16 +13,16 @@ public sealed class RecordSubmissionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
-    private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly RecordLookupService recordLookup;
 
     public RecordSubmissionService(
         OpenBusinessPlatformDbContext dbContext,
-        TriggerEventDispatcher triggerDispatcher,
+        TriggerEventOutbox triggerEventOutbox,
         RecordLookupService recordLookup)
     {
         this.dbContext = dbContext;
-        this.triggerDispatcher = triggerDispatcher;
+        this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
     }
 
@@ -96,12 +96,8 @@ public sealed class RecordSubmissionService
 
         dbContext.Records.Add(record);
         AddAudit(record, submittedById);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
         var snapshot = ToTriggerSnapshot(record, request.Values);
-        await triggerDispatcher.DispatchAsync(new TriggerEventContext(
+        triggerEventOutbox.Enqueue(new TriggerEventContext(
             TriggerEvents.RecordCreated,
             record.FormId,
             record.Id,
@@ -115,7 +111,10 @@ public sealed class RecordSubmissionService
             record.AssignedToUserId,
             null,
             record.AssignedGroupId,
-            DateTimeOffset.UtcNow), cancellationToken);
+            DateTimeOffset.UtcNow));
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
             principal,

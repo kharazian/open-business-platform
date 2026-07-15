@@ -74,12 +74,14 @@ public sealed record RoleFieldPermissionDto(Guid FormId, string FieldId, string 
 
 public sealed record RolePermissionsDto(
     Guid RoleId,
+    string ConcurrencyStamp,
     IReadOnlyCollection<string> Permissions,
     IReadOnlyCollection<RoleFormPermissionDto> FormPermissions,
     IReadOnlyCollection<RoleReportPermissionDto> ReportPermissions,
     IReadOnlyCollection<RoleFieldPermissionDto> FieldPermissions);
 
 public sealed record UpdateRolePermissionsRequest(
+    string ConcurrencyStamp,
     IReadOnlyCollection<string> Permissions,
     IReadOnlyCollection<RoleFormPermissionDto> FormPermissions,
     IReadOnlyCollection<RoleReportPermissionDto> ReportPermissions,

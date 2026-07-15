@@ -182,6 +182,39 @@ export type TriggerScheduledRunResult = {
   scheduleLastRunAt?: string | null;
 };
 
+export type TriggerEventOutboxStatus = "pending" | "processing" | "completed" | "dead_letter";
+
+export type TriggerEventOutboxSummary = {
+  formId: EntityId;
+  pendingCount: number;
+  processingCount: number;
+  completedCount: number;
+  deadLetterCount: number;
+  oldestPendingAt?: string | null;
+  healthStatus: "healthy" | "delayed" | "attention";
+};
+
+export type TriggerEventOutboxMessage = {
+  id: EntityId;
+  formId: EntityId;
+  recordId: EntityId;
+  eventName: TriggerEventName;
+  status: TriggerEventOutboxStatus;
+  attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: string;
+  lockedAt?: string | null;
+  completedAt?: string | null;
+  deadLetteredAt?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+};
+
+export type TriggerEventOutboxOperations = {
+  summary: TriggerEventOutboxSummary;
+  items: TriggerEventOutboxMessage[];
+};
+
 export type TriggerValidationError = {
   path: string;
   code: string;

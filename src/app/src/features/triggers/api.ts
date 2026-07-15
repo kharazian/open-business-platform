@@ -2,6 +2,8 @@ import type {
   CreateTriggerRequest,
   TriggerDetail,
   TriggerExecutionLog,
+  TriggerEventOutboxMessage,
+  TriggerEventOutboxOperations,
   TriggerScheduledRunResult,
   TriggerSummary,
   TriggerValidationError,
@@ -104,6 +106,29 @@ export async function runScheduledTriggerNow(
 ): Promise<TriggerScheduledRunResult> {
   return requestJson<TriggerScheduledRunResult>(
     `/api/triggers/${encodeURIComponent(triggerId)}/schedule/run`,
+    { method: "POST", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function getTriggerOutboxOperations(
+  formId: string,
+  fetcher: TriggersFetcher = defaultFetcher
+): Promise<TriggerEventOutboxOperations> {
+  return requestJson<TriggerEventOutboxOperations>(
+    `/api/forms/${encodeURIComponent(formId)}/triggers/outbox?status=dead_letter`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function replayTriggerOutboxMessage(
+  formId: string,
+  messageId: string,
+  fetcher: TriggersFetcher = defaultFetcher
+): Promise<TriggerEventOutboxMessage> {
+  return requestJson<TriggerEventOutboxMessage>(
+    `/api/forms/${encodeURIComponent(formId)}/triggers/outbox/${encodeURIComponent(messageId)}/replay`,
     { method: "POST", credentials: "include" },
     fetcher
   );

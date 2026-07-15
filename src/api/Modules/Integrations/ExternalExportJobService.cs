@@ -379,7 +379,6 @@ public sealed class ExternalExportJobService
             job.ArtifactFileName,
             job.ArtifactContentType,
             job.ArtifactSizeBytes,
-            job.ArtifactContent,
             job.ArtifactMetadataJson?.RootElement.Deserialize<Dictionary<string, object?>>(JsonOptions),
             job.StartedAt,
             job.CompletedAt,

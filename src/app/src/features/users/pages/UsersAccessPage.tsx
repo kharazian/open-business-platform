@@ -464,6 +464,7 @@ export function UsersAccessPage() {
 
     try {
       const updated = await updateRolePermissions(selectedRoleId, {
+        concurrencyStamp: selectedRolePermissions.concurrencyStamp,
         permissions: selectedRolePermissions.permissions,
         formPermissions: selectedRolePermissions.formPermissions,
         reportPermissions: selectedRolePermissions.reportPermissions ?? [],

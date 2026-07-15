@@ -83,7 +83,6 @@ public sealed record ExternalExportJobDetailDto(
     string? ArtifactFileName,
     string? ArtifactContentType,
     long ArtifactSizeBytes,
-    string? ArtifactContent,
     IReadOnlyDictionary<string, object?>? ArtifactMetadata,
     DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt,

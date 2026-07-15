@@ -13,16 +13,16 @@ public sealed class RecordMutationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
-    private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly RecordLookupService recordLookup;
 
     public RecordMutationService(
         OpenBusinessPlatformDbContext dbContext,
-        TriggerEventDispatcher triggerDispatcher,
+        TriggerEventOutbox triggerEventOutbox,
         RecordLookupService recordLookup)
     {
         this.dbContext = dbContext;
-        this.triggerDispatcher = triggerDispatcher;
+        this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
     }
 
@@ -102,12 +102,8 @@ public sealed class RecordMutationService
         record.ValuesJson = JsonSerializer.SerializeToDocument(effectiveValues, JsonOptions);
         record.UpdatedById = updatedById;
         AddAudit(record.Id, "record_updated", updatedById);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
         var afterSnapshot = ToTriggerSnapshot(record, effectiveValues);
-        await DispatchRecordEventAsync(
+        EnqueueRecordEvent(
             TriggerEvents.RecordUpdated,
             updatedById,
             beforeSnapshot,
@@ -118,12 +114,11 @@ public sealed class RecordMutationService
             beforeSnapshot.AssignedToUserId,
             afterSnapshot.AssignedToUserId,
             beforeSnapshot.AssignedGroupId,
-            afterSnapshot.AssignedGroupId,
-            cancellationToken);
+            afterSnapshot.AssignedGroupId);
 
         if (changedFieldIds.Count > 0)
         {
-            await DispatchRecordEventAsync(
+            EnqueueRecordEvent(
                 TriggerEvents.FieldChanged,
                 updatedById,
                 beforeSnapshot,
@@ -134,9 +129,11 @@ public sealed class RecordMutationService
                 beforeSnapshot.AssignedToUserId,
                 afterSnapshot.AssignedToUserId,
                 beforeSnapshot.AssignedGroupId,
-                afterSnapshot.AssignedGroupId,
-                cancellationToken);
+                afterSnapshot.AssignedGroupId);
         }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         var visibleValues = MaskValues(effectiveValues, fieldAccess.HiddenFieldIds);
         var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
@@ -224,12 +221,9 @@ public sealed class RecordMutationService
         record.UpdatedById = updatedById;
         AddAudit(record.Id, "record_assigned", updatedById);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
         if (previousAssignedToUserId != record.AssignedToUserId || previousAssignedGroupId != record.AssignedGroupId)
         {
-            await DispatchRecordEventAsync(
+            EnqueueRecordEvent(
                 TriggerEvents.RecordAssigned,
                 updatedById,
                 beforeSnapshot,
@@ -240,9 +234,11 @@ public sealed class RecordMutationService
                 previousAssignedToUserId,
                 record.AssignedToUserId,
                 previousAssignedGroupId,
-                record.AssignedGroupId,
-                cancellationToken);
+                record.AssignedGroupId);
         }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return await ToDetailDtoAsync(record, principal, permissionService, cancellationToken);
     }
@@ -284,12 +280,9 @@ public sealed class RecordMutationService
         record.UpdatedById = updatedById;
         AddAudit(record.Id, "record_status_changed", updatedById);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
         if (!string.Equals(previousStatus, record.Status, StringComparison.Ordinal))
         {
-            await DispatchRecordEventAsync(
+            EnqueueRecordEvent(
                 TriggerEvents.StatusChanged,
                 updatedById,
                 beforeSnapshot,
@@ -300,9 +293,11 @@ public sealed class RecordMutationService
                 beforeSnapshot.AssignedToUserId,
                 record.AssignedToUserId,
                 beforeSnapshot.AssignedGroupId,
-                record.AssignedGroupId,
-                cancellationToken);
+                record.AssignedGroupId);
         }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return await ToDetailDtoAsync(record, principal, permissionService, cancellationToken);
     }
@@ -455,7 +450,7 @@ public sealed class RecordMutationService
             ?? new Dictionary<string, object?>();
     }
 
-    private async Task DispatchRecordEventAsync(
+    private void EnqueueRecordEvent(
         string eventName,
         Guid? actorUserId,
         TriggerRecordSnapshot beforeSnapshot,
@@ -466,10 +461,9 @@ public sealed class RecordMutationService
         Guid? previousAssignedToUserId,
         Guid? currentAssignedToUserId,
         Guid? previousAssignedGroupId,
-        Guid? currentAssignedGroupId,
-        CancellationToken cancellationToken)
+        Guid? currentAssignedGroupId)
     {
-        await triggerDispatcher.DispatchAsync(new TriggerEventContext(
+        triggerEventOutbox.Enqueue(new TriggerEventContext(
             eventName,
             afterSnapshot.FormId,
             afterSnapshot.RecordId,
@@ -483,7 +477,7 @@ public sealed class RecordMutationService
             currentAssignedToUserId,
             previousAssignedGroupId,
             currentAssignedGroupId,
-            DateTimeOffset.UtcNow), cancellationToken);
+            DateTimeOffset.UtcNow));
     }
 
     private static TriggerRecordSnapshot ToTriggerSnapshot(FormRecord record, IReadOnlyDictionary<string, object?> values)

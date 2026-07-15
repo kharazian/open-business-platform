@@ -613,6 +613,7 @@ export function ReportsPage() {
       const updatedPermissions = await Promise.all(
         changedDrafts.map(([roleId, draft]) =>
           updateRolePermissions(roleId, {
+            concurrencyStamp: draft.concurrencyStamp,
             permissions: draft.permissions,
             formPermissions: draft.formPermissions,
             reportPermissions: draft.reportPermissions,
@@ -1872,6 +1873,7 @@ function createReportBuilderDraftId(prefix: "filter" | "sort"): string {
 function cloneRolePermissions(permissions: RolePermissionsDto): RolePermissionsDto {
   return {
     roleId: permissions.roleId,
+    concurrencyStamp: permissions.concurrencyStamp,
     permissions: [...permissions.permissions],
     formPermissions: permissions.formPermissions.map((permission) => ({ ...permission })),
     reportPermissions: permissions.reportPermissions.map((permission) => ({ ...permission })),

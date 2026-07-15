@@ -3,6 +3,7 @@ using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(OpenBusinessPlatformDbContext))]
-    partial class OpenBusinessPlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715174713_V8ProductionHardening")]
+    partial class V8ProductionHardening
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2014,92 +2017,6 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                     b.ToTable("triggers", (string)null);
                 });
 
-            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.TriggerEventOutboxMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("AttemptCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("attempt_count");
-
-                    b.Property<Guid?>("ClaimId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("claim_id");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTimeOffset?>("DeadLetteredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("dead_lettered_at");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("error_message");
-
-                    b.Property<string>("EventName")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("event_name");
-
-                    b.Property<Guid>("FormId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("form_id");
-
-                    b.Property<DateTimeOffset?>("LockedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("locked_at");
-
-                    b.Property<int>("MaxAttempts")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(5)
-                        .HasColumnName("max_attempts");
-
-                    b.Property<DateTimeOffset>("NextAttemptAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("next_attempt_at");
-
-                    b.Property<JsonDocument>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("payload_json");
-
-                    b.Property<Guid>("RecordId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("record_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("status");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FormId");
-
-                    b.HasIndex("LockedAt");
-
-                    b.HasIndex("RecordId");
-
-                    b.HasIndex("Status", "NextAttemptAt");
-
-                    b.ToTable("trigger_event_outbox", (string)null);
-                });
-
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.TriggerExecutionLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3105,21 +3022,6 @@ namespace OpenBusinessPlatform.Api.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Form");
-                });
-
-            modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.TriggerEventOutboxMessage", b =>
-                {
-                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormDefinition", null)
-                        .WithMany()
-                        .HasForeignKey("FormId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("OpenBusinessPlatform.Api.Domain.Entities.FormRecord", null)
-                        .WithMany()
-                        .HasForeignKey("RecordId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("OpenBusinessPlatform.Api.Domain.Entities.TriggerExecutionLog", b =>

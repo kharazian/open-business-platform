@@ -45,6 +45,7 @@ test("users API client maps access requests and permission helpers", async () =>
   const rolePermissions = await api.updateRolePermissions(
     "role-1",
     {
+      concurrencyStamp: "role-stamp",
       permissions: ["menu.forms"],
       formPermissions: [{ formId: "form-1", action: "view", scope: "department" }],
       reportPermissions: [{ reportId: "report-1", action: "export" }],
@@ -63,6 +64,7 @@ test("users API client maps access requests and permission helpers", async () =>
   assert.equal(calls[2].init.method, "POST");
   assert.equal(calls[3].input, "/api/roles/role-1/permissions");
   assert.equal(calls[3].init.method, "PUT");
+  assert.equal(JSON.parse(calls[3].init.body).concurrencyStamp, "role-stamp");
   assert.equal(rolePermissions.formPermissions[0].action, "view");
   assert.equal(rolePermissions.formPermissions[0].scope, "department");
   assert.equal(rolePermissions.reportPermissions[0].action, "export");

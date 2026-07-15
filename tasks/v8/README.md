@@ -15,6 +15,9 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 7. `007-scheduled-automation-expansion.md` - complete; explicit daily/weekly/monthly schedule contracts, tested due-time calculation, safe action validation, and schedule run log metadata.
 8. `008-scheduled-workflow-starts.md` - complete; safe scheduled workflow starts with explicit record selection rules.
 9. `009-integration-operations-ui.md` - complete; admin UI for API keys, integration logs, retries, and webhook/import/export status.
+10. `010-production-hardening.md` - complete; database concurrency, atomic schedule claims, retry action resumption, and audited-only export artifact access.
+11. `011-transactional-trigger-event-outbox.md` - complete; transactional record-event persistence, atomic delivery claims, bounded retries, and dead-letter retention.
+12. `012-trigger-outbox-operations.md` - complete; form-scoped health, safe dead-letter visibility, audited replay, and completed-envelope retention.
 
 ## Scope Rules
 

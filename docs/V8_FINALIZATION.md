@@ -17,6 +17,9 @@ Completed V8 work:
 7. Daily/weekly/monthly scheduled automation contracts.
 8. Scheduled workflow starts over safe same-form record selections.
 9. Permission-aware `/integrations` operations UI for API keys, webhook listeners, import jobs, export jobs, logs, and retry requests.
+10. Production hardening for concurrency, scheduler claims, trigger action resumption, and audited export downloads.
+11. Transactional trigger event outbox with atomic delivery claims, bounded retries, and dead-letter retention.
+12. Payload-safe trigger delivery operations with form-scoped health, audited dead-letter replay, and completed-envelope retention.
 
 ## Security And Architecture Checks
 
@@ -26,6 +29,8 @@ Completed V8 work:
 - Integration metadata is sanitized before persistence.
 - Sensitive integration actions write audit logs.
 - Retry is explicit and observable through integration log metadata; V8 does not add arbitrary background replay.
+- Record-trigger events commit atomically with record/workflow mutations and are delivered at least once through the internal outbox; external providers still require idempotency for strict duplicate prevention.
+- Outbox operations reuse form `manage` permission, never expose stored event payloads, audit manual replay, and retain dead letters for operator action.
 - Integrations remain separate from reports, dashboards, triggers, workflows, printing, audit, and notifications.
 - V8 does not add custom code execution, arbitrary SQL, cross-form joins, anonymous public links, workspace ownership, or tenant-level policy.
 
@@ -38,6 +43,7 @@ Completed V8 work:
 - External export job creation, status review, and latest artifact preview.
 - Sanitized integration log list, filters, detail review, and retry request action.
 - Scripted practical smoke coverage through `scripts/v8-smoke.sh`.
+- Trigger workspace event-delivery health and dead-letter replay controls.
 
 ## Implemented API Areas
 
@@ -61,6 +67,7 @@ See `docs/API_SPEC.md` for endpoint details.
 - `record_import_job_rows`
 - `external_export_jobs`
 - trigger schedule metadata on existing trigger definitions/logs
+- `trigger_event_outbox`
 
 See `docs/DATA_MODEL.md` for table details.
 
@@ -74,7 +81,7 @@ See `docs/DATA_MODEL.md` for table details.
 - No advanced SSO or enterprise identity policy.
 - No automated retry worker for integrations beyond explicit retry request metadata.
 - No server-side integration log pagination/filtering beyond latest-log retrieval.
-- No protected artifact download endpoint separate from export job detail responses.
+- Export artifacts remain stored in PostgreSQL for the current bounded foundation rather than external object storage.
 
 ## Verification For Final V8 State
 

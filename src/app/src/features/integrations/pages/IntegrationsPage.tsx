@@ -145,7 +145,6 @@ export function IntegrationsPage() {
   const [savingImport, setSavingImport] = useState(false);
   const [savingExport, setSavingExport] = useState(false);
   const [downloadingArtifactId, setDownloadingArtifactId] = useState<string | null>(null);
-  const [lastExportContent, setLastExportContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -423,7 +422,6 @@ export function IntegrationsPage() {
     setSavingExport(true);
     setError(null);
     setNotice(null);
-    setLastExportContent(null);
 
     try {
       const created = await createExternalExportJob({
@@ -435,7 +433,6 @@ export function IntegrationsPage() {
         search: exportForm.search.trim() || null
       });
       setExportJobs((current) => [created, ...current]);
-      setLastExportContent(created.artifactContent ?? null);
       setNotice(`Export ${created.status}: ${created.rowCount} rows.`);
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -751,7 +748,6 @@ export function IntegrationsPage() {
         </Card>
 
         <div className="space-y-3">
-          {lastExportContent ? <Textarea label="Last export artifact content" readOnly rows={8} value={lastExportContent} /> : null}
           {!loading && exportJobs.length === 0 ? <EmptyState title="No export jobs" description="Run an export to produce a protected artifact." /> : null}
           {exportJobs.length > 0 ? (
             <Table

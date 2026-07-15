@@ -43,7 +43,7 @@ Read:
 - Added protected `/api/integrations/exports` list/get/create endpoints requiring cookie auth plus `integrations.manage`.
 - Form record exports require form `export` access and apply existing record-scope and hidden-field filtering.
 - List report exports require report `export` access and reuse report export execution with form/report/record/hidden-field filtering.
-- CSV and JSON artifacts are generated without public download links; job detail returns protected artifact content and metadata.
+- CSV and JSON artifacts are generated without public download links; job detail returns artifact metadata while content is available only through the permission-protected, audited artifact download endpoint.
 - Export jobs write audit entries and outbound `export` integration logs.
 
 ## Out of Scope

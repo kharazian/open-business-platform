@@ -63,10 +63,16 @@ builder.Services.AddScoped<TriggerActionRegistry>();
 builder.Services.AddScoped<TriggerPdfAttachmentService>();
 builder.Services.AddScoped<TriggerExecutionService>();
 builder.Services.AddScoped<TriggerEventDispatcher>();
+builder.Services.AddScoped<TriggerEventOutbox>();
+builder.Services.AddScoped<TriggerEventOutboxProcessor>();
+builder.Services.AddScoped<TriggerEventOutboxOperationsService>();
+builder.Services.AddScoped<TriggerEventOutboxRetentionService>();
 builder.Services.AddScoped<TriggerAutomaticRetryService>();
 builder.Services.AddScoped<TriggerScheduleService>();
 builder.Services.AddHostedService<TriggerRetryWorker>();
 builder.Services.AddHostedService<TriggerScheduleWorker>();
+builder.Services.AddHostedService<TriggerEventOutboxWorker>();
+builder.Services.AddHostedService<TriggerEventOutboxRetentionWorker>();
 builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<WorkflowActionExecutionService>();
 builder.Services.AddScoped<WorkflowApprovalService>();
@@ -137,6 +143,23 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.Use(async (httpContext, next) =>
+{
+    try
+    {
+        await next(httpContext);
+    }
+    catch (DbUpdateConcurrencyException) when (!httpContext.Response.HasStarted)
+    {
+        httpContext.Response.Clear();
+        httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+        await httpContext.Response.WriteAsJsonAsync(new
+        {
+            message = "The resource was changed by another request. Refresh and try again."
+        }, httpContext.RequestAborted);
+    }
+});
 
 if (app.Environment.IsDevelopment())
 {

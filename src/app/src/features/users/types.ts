@@ -126,6 +126,7 @@ export interface RoleFieldPermissionDto {
 
 export interface RolePermissionsDto {
   roleId: EntityId;
+  concurrencyStamp: string;
   permissions: string[];
   formPermissions: RoleFormPermissionDto[];
   reportPermissions: RoleReportPermissionDto[];
@@ -133,6 +134,7 @@ export interface RolePermissionsDto {
 }
 
 export interface UpdateRolePermissionsRequest {
+  concurrencyStamp: string;
   permissions: string[];
   formPermissions: RoleFormPermissionDto[];
   reportPermissions: RoleReportPermissionDto[];

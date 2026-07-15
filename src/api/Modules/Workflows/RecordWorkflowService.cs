@@ -13,18 +13,18 @@ public sealed class RecordWorkflowService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const int HistoryLimit = 25;
     private readonly OpenBusinessPlatformDbContext dbContext;
-    private readonly TriggerEventDispatcher triggerDispatcher;
+    private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly WorkflowApprovalService approvalService;
     private readonly WorkflowActionExecutionService actionExecutionService;
 
     public RecordWorkflowService(
         OpenBusinessPlatformDbContext dbContext,
-        TriggerEventDispatcher triggerDispatcher,
+        TriggerEventOutbox triggerEventOutbox,
         WorkflowApprovalService approvalService,
         WorkflowActionExecutionService actionExecutionService)
     {
         this.dbContext = dbContext;
-        this.triggerDispatcher = triggerDispatcher;
+        this.triggerEventOutbox = triggerEventOutbox;
         this.approvalService = approvalService;
         this.actionExecutionService = actionExecutionService;
     }
@@ -212,11 +212,10 @@ public sealed class RecordWorkflowService
                     StateKey = config.InitialStateKey
                 });
 
+            EnqueueStatusChangedIfNeeded(beforeSnapshot, afterSnapshot, actorUserId, previousStatus, currentStatus);
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
-
-        await DispatchStatusChangedIfNeededAsync(beforeSnapshot, afterSnapshot, actorUserId, previousStatus, currentStatus, cancellationToken);
 
         return await GetRecordWorkflowAsync(recordId, principal, permissionService, cancellationToken);
     }
@@ -373,6 +372,7 @@ public sealed class RecordWorkflowService
                     });
 
                 await actionExecutionService.ExecuteTransitionActionsAsync(record, transition, failedActionContext, cancellationToken);
+                EnqueueStatusChangedIfNeeded(beforeSnapshot, afterSnapshot, actorUserId, previousStatus, currentStatus);
                 await dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
             }
@@ -388,9 +388,6 @@ public sealed class RecordWorkflowService
 
             throw new RecordWorkflowException(StatusCodes.Status409Conflict, exception.Message);
         }
-
-        await DispatchStatusChangedIfNeededAsync(beforeSnapshot, afterSnapshot, actorUserId, previousStatus, currentStatus, cancellationToken);
-
         return await GetRecordWorkflowAsync(recordId, principal, permissionService, cancellationToken);
     }
 
@@ -483,13 +480,12 @@ public sealed class RecordWorkflowService
             record.ConcurrencyStamp);
     }
 
-    private async Task DispatchStatusChangedIfNeededAsync(
+    private void EnqueueStatusChangedIfNeeded(
         TriggerRecordSnapshot? beforeSnapshot,
         TriggerRecordSnapshot? afterSnapshot,
         Guid? actorUserId,
         string? previousStatus,
-        string? currentStatus,
-        CancellationToken cancellationToken)
+        string? currentStatus)
     {
         if (beforeSnapshot is null
             || afterSnapshot is null
@@ -498,7 +494,7 @@ public sealed class RecordWorkflowService
             return;
         }
 
-        await triggerDispatcher.DispatchAsync(new TriggerEventContext(
+        triggerEventOutbox.Enqueue(new TriggerEventContext(
             TriggerEvents.StatusChanged,
             afterSnapshot.FormId,
             afterSnapshot.RecordId,
@@ -512,7 +508,7 @@ public sealed class RecordWorkflowService
             afterSnapshot.AssignedToUserId,
             beforeSnapshot.AssignedGroupId,
             afterSnapshot.AssignedGroupId,
-            DateTimeOffset.UtcNow), cancellationToken);
+            DateTimeOffset.UtcNow));
     }
 
     private void AddHistory(

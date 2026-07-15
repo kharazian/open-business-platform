@@ -564,7 +564,7 @@ Lists recent export jobs.
 
 `GET /api/integrations/exports/{exportJobId}`
 
-Returns one export job, including protected artifact content, or `404`.
+Returns one export job and its artifact metadata, but never the artifact body, or `404`. Artifact bytes are available only from the audited download endpoint.
 
 `GET /api/integrations/exports/{exportJobId}/artifact`
 
@@ -613,7 +613,6 @@ Response: `201 Created`
   "artifactFileName": "employee-export.json",
   "artifactContentType": "application/json; charset=utf-8",
   "artifactSizeBytes": 2048,
-  "artifactContent": "{...}",
   "artifactMetadata": {
     "fileName": "employee-export.json",
     "contentType": "application/json; charset=utf-8",
@@ -1088,6 +1087,7 @@ Response:
 ```json
 {
   "roleId": "00000000-0000-0000-0000-000000000000",
+  "concurrencyStamp": "current-role-stamp",
   "permissions": ["menu.forms", "forms.create"],
   "formPermissions": [
     {
@@ -1118,7 +1118,7 @@ Response:
 
 Requires `roles.manage`.
 
-Request shape matches the response from `GET /api/roles/{roleId}/permissions`. Supported form scopes are `all`, `own`, `department`, `managed_department`, `group`, and `assigned`. Supported report actions are `view`, `export`, and `manage`. Supported field access values are `hidden` and `read_only`.
+Request shape matches the response from `GET /api/roles/{roleId}/permissions`, including the current parent role `concurrencyStamp`; stale updates return `409 Conflict`. Supported form scopes are `all`, `own`, `department`, `managed_department`, `group`, and `assigned`. Supported report actions are `view`, `export`, and `manage`. Supported field access values are `hidden` and `read_only`.
 
 ### Groups
 
@@ -2222,6 +2222,18 @@ Request:
 
 Response: `201 Created` with the saved trigger detail.
 
+### Trigger event delivery operations
+
+`GET /api/forms/{formId}/triggers/outbox?status=dead_letter`
+
+Requires form `manage` or `forms.manage_all` access. Returns form-scoped pending, processing, completed, and dead-letter counts, oldest pending time, a `healthy`/`delayed`/`attention` status, and up to 100 messages for the requested status. Supported filters are `pending`, `processing`, `completed`, and `dead_letter`; the default is `dead_letter`.
+
+Message metadata includes event/record IDs, delivery state, attempts, timestamps, and the last infrastructure error. The internal `payload_json` is never selected into or returned from the operations DTO.
+
+`POST /api/forms/{formId}/triggers/outbox/{messageId}/replay`
+
+Requires form `manage` or `forms.manage_all` access. Atomically resets only a `dead_letter` message to `pending`, resets its bounded attempt state, and writes a `trigger_event_outbox_replayed` audit entry. Returns `404` for a message outside the form and `409` when the message is no longer a dead letter.
+
 ### Update trigger
 
 `PUT /api/triggers/{triggerId}`
@@ -2248,15 +2260,15 @@ Failed first-attempt trigger executions are scheduled through the trigger's conf
 - `autoRetryMaxAttempts`
 - `autoRetryNextAttemptAt`
 
-The hosted retry worker replays due failed logs through the trigger's current action list, matching manual retry semantics. Disabled triggers or triggers with automatic retries disabled are not retried automatically; their pending failed logs surface `disabled`. Retries stop once `autoRetryAttemptCount` reaches `autoRetryMaxAttempts`.
+The hosted retry worker replays due failed logs through the trigger's current action list. Actions already recorded as completed on the source execution are skipped, and completed action checkpoints are merged back into the source log for later attempts. Disabled triggers or triggers with automatic retries disabled are not retried automatically; their pending failed logs surface `disabled`. Retries stop once `autoRetryAttemptCount` reaches `autoRetryMaxAttempts`.
 
-Scheduled trigger logs use `entityType = "Schedule"` and include `schedule` metadata in `input` and `result` JSON. The metadata records due time, lock time, completion time, final status, `runSource` (`worker` or `manual`), and skip reason when a persisted due schedule cannot be processed. Action failures still write `failed` logs and use the normal trigger retry policy.
+Scheduled trigger logs use `entityType = "Schedule"` and include `schedule` metadata in `input` and `result` JSON. The scheduler atomically claims a trigger through `scheduleLockedAt` before executing it; abandoned claims expire after five minutes. The metadata records due time, lock time, completion time, final status, `runSource` (`worker` or `manual`), and skip reason when a persisted due schedule cannot be processed. Action failures still write `failed` logs and use the normal trigger retry policy.
 
 ### Run scheduled trigger now
 
 `POST /api/triggers/{triggerId}/schedule/run`
 
-Requires form `manage` or `forms.manage_all` access for the trigger's form. The trigger must be enabled, must use a scheduled event, and must have valid schedule metadata. The backend executes the trigger through the same scheduled execution path as the hosted worker, writes a normal trigger execution log with `schedule.runSource = "manual"`, updates `scheduleLastRunAt`, recalculates `scheduleNextRunAt`, and returns `201 Created`.
+Requires form `manage` or `forms.manage_all` access for the trigger's form. The trigger must be enabled, must use a scheduled event, must have valid schedule metadata, and must not already hold a live scheduler claim. The backend executes the trigger through the same scheduled execution path as the hosted worker, writes a normal trigger execution log with `schedule.runSource = "manual"`, updates `scheduleLastRunAt`, preserves an already-future `scheduleNextRunAt`, and returns `201 Created`.
 
 Response:
 

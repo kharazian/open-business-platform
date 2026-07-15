@@ -225,7 +225,6 @@ export type ExternalExportJobSummaryDto = {
 };
 
 export type ExternalExportJobDetailDto = ExternalExportJobSummaryDto & ConcurrencyStampedDto & {
-  artifactContent?: string | null;
   artifactMetadata?: unknown;
   updatedAt?: string | null;
   updatedById?: EntityId | null;

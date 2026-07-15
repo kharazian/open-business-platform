@@ -53,7 +53,6 @@ public sealed class TriggerExecutionService
         }
 
         var sourceLog = await dbContext.TriggerLogs
-            .AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.Id == logId && candidate.TriggerId == triggerId, cancellationToken);
 
         if (sourceLog is null)
@@ -71,7 +70,16 @@ public sealed class TriggerExecutionService
         {
             ActorUserId = actorUserId ?? sourceContext.ActorUserId
         };
-        var retryLog = await ExecuteMatchedActionsAsync(trigger, context, sourceLog.Id, sourceLog.EntityType, sourceLog.EntityId, cancellationToken);
+        var retryLog = await ExecuteMatchedActionsAsync(
+            trigger,
+            context,
+            sourceLog.Id,
+            sourceLog.EntityType,
+            sourceLog.EntityId,
+            cancellationToken,
+            completedActionIds: TriggerActionResumePolicy.GetCompletedActionIds(sourceLog.ResultJson));
+        sourceLog.ResultJson = TriggerActionResumePolicy.MergeCompletedActions(sourceLog.ResultJson, retryLog.ResultJson);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return TriggerDefinitionService.ToLogDto(retryLog);
     }
@@ -87,7 +95,16 @@ public sealed class TriggerExecutionService
         }
 
         var context = DeserializeEventContext(sourceLog.InputJson);
-        return await ExecuteMatchedActionsAsync(trigger, context, sourceLog.Id, sourceLog.EntityType, sourceLog.EntityId, cancellationToken);
+        var retryLog = await ExecuteMatchedActionsAsync(
+            trigger,
+            context,
+            sourceLog.Id,
+            sourceLog.EntityType,
+            sourceLog.EntityId,
+            cancellationToken,
+            completedActionIds: TriggerActionResumePolicy.GetCompletedActionIds(sourceLog.ResultJson));
+        sourceLog.ResultJson = TriggerActionResumePolicy.MergeCompletedActions(sourceLog.ResultJson, retryLog.ResultJson);
+        return retryLog;
     }
 
     public async Task<TriggerExecutionLog> ExecuteScheduledAsync(
@@ -209,7 +226,8 @@ public sealed class TriggerExecutionService
         string entityType,
         Guid entityId,
         CancellationToken cancellationToken,
-        TriggerScheduledRunMetadata? scheduleMetadata = null)
+        TriggerScheduledRunMetadata? scheduleMetadata = null,
+        IReadOnlySet<string>? completedActionIds = null)
     {
         var now = DateTimeOffset.UtcNow;
         var log = new TriggerExecutionLog
@@ -233,6 +251,18 @@ public sealed class TriggerExecutionService
         {
             foreach (var action in DeserializeActions(trigger.ActionsJson))
             {
+                if (completedActionIds?.Contains(action.Id) == true)
+                {
+                    actionResults.Add(new Dictionary<string, object?>
+                    {
+                        ["actionId"] = action.Id,
+                        ["type"] = action.Type,
+                        ["executionStatus"] = "skipped",
+                        ["skipReason"] = "already_completed"
+                    });
+                    continue;
+                }
+
                 try
                 {
                     actionResults.Add(await actionRegistry.ExecuteAsync(action, context, trigger.Id, log.Id, cancellationToken));

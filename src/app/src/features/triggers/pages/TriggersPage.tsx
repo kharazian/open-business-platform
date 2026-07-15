@@ -19,7 +19,7 @@ import { listDepartments, listGroups, listUsers } from "../../users/api";
 import type { DepartmentDto, GroupDto, UserDto } from "../../users/types";
 import { listWorkflows } from "../../workflows/api";
 import type { WorkflowSummary } from "../../workflows/types";
-import { createTrigger, getTrigger, listTriggerLogs, listTriggers, retryTriggerLog, runScheduledTriggerNow, updateTrigger } from "../api";
+import { createTrigger, getTrigger, getTriggerOutboxOperations, listTriggerLogs, listTriggers, replayTriggerOutboxMessage, retryTriggerLog, runScheduledTriggerNow, updateTrigger } from "../api";
 import {
   buildTriggerRequest,
   createDefaultTriggerSchedule,
@@ -50,6 +50,8 @@ import type {
   TriggerActionType,
   TriggerConditionType,
   TriggerDetail,
+  TriggerEventOutboxMessage,
+  TriggerEventOutboxOperations,
   TriggerEventName,
   TriggerExecutionLog,
   TriggerSummary,
@@ -67,6 +69,7 @@ export function TriggersPage() {
   const [selectedTriggerId, setSelectedTriggerId] = useState("");
   const [draft, setDraft] = useState<TriggerDraft>(() => createEmptyTriggerDraft());
   const [logs, setLogs] = useState<TriggerExecutionLog[]>([]);
+  const [outboxOperations, setOutboxOperations] = useState<TriggerEventOutboxOperations | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [departments, setDepartments] = useState<DepartmentDto[]>([]);
   const [groups, setGroups] = useState<GroupDto[]>([]);
@@ -75,6 +78,7 @@ export function TriggersPage() {
   const [loadingTrigger, setLoadingTrigger] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
+  const [replayingOutboxMessageId, setReplayingOutboxMessageId] = useState<string | null>(null);
   const [runningScheduleNow, setRunningScheduleNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export function TriggersPage() {
       setRecordPrintTemplates([]);
       setSelectedTriggerId("");
       setLogs([]);
+      setOutboxOperations(null);
       setDraft(createEmptyTriggerDraft());
       return;
     }
@@ -152,11 +157,12 @@ export function TriggersPage() {
     setLogs([]);
 
     try {
-      const [form, triggerItems, workflowItems, printTemplateItems] = await Promise.all([
+      const [form, triggerItems, workflowItems, printTemplateItems, outbox] = await Promise.all([
         getForm(formId),
         listTriggers(formId),
         listWorkflows(formId),
-        loadPublishedRecordPrintTemplates(formId)
+        loadPublishedRecordPrintTemplates(formId),
+        getTriggerOutboxOperations(formId)
       ]);
       const schema = await resolveAuthoringSchema(form);
       setFormDetail(form);
@@ -164,6 +170,7 @@ export function TriggersPage() {
       setTriggers(triggerItems);
       setWorkflows(workflowItems);
       setRecordPrintTemplates(printTemplateItems);
+      setOutboxOperations(outbox);
       setDraft(createEmptyTriggerDraft(form.name));
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -172,6 +179,7 @@ export function TriggersPage() {
       setTriggers([]);
       setWorkflows([]);
       setRecordPrintTemplates([]);
+      setOutboxOperations(null);
       setDraft(createEmptyTriggerDraft(selectedForm?.name));
     } finally {
       setLoadingWorkspace(false);
@@ -292,6 +300,34 @@ export function TriggersPage() {
       setError(getErrorMessage(caught));
     } finally {
       setRetryingLogId(null);
+    }
+  }
+
+  async function refreshOutbox() {
+    if (!selectedFormId) return;
+
+    try {
+      setOutboxOperations(await getTriggerOutboxOperations(selectedFormId));
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    }
+  }
+
+  async function handleReplayOutboxMessage(messageId: string) {
+    if (!selectedFormId) return;
+
+    setReplayingOutboxMessageId(messageId);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await replayTriggerOutboxMessage(selectedFormId, messageId);
+      await refreshOutbox();
+      setNotice("Dead-letter trigger event queued for replay.");
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+    } finally {
+      setReplayingOutboxMessageId(null);
     }
   }
 
@@ -654,6 +690,59 @@ export function TriggersPage() {
                 <EmptyState title="No logs yet" description="This trigger has no matching executions yet." action={null} />
               ) : (
                 <EmptyState title="Select a trigger" description="Choose a saved trigger to review execution logs." action={null} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle>Event delivery</CardTitle>
+                  {outboxOperations ? (
+                    <Badge variant={outboxOperations.summary.healthStatus === "healthy" ? "success" : outboxOperations.summary.healthStatus === "delayed" ? "warning" : "danger"}>
+                      {outboxOperations.summary.healthStatus}
+                    </Badge>
+                  ) : null}
+                </div>
+                <CardDescription>Transactional record-event delivery health. Event payloads are never exposed here.</CardDescription>
+              </div>
+              <Button disabled={!selectedFormId || loadingWorkspace} onClick={() => void refreshOutbox()} size="sm" variant="outline">
+                <RefreshCw className="size-4" />
+                Refresh delivery
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              {outboxOperations ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Metric label="Pending" value={outboxOperations.summary.pendingCount} />
+                    <Metric label="Processing" value={outboxOperations.summary.processingCount} />
+                    <Metric label="Completed" value={outboxOperations.summary.completedCount} />
+                    <Metric label="Dead letters" value={outboxOperations.summary.deadLetterCount} />
+                  </div>
+                  {outboxOperations.summary.oldestPendingAt ? (
+                    <p className="text-sm text-muted-foreground">Oldest pending event: {formatTriggerDate(outboxOperations.summary.oldestPendingAt)}</p>
+                  ) : null}
+                  {outboxOperations.items.length > 0 ? (
+                    <div className="grid gap-3">
+                      {outboxOperations.items.map((message) => (
+                        <OutboxMessagePanel
+                          key={message.id}
+                          message={message}
+                          onReplay={(messageId) => void handleReplayOutboxMessage(messageId)}
+                          replaying={replayingOutboxMessageId === message.id}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState title="No dead letters" description="Event delivery has no exhausted messages for this form." action={null} />
+                  )}
+                </>
+              ) : selectedFormId ? (
+                <p className="text-sm font-semibold text-muted-foreground">Loading event delivery health...</p>
+              ) : (
+                <EmptyState title="Select a form" description="Choose a form to review event delivery health." action={null} />
               )}
             </CardContent>
           </Card>
@@ -1096,6 +1185,36 @@ function TriggerLogPanel({ log, onRetry, retrying }: { log: TriggerExecutionLog;
         <JsonBlock label="Input" value={log.input} />
         <JsonBlock label="Result" value={log.result} />
       </div>
+    </div>
+  );
+}
+
+function OutboxMessagePanel({
+  message,
+  onReplay,
+  replaying
+}: {
+  message: TriggerEventOutboxMessage;
+  onReplay: (messageId: string) => void;
+  replaying: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-danger/20 bg-danger-soft/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold text-foreground">{formatTriggerEventLabel(message.eventName)}</p>
+            <Badge variant="danger">Dead letter</Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">Record {message.recordId}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Attempts {message.attemptCount} of {message.maxAttempts} · Created {formatTriggerDate(message.createdAt)}</p>
+        </div>
+        <Button disabled={replaying} onClick={() => onReplay(message.id)} size="sm" variant="outline">
+          <RotateCcw className="size-4" />
+          {replaying ? "Queuing..." : "Replay"}
+        </Button>
+      </div>
+      {message.errorMessage ? <p className="mt-3 rounded-lg bg-card px-3 py-2 text-sm font-semibold text-danger">{message.errorMessage}</p> : null}
     </div>
   );
 }

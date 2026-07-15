@@ -51,6 +51,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<TriggerExecutionLog> TriggerLogs => Set<TriggerExecutionLog>();
 
+    public DbSet<TriggerEventOutboxMessage> TriggerEventOutbox => Set<TriggerEventOutboxMessage>();
+
     public DbSet<WorkflowDefinition> Workflows => Set<WorkflowDefinition>();
 
     public DbSet<WorkflowDefinitionVersion> WorkflowVersions => Set<WorkflowDefinitionVersion>();
@@ -572,6 +574,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(trigger => trigger.ScheduleJson).HasColumnName("schedule_json").HasColumnType("jsonb");
             entity.Property(trigger => trigger.ScheduleNextRunAt).HasColumnName("schedule_next_run_at");
             entity.Property(trigger => trigger.ScheduleLastRunAt).HasColumnName("schedule_last_run_at");
+            entity.Property(trigger => trigger.ScheduleLockedAt).HasColumnName("schedule_locked_at");
             entity
                 .HasOne(trigger => trigger.Form)
                 .WithMany()
@@ -618,6 +621,41 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .HasOne(log => log.Form)
                 .WithMany()
                 .HasForeignKey(log => log.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TriggerEventOutboxMessage>(entity =>
+        {
+            entity.ToTable("trigger_event_outbox");
+            entity.HasKey(message => message.Id);
+            entity.HasIndex(message => new { message.Status, message.NextAttemptAt });
+            entity.HasIndex(message => message.LockedAt);
+            entity.HasIndex(message => message.FormId);
+            entity.HasIndex(message => message.RecordId);
+            entity.Property(message => message.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(message => message.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(message => message.RecordId).HasColumnName("record_id").HasColumnType("uuid").IsRequired();
+            entity.Property(message => message.EventName).HasColumnName("event_name").HasMaxLength(80).IsRequired();
+            entity.Property(message => message.PayloadJson).HasColumnName("payload_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(message => message.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(message => message.AttemptCount).HasColumnName("attempt_count").HasDefaultValue(0);
+            entity.Property(message => message.MaxAttempts).HasColumnName("max_attempts").HasDefaultValue(5);
+            entity.Property(message => message.NextAttemptAt).HasColumnName("next_attempt_at").IsRequired();
+            entity.Property(message => message.LockedAt).HasColumnName("locked_at");
+            entity.Property(message => message.ClaimId).HasColumnName("claim_id").HasColumnType("uuid");
+            entity.Property(message => message.CompletedAt).HasColumnName("completed_at");
+            entity.Property(message => message.DeadLetteredAt).HasColumnName("dead_lettered_at");
+            entity.Property(message => message.ErrorMessage).HasColumnName("error_message").HasMaxLength(2000);
+            entity.Property(message => message.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity
+                .HasOne<FormDefinition>()
+                .WithMany()
+                .HasForeignKey(message => message.FormId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne<FormRecord>()
+                .WithMany()
+                .HasForeignKey(message => message.RecordId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
@@ -1166,7 +1204,11 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         entity.Property(item => item.CreatedById).HasColumnName("created_by_id").HasColumnType("uuid");
         entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
         entity.Property(item => item.UpdatedById).HasColumnName("updated_by_id").HasColumnType("uuid");
-        entity.Property(item => item.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(40).IsRequired();
+        entity.Property(item => item.ConcurrencyStamp)
+            .HasColumnName("concurrency_stamp")
+            .HasMaxLength(40)
+            .IsRequired()
+            .IsConcurrencyToken();
         entity.Property(item => item.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
     }
 

@@ -48,6 +48,50 @@ public static class TriggersEndpoints
             });
         });
 
+        formGroup.MapGet("/outbox", async (
+            Guid formId,
+            string? status,
+            TriggerEventOutboxOperationsService outboxOperations,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageFormAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleTriggerRequestAsync(async () =>
+            {
+                var operations = await outboxOperations.GetOperationsAsync(formId, status, cancellationToken);
+                return Results.Ok(operations);
+            });
+        });
+
+        formGroup.MapPost("/outbox/{messageId:guid}/replay", async (
+            Guid formId,
+            Guid messageId,
+            TriggerEventOutboxOperationsService outboxOperations,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageFormAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleTriggerRequestAsync(async () =>
+            {
+                var message = await outboxOperations.ReplayDeadLetterAsync(
+                    formId,
+                    messageId,
+                    GetCurrentUserId(httpContext),
+                    cancellationToken);
+                return Results.Ok(message);
+            });
+        });
+
         var triggerGroup = endpoints.MapGroup("/api/triggers").WithTags("Triggers").RequireAuthorization();
 
         triggerGroup.MapGet("/{triggerId:guid}", async (

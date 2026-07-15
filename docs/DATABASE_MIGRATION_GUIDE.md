@@ -103,3 +103,18 @@ Triggers:
 - form_id
 - event_name
 - is_enabled
+
+Trigger event outbox:
+
+- status + next_attempt_at
+- locked_at
+- form_id
+- record_id
+
+## V8 Production Hardening Migration
+
+`20260715174713_V8ProductionHardening` adds nullable `trigger_definitions.schedule_locked_at` for atomic scheduler claims. It also records EF Core concurrency-token metadata for existing `concurrency_stamp` properties; that metadata changes update predicates but does not alter the PostgreSQL concurrency-stamp columns.
+
+## Transactional Trigger Event Outbox Migration
+
+`20260715180727_TransactionalTriggerEventOutbox` adds `trigger_event_outbox` for record events committed atomically with their source mutation. The table stores internal JSONB event payloads, delivery status, bounded retry metadata, and five-minute lease/fencing fields. It does not backfill historical record changes.

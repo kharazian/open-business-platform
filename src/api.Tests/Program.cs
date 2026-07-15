@@ -119,6 +119,7 @@ AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
 AssertTable<TriggerDefinition>(model, "triggers");
 AssertTable<TriggerExecutionLog>(model, "trigger_logs");
+AssertTable<TriggerEventOutboxMessage>(model, "trigger_event_outbox");
 AssertTable<WorkflowDefinition>(model, "workflow_definitions");
 AssertTable<WorkflowDefinitionVersion>(model, "workflow_definition_versions");
 AssertTable<WorkflowHistoryEntry>(model, "workflow_history");
@@ -135,6 +136,45 @@ AssertTable<RecordImportJob>(model, "record_import_jobs");
 AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
 AssertTable<ExternalExportJob>(model, "external_export_jobs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
+AssertJsonColumn<TriggerEventOutboxMessage>(model, nameof(TriggerEventOutboxMessage.PayloadJson));
+AssertIndex<TriggerEventOutboxMessage>(model, new[] { nameof(TriggerEventOutboxMessage.Status), nameof(TriggerEventOutboxMessage.NextAttemptAt) }, "Trigger event outbox polling should use a status/due-time index.");
+AssertIndex<TriggerEventOutboxMessage>(model, new[] { nameof(TriggerEventOutboxMessage.LockedAt) }, "Trigger event outbox abandoned claims should be indexed.");
+
+using (var outboxDbContext = new OpenBusinessPlatformDbContext(dbOptions))
+{
+    var outbox = new TriggerEventOutbox(outboxDbContext);
+    var formId = Guid.NewGuid();
+    var recordId = Guid.NewGuid();
+    var snapshot = new TriggerRecordSnapshot(
+        recordId,
+        formId,
+        "active",
+        null,
+        null,
+        null,
+        null,
+        new Dictionary<string, object?> { ["name"] = "Outbox test" });
+    var message = outbox.Enqueue(new TriggerEventContext(
+        TriggerEvents.RecordCreated,
+        formId,
+        recordId,
+        null,
+        null,
+        snapshot,
+        Array.Empty<string>(),
+        null,
+        "active",
+        null,
+        null,
+        null,
+        null,
+        DateTimeOffset.UtcNow));
+
+    AssertEqual(EntityState.Added, outboxDbContext.Entry(message).State, "Enqueue should stage the event on the caller's DbContext transaction.");
+    AssertEqual(TriggerEventOutboxStatuses.Pending, message.Status, "New outbox events should start pending.");
+    AssertEqual(5, message.MaxAttempts, "New outbox events should have a bounded delivery attempt count.");
+    AssertTrue(message.PayloadJson.RootElement.GetProperty("recordId").GetGuid() == recordId, "Outbox payload should retain its record context.");
+}
 
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, User>();
 AssertTypeAssignable<Entity<Guid>, PasswordResetToken>();
@@ -285,6 +325,10 @@ AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.AutoRetryDelaySe
 AssertJsonColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleJson));
 AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleNextRunAt), "schedule_next_run_at", "Scheduled triggers should store their next due run.");
 AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleLastRunAt), "schedule_last_run_at", "Scheduled triggers should store their last run metadata.");
+AssertColumn<TriggerDefinition>(model, nameof(TriggerDefinition.ScheduleLockedAt), "schedule_locked_at", "Scheduled triggers should store their atomic claim lease.");
+AssertConcurrencyStamp<FormRecord>(model);
+AssertConcurrencyStamp<TriggerDefinition>(model);
+AssertConcurrencyStamp<IntegrationConnector>(model);
 AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.Status), "status", "Workflow definitions should store draft/published status.");
 AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.CurrentVersionId), "current_version_id", "Workflow definitions should point at the current published version.");
 AssertColumn<WorkflowDefinition>(model, nameof(WorkflowDefinition.IsEnabled), "is_enabled", "Workflow definitions should store enabled state.");
@@ -666,6 +710,7 @@ AssertTrue(ExternalExportJobSourceTypes.Supported.Contains(ExternalExportJobSour
 AssertTrue(ExternalExportJobFormats.Supported.Contains(ExternalExportJobFormats.Csv), "External export jobs should support CSV output.");
 AssertTrue(ExternalExportJobFormats.Supported.Contains(ExternalExportJobFormats.Json), "External export jobs should support JSON output.");
 AssertTrue(ExternalExportJobStatuses.Supported.Contains(ExternalExportJobStatuses.Succeeded), "External export jobs should expose succeeded status.");
+AssertNull(typeof(ExternalExportJobDetailDto).GetProperty("ArtifactContent"), "External export job details should not bypass the audited artifact download endpoint.");
 var exportReport = new ListReportExecutionDto(
     Guid.Parse("eeeeeeee-0000-0000-0000-000000000001"),
     webhookTargetFormId,
@@ -1232,6 +1277,48 @@ AssertEqual(
     TriggerScheduleRunSources.Manual,
     manualScheduleMetadata.RunSource,
     "Manually run scheduled trigger logs should identify their run source.");
+AssertEqual(TimeSpan.FromMinutes(5), TriggerScheduleService.ClaimLease, "Scheduled trigger claims should expire after a bounded lease.");
+AssertEqual(TimeSpan.FromMinutes(5), TriggerEventOutboxProcessor.ClaimLease, "Trigger event outbox claims should expire after a bounded lease.");
+AssertEqual(TimeSpan.FromSeconds(30), TriggerEventOutboxProcessor.CalculateRetryDelay(1), "First outbox delivery retry should wait 30 seconds.");
+AssertEqual(TimeSpan.FromMinutes(1), TriggerEventOutboxProcessor.CalculateRetryDelay(2), "Second outbox delivery retry should use exponential backoff.");
+AssertEqual(TimeSpan.FromMinutes(15), TriggerEventOutboxProcessor.CalculateRetryDelay(10), "Outbox delivery retry backoff should be bounded at 15 minutes.");
+AssertTrue(TriggerEventOutboxStatuses.Supported.SetEquals(new[] { "pending", "processing", "completed", "dead_letter" }), "Outbox operations should accept only known delivery states.");
+AssertNull(typeof(TriggerEventOutboxMessageDto).GetProperty("PayloadJson"), "Outbox operations DTOs should never expose event payload JSON.");
+AssertEqual("healthy", TriggerEventOutboxOperationsService.GetHealthStatus(0, null, DateTimeOffset.UtcNow), "An empty outbox should report healthy.");
+var outboxHealthNow = DateTimeOffset.UtcNow;
+AssertEqual("delayed", TriggerEventOutboxOperationsService.GetHealthStatus(0, outboxHealthNow.AddMinutes(-6), outboxHealthNow), "Old pending messages should report delayed delivery.");
+AssertEqual("attention", TriggerEventOutboxOperationsService.GetHealthStatus(1, null, outboxHealthNow), "Dead letters should require operator attention.");
+AssertEqual(TimeSpan.FromDays(30), TriggerEventOutboxRetentionService.RetentionPeriod, "Completed outbox messages should have a documented retention period.");
+AssertEqual(500, TriggerEventOutboxRetentionService.BatchSize, "Outbox retention should delete in bounded batches.");
+var outboxOperationsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "TriggerEventOutboxOperationsService.cs"));
+AssertTrue(outboxOperationsSource.Contains("message.Status == TriggerEventOutboxStatuses.DeadLetter", StringComparison.Ordinal), "Replay should atomically require dead-letter state.");
+AssertTrue(outboxOperationsSource.Contains("trigger_event_outbox_replayed", StringComparison.Ordinal), "Manual outbox replay should write a dedicated audit action.");
+var outboxRetentionSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "TriggerEventOutboxRetentionService.cs"));
+AssertTrue(outboxRetentionSource.Contains("message.Status == TriggerEventOutboxStatuses.Completed", StringComparison.Ordinal), "Retention should delete only completed messages.");
+var triggerEndpointsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "TriggersEndpoints.cs"));
+AssertTrue(triggerEndpointsSource.Contains("/outbox/{messageId:guid}/replay", StringComparison.Ordinal), "Trigger endpoints should expose protected dead-letter replay.");
+using var partialTriggerResult = SerializeHarnessJson(new
+{
+    actions = new object[]
+    {
+        new { actionId = "email", type = TriggerActionTypes.SendEmail },
+        new { actionId = "webhook", type = TriggerActionTypes.CallWebhook, status = "failed", errorMessage = "timeout" }
+    }
+});
+var completedBeforeRetry = TriggerActionResumePolicy.GetCompletedActionIds(partialTriggerResult);
+AssertTrue(completedBeforeRetry.SetEquals(new[] { "email" }), "Trigger retry resumption should skip only actions recorded as completed.");
+using var retryTriggerResult = SerializeHarnessJson(new
+{
+    actions = new object[]
+    {
+        new { actionId = "email", type = TriggerActionTypes.SendEmail, executionStatus = "skipped" },
+        new { actionId = "webhook", type = TriggerActionTypes.CallWebhook }
+    }
+});
+using var mergedTriggerResult = TriggerActionResumePolicy.MergeCompletedActions(partialTriggerResult, retryTriggerResult);
+AssertTrue(
+    TriggerActionResumePolicy.GetCompletedActionIds(mergedTriggerResult).SetEquals(new[] { "email", "webhook" }),
+    "Trigger retries should retain completed action checkpoints across attempts.");
 AssertTrue(TriggerConditionTypes.Supported.Contains(TriggerConditionTypes.FieldChanged), "Trigger conditions should include field_changed.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.AssignRecord), "Trigger actions should include assign_record.");
 AssertTrue(TriggerActionTypes.Supported.Contains(TriggerActionTypes.UpdateField), "Trigger actions should include update_field.");
@@ -2072,8 +2159,10 @@ AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalS
 AssertNotNull(typeof(WorkflowApprovalService).GetMethod(nameof(WorkflowApprovalService.RejectAsync)), "Workflow approval service should reject assigned tasks.");
 AssertTypeAssignable<IPlatformApiModule, WorkflowsModule>();
 AssertTrue(new WorkflowsModule().Id == "app.workflows", "Workflow module should expose a stable module id.");
-AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record submission should receive the trigger dispatcher.");
-AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventDispatcher)), "Record mutation should receive the trigger dispatcher.");
+AssertNotNull(typeof(RecordSubmissionService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventOutbox)), "Record submission should stage trigger events transactionally.");
+AssertNotNull(typeof(RecordMutationService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventOutbox)), "Record mutation should stage trigger events transactionally.");
+AssertNotNull(typeof(RecordWorkflowService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventOutbox)), "Record workflow transitions should stage status events transactionally.");
+AssertNotNull(typeof(WorkflowApprovalService).GetConstructors().Single().GetParameters().FirstOrDefault(parameter => parameter.ParameterType == typeof(TriggerEventOutbox)), "Approval-completed transitions should stage status events transactionally.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.ListForUserAsync)), "Notification service should list current-user notifications.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.GetUnreadCountAsync)), "Notification service should count unread notifications.");
 AssertNotNull(typeof(NotificationQueryService).GetMethod(nameof(NotificationQueryService.MarkReadAsync)), "Notification service should mark one notification read.");
@@ -2344,6 +2433,7 @@ AssertEqual("new-temporary-password-2", completePasswordReset.NewPassword, "Comp
 
 var rolePermissions = new RolePermissionsDto(
     sampleRoleId,
+    "role-permissions-stamp",
     new[] { PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create },
     new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.View) },
     Array.Empty<RoleReportPermissionDto>(),
@@ -2352,11 +2442,13 @@ AssertEqual(sampleRoleId, rolePermissions.RoleId, "Role permissions DTO should e
 AssertEqual(PlatformPermissions.Form.View, rolePermissions.FormPermissions.Single().Action, "Role permissions DTO should expose form actions.");
 
 var updateRolePermissions = new UpdateRolePermissionsRequest(
+    "role-permissions-stamp",
     new[] { PlatformPermissions.Menu.UsersAccess, PlatformPermissions.Users.Manage },
     new[] { new RoleFormPermissionDto(sampleDepartmentId, PlatformPermissions.Form.Manage) },
     Array.Empty<RoleReportPermissionDto>(),
     Array.Empty<RoleFieldPermissionDto>());
 AssertTrue(updateRolePermissions.Permissions.Contains(PlatformPermissions.Users.Manage), "Update role permissions request should carry global permissions.");
+AssertEqual("role-permissions-stamp", updateRolePermissions.ConcurrencyStamp, "Permission updates should carry the parent role concurrency stamp.");
 
 var normalizeFormPermissions = typeof(IdentityManagementService).GetMethod(
     "NormalizeFormPermissions",
@@ -4017,6 +4109,16 @@ static void AssertColumn<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel 
         ?? throw new InvalidOperationException($"{typeof(TEntity).Name}.{propertyName} should be mapped.");
 
     AssertEqual(expectedColumn, property.GetColumnName(), message);
+}
+
+static void AssertConcurrencyStamp<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel model)
+{
+    var entity = model.FindEntityType(typeof(TEntity))
+        ?? throw new InvalidOperationException($"{typeof(TEntity).Name} should be mapped.");
+    var property = entity.FindProperty(nameof(IHasConcurrencyStamp.ConcurrencyStamp))
+        ?? throw new InvalidOperationException($"{typeof(TEntity).Name} should expose a concurrency stamp.");
+
+    AssertTrue(property.IsConcurrencyToken, $"{typeof(TEntity).Name}.ConcurrencyStamp should be enforced by the database update predicate.");
 }
 
 static void AssertIndex<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel model, string[] propertyNames, string message)
