@@ -246,6 +246,8 @@ Important variables:
 - `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`: control frontend branding defaults shown in the navbar, sidebar, settings, and login screen.
 - `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`: server-only bootstrap admin fallback credentials for local setup and access recovery.
 - `DEFAULT_COMPANY_NAME`, `DEFAULT_COMPANY_LOGO_URL`: backend branding defaults until company settings move into the database.
+- `AUTOMATION_PENDING_AGE_WARNING_SECONDS`, `AUTOMATION_DEAD_LETTER_WARNING_COUNT`, `AUTOMATION_MONITOR_INTERVAL_SECONDS`: configure payload-free automation degradation and structured warning cadence.
+- `AUTOMATION_METRICS_ENABLED`, `AUTOMATION_METRICS_TOKEN`: enable aggregate Prometheus metrics and protect non-development scrapes with a server-only bearer token.
 
 Do not put secrets in `VITE_` or `BRAND_` variables. Vite exposes both prefixes to browser code.
 

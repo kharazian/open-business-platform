@@ -57,6 +57,10 @@ using (var appSettings = JsonDocument.Parse(File.ReadAllText(GetRepositoryFilePa
         "Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password",
         configuredPostgres,
         "Checked-in API appsettings should match the project Compose PostgreSQL host port.");
+    AssertEqual(
+        300,
+        appSettings.RootElement.GetProperty("AutomationHealth").GetProperty("PendingAgeWarningSeconds").GetInt32(),
+        "Checked-in automation health should use a five-minute pending warning threshold.");
 }
 
 RunWithEnvironment(
@@ -64,8 +68,12 @@ RunWithEnvironment(
     {
         ["AUTH_COOKIE_NAME"] = "obp_test.auth",
         ["AUTH_COOKIE_REQUIRE_SECURE"] = "false",
+        ["AUTOMATION_PENDING_AGE_WARNING_SECONDS"] = "420",
+        ["AUTOMATION_METRICS_TOKEN"] = "test-metrics-token",
         ["Authentication__CookieName"] = null,
         ["Authentication__RequireSecureCookies"] = null,
+        ["AutomationHealth__PendingAgeWarningSeconds"] = null,
+        ["AutomationHealth__MetricsToken"] = null,
         ["ConnectionStrings__Postgres"] = null,
         ["POSTGRES_HOST"] = null,
         ["POSTGRES_PORT"] = null,
@@ -85,6 +93,8 @@ RunWithEnvironment(
 
         AssertEqual("obp_test.auth", Environment.GetEnvironmentVariable("Authentication__CookieName"), "Auth cookie name should be configurable per local clone.");
         AssertEqual("false", Environment.GetEnvironmentVariable("Authentication__RequireSecureCookies"), "Secure auth cookies should be configurable for temporary HTTP-only staging.");
+        AssertEqual("420", Environment.GetEnvironmentVariable("AutomationHealth__PendingAgeWarningSeconds"), "Automation pending-age thresholds should be configurable from deployment environment variables.");
+        AssertEqual("test-metrics-token", Environment.GetEnvironmentVariable("AutomationHealth__MetricsToken"), "Automation metrics tokens should remain server-side configuration.");
         AssertEqual(
             "Host=localhost;Port=55432;Database=open_business_platform;Username=obp;Password=obp_dev_password",
             Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
@@ -1342,6 +1352,50 @@ var outboxRetentionSource = File.ReadAllText(GetRepositoryFilePath("src", "api",
 AssertTrue(outboxRetentionSource.Contains("message.Status == TriggerEventOutboxStatuses.Completed", StringComparison.Ordinal), "Retention should delete only completed messages.");
 var triggerEndpointsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "TriggersEndpoints.cs"));
 AssertTrue(triggerEndpointsSource.Contains("/outbox/{messageId:guid}/replay", StringComparison.Ordinal), "Trigger endpoints should expose protected dead-letter replay.");
+var automationOptions = new AutomationHealthOptions
+{
+    PendingAgeWarningSeconds = 300,
+    DeadLetterWarningCount = 1,
+    MonitorIntervalSeconds = 300,
+    MetricsEnabled = true,
+    MetricsToken = "metrics-secret"
+};
+AssertEqual(30, new AutomationHealthOptions { PendingAgeWarningSeconds = 1 }.Normalize().PendingAgeWarningSeconds, "Automation pending-age warnings should have a safe lower bound.");
+AssertEqual("healthy", AutomationOutboxSnapshotService.GetStatus(0, 299, automationOptions), "Automation delivery should remain healthy below configured thresholds.");
+AssertEqual("degraded", AutomationOutboxSnapshotService.GetStatus(0, 300, automationOptions), "Old pending delivery should degrade automation health at the configured threshold.");
+AssertEqual("degraded", AutomationOutboxSnapshotService.GetStatus(1, 0, automationOptions), "Dead letters should degrade automation health at the configured threshold.");
+AssertFalse(AutomationMetrics.IsAccessAllowed(false, null, automationOptions), "Production metrics should reject missing credentials.");
+AssertFalse(AutomationMetrics.IsAccessAllowed(false, "Bearer wrong", automationOptions), "Production metrics should reject invalid credentials.");
+AssertTrue(AutomationMetrics.IsAccessAllowed(false, "Bearer metrics-secret", automationOptions), "Production metrics should accept the configured bearer token.");
+AssertTrue(AutomationMetrics.IsAccessAllowed(true, null, new AutomationHealthOptions()), "Development metrics may run without a configured token.");
+AssertFalse(AutomationMetrics.IsAccessAllowed(false, null, new AutomationHealthOptions()), "Production metrics should remain closed when no token is configured.");
+AssertFalse(AutomationMetrics.IsAccessAllowed(true, null, new AutomationHealthOptions { MetricsEnabled = false }), "Disabled metrics should reject access in every environment.");
+var metricsMessageId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
+var metricsFormId = Guid.Parse("eeeeeeee-1111-1111-1111-111111111111");
+var automationSnapshot = new AutomationOutboxSnapshot(
+    "degraded",
+    PendingCount: 2,
+    ProcessingCount: 1,
+    CompletedCount: 10,
+    DeadLetterCount: 1,
+    RetryBacklogCount: 1,
+    OldestPendingAgeSeconds: 420,
+    OldestPendingMessageId: metricsMessageId,
+    OldestPendingFormId: metricsFormId,
+    OldestPendingAttemptCount: 2,
+    DeadLetters: new[] { new AutomationAttentionMessage(metricsMessageId, metricsFormId, TriggerEvents.RecordCreated, 5, DateTimeOffset.UtcNow) },
+    ObservedAt: DateTimeOffset.UtcNow);
+var automationMetrics = AutomationMetrics.Format(automationSnapshot, automationOptions);
+AssertTrue(automationMetrics.Contains("obp_trigger_outbox_messages{status=\"dead_letter\"} 1", StringComparison.Ordinal), "Automation metrics should expose bounded aggregate delivery counts.");
+AssertTrue(automationMetrics.Contains("obp_trigger_outbox_oldest_pending_age_seconds 420", StringComparison.Ordinal), "Automation metrics should expose oldest pending age.");
+AssertFalse(automationMetrics.Contains(metricsMessageId.ToString(), StringComparison.OrdinalIgnoreCase), "Automation metrics should not label message identifiers.");
+AssertFalse(automationMetrics.Contains(metricsFormId.ToString(), StringComparison.OrdinalIgnoreCase), "Automation metrics should not label form identifiers.");
+AssertFalse(automationMetrics.Contains("payload", StringComparison.OrdinalIgnoreCase), "Automation metrics should never include event payload metadata.");
+var automationMonitorSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "AutomationOutboxMonitorWorker.cs"));
+AssertTrue(automationMonitorSource.Contains("FormId {FormId}, MessageId {MessageId}", StringComparison.Ordinal), "Automation warning logs should identify the affected form and message.");
+AssertFalse(automationMonitorSource.Contains("PayloadJson", StringComparison.Ordinal), "Automation warning logs should never access outbox payload JSON.");
+var automationHealthCheckSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Triggers", "AutomationOutboxHealthCheck.cs"));
+AssertTrue(automationHealthCheckSource.Contains("HealthCheckResult.Unhealthy", StringComparison.Ordinal), "Automation health should become unhealthy when its database query fails.");
 using var partialTriggerResult = SerializeHarnessJson(new
 {
     actions = new object[]

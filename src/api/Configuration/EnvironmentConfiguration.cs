@@ -22,6 +22,11 @@ public static class EnvironmentConfiguration
         CopyIfPresent("SMTP_USE_STARTTLS", "Email__UseStartTls");
         CopyIfPresent("PASSWORD_RESET_URL", "PasswordRecovery__ResetPasswordUrl");
         CopyIfPresent("PASSWORD_RESET_TOKEN_MINUTES", "PasswordRecovery__TokenLifetimeMinutes");
+        CopyIfPresent("AUTOMATION_PENDING_AGE_WARNING_SECONDS", "AutomationHealth__PendingAgeWarningSeconds");
+        CopyIfPresent("AUTOMATION_DEAD_LETTER_WARNING_COUNT", "AutomationHealth__DeadLetterWarningCount");
+        CopyIfPresent("AUTOMATION_MONITOR_INTERVAL_SECONDS", "AutomationHealth__MonitorIntervalSeconds");
+        CopyIfPresent("AUTOMATION_METRICS_ENABLED", "AutomationHealth__MetricsEnabled");
+        CopyIfPresent("AUTOMATION_METRICS_TOKEN", "AutomationHealth__MetricsToken");
 
         SetIfMissing("ConnectionStrings__Postgres", BuildPostgresConnectionString());
         SetIfMissing("ConnectionStrings__Redis", BuildRedisConnectionString());

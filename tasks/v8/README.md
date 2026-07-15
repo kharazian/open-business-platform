@@ -19,6 +19,7 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 11. `011-transactional-trigger-event-outbox.md` - complete; transactional record-event persistence, atomic delivery claims, bounded retries, and dead-letter retention.
 12. `012-trigger-outbox-operations.md` - complete; form-scoped health, safe dead-letter visibility, audited replay, and completed-envelope retention.
 13. `013-outbound-webhook-idempotency.md` - complete; deterministic outbound webhook delivery keys across retries and event redelivery.
+14. `014-automation-health-and-metrics.md` - complete; degraded automation health, protected aggregate metrics, configurable thresholds, and payload-free structured warnings.
 
 ## Scope Rules
 

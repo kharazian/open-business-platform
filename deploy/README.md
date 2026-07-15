@@ -8,7 +8,7 @@ This directory is a reusable deployment blueprint for projects that use Open Bus
 - `compose.proxy.yml`: optional Caddy edge proxy for HTTP/HTTPS traffic.
 - `compose.stage.example.yml` and `compose.prod.example.yml`: private-project override templates.
 - `env/*.env.example`: environment templates with placeholder values only.
-- `proxy/Caddyfile.example`: same-origin routing for `/api`, `/health`, and the React app.
+- `proxy/Caddyfile.example`: same-origin routing for `/api`, `/health*`, `/metrics`, and the React app.
 - `github-actions/*.example`: inactive deploy workflow examples for private projects.
 - `scripts/deploy.example.sh`: source-build deployment example for a server with Docker.
 
@@ -204,6 +204,8 @@ Smoke test the Docker services:
 
 ```bash
 curl http://localhost:8080/health
+curl http://localhost:8080/health/automation
+curl -H "Authorization: Bearer $AUTOMATION_METRICS_TOKEN" http://localhost:8080/metrics
 curl -I http://localhost:8080/
 ```
 
@@ -306,7 +308,7 @@ REDIS_PORT=6385 \
 dotnet run --no-launch-profile --project src/api/OpenBusinessPlatform.Api.csproj
 ```
 
-If the Docker proxy should route `/api` and `/health` to the shell API, recreate only the proxy with a shell upstream:
+If the Docker proxy should route `/api`, `/health*`, and `/metrics` to the shell API, recreate only the proxy with a shell upstream:
 
 ```bash
 API_UPSTREAM=host.docker.internal:5080 \

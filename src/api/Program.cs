@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Configuration;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -30,6 +33,7 @@ builder.Services.Configure<BootstrapAdminOptions>(builder.Configuration.GetSecti
 builder.Services.Configure<LocalAuthenticationOptions>(builder.Configuration.GetSection(LocalAuthenticationOptions.SectionName));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.Configure<PasswordRecoveryOptions>(builder.Configuration.GetSection(PasswordRecoveryOptions.SectionName));
+builder.Services.Configure<AutomationHealthOptions>(builder.Configuration.GetSection(AutomationHealthOptions.SectionName));
 builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
@@ -67,12 +71,14 @@ builder.Services.AddScoped<TriggerEventOutbox>();
 builder.Services.AddScoped<TriggerEventOutboxProcessor>();
 builder.Services.AddScoped<TriggerEventOutboxOperationsService>();
 builder.Services.AddScoped<TriggerEventOutboxRetentionService>();
+builder.Services.AddScoped<AutomationOutboxSnapshotService>();
 builder.Services.AddScoped<TriggerAutomaticRetryService>();
 builder.Services.AddScoped<TriggerScheduleService>();
 builder.Services.AddHostedService<TriggerRetryWorker>();
 builder.Services.AddHostedService<TriggerScheduleWorker>();
 builder.Services.AddHostedService<TriggerEventOutboxWorker>();
 builder.Services.AddHostedService<TriggerEventOutboxRetentionWorker>();
+builder.Services.AddHostedService<AutomationOutboxMonitorWorker>();
 builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<WorkflowActionExecutionService>();
 builder.Services.AddScoped<WorkflowApprovalService>();
@@ -125,6 +131,8 @@ builder.Services
         IntegrationApiKeyAuthenticationDefaults.AuthenticationScheme,
         _ => { });
 builder.Services.AddAuthorization();
+builder.Services.AddHealthChecks()
+    .AddCheck<AutomationOutboxHealthCheck>("automation_outbox", tags: new[] { "automation" });
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient("trigger-webhooks");
 
@@ -185,6 +193,56 @@ app.MapGet("/health", () => Results.Ok(new
     status = "healthy",
     service = "Open Business Platform API"
 }));
+
+app.MapHealthChecks("/health/automation", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("automation"),
+    ResultStatusCodes =
+    {
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    },
+    ResponseWriter = async (httpContext, report) =>
+    {
+        await httpContext.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString().ToLowerInvariant(),
+            checks = report.Entries.Select(entry => new
+            {
+                name = entry.Key,
+                status = entry.Value.Status.ToString().ToLowerInvariant(),
+                description = entry.Value.Description
+            })
+        }, httpContext.RequestAborted);
+    }
+});
+
+app.MapGet("/metrics", async (
+    HttpContext httpContext,
+    AutomationOutboxSnapshotService snapshots,
+    IOptions<AutomationHealthOptions> configuredOptions,
+    IHostEnvironment environment,
+    CancellationToken cancellationToken) =>
+{
+    var options = configuredOptions.Value.Normalize();
+
+    if (!options.MetricsEnabled)
+    {
+        return Results.NotFound();
+    }
+
+    if (!AutomationMetrics.IsAccessAllowed(
+            environment.IsDevelopment(),
+            httpContext.Request.Headers.Authorization.FirstOrDefault(),
+            options))
+    {
+        return Results.Unauthorized();
+    }
+
+    var snapshot = await snapshots.GetSnapshotAsync(cancellationToken);
+    return Results.Text(AutomationMetrics.Format(snapshot, options), AutomationMetrics.ContentType);
+});
 
 app.MapPlatformApiModules();
 

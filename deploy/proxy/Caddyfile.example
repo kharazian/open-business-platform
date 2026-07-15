@@ -9,7 +9,11 @@
         reverse_proxy {$API_UPSTREAM:api:5080}
     }
 
-    handle /health {
+    handle /health* {
+        reverse_proxy {$API_UPSTREAM:api:5080}
+    }
+
+    handle /metrics {
         reverse_proxy {$API_UPSTREAM:api:5080}
     }
 

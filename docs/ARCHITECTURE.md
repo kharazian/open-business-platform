@@ -135,7 +135,7 @@ src/api/
 
 Current backend module behavior:
 
-- `Program.cs` maps `/health` directly.
+- `Program.cs` maps `/health` directly for API liveness, maps database-backed `/health/automation` separately for degraded automation readiness, and exposes token-protected payload-free `/metrics` aggregates.
 - `Platform/IPlatformApiModule.cs` discovers API modules in the assembly and maps their endpoints.
 - `Application/Common` contains DTO, paging, repository, and CRUD service base primitives for simple management resources.
 - `Domain/Common` contains framework-lite entity base classes and capability interfaces for Guid IDs, auditing, soft delete, concurrency stamps, active status, and extra JSON properties.
@@ -167,7 +167,7 @@ api   -> postgres
 api   -> redis
 ```
 
-The frontend container serves the built React app through Nginx. The proxy keeps browser traffic same-origin by routing `/api/*` and `/health` to the API while routing all other paths to the web container. Staging and production should use separate Compose project names, volumes, cookie names, and env files.
+The frontend container serves the built React app through Nginx. The proxy keeps browser traffic same-origin by routing `/api/*`, `/health*`, and `/metrics` to the API while routing all other paths to the web container. Production metrics require a server-only bearer token. Staging and production should use separate Compose project names, volumes, cookie names, and env files.
 
 Future backend module structure:
 

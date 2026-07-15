@@ -37,6 +37,25 @@ Current response:
 }
 ```
 
+`GET /health/automation`
+
+Runs the database-backed automation delivery health check without changing API liveness. The response is `200 OK` for `healthy` or `degraded` automation and `503 Service Unavailable` only when the health query itself fails. It returns check names/status/descriptions only; outbox counts, identifiers, errors, and payloads are not included.
+
+`GET /metrics`
+
+Returns Prometheus text-format aggregate automation metrics when enabled. Development may access metrics without a token when none is configured. Non-development environments require `Authorization: Bearer <AUTOMATION_METRICS_TOKEN>`; missing/invalid credentials return `401`, and disabled metrics return `404`.
+
+Exported series:
+
+- `obp_trigger_outbox_messages{status="pending|processing|completed|dead_letter"}`
+- `obp_trigger_outbox_retry_backlog`
+- `obp_trigger_outbox_oldest_pending_age_seconds`
+- `obp_trigger_outbox_pending_age_warning_seconds`
+- `obp_trigger_outbox_dead_letter_warning_count`
+- `obp_automation_health` (`1` healthy, `0` degraded)
+
+Metrics use bounded status labels only. They never include form IDs, record IDs, message IDs, error text, event payloads, or record values.
+
 ### Integration API keys
 
 Integration API key management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.

@@ -21,6 +21,7 @@ Completed V8 work:
 11. Transactional trigger event outbox with atomic delivery claims, bounded retries, and dead-letter retention.
 12. Payload-safe trigger delivery operations with form-scoped health, audited dead-letter replay, and completed-envelope retention.
 13. Deterministic outbound webhook idempotency keys across retries and outbox redelivery.
+14. Separate automation health, protected aggregate metrics, configurable warning thresholds, and payload-free structured diagnostics.
 
 ## Security And Architecture Checks
 
@@ -33,6 +34,7 @@ Completed V8 work:
 - Record-trigger events commit atomically with record/workflow mutations and are delivered at least once through the internal outbox; external providers still require idempotency for strict duplicate prevention.
 - Outbox operations reuse form `manage` permission, never expose stored event payloads, audit manual replay, and retain dead letters for operator action.
 - Outbound trigger webhooks include a platform-owned stable idempotency key; receiver-side deduplication remains required for exactly-once effects.
+- Automation backlog degrades a separate health check and aggregate metric without failing API liveness; metrics require a production bearer token and never include dynamic identifiers or payload values.
 - Integrations remain separate from reports, dashboards, triggers, workflows, printing, audit, and notifications.
 - V8 does not add custom code execution, arbitrary SQL, cross-form joins, anonymous public links, workspace ownership, or tenant-level policy.
 

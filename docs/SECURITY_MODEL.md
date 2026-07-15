@@ -13,6 +13,7 @@ Status: V3 security baseline complete for the current repository. The platform i
 - Use soft delete for important business records where possible.
 - Do not allow users to update form version records after publish.
 - Store only hashes of password reset tokens, use generic forgot-password responses, and expire/mark reset tokens as used.
+- Keep monitoring output aggregate and payload-free; production metrics require a server-side token that is never exposed through Vite variables.
 
 ## API Security
 
