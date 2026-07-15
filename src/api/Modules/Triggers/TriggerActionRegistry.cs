@@ -295,15 +295,13 @@ public sealed class TriggerActionRegistry
 
         var method = new HttpMethod(string.IsNullOrWhiteSpace(action.WebhookMethod) ? "POST" : action.WebhookMethod.Trim().ToUpperInvariant());
         using var request = new HttpRequestMessage(method, uri);
+        var idempotencyKey = TriggerWebhookIdempotency.CreateKey(triggerId, action.Id, context);
 
-        foreach (var header in action.WebhookHeaders ?? new Dictionary<string, string>())
-        {
-            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
-        }
+        TriggerWebhookIdempotency.ApplyHeaders(request, action.WebhookHeaders, idempotencyKey);
 
         if (method.Method is not ("GET" or "DELETE"))
         {
-            var payload = action.WebhookBody ?? BuildWebhookPayload(triggerId, triggerLogId, action.Id, context);
+            var payload = action.WebhookBody ?? BuildWebhookPayload(triggerId, triggerLogId, action.Id, idempotencyKey, context);
             request.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
         }
 
@@ -320,6 +318,7 @@ public sealed class TriggerActionRegistry
             action,
             ("url", uri.ToString()),
             ("method", method.Method),
+            ("idempotencyKey", idempotencyKey),
             ("statusCode", (int)response.StatusCode),
             ("responseBody", Truncate(responseBody, 2000)));
     }
@@ -853,6 +852,7 @@ public sealed class TriggerActionRegistry
         Guid triggerId,
         Guid? triggerLogId,
         string actionId,
+        string idempotencyKey,
         TriggerEventContext context)
     {
         return new
@@ -860,6 +860,7 @@ public sealed class TriggerActionRegistry
             triggerId,
             triggerLogId,
             actionId,
+            idempotencyKey,
             context.EventName,
             context.FormId,
             context.RecordId,

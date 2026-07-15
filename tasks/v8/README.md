@@ -18,6 +18,7 @@ The sequence is intentionally conservative: authenticate integrations first, mak
 10. `010-production-hardening.md` - complete; database concurrency, atomic schedule claims, retry action resumption, and audited-only export artifact access.
 11. `011-transactional-trigger-event-outbox.md` - complete; transactional record-event persistence, atomic delivery claims, bounded retries, and dead-letter retention.
 12. `012-trigger-outbox-operations.md` - complete; form-scoped health, safe dead-letter visibility, audited replay, and completed-envelope retention.
+13. `013-outbound-webhook-idempotency.md` - complete; deterministic outbound webhook delivery keys across retries and event redelivery.
 
 ## Scope Rules
 

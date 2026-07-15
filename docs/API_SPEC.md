@@ -2086,11 +2086,13 @@ Supported action types are:
 - `update_field`: updates one field on the current record, validates the merged record values against the record's form version schema, writes a record audit entry, and does not recursively dispatch triggers.
 - `send_notification`: creates in-app notifications for selected active users and active group members.
 - `create_record`: creates one record in another published target form using typed literal values or source-field references, validates the target record values, writes source trigger metadata on the created record, and does not recursively dispatch triggers.
-- `call_webhook`: sends an HTTP JSON request to an absolute `http` or `https` URL. Non-success responses fail the trigger action and can be retried.
+- `call_webhook`: sends an HTTP JSON request to an absolute `http` or `https` URL. Non-success responses fail the trigger action and can be retried. Every attempt sends a stable platform-generated `Idempotency-Key` for the trigger/action/original event occurrence; user-authored headers cannot override it.
 - `start_workflow`: starts an enabled published same-form workflow with a current version on the current record when no workflow is already active.
 - `scheduled_start_workflow`: starts an enabled published same-form workflow for explicitly selected same-form records that do not already have active workflow state.
 
 Scheduled trigger events require `schedule` metadata and currently support `send_email`, `call_webhook`, and `scheduled_start_workflow` actions. Scheduled `send_email` actions cannot attach record PDFs because no current record exists. `start_workflow` requires an event record context and is intentionally not supported for scheduled triggers.
+
+Outbound webhook receivers should persist the `Idempotency-Key` for an appropriate retention window and return their original successful result when the same key is received again. The key is an opaque `obp_trigger_...` SHA-256 identifier derived from the trigger id, action id, event name, form/record ids, and original event occurrence time. It therefore remains stable through manual/automatic trigger retries and transactional-outbox redelivery. Default webhook JSON bodies and trigger action result metadata also include `idempotencyKey`; custom webhook bodies still receive the HTTP header.
 
 Schedule metadata shape:
 

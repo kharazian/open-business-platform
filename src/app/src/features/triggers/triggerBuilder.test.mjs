@@ -180,7 +180,7 @@ test("trigger builder validates schedule, retry policy, and webhook action requi
     retryPolicy: { isEnabled: true, maxAttempts: 25, delaySeconds: 10 },
     schedule: null,
     conditions: [{ clientId: "condition-1", type: "field_equals", fieldId: "email", value: "jane@example.test" }],
-    actions: [{ clientId: "webhook-1", id: "webhook-1", type: "call_webhook", webhookUrl: "ftp://example.test/hook", webhookMethod: "TRACE" }]
+    actions: [{ clientId: "webhook-1", id: "webhook-1", type: "call_webhook", webhookUrl: "ftp://example.test/hook", webhookMethod: "TRACE", webhookHeadersText: '{ "idempotency-key": "custom" }' }]
   });
 
   assert.equal(invalid.valid, false);
@@ -190,6 +190,7 @@ test("trigger builder validates schedule, retry policy, and webhook action requi
   assert.equal(invalid.errors.some((error) => error.path === "retryPolicy.delaySeconds"), true);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].webhookUrl"), true);
   assert.equal(invalid.errors.some((error) => error.path === "actions[0].webhookMethod"), true);
+  assert.equal(invalid.errors.some((error) => error.code === "trigger.action.webhook_idempotency_header_reserved"), true);
 
   const request = buildTriggerRequest({
     ...draft,

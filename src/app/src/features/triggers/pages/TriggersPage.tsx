@@ -1085,6 +1085,7 @@ function ActionValueEditor({
         </Select>
         <Textarea
           error={errors.get(`${path}.webhookHeaders`)}
+          help="The platform adds Idempotency-Key automatically; do not include it here."
           label="Headers JSON"
           onChange={(event) => onUpdate({ webhookHeadersText: event.target.value })}
           value={action.webhookHeadersText ?? ""}

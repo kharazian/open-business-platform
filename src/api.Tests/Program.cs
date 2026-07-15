@@ -1184,6 +1184,51 @@ var validWebhookActions = new[]
         WebhookHeaders: new Dictionary<string, string> { ["X-Source"] = "open-business-platform" })
 };
 var sourceTriggerFormId = Guid.Parse("99999999-0000-0000-0000-000000000001");
+var webhookTriggerId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111");
+var webhookEventTime = DateTimeOffset.Parse("2026-07-15T18:30:00Z");
+var webhookSnapshot = new TriggerRecordSnapshot(
+    Guid.Parse("bbbbbbbb-1111-1111-1111-111111111111"),
+    sourceTriggerFormId,
+    "active",
+    null,
+    null,
+    null,
+    null,
+    new Dictionary<string, object?>());
+var webhookContext = new TriggerEventContext(
+    TriggerEvents.RecordCreated,
+    sourceTriggerFormId,
+    webhookSnapshot.RecordId,
+    null,
+    null,
+    webhookSnapshot,
+    Array.Empty<string>(),
+    null,
+    "active",
+    null,
+    null,
+    null,
+    null,
+    webhookEventTime);
+var webhookIdempotencyKey = TriggerWebhookIdempotency.CreateKey(webhookTriggerId, "webhook-1", webhookContext);
+AssertEqual(webhookIdempotencyKey, TriggerWebhookIdempotency.CreateKey(webhookTriggerId, "webhook-1", webhookContext), "Webhook retries should reuse the same deterministic idempotency key.");
+AssertNotEqual(webhookIdempotencyKey, TriggerWebhookIdempotency.CreateKey(webhookTriggerId, "webhook-2", webhookContext), "Different webhook actions should receive different idempotency keys.");
+AssertNotEqual(webhookIdempotencyKey, TriggerWebhookIdempotency.CreateKey(webhookTriggerId, "webhook-1", webhookContext with { OccurredAt = webhookEventTime.AddSeconds(1) }), "Different event occurrences should receive different idempotency keys.");
+AssertTrue(webhookIdempotencyKey.StartsWith("obp_trigger_", StringComparison.Ordinal), "Webhook idempotency keys should be recognizable opaque platform keys.");
+AssertTrue(TriggerWebhookIdempotency.IsReservedHeader("idempotency-key"), "Webhook idempotency header ownership should be case-insensitive.");
+using (var webhookRequest = new HttpRequestMessage(HttpMethod.Post, "https://hooks.example.test/records"))
+{
+    TriggerWebhookIdempotency.ApplyHeaders(
+        webhookRequest,
+        new Dictionary<string, string>
+        {
+            ["X-Source"] = "open-business-platform",
+            ["idempotency-key"] = "user-value"
+        },
+        webhookIdempotencyKey);
+    AssertSequenceEqual(new[] { webhookIdempotencyKey }, webhookRequest.Headers.GetValues(TriggerWebhookIdempotency.HeaderName).ToArray(), "Outbound webhooks should contain exactly one platform-generated idempotency key.");
+    AssertSequenceEqual(new[] { "open-business-platform" }, webhookRequest.Headers.GetValues("X-Source").ToArray(), "Outbound webhook idempotency should preserve non-reserved custom headers.");
+}
 var emailPrintTemplateId = Guid.Parse("77777777-7777-7777-7777-777777777777");
 var validEmailAttachmentActions = new[]
 {
@@ -1548,6 +1593,26 @@ AssertFalse(
         Array.Empty<Guid>(),
         Array.Empty<Guid>()).Valid,
     "Validation should reject webhook actions without an absolute http or https URL.");
+AssertFalse(
+    TriggerDefinitionValidator.Validate(
+        demoSchema,
+        new CreateTriggerRequest(
+            "Reserved webhook header",
+            null,
+            TriggerEvents.RecordCreated,
+            validTriggerConditions,
+            new[]
+            {
+                new TriggerActionDefinition(
+                    "webhook-1",
+                    TriggerActionTypes.CallWebhook,
+                    WebhookUrl: "https://hooks.example.test/records",
+                    WebhookHeaders: new Dictionary<string, string> { ["idempotency-key"] = "user-value" })
+            },
+            true),
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>()).Valid,
+    "Validation should reject attempts to override the platform webhook idempotency key.");
 AssertFalse(
     TriggerDefinitionValidator.Validate(
         demoSchema,
