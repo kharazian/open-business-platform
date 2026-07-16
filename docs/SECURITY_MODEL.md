@@ -1,6 +1,6 @@
 # Security Model
 
-Status: the established authentication, permission, field-security, and audit baseline now also includes the V9 task 001 workspace persistence boundary.
+Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 002 workspace membership and request identity enforcement.
 
 ## Core Rules
 
@@ -19,9 +19,9 @@ Status: the established authentication, permission, field-security, and audit ba
 
 ## Workspace Boundary
 
-V9 task 001 assigns every persisted business, permission, audit, automation, notification, and integration row to the active workspace. The compatibility context resolves only the stable default workspace, preserving existing behavior while establishing required foreign keys and centralized EF Core filters/write guards. Local users and credentials remain global identities until V9 task 002 adds explicit memberships and request-level active workspace resolution.
+V9 task 001 assigns every persisted business, permission, audit, automation, notification, and integration row to the active workspace. V9 task 002 adds explicit local-user memberships. Login selects an active membership, writes its workspace ID into the protected authentication ticket, and reloads role claims from that workspace. Middleware revalidates active user, membership, workspace, and tenant state on each cookie-authenticated request, so suspension takes effect without waiting for cookie expiration.
 
-Tenant/workspace administration and switching are intentionally absent. The current-context API is authenticated and read-only, and callers cannot submit an alternate workspace identifier.
+Users may list their memberships and request a workspace switch, but the backend accepts the target only when the user has an active membership. Switching replaces the signed workspace and role claims. Integration API-key principals carry the key's persisted workspace ID; request parameters never establish workspace ownership. Membership lifecycle changes require `users.manage`, optimistic concurrency, and audit logging.
 
 ## API Security
 

@@ -40,6 +40,7 @@ public sealed class IntegrationApiKeyService
     public async Task<IntegrationApiKeyDto?> GetAsync(Guid apiKeyId, CancellationToken cancellationToken)
     {
         var apiKey = await dbContext.IntegrationApiKeys
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleOrDefaultAsync(candidate => candidate.Id == apiKeyId, cancellationToken);
 
@@ -181,12 +182,27 @@ public sealed class IntegrationApiKeyService
             return Failed("API key is inactive or revoked.");
         }
 
+        var workspaceIsActive = await dbContext.Workspaces
+            .AsNoTracking()
+            .AnyAsync(workspace =>
+                workspace.Id == apiKey.WorkspaceId
+                && workspace.IsActive
+                && workspace.Tenant != null
+                && workspace.Tenant.IsActive,
+                cancellationToken);
+        if (!workspaceIsActive)
+        {
+            return Failed("API key workspace is inactive.");
+        }
+
         var now = DateTimeOffset.UtcNow;
         var lastUsedIp = NormalizeOptionalText(usageContext.IpAddress, 80);
         var lastUsedUserAgent = NormalizeOptionalText(usageContext.UserAgent, 500);
         var updatedRows = await dbContext.IntegrationApiKeys
+            .IgnoreQueryFilters()
             .Where(candidate =>
                 candidate.Id == apiKey.Id
+                && candidate.WorkspaceId == apiKey.WorkspaceId
                 && candidate.KeyHash == apiKey.KeyHash
                 && candidate.IsActive
                 && candidate.RevokedAt == null)
@@ -214,9 +230,11 @@ public sealed class IntegrationApiKeyService
         for (var attempt = 0; attempt < MaxGenerateAttempts; attempt++)
         {
             var generated = generator.Generate();
-            var exists = await dbContext.IntegrationApiKeys.AnyAsync(
-                apiKey => apiKey.KeyPrefix == generated.KeyPrefix || apiKey.KeyHash == generated.KeyHash,
-                cancellationToken);
+            var exists = await dbContext.IntegrationApiKeys
+                .IgnoreQueryFilters()
+                .AnyAsync(
+                    apiKey => apiKey.KeyPrefix == generated.KeyPrefix || apiKey.KeyHash == generated.KeyHash,
+                    cancellationToken);
 
             if (!exists)
             {

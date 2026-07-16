@@ -20,4 +20,6 @@ public sealed class Workspace : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }
+
+    public ICollection<WorkspaceMembership> Memberships { get; } = new List<WorkspaceMembership>();
 }

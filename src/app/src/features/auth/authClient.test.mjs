@@ -15,6 +15,7 @@ test("auth client maps login, session, logout, and auth errors", async () => {
             id: "bootstrap-admin",
             name: "Platform Admin",
             email: "admin@company.test",
+            workspaceId: "00000000-0000-0000-0000-000000000002",
             roles: ["Admin"],
             permissions: ["menu.forms", "forms.create"]
           }
@@ -27,6 +28,7 @@ test("auth client maps login, session, logout, and auth errors", async () => {
     id: "bootstrap-admin",
     name: "Platform Admin",
     email: "admin@company.test",
+    workspaceId: "00000000-0000-0000-0000-000000000002",
     roles: ["Admin"],
     permissions: ["menu.forms", "forms.create"]
   });
@@ -40,6 +42,7 @@ test("auth client maps login, session, logout, and auth errors", async () => {
           id: "11111111-1111-1111-1111-111111111111",
           name: "Operations Manager",
           email: "operations.manager@company.test",
+          workspaceId: "00000000-0000-0000-0000-000000000002",
           roles: ["Operations Manager"],
           permissions: ["menu.dashboard"]
         }
@@ -75,6 +78,7 @@ test("auth client maps login, session, logout, and auth errors", async () => {
         id: "bootstrap-admin",
         name: "Platform Admin",
         email: "admin@company.test",
+        workspaceId: "00000000-0000-0000-0000-000000000002",
         roles: ["Admin"],
         permissions: ["menu.users_access"]
       }

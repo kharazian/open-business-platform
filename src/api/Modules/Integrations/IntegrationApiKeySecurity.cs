@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using OpenBusinessPlatform.Api.Domain.Entities;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Integrations;
 
@@ -133,6 +134,7 @@ public static class IntegrationApiKeyPrincipalFactory
         {
             new(ClaimTypes.NameIdentifier, apiKey.Id.ToString()),
             new(ClaimTypes.Name, apiKey.Name),
+            new(WorkspaceClaims.WorkspaceId, apiKey.WorkspaceId.ToString()),
             new(IntegrationApiKeyClaims.ApiKeyId, apiKey.Id.ToString()),
             new(IntegrationApiKeyClaims.IntegrationKey, apiKey.IntegrationKey)
         };

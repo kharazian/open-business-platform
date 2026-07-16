@@ -268,7 +268,7 @@ Goal: mature platform capabilities.
 Features:
 
 - Multi-tenant workspace foundation implemented in V9 task 001 with stable default ownership, migration backfill, active-workspace query filters, and cross-workspace write guards
-- Workspace membership and active-user context next
+- Workspace membership and active-user context implemented in V9 task 002 with migration backfill, signed cookie/API-key workspace claims, per-request membership validation, workspace switching, and workspace-scoped user management
 - SSO
 - Advanced RBAC/ABAC
 - Data retention

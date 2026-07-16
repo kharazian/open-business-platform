@@ -31,6 +31,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<Workspace> Workspaces => Set<Workspace>();
 
+    public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -133,6 +135,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
         ConfigureUsers(modelBuilder);
         ConfigureTenantsAndWorkspaces(modelBuilder);
+        ConfigureWorkspaceMemberships(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -252,6 +255,44 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             var activeWorkspaceId = Expression.Property(Expression.Constant(this), nameof(ActiveWorkspaceId));
             entity.HasQueryFilter(Expression.Lambda(Expression.Equal(workspaceId, activeWorkspaceId), parameter));
         }
+    }
+
+    private static void ConfigureWorkspaceMemberships(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkspaceMembership>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "workspace_memberships");
+            entity.HasIndex(membership => new { membership.WorkspaceId, membership.UserId }).IsUnique();
+            entity.HasIndex(membership => new { membership.WorkspaceId, membership.Status });
+            entity.HasIndex(membership => new { membership.UserId, membership.Status });
+            entity.HasIndex(membership => membership.UserId)
+                .IsUnique()
+                .HasFilter("\"is_default\" = TRUE AND \"status\" = 'active'");
+            entity.Property(membership => membership.WorkspaceId).HasColumnName("workspace_id").HasColumnType("uuid").IsRequired();
+            entity.Property(membership => membership.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(membership => membership.Role).HasColumnName("role").HasMaxLength(40).IsRequired();
+            entity.Property(membership => membership.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(membership => membership.IsDefault).HasColumnName("is_default").HasDefaultValue(false);
+            entity.Property(membership => membership.InvitedById).HasColumnName("invited_by_id").HasColumnType("uuid");
+            entity.Property(membership => membership.InvitedAt).HasColumnName("invited_at").IsRequired();
+            entity.Property(membership => membership.ActivatedAt).HasColumnName("activated_at");
+            entity.Property(membership => membership.SuspendedAt).HasColumnName("suspended_at");
+            entity
+                .HasOne(membership => membership.Workspace)
+                .WithMany(workspace => workspace.Memberships)
+                .HasForeignKey(membership => membership.WorkspaceId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity
+                .HasOne(membership => membership.User)
+                .WithMany(user => user.WorkspaceMemberships)
+                .HasForeignKey(membership => membership.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(membership => membership.InvitedBy)
+                .WithMany()
+                .HasForeignKey(membership => membership.InvitedById)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 
     private static void ApplyAuditConventions(EntityEntry entry, DateTimeOffset now)

@@ -7,7 +7,7 @@ The sequence below is a planning list only. Create a specific task file before i
 ## Recommended Execution Order
 
 1. `001-workspace-and-tenant-foundation.md` - complete; tenant/workspace entities, stable default ownership, safe migration backfill, central query filters/write guards, and current-context API.
-2. `002-workspace-membership-and-user-context.md` - add workspace membership, active workspace context, invitation/activation rules, and backend authorization checks.
+2. `002-workspace-membership-and-user-context.md` - complete; workspace membership, signed active context, invitation/activation/suspension rules, workspace switching, and backend authorization checks.
 3. `003-sso-foundation.md` - introduce SSO configuration contracts and login flow boundaries after workspace ownership exists.
 4. `004-advanced-rbac-abac-policy-model.md` - extend roles and scoped permissions with enterprise policy rules while preserving existing permission semantics.
 5. `005-data-retention-and-legal-hold.md` - add retention policy definitions, dry-run evaluation, legal hold exclusions, and audit logs.

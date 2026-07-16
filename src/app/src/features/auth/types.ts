@@ -4,6 +4,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  workspaceId: string;
   roles: AuthRole[];
   permissions: string[];
 };

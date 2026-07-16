@@ -41,8 +41,10 @@ builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 });
 builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
-builder.Services.AddScoped<IWorkspaceContext, DefaultWorkspaceContext>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IWorkspaceContext, HttpContextWorkspaceContext>();
 builder.Services.AddScoped<WorkspaceContextService>();
+builder.Services.AddScoped<WorkspaceMembershipService>();
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddSingleton<PasswordResetTokenGenerator>();
@@ -189,6 +191,7 @@ else
 }
 
 app.UseAuthentication();
+app.UseMiddleware<WorkspaceMembershipMiddleware>();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new

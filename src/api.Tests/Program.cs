@@ -55,6 +55,18 @@ AssertThrows<InvalidOperationException>(
 AssertThrows<InvalidOperationException>(
     () => WorkspaceOwnershipGuard.EnsureActive(new Role { WorkspaceId = Guid.NewGuid() }, WorkspaceDefaults.WorkspaceId),
     "Updating or deleting data from another workspace should be rejected.");
+var selectedWorkspaceId = Guid.NewGuid();
+var selectedWorkspacePrincipal = new ClaimsPrincipal(new ClaimsIdentity(
+    new[] { new Claim(WorkspaceClaims.WorkspaceId, selectedWorkspaceId.ToString()) },
+    "test"));
+AssertEqual(
+    selectedWorkspaceId,
+    HttpContextWorkspaceContext.ResolveWorkspaceId(selectedWorkspacePrincipal),
+    "The request workspace should come from the authenticated workspace claim.");
+AssertEqual(
+    WorkspaceDefaults.WorkspaceId,
+    HttpContextWorkspaceContext.ResolveWorkspaceId(new ClaimsPrincipal()),
+    "Requests without a workspace claim should retain the compatibility workspace.");
 
 using (var appSettings = JsonDocument.Parse(File.ReadAllText(GetRepositoryFilePath("src", "api", "appsettings.json"))))
 {
@@ -124,6 +136,7 @@ var model = dbContext.Model;
 AssertTable<User>(model, "users");
 AssertTable<Tenant>(model, "tenants");
 AssertTable<Workspace>(model, "workspaces");
+AssertTable<WorkspaceMembership>(model, "workspace_memberships");
 AssertTable<PasswordResetToken>(model, "password_reset_tokens");
 AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
@@ -163,6 +176,9 @@ AssertEqual(WorkspaceDefaults.WorkspaceId, dbContext.ActiveWorkspaceId, "The com
 AssertUniqueIndex<Tenant>(model, new[] { nameof(Tenant.Slug) }, "Tenant slugs should be globally unique.");
 AssertUniqueIndex<Workspace>(model, new[] { nameof(Workspace.TenantId), nameof(Workspace.Slug) }, "Workspace slugs should be unique within a tenant.");
 AssertUniqueIndex<Workspace>(model, new[] { nameof(Workspace.TenantId) }, "Each tenant should have at most one default workspace.");
+AssertUniqueIndex<WorkspaceMembership>(model, new[] { nameof(WorkspaceMembership.WorkspaceId), nameof(WorkspaceMembership.UserId) }, "A user should have one membership per workspace.");
+AssertIndex<WorkspaceMembership>(model, new[] { nameof(WorkspaceMembership.UserId), nameof(WorkspaceMembership.Status) }, "Membership lookup by user and status should be indexed.");
+AssertConcurrencyStamp<WorkspaceMembership>(model);
 AssertWorkspaceOwned<Role>(model);
 AssertWorkspaceOwned<UserRole>(model);
 AssertWorkspaceOwned<UserGroup>(model);
@@ -596,6 +612,12 @@ AssertFalse(
 AssertTrue(
     IntegrationApiKeyAuthenticationPolicy.CanAuthenticate(new IntegrationApiKey { IsActive = true }),
     "Active non-revoked integration API keys should authenticate.");
+AssertTrue(
+    WorkspaceMembershipPolicy.CanTransition(WorkspaceMembershipStatuses.Invited, WorkspaceMembershipStatuses.Active),
+    "Invited workspace members should be activatable.");
+AssertFalse(
+    WorkspaceMembershipPolicy.CanTransition(WorkspaceMembershipStatuses.Suspended, WorkspaceMembershipStatuses.Active),
+    "Suspended workspace members should require a new invitation before activation.");
 var linkedApiUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 var apiKeyPrincipal = IntegrationApiKeyPrincipalFactory.Create(
     new IntegrationApiKey
@@ -603,6 +625,7 @@ var apiKeyPrincipal = IntegrationApiKeyPrincipalFactory.Create(
         Id = Guid.Parse("dddddddd-1111-2222-3333-444444444444"),
         Name = "Payroll sync",
         IntegrationKey = "payroll-sync",
+        WorkspaceId = WorkspaceDefaults.WorkspaceId,
         CreatedById = linkedApiUserId
     },
     new[] { IntegrationApiKeyScopes.Authenticate, IntegrationApiKeyScopes.RecordsRead });
@@ -610,6 +633,10 @@ AssertEqual(
     linkedApiUserId.ToString(),
     apiKeyPrincipal.FindFirstValue(IntegrationApiKeyClaims.CreatedByUserId),
     "API key principals should expose the linked created-by user for backend permission checks.");
+AssertEqual(
+    WorkspaceDefaults.WorkspaceId.ToString(),
+    apiKeyPrincipal.FindFirstValue(WorkspaceClaims.WorkspaceId),
+    "API key principals should carry their signed workspace boundary.");
 AssertTrue(
     PublicRecordApiAccess.HasScope(apiKeyPrincipal, IntegrationApiKeyScopes.RecordsRead),
     "Public record API access should require explicit API key scopes.");
@@ -2559,7 +2586,8 @@ var authResponse = new AuthenticatedUserResponse(
     "Jane Cooper",
     "jane@company.test",
     new[] { "Builder" },
-    new[] { PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create });
+    new[] { PlatformPermissions.Menu.Forms, PlatformPermissions.Forms.Create },
+    WorkspaceDefaults.WorkspaceId);
 AssertTrue(authResponse.Permissions.Contains(PlatformPermissions.Forms.Create), "Auth response should expose effective permissions.");
 
 var createUser = new CreateUserRequest("Jane Cooper", "jane@company.test", "temporary-password-1", new[] { sampleRoleId }, new[] { sampleDepartmentId }, Array.Empty<Guid>(), true);

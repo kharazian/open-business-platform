@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Identity;
 
@@ -15,8 +16,9 @@ public static class IdentityEndpoints
             BootstrapAdminUserDirectory userDirectory,
             IdentityManagementService identityManagement,
             PermissionService permissionService,
+            WorkspaceMembershipService workspaceMemberships,
             HttpContext httpContext,
-            CancellationToken cancellationToken) => await SignInAsync(request, userDirectory, identityManagement, permissionService, httpContext, cancellationToken));
+            CancellationToken cancellationToken) => await SignInAsync(request, userDirectory, identityManagement, permissionService, workspaceMemberships, httpContext, cancellationToken));
         group.MapPost("/forgot-password", async (
             RequestPasswordResetRequest request,
             IPasswordRecoveryService passwordRecovery,
@@ -377,6 +379,7 @@ public static class IdentityEndpoints
         BootstrapAdminUserDirectory userDirectory,
         IdentityManagementService identityManagement,
         PermissionService permissionService,
+        WorkspaceMembershipService workspaceMemberships,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -393,7 +396,22 @@ public static class IdentityEndpoints
             return Results.Json(new AuthErrorResponse("Invalid email or password."), statusCode: StatusCodes.Status401Unauthorized);
         }
 
-        var principal = CreatePrincipal(user);
+        var localUserId = Guid.TryParse(user.Id, out var parsedUserId) ? parsedUserId : (Guid?)null;
+        var workspaceId = localUserId is null
+            ? WorkspaceDefaults.WorkspaceId
+            : await workspaceMemberships.ResolveLoginWorkspaceAsync(localUserId.Value, cancellationToken);
+
+        if (workspaceId is null)
+        {
+            return Results.Json(new AuthErrorResponse("No active workspace membership is available."), statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        var workspaceRoles = localUserId is null
+            ? user.Roles
+            : await workspaceMemberships.GetRoleNamesAsync(localUserId.Value, workspaceId.Value, cancellationToken);
+        user = user with { Roles = workspaceRoles };
+        var principal = IdentityPrincipalFactory.Create(user, workspaceId.Value);
+        httpContext.User = principal;
         var permissions = await permissionService.GetEffectivePermissionsAsync(principal, cancellationToken);
 
         await httpContext.SignInAsync(
@@ -405,12 +423,13 @@ public static class IdentityEndpoints
                 IsPersistent = false
             });
 
-        return Results.Ok(new AuthSessionResponse((user with { Permissions = permissions }).ToResponse()));
+        return Results.Ok(new AuthSessionResponse((user with { Permissions = permissions }).ToResponse(workspaceId.Value)));
     }
 
     private static async Task<IResult> GetCurrentUserAsync(
         ClaimsPrincipal principal,
         PermissionService permissionService,
+        IWorkspaceContext workspaceContext,
         CancellationToken cancellationToken)
     {
         var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -427,7 +446,8 @@ public static class IdentityEndpoints
             name,
             email,
             principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray(),
-            await permissionService.GetEffectivePermissionsAsync(principal, cancellationToken));
+            await permissionService.GetEffectivePermissionsAsync(principal, cancellationToken),
+            workspaceContext.WorkspaceId);
 
         return Results.Ok(new AuthSessionResponse(user));
     }
@@ -437,21 +457,6 @@ public static class IdentityEndpoints
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         return Results.NoContent();
-    }
-
-    private static ClaimsPrincipal CreatePrincipal(AuthenticatedUser user)
-    {
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Name, user.Name),
-            new(ClaimTypes.Email, user.Email)
-        };
-
-        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        return new ClaimsPrincipal(identity);
     }
 
     private static async Task<IResult> HandleIdentityRequestAsync(Func<Task<IResult>> action)

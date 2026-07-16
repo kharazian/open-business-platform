@@ -145,7 +145,7 @@ Current backend module behavior:
 - `Modules/Dashboard` maps authenticated `GET /api/dashboard/summary`.
 - `Modules/Identity` maps bootstrap-admin cookie authentication, local PostgreSQL user login, user management, role management, password reset, role permissions, and effective permission endpoints.
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
-- `Modules/Workspaces` owns the V9 tenant/workspace constants, scoped context, ownership guard, and authenticated current-context endpoint. Task 001 deliberately resolves a fixed default workspace; membership and switching follow in task 002.
+- `Modules/Workspaces` owns tenant/workspace constants, signed request context, ownership guards, membership lifecycle services, per-request membership validation, and authenticated context/list/switch endpoints. Workspace-specific platform role claims are refreshed at login and switch time.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
 - `Modules/Reports` contains the current V2 list report definition, execution, and CSV export endpoints, config validation, report management/view permission checks, and report audit logging.

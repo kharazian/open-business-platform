@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Identity;
 
@@ -54,7 +55,10 @@ public sealed class IdentityManagementService
     {
         return await dbContext.Users
             .AsNoTracking()
-            .Where(user => user.IsActive)
+            .Where(user => user.IsActive
+                && user.WorkspaceMemberships.Any(membership =>
+                    membership.WorkspaceId == dbContext.ActiveWorkspaceId
+                    && membership.Status == WorkspaceMembershipStatuses.Active))
             .OrderBy(user => user.Name)
             .Select(user => new DirectoryOptionDto(user.Id, user.Name, user.Email))
             .ToArrayAsync(cancellationToken);
@@ -96,6 +100,18 @@ public sealed class IdentityManagementService
             PasswordUpdatedAt = now
         };
 
+        user.WorkspaceMemberships.Add(new WorkspaceMembership
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = dbContext.ActiveWorkspaceId,
+            Role = WorkspaceMembershipRoles.Member,
+            Status = request.IsActive ? WorkspaceMembershipStatuses.Active : WorkspaceMembershipStatuses.Suspended,
+            IsDefault = request.IsActive,
+            InvitedAt = now,
+            ActivatedAt = request.IsActive ? now : null,
+            SuspendedAt = request.IsActive ? null : now
+        });
+
         foreach (var roleId in roleIds)
         {
             user.Roles.Add(new UserRole { RoleId = roleId });
@@ -129,6 +145,7 @@ public sealed class IdentityManagementService
         await EnsureGroupsExistAsync(groupIds, cancellationToken);
 
         var user = await dbContext.Users
+            .Where(item => item.WorkspaceMemberships.Any(membership => membership.WorkspaceId == dbContext.ActiveWorkspaceId))
             .Include(item => item.Roles)
             .Include(item => item.Departments)
             .Include(item => item.Groups)
@@ -157,7 +174,9 @@ public sealed class IdentityManagementService
     {
         ValidatePassword(request.NewPassword);
 
-        var user = await dbContext.Users.SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
+        var user = await dbContext.Users
+            .Where(item => item.WorkspaceMemberships.Any(membership => membership.WorkspaceId == dbContext.ActiveWorkspaceId))
+            .SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
 
         if (user is null)
         {
@@ -467,6 +486,7 @@ public sealed class IdentityManagementService
     {
         return dbContext.Users
             .AsNoTracking()
+            .Where(user => user.WorkspaceMemberships.Any(membership => membership.WorkspaceId == dbContext.ActiveWorkspaceId))
             .Include(user => user.Roles)
             .ThenInclude(userRole => userRole.Role)
             .Include(user => user.Departments)
@@ -592,7 +612,12 @@ public sealed class IdentityManagementService
         }
 
         if (normalizedManagerUserId is not null
-            && !await dbContext.Users.AnyAsync(user => user.Id == normalizedManagerUserId.Value, cancellationToken))
+            && !await dbContext.Users.AnyAsync(
+                user => user.Id == normalizedManagerUserId.Value
+                    && user.WorkspaceMemberships.Any(membership =>
+                        membership.WorkspaceId == dbContext.ActiveWorkspaceId
+                        && membership.Status == WorkspaceMembershipStatuses.Active),
+                cancellationToken))
         {
             throw new IdentityManagementException(StatusCodes.Status400BadRequest, "Manager user was not found.");
         }

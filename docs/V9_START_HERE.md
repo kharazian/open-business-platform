@@ -7,7 +7,7 @@ This packet is the handoff for V9: Enterprise Platform.
 - V1 through V8 are complete for the current task lists.
 - V8 finalized integrations and API foundations without adding tenant/workspace ownership, SSO, arbitrary custom code, public links, or broad external sync.
 - The V8 finalization packet is `docs/V8_FINALIZATION.md`.
-- V9 is in progress. Task 001 is complete with tenant/workspace entities, direct business-data ownership, a safe default-workspace backfill, central EF Core isolation, a single-default invariant, and a read-only current-context endpoint.
+- V9 is in progress. Tasks 001 and 002 are complete: tenant/workspace ownership is enforced centrally, users have lifecycle-managed workspace memberships, authenticated identities carry a checked workspace, and role/permission context is refreshed when switching.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order

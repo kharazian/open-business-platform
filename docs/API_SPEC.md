@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. V1 through V8 provide the current forms, records, identity, permissions, reports, dashboards, triggers, workflows, printing, notifications, and integrations APIs. V9 task 001 adds the tenant/workspace persistence boundary and a read-only current-workspace endpoint while keeping the existing single-workspace request behavior. Add later enterprise APIs task by task as modules are implemented.
+Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 and 002 add enforced tenant/workspace ownership, membership-aware authentication, and workspace context/list/switch APIs. Add later enterprise APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -74,7 +74,29 @@ Requires an authenticated application session. Returns the active tenant/workspa
 }
 ```
 
-V9 task 001 always resolves the compatibility default workspace. It does not accept a caller-supplied tenant/workspace ID and exposes no mutation or switching operation. Workspace membership and active-workspace selection belong to V9 task 002.
+The context is resolved from the protected authentication ticket or integration identity, never from an ownership parameter.
+
+`GET /api/workspaces/available`
+
+Lists the authenticated user's workspace memberships with tenant/workspace names, role, status, and default state.
+
+`POST /api/workspaces/current`
+
+Accepts `{ "workspaceId": "..." }`. The target must be an active membership in an active workspace and tenant. A successful response returns `workspace` and `user`, and replaces the cookie's workspace and workspace-specific role claims.
+
+`GET /api/workspaces/memberships/`
+
+Lists memberships in the active workspace. Requires `users.manage`.
+
+`POST /api/workspaces/memberships/`
+
+Invites an existing active global user with `{ "userId": "...", "role": "owner|admin|member" }`. Requires `users.manage`.
+
+`POST /api/workspaces/memberships/{membershipId}/activate`
+
+`POST /api/workspaces/memberships/{membershipId}/suspend`
+
+Both require `users.manage` and `{ "concurrencyStamp": "..." }`. Membership changes are audited; users cannot suspend their own membership.
 
 ### Integration API keys
 
@@ -944,6 +966,7 @@ Response:
     "id": "bootstrap-admin",
     "name": "Platform Admin",
     "email": "admin@company.test",
+    "workspaceId": "00000000-0000-0000-0000-000000000002",
     "roles": ["Admin"],
     "permissions": [
       "menu.dashboard",
@@ -962,7 +985,7 @@ Response:
 }
 ```
 
-The API sets an HTTP-only auth cookie.
+The API sets an HTTP-only auth cookie containing a protected workspace claim. Local login returns `403` when the user has no active membership.
 
 ### Current user
 

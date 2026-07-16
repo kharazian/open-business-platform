@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
@@ -81,6 +82,7 @@ public static class DemoDataSeeder
         await EnsureRolePermissionsAsync(dbContext, roles, cancellationToken);
         var departments = await EnsureDepartmentsAsync(dbContext, cancellationToken);
         var users = await EnsureUsersAsync(dbContext, passwordHasher, roles, departments, cancellationToken);
+        await EnsureWorkspaceMembershipsAsync(dbContext, users, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var formVersion = await EnsureEmployeeInformationFormAsync(dbContext, cancellationToken);
@@ -326,6 +328,39 @@ public static class DemoDataSeeder
         }
 
         return users;
+    }
+
+    private static async Task EnsureWorkspaceMembershipsAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        IReadOnlyDictionary<string, User> users,
+        CancellationToken cancellationToken)
+    {
+        var userIds = users.Values.Select(user => user.Id).ToArray();
+        var existingUserIds = await dbContext.WorkspaceMemberships
+            .Where(membership =>
+                membership.WorkspaceId == WorkspaceDefaults.WorkspaceId
+                && userIds.Contains(membership.UserId))
+            .Select(membership => membership.UserId)
+            .ToArrayAsync(cancellationToken);
+        var existing = existingUserIds.ToHashSet();
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var seed in DemoUsers.Where(seed => !existing.Contains(seed.Id)))
+        {
+            dbContext.WorkspaceMemberships.Add(new WorkspaceMembership
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = WorkspaceDefaults.WorkspaceId,
+                UserId = seed.Id,
+                Role = seed.RoleName == PlatformRoles.Admin
+                    ? WorkspaceMembershipRoles.Admin
+                    : WorkspaceMembershipRoles.Member,
+                Status = WorkspaceMembershipStatuses.Active,
+                IsDefault = true,
+                InvitedAt = now,
+                ActivatedAt = now
+            });
+        }
     }
 
     private static async Task<FormVersion> EnsureEmployeeInformationFormAsync(

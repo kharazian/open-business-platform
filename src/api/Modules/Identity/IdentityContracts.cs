@@ -1,3 +1,7 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
+
 namespace OpenBusinessPlatform.Api.Modules.Identity;
 
 public static class PlatformRoles
@@ -23,9 +27,9 @@ public sealed record AuthenticatedUser(
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string>? Permissions = null)
 {
-    public AuthenticatedUserResponse ToResponse()
+    public AuthenticatedUserResponse ToResponse(Guid workspaceId)
     {
-        return new AuthenticatedUserResponse(Id, Name, Email, Roles, Permissions ?? Array.Empty<string>());
+        return new AuthenticatedUserResponse(Id, Name, Email, Roles, Permissions ?? Array.Empty<string>(), workspaceId);
     }
 }
 
@@ -34,8 +38,26 @@ public sealed record AuthenticatedUserResponse(
     string Name,
     string Email,
     IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions);
+    IReadOnlyCollection<string> Permissions,
+    Guid WorkspaceId);
 
 public sealed record AuthSessionResponse(AuthenticatedUserResponse User);
 
 public sealed record AuthErrorResponse(string Message);
+
+public static class IdentityPrincipalFactory
+{
+    public static ClaimsPrincipal Create(AuthenticatedUser user, Guid workspaceId)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.Name),
+            new(ClaimTypes.Email, user.Email),
+            new(WorkspaceClaims.WorkspaceId, workspaceId.ToString())
+        };
+
+        claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
+    }
+}

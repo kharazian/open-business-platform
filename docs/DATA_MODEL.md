@@ -4,12 +4,12 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete and V9 task 001 establishes tenant/workspace ownership. The model includes tenant and workspace boundaries plus core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, transactional trigger event outbox, workflow, notification, printing, and integration tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete and V9 task 002 establishes workspace-aware user identity. The model includes tenants, workspaces, memberships, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
-- `tenants`, `workspaces`
+- `tenants`, `workspaces`, `workspace_memberships`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`
@@ -106,7 +106,22 @@ Foreign keys:
 
 Migration `20260715190327_WorkspaceAndTenantFoundation` creates the stable default tenant `00000000-0000-0000-0000-000000000001` and default workspace `00000000-0000-0000-0000-000000000002`. It backfills every existing workspace-owned row before adding restrictive foreign keys, then removes the temporary column defaults. Migration `20260716175730_EnforceSingleDefaultWorkspace` adds a partial unique index so each tenant can have at most one default workspace while still allowing multiple non-default workspaces. This preserves existing installations without silently assigning future database writes outside the application context.
 
-All business, permission, audit, automation, notification, and integration tables have a required indexed `workspace_id` foreign key. Users, password reset credentials, and current notification preference records remain identity-level data until workspace membership is introduced in V9 task 002. EF Core applies active-workspace query filters and write guards centrally; child and junction tables carry direct workspace ownership so direct queries cannot bypass the boundary.
+All business, permission, audit, automation, notification, and integration tables have a required indexed `workspace_id` foreign key. Users and credentials remain global identities, while `workspace_memberships` controls where each user may operate. EF Core applies active-workspace query filters and write guards centrally; child and junction tables carry direct workspace ownership so direct queries cannot bypass the boundary.
+
+### workspace_memberships
+
+Connects a global user identity to a workspace. Roles are `owner`, `admin`, or `member`; lifecycle states are `invited`, `active`, or `suspended`.
+
+Key fields and constraints:
+
+- workspace_id and user_id, unique together
+- role, status, and is_default
+- invited_by_id plus invited_at, activated_at, and suspended_at
+- concurrency_stamp and standard audit/extra-property fields
+- one partial unique active default membership per user
+- indexes on workspace_id + status and user_id + status
+
+Migration `20260716212634_WorkspaceMembershipAndUserContext` creates the table and deterministically backfills every existing user into the stable default workspace. Active users receive active default memberships; inactive users receive suspended memberships. Existing Admin-role users receive the membership-level `admin` role and other users receive `member`.
 
 ### users
 

@@ -28,4 +28,6 @@ public sealed class User : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHa
     public ICollection<UserDepartment> Departments { get; } = new List<UserDepartment>();
 
     public ICollection<UserGroup> Groups { get; } = new List<UserGroup>();
+
+    public ICollection<WorkspaceMembership> WorkspaceMemberships { get; } = new List<WorkspaceMembership>();
 }

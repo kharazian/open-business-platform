@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Common;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -9,9 +10,27 @@ public interface IWorkspaceContext
     Guid WorkspaceId { get; }
 }
 
+public static class WorkspaceClaims
+{
+    public const string WorkspaceId = "obp.workspace_id";
+}
+
 public sealed class DefaultWorkspaceContext : IWorkspaceContext
 {
     public Guid WorkspaceId => WorkspaceDefaults.WorkspaceId;
+}
+
+public sealed class HttpContextWorkspaceContext(IHttpContextAccessor httpContextAccessor) : IWorkspaceContext
+{
+    public Guid WorkspaceId => ResolveWorkspaceId(httpContextAccessor.HttpContext?.User);
+
+    public static Guid ResolveWorkspaceId(ClaimsPrincipal? principal)
+    {
+        var value = principal?.FindFirstValue(WorkspaceClaims.WorkspaceId);
+        return Guid.TryParse(value, out var workspaceId) && workspaceId != Guid.Empty
+            ? workspaceId
+            : WorkspaceDefaults.WorkspaceId;
+    }
 }
 
 public static class WorkspaceOwnershipGuard
