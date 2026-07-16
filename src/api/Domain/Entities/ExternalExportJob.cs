@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class ExternalExportJob : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class ExternalExportJob : WorkspaceAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public string SourceType { get; set; } = string.Empty;
 

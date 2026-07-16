@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class FormDefinition : FullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class FormDefinition : WorkspaceFullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public string Name { get; set; } = string.Empty;
 

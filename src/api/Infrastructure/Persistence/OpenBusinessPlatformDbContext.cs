@@ -1,17 +1,35 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using OpenBusinessPlatform.Api.Domain.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
 public sealed class OpenBusinessPlatformDbContext : DbContext
 {
+    private readonly IWorkspaceContext _workspaceContext;
+
     public OpenBusinessPlatformDbContext(DbContextOptions<OpenBusinessPlatformDbContext> options)
-        : base(options)
+        : this(options, new DefaultWorkspaceContext())
     {
     }
+
+    public OpenBusinessPlatformDbContext(
+        DbContextOptions<OpenBusinessPlatformDbContext> options,
+        IWorkspaceContext workspaceContext)
+        : base(options)
+    {
+        _workspaceContext = workspaceContext;
+    }
+
+    public Guid ActiveWorkspaceId => _workspaceContext.WorkspaceId;
+
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+
+    public DbSet<Workspace> Workspaces => Set<Workspace>();
 
     public DbSet<User> Users => Set<User>();
 
@@ -114,6 +132,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         ConfigureUsers(modelBuilder);
+        ConfigureTenantsAndWorkspaces(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -126,6 +145,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureNotificationPreferences(modelBuilder);
         ConfigureIntegrations(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
+        ConfigureWorkspaceOwnership(modelBuilder);
     }
 
     private void ApplyEntityConventions()
@@ -144,8 +164,93 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 entity.Id = Guid.NewGuid();
             }
 
+            ApplyWorkspaceConvention(entry);
+
             ApplyAuditConventions(entry, now);
             ApplyConcurrencyConvention(entry);
+        }
+    }
+
+    private void ApplyWorkspaceConvention(EntityEntry entry)
+    {
+        if (entry.Entity is not IWorkspaceOwned workspaceOwned)
+        {
+            return;
+        }
+
+        if (entry.State == EntityState.Added)
+        {
+            WorkspaceOwnershipGuard.AssignForCreate(workspaceOwned, ActiveWorkspaceId);
+        }
+
+        if (entry.State is EntityState.Modified or EntityState.Deleted)
+        {
+            WorkspaceOwnershipGuard.EnsureActive(workspaceOwned, ActiveWorkspaceId);
+
+            if (entry.Property(nameof(IWorkspaceOwned.WorkspaceId)).IsModified)
+            {
+                throw new InvalidOperationException("Workspace ownership cannot be changed.");
+            }
+        }
+    }
+
+    private static void ConfigureTenantsAndWorkspaces(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Tenant>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "tenants");
+            entity.HasIndex(tenant => tenant.Slug).IsUnique();
+            entity.HasIndex(tenant => tenant.IsActive);
+            entity.Property(tenant => tenant.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(tenant => tenant.Slug).HasColumnName("slug").HasMaxLength(120).IsRequired();
+            entity.Property(tenant => tenant.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<Workspace>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "workspaces");
+            entity.HasIndex(workspace => new { workspace.TenantId, workspace.Slug }).IsUnique();
+            entity.HasIndex(workspace => workspace.TenantId)
+                .IsUnique()
+                .HasFilter("\"is_default\" = TRUE");
+            entity.HasIndex(workspace => workspace.IsActive);
+            entity.Property(workspace => workspace.TenantId).HasColumnName("tenant_id").HasColumnType("uuid").IsRequired();
+            entity.Property(workspace => workspace.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+            entity.Property(workspace => workspace.Slug).HasColumnName("slug").HasMaxLength(120).IsRequired();
+            entity.Property(workspace => workspace.IsDefault).HasColumnName("is_default").HasDefaultValue(false);
+            entity.Property(workspace => workspace.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity
+                .HasOne(workspace => workspace.Tenant)
+                .WithMany(tenant => tenant.Workspaces)
+                .HasForeignKey(workspace => workspace.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private void ConfigureWorkspaceOwnership(ModelBuilder modelBuilder)
+    {
+        var workspaceOwnedTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Where(entityType => typeof(IWorkspaceOwned).IsAssignableFrom(entityType.ClrType))
+            .ToArray();
+
+        foreach (var entityType in workspaceOwnedTypes)
+        {
+            var entity = modelBuilder.Entity(entityType.ClrType);
+            entity.Property<Guid>(nameof(IWorkspaceOwned.WorkspaceId))
+                .HasColumnName("workspace_id")
+                .IsRequired();
+            entity.HasIndex(nameof(IWorkspaceOwned.WorkspaceId));
+            entity
+                .HasOne(typeof(Workspace))
+                .WithMany()
+                .HasForeignKey(nameof(IWorkspaceOwned.WorkspaceId))
+                .OnDelete(DeleteBehavior.Restrict);
+
+            var parameter = Expression.Parameter(entityType.ClrType, "entity");
+            var workspaceId = Expression.Property(parameter, nameof(IWorkspaceOwned.WorkspaceId));
+            var activeWorkspaceId = Expression.Property(Expression.Constant(this), nameof(ActiveWorkspaceId));
+            entity.HasQueryFilter(Expression.Lambda(Expression.Equal(workspaceId, activeWorkspaceId), parameter));
         }
     }
 
@@ -223,7 +328,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         modelBuilder.Entity<Role>(entity =>
         {
             ConfigureAuditedAggregateRoot(entity, "roles");
-            entity.HasIndex(role => role.Name).IsUnique();
+            entity.HasIndex(role => new { role.WorkspaceId, role.Name }).IsUnique();
             entity.Property(role => role.Name).HasColumnName("name").HasMaxLength(80).IsRequired();
             entity.Property(role => role.Description).HasColumnName("description").HasMaxLength(500);
             entity.Property(role => role.IsActive).HasColumnName("is_active").HasDefaultValue(true);
@@ -333,7 +438,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         modelBuilder.Entity<Group>(entity =>
         {
             ConfigureAuditedAggregateRoot(entity, "groups");
-            entity.HasIndex(group => group.Name).IsUnique();
+            entity.HasIndex(group => new { group.WorkspaceId, group.Name }).IsUnique();
             entity.Property(group => group.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(group => group.Description).HasColumnName("description").HasMaxLength(500);
             entity.Property(group => group.IsActive).HasColumnName("is_active").HasDefaultValue(true);
@@ -904,7 +1009,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         modelBuilder.Entity<IntegrationConnector>(entity =>
         {
             ConfigureAuditedAggregateRoot(entity, "integration_connectors");
-            entity.HasIndex(connector => connector.ConnectorKey).IsUnique();
+            entity.HasIndex(connector => new { connector.WorkspaceId, connector.ConnectorKey }).IsUnique();
             entity.HasIndex(connector => connector.Type);
             entity.HasIndex(connector => connector.IsActive);
             entity.Property(connector => connector.Name).HasColumnName("name").HasMaxLength(160).IsRequired();

@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class IntegrationApiKey : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties, IIsActive
+public sealed class IntegrationApiKey : WorkspaceAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties, IIsActive
 {
     public string Name { get; set; } = string.Empty;
 

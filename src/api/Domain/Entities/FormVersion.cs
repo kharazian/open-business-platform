@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class FormVersion : CreationAuditedEntity<Guid>
+public sealed class FormVersion : WorkspaceCreationAuditedEntity<Guid>
 {
     public Guid FormId { get; set; }
 

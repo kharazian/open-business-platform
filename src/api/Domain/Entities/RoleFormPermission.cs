@@ -2,7 +2,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class RoleFormPermission : Entity<Guid>
+public sealed class RoleFormPermission : WorkspaceEntity<Guid>
 {
     public Guid RoleId { get; set; }
 

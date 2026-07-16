@@ -17,6 +17,7 @@ The product should grow module by module rather than through a single large buil
 
 Main modules:
 
+- Tenants and Workspaces
 - Forms
 - Records
 - Reports
@@ -138,12 +139,13 @@ Current backend module behavior:
 - `Program.cs` maps `/health` directly for API liveness, maps database-backed `/health/automation` separately for degraded automation readiness, and exposes token-protected payload-free `/metrics` aggregates.
 - `Platform/IPlatformApiModule.cs` discovers API modules in the assembly and maps their endpoints.
 - `Application/Common` contains DTO, paging, repository, and CRUD service base primitives for simple management resources.
-- `Domain/Common` contains framework-lite entity base classes and capability interfaces for Guid IDs, auditing, soft delete, concurrency stamps, active status, and extra JSON properties.
-- `Infrastructure/Persistence/OpenBusinessPlatformDbContext.cs` maps the V1 PostgreSQL tables for users, roles, role permissions, form permissions, departments, forms, form versions, records, and audit logs.
+- `Domain/Common` contains framework-lite entity base classes and capability interfaces for Guid IDs, auditing, soft delete, concurrency stamps, active status, extra JSON properties, and workspace ownership.
+- `Infrastructure/Persistence/OpenBusinessPlatformDbContext.cs` maps PostgreSQL entities and centrally applies active-workspace query filters, automatic ownership assignment, cross-workspace write rejection, and immutable workspace ownership.
 - `Infrastructure/Persistence/Migrations` contains EF Core migrations.
 - `Modules/Dashboard` maps authenticated `GET /api/dashboard/summary`.
 - `Modules/Identity` maps bootstrap-admin cookie authentication, local PostgreSQL user login, user management, role management, password reset, role permissions, and effective permission endpoints.
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
+- `Modules/Workspaces` owns the V9 tenant/workspace constants, scoped context, ownership guard, and authenticated current-context endpoint. Task 001 deliberately resolves a fixed default workspace; membership and switching follow in task 002.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
 - `Modules/Reports` contains the current V2 list report definition, execution, and CSV export endpoints, config validation, report management/view permission checks, and report audit logging.

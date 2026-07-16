@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class AuditLogEntry : Entity<Guid>, IHasCreationTime
+public sealed class AuditLogEntry : WorkspaceEntity<Guid>, IHasCreationTime
 {
     public string EntityType { get; set; } = string.Empty;
 

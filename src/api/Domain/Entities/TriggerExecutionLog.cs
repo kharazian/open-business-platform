@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class TriggerExecutionLog : Entity<Guid>, IHasCreationTime
+public sealed class TriggerExecutionLog : WorkspaceEntity<Guid>, IHasCreationTime
 {
     public Guid TriggerId { get; set; }
 

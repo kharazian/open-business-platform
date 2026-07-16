@@ -2,7 +2,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class UserGroup : Entity<Guid>
+public sealed class UserGroup : WorkspaceEntity<Guid>
 {
     public Guid UserId { get; set; }
 

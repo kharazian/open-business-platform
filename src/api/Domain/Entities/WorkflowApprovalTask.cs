@@ -2,7 +2,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class WorkflowApprovalTask : AuditedEntity<Guid>
+public sealed class WorkflowApprovalTask : WorkspaceAuditedEntity<Guid>
 {
     public Guid ApprovalGroupId { get; set; }
 

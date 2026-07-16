@@ -1,6 +1,6 @@
 # Security Model
 
-Status: V3 security baseline complete for the current repository. The platform implements bootstrap-admin cookie authentication, local PostgreSQL user login, self-service password recovery for persistent users, persistent users/roles/groups/departments management, scoped record permissions, report permissions, and backend authorization checks for auth, Users & Access, dashboard, forms, records, reports, chart previews, and field-level hidden/read-only rules.
+Status: the established authentication, permission, field-security, and audit baseline now also includes the V9 task 001 workspace persistence boundary.
 
 ## Core Rules
 
@@ -14,6 +14,14 @@ Status: V3 security baseline complete for the current repository. The platform i
 - Do not allow users to update form version records after publish.
 - Store only hashes of password reset tokens, use generic forgot-password responses, and expire/mark reset tokens as used.
 - Keep monitoring output aggregate and payload-free; production metrics require a server-side token that is never exposed through Vite variables.
+- Resolve workspace context on the backend; never trust a request body, query string, or frontend-only selection as ownership authority.
+- Apply workspace filters to direct reads and reject cross-workspace creates, updates, deletes, and ownership changes centrally in persistence.
+
+## Workspace Boundary
+
+V9 task 001 assigns every persisted business, permission, audit, automation, notification, and integration row to the active workspace. The compatibility context resolves only the stable default workspace, preserving existing behavior while establishing required foreign keys and centralized EF Core filters/write guards. Local users and credentials remain global identities until V9 task 002 adds explicit memberships and request-level active workspace resolution.
+
+Tenant/workspace administration and switching are intentionally absent. The current-context API is authenticated and read-only, and callers cannot submit an alternate workspace identifier.
 
 ## API Security
 

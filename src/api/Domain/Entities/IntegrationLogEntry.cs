@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class IntegrationLogEntry : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class IntegrationLogEntry : WorkspaceAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public string Direction { get; set; } = string.Empty;
 

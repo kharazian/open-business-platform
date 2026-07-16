@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2 Complete, V3 Complete, V4 Complete, V5 Complete, V6 Complete, V7 Complete, V8 Complete
+## Current State: V1 Finalized, V2-V8 Complete, V9 In Progress
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -267,7 +267,8 @@ Goal: mature platform capabilities.
 
 Features:
 
-- Multi-tenant workspaces
+- Multi-tenant workspace foundation implemented in V9 task 001 with stable default ownership, migration backfill, active-workspace query filters, and cross-workspace write guards
+- Workspace membership and active-user context next
 - SSO
 - Advanced RBAC/ABAC
 - Data retention

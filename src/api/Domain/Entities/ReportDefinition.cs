@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class ReportDefinition : FullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class ReportDefinition : WorkspaceFullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public Guid FormId { get; set; }
 

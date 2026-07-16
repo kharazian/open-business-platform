@@ -3,17 +3,17 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class DashboardDefinition : WorkspaceFullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class Tenant : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties, IIsActive
 {
     public string Name { get; set; } = string.Empty;
 
-    public string? Description { get; set; }
+    public string Slug { get; set; } = string.Empty;
 
-    public JsonDocument ConfigJson { get; set; } = null!;
-
-    public JsonDocument LayoutJson { get; set; } = null!;
+    public bool IsActive { get; set; } = true;
 
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
 
     public JsonDocument? ExtraPropertiesJson { get; set; }
+
+    public ICollection<Workspace> Workspaces { get; } = new List<Workspace>();
 }

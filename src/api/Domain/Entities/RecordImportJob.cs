@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class RecordImportJob : AuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class RecordImportJob : WorkspaceAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public Guid FormId { get; set; }
 
@@ -34,7 +34,7 @@ public sealed class RecordImportJob : AuditedAggregateRoot<Guid>, IHasConcurrenc
     public JsonDocument? ExtraPropertiesJson { get; set; }
 }
 
-public sealed class RecordImportJobRow : Entity<Guid>
+public sealed class RecordImportJobRow : WorkspaceEntity<Guid>
 {
     public Guid ImportJobId { get; set; }
 

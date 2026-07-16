@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class WorkflowDefinitionVersion : CreationAuditedEntity<Guid>
+public sealed class WorkflowDefinitionVersion : WorkspaceCreationAuditedEntity<Guid>
 {
     public Guid WorkflowDefinitionId { get; set; }
 
@@ -21,4 +21,3 @@ public sealed class WorkflowDefinitionVersion : CreationAuditedEntity<Guid>
 
     public DateTimeOffset? PublishedAt { get; set; }
 }
-

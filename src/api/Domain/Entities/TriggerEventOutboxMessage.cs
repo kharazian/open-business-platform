@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class TriggerEventOutboxMessage : Entity<Guid>, IHasCreationTime
+public sealed class TriggerEventOutboxMessage : WorkspaceEntity<Guid>, IHasCreationTime
 {
     public Guid FormId { get; set; }
 

@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class Notification : Entity<Guid>, IHasCreationTime
+public sealed class Notification : WorkspaceEntity<Guid>, IHasCreationTime
 {
     public Guid UserId { get; set; }
 

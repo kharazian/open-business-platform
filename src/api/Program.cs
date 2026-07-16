@@ -19,6 +19,7 @@ using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
 using OpenBusinessPlatform.Api.Modules.Workflows;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 using OpenBusinessPlatform.Api.Platform;
 using Scalar.AspNetCore;
 
@@ -40,6 +41,8 @@ builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 });
 builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
+builder.Services.AddScoped<IWorkspaceContext, DefaultWorkspaceContext>();
+builder.Services.AddScoped<WorkspaceContextService>();
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddSingleton<PasswordResetTokenGenerator>();

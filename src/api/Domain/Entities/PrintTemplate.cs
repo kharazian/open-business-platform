@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class PrintTemplate : FullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
+public sealed class PrintTemplate : WorkspaceFullAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties
 {
     public Guid FormId { get; set; }
 
@@ -32,7 +32,7 @@ public sealed class PrintTemplate : FullAuditedAggregateRoot<Guid>, IHasConcurre
     public ICollection<PrintTemplateVersion> Versions { get; } = new List<PrintTemplateVersion>();
 }
 
-public sealed class PrintTemplateVersion : CreationAuditedEntity<Guid>, IHasExtraProperties
+public sealed class PrintTemplateVersion : WorkspaceCreationAuditedEntity<Guid>, IHasExtraProperties
 {
     public Guid PrintTemplateId { get; set; }
 

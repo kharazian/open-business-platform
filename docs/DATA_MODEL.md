@@ -4,11 +4,12 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete for the current task list. The model includes core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, transactional trigger event outbox, automatic trigger retry, trigger retry policy/schedule metadata, workflow definition/version/history, record workflow state, in-app notification, notification preference, print template, print template version, integration API key, integration log, incoming webhook listener, record import job, and external export job tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete and V9 task 001 establishes tenant/workspace ownership. The model includes tenant and workspace boundaries plus core identity, form, record, report, dashboard, scoped permission, group, department, assignment, audit, trigger definition, trigger log, transactional trigger event outbox, workflow, notification, printing, and integration tables. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
+- `tenants`, `workspaces`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`
@@ -52,11 +53,60 @@ Current base types:
 - `AuditedAggregateRoot<TKey>`
 - `FullAuditedAggregateRoot<TKey>`
 
-Current capability interfaces include active status, concurrency stamp, soft delete, extra JSON properties, creation audit, modification audit, and deletion audit.
+Current capability interfaces include active status, concurrency stamp, soft delete, extra JSON properties, creation audit, modification audit, deletion audit, and workspace ownership. Workspace-aware base types add a required `WorkspaceId` to the existing entity/audit base shapes.
 
 Generic CRUD primitives live under `src/api/Application/Common`, but generic CRUD should only be used for straightforward management resources. Form publishing, record submission, permission evaluation, trigger execution, workflow approval, and audit writing remain custom business flows.
 
 ## Core Tables
+
+### tenants
+
+Represents the enterprise ownership boundary above one or more workspaces.
+
+Fields:
+
+- id uuid
+- name
+- slug
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created/updated audit fields
+
+Indexes:
+
+- unique slug
+- is_active
+
+### workspaces
+
+Represents an isolated business-data and policy boundary within a tenant.
+
+Fields:
+
+- id uuid
+- tenant_id uuid
+- name
+- slug
+- is_default
+- is_active
+- concurrency_stamp
+- extra_properties_json JSONB nullable
+- created/updated audit fields
+
+Indexes:
+
+- unique tenant_id + slug
+- unique tenant_id where is_default is true
+- is_active
+
+Foreign keys:
+
+- tenant_id -> tenants.id, restrict delete
+
+Migration `20260715190327_WorkspaceAndTenantFoundation` creates the stable default tenant `00000000-0000-0000-0000-000000000001` and default workspace `00000000-0000-0000-0000-000000000002`. It backfills every existing workspace-owned row before adding restrictive foreign keys, then removes the temporary column defaults. Migration `20260716175730_EnforceSingleDefaultWorkspace` adds a partial unique index so each tenant can have at most one default workspace while still allowing multiple non-default workspaces. This preserves existing installations without silently assigning future database writes outside the application context.
+
+All business, permission, audit, automation, notification, and integration tables have a required indexed `workspace_id` foreign key. Users, password reset credentials, and current notification preference records remain identity-level data until workspace membership is introduced in V9 task 002. EF Core applies active-workspace query filters and write guards centrally; child and junction tables carry direct workspace ownership so direct queries cannot bypass the boundary.
 
 ### users
 

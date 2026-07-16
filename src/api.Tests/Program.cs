@@ -19,6 +19,7 @@ using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
 using OpenBusinessPlatform.Api.Modules.Workflows;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 using OpenBusinessPlatform.Api.Platform;
 
 var configuredDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions
@@ -44,6 +45,16 @@ AssertNull(wrongEmailUser, "Wrong bootstrap admin email should not sign in.");
 var missingConfigurationDirectory = new BootstrapAdminUserDirectory(Options.Create(new BootstrapAdminOptions()));
 var missingConfigurationUser = missingConfigurationDirectory.ValidateCredentials(new LoginRequest("admin@company.test", "correct-password"));
 AssertNull(missingConfigurationUser, "Missing bootstrap admin configuration should disable login.");
+
+var workspaceOwnedRole = new Role();
+WorkspaceOwnershipGuard.AssignForCreate(workspaceOwnedRole, WorkspaceDefaults.WorkspaceId);
+AssertEqual(WorkspaceDefaults.WorkspaceId, workspaceOwnedRole.WorkspaceId, "New workspace-owned rows should inherit the active workspace.");
+AssertThrows<InvalidOperationException>(
+    () => WorkspaceOwnershipGuard.AssignForCreate(new Role { WorkspaceId = Guid.NewGuid() }, WorkspaceDefaults.WorkspaceId),
+    "Creating data for another workspace should be rejected.");
+AssertThrows<InvalidOperationException>(
+    () => WorkspaceOwnershipGuard.EnsureActive(new Role { WorkspaceId = Guid.NewGuid() }, WorkspaceDefaults.WorkspaceId),
+    "Updating or deleting data from another workspace should be rejected.");
 
 using (var appSettings = JsonDocument.Parse(File.ReadAllText(GetRepositoryFilePath("src", "api", "appsettings.json"))))
 {
@@ -111,6 +122,8 @@ using var dbContext = new OpenBusinessPlatformDbContext(dbOptions);
 var model = dbContext.Model;
 
 AssertTable<User>(model, "users");
+AssertTable<Tenant>(model, "tenants");
+AssertTable<Workspace>(model, "workspaces");
 AssertTable<PasswordResetToken>(model, "password_reset_tokens");
 AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
@@ -146,6 +159,20 @@ AssertTable<RecordImportJob>(model, "record_import_jobs");
 AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
 AssertTable<ExternalExportJob>(model, "external_export_jobs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
+AssertEqual(WorkspaceDefaults.WorkspaceId, dbContext.ActiveWorkspaceId, "The compatibility context should resolve the stable default workspace.");
+AssertUniqueIndex<Tenant>(model, new[] { nameof(Tenant.Slug) }, "Tenant slugs should be globally unique.");
+AssertUniqueIndex<Workspace>(model, new[] { nameof(Workspace.TenantId), nameof(Workspace.Slug) }, "Workspace slugs should be unique within a tenant.");
+AssertUniqueIndex<Workspace>(model, new[] { nameof(Workspace.TenantId) }, "Each tenant should have at most one default workspace.");
+AssertWorkspaceOwned<Role>(model);
+AssertWorkspaceOwned<UserRole>(model);
+AssertWorkspaceOwned<UserGroup>(model);
+AssertWorkspaceOwned<UserDepartment>(model);
+AssertWorkspaceOwned<FormDefinition>(model);
+AssertWorkspaceOwned<FormRecord>(model);
+AssertWorkspaceOwned<DashboardDefinition>(model);
+AssertWorkspaceOwned<TriggerEventOutboxMessage>(model);
+AssertWorkspaceOwned<IntegrationLogEntry>(model);
+AssertWorkspaceOwned<AuditLogEntry>(model);
 AssertJsonColumn<TriggerEventOutboxMessage>(model, nameof(TriggerEventOutboxMessage.PayloadJson));
 AssertIndex<TriggerEventOutboxMessage>(model, new[] { nameof(TriggerEventOutboxMessage.Status), nameof(TriggerEventOutboxMessage.NextAttemptAt) }, "Trigger event outbox polling should use a status/due-time index.");
 AssertIndex<TriggerEventOutboxMessage>(model, new[] { nameof(TriggerEventOutboxMessage.LockedAt) }, "Trigger event outbox abandoned claims should be indexed.");
@@ -254,10 +281,10 @@ AssertGuidId<ExternalExportJob>(model);
 AssertGuidId<AuditLogEntry>(model);
 
 AssertUniqueIndex<User>(model, new[] { nameof(User.Email) }, "Users should have a unique email index.");
-AssertUniqueIndex<Role>(model, new[] { nameof(Role.Name) }, "Roles should have a unique role name index.");
+AssertUniqueIndex<Role>(model, new[] { nameof(Role.WorkspaceId), nameof(Role.Name) }, "Role names should be unique within a workspace.");
 AssertUniqueIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId), nameof(RolePermission.Permission) }, "Role permissions should be unique per role/permission.");
 AssertUniqueIndex<RoleFormPermission>(model, new[] { nameof(RoleFormPermission.RoleId), nameof(RoleFormPermission.FormId), nameof(RoleFormPermission.Action) }, "Role form permissions should be unique per role/form/action.");
-AssertUniqueIndex<Group>(model, new[] { nameof(Group.Name) }, "Groups should have a unique group name index.");
+AssertUniqueIndex<Group>(model, new[] { nameof(Group.WorkspaceId), nameof(Group.Name) }, "Group names should be unique within a workspace.");
 AssertUniqueIndex<UserGroup>(model, new[] { nameof(UserGroup.UserId), nameof(UserGroup.GroupId) }, "User groups should be unique per user/group.");
 AssertUniqueIndex<RoleReportPermission>(model, new[] { nameof(RoleReportPermission.RoleId), nameof(RoleReportPermission.ReportId), nameof(RoleReportPermission.Action) }, "Report permissions should be unique per role/report/action.");
 AssertUniqueIndex<RoleFieldPermission>(model, new[] { nameof(RoleFieldPermission.RoleId), nameof(RoleFieldPermission.FormId), nameof(RoleFieldPermission.FieldId) }, "Field permissions should be unique per role/form/field.");
@@ -439,7 +466,7 @@ AssertColumn<ExternalExportJob>(model, nameof(ExternalExportJob.CompletedAt), "c
 AssertUniqueIndex<PasswordResetToken>(model, new[] { nameof(PasswordResetToken.TokenHash) }, "Password reset token hashes should be unique.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyPrefix) }, "Integration API key prefixes should be unique for lookup.");
 AssertUniqueIndex<IntegrationApiKey>(model, new[] { nameof(IntegrationApiKey.KeyHash) }, "Integration API key hashes should be unique.");
-AssertUniqueIndex<IntegrationConnector>(model, new[] { nameof(IntegrationConnector.ConnectorKey) }, "Integration connector keys should be unique.");
+AssertUniqueIndex<IntegrationConnector>(model, new[] { nameof(IntegrationConnector.WorkspaceId), nameof(IntegrationConnector.ConnectorKey) }, "Integration connector keys should be unique within a workspace.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.ListenerKey) }, "Incoming webhook listener route keys should be unique.");
 AssertUniqueIndex<IncomingWebhookListener>(model, new[] { nameof(IncomingWebhookListener.SecretPrefix) }, "Incoming webhook listener secret prefixes should be unique for lookup.");
 AssertUniqueIndex<RecordImportJobRow>(model, new[] { nameof(RecordImportJobRow.ImportJobId), nameof(RecordImportJobRow.RowNumber) }, "Record import job rows should be unique per source row.");
@@ -4132,6 +4159,21 @@ static void AssertFalse(bool value, string message)
     }
 }
 
+static void AssertThrows<TException>(Action action, string message)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
+}
+
 static void AssertNotEqual<T>(T notExpected, T actual, string message)
 {
     if (EqualityComparer<T>.Default.Equals(notExpected, actual))
@@ -4238,6 +4280,24 @@ static void AssertConcurrencyStamp<TEntity>(Microsoft.EntityFrameworkCore.Metada
         ?? throw new InvalidOperationException($"{typeof(TEntity).Name} should expose a concurrency stamp.");
 
     AssertTrue(property.IsConcurrencyToken, $"{typeof(TEntity).Name}.ConcurrencyStamp should be enforced by the database update predicate.");
+}
+
+static void AssertWorkspaceOwned<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel model)
+{
+    var entity = model.FindEntityType(typeof(TEntity))
+        ?? throw new InvalidOperationException($"{typeof(TEntity).Name} should be mapped.");
+    var workspaceProperty = entity.FindProperty(nameof(IWorkspaceOwned.WorkspaceId))
+        ?? throw new InvalidOperationException($"{typeof(TEntity).Name} should have workspace ownership.");
+
+    AssertTrue(!workspaceProperty.IsNullable, $"{typeof(TEntity).Name}.WorkspaceId should be required.");
+    AssertIndex<TEntity>(model, new[] { nameof(IWorkspaceOwned.WorkspaceId) }, $"{typeof(TEntity).Name}.WorkspaceId should be indexed.");
+    AssertTrue(entity.GetDeclaredQueryFilters().Any(), $"{typeof(TEntity).Name} should have an active-workspace query filter.");
+    AssertTrue(
+        entity.GetForeignKeys().Any(foreignKey =>
+            foreignKey.Properties.Count == 1
+            && foreignKey.Properties[0].Name == nameof(IWorkspaceOwned.WorkspaceId)
+            && foreignKey.PrincipalEntityType.ClrType == typeof(Workspace)),
+        $"{typeof(TEntity).Name}.WorkspaceId should reference workspaces.");
 }
 
 static void AssertIndex<TEntity>(Microsoft.EntityFrameworkCore.Metadata.IModel model, string[] propertyNames, string message)

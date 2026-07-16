@@ -3,7 +3,7 @@ using OpenBusinessPlatform.Api.Domain.Common;
 
 namespace OpenBusinessPlatform.Api.Domain.Entities;
 
-public sealed class WorkflowHistoryEntry : CreationAuditedEntity<Guid>
+public sealed class WorkflowHistoryEntry : WorkspaceCreationAuditedEntity<Guid>
 {
     public Guid WorkflowDefinitionId { get; set; }
 
