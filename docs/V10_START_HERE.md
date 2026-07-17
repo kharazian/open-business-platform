@@ -30,7 +30,7 @@ Recommended sequence:
 1. Structured address fields.
 2. Backend-generated autonumber fields (`tasks/v10/002-backend-generated-autonumber-fields.md`).
 3. Real file attachment storage and protected access (`tasks/v10/003-protected-file-attachments.md`).
-4. Stronger lookup relationship integrity.
+4. Stronger lookup relationship integrity (`tasks/v10/004-lookup-relationship-integrity.md`).
 5. Nested relationship columns and filters in reports.
 6. Related-record panels in record detail.
 7. Typed operational report and row actions.
