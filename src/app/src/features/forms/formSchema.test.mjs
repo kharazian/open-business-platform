@@ -383,6 +383,15 @@ test("form schema supports practical business field types", () => {
   assert.equal(invalid.errors.some((error) => error.path === "values.department" && error.code === "record.department_picker_type"), true);
 });
 
+test("file upload fields validate bounded storage configuration", () => {
+  const field = { id: "attachment", type: "fileUpload", label: "Attachment", fileUpload: { maxSizeBytes: 1024, allowedContentTypes: ["application/pdf"] } };
+  const schema = { schemaVersion: 1, fields: [field], layout: { pages: [{ id: "page_1", sections: [{ id: "section_1", rows: [{ id: "row_1", columns: [{ id: "col_1", span: { mobile: 12, tablet: 12, desktop: 12 }, fields: ["attachment"] }] }] }] }] } };
+  assert.deepEqual(validateFormSchema(schema), { valid: true, errors: [] });
+  const invalid = { ...schema, fields: [{ ...field, fileUpload: { maxSizeBytes: 11 * 1024 * 1024, allowedContentTypes: ["application/x-msdownload"] } }] };
+  assert.equal(validateFormSchema(invalid).errors.some((error) => error.code === "field.file_upload_size"), true);
+  assert.equal(validateFormSchema(invalid).errors.some((error) => error.code === "field.file_upload_type_unsupported"), true);
+});
+
 test("structured address fields validate bounded values and required parts", () => {
   const schema = {
     schemaVersion: 1,

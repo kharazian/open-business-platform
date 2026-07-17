@@ -127,6 +127,18 @@ public static class FormAutonumberLimits
     public const int MaxAffixLength = 40;
 }
 
+public sealed record FormFieldFileUploadDefinition(
+    long MaxSizeBytes = FormFileUploadLimits.DefaultMaxSizeBytes,
+    IReadOnlyList<string>? AllowedContentTypes = null);
+
+public static class FormFileUploadLimits
+{
+    public const long DefaultMaxSizeBytes = 10 * 1024 * 1024;
+    public const long MaxSizeBytes = 10 * 1024 * 1024;
+    public static IReadOnlyList<string> SupportedContentTypes { get; } =
+    ["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/csv"];
+}
+
 public sealed record FormFieldDefinition(
     string Id,
     string Type,
@@ -140,7 +152,8 @@ public sealed record FormFieldDefinition(
     FormFieldLookupDefinition? Lookup = null,
     FormFieldSubTableDefinition? SubTable = null,
     FormFieldAddressDefinition? Address = null,
-    FormFieldAutonumberDefinition? Autonumber = null);
+    FormFieldAutonumberDefinition? Autonumber = null,
+    FormFieldFileUploadDefinition? FileUpload = null);
 
 public sealed record ResponsiveSpanDefinition(
     int Mobile,

@@ -155,6 +155,21 @@ export type RecordTimeline = {
   items: RecordTimelineEntry[];
 };
 
+export type FileAttachment = {
+  id: string;
+  formId: string;
+  formVersionId: string;
+  recordId?: string | null;
+  fieldId: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  scanStatus: string;
+  status: string;
+  createdAt: string;
+};
+
 export class FormsApiError extends Error {
   readonly errors: ValidationError[];
 
@@ -243,6 +258,21 @@ export async function submitRecord(
     },
     fetcher
   );
+}
+
+export async function uploadFileAttachment(formId: string, fieldId: string, file: File, recordId?: string, fetcher: FormsFetcher = defaultFetcher): Promise<FileAttachment> {
+  const body = new FormData();
+  body.append("file", file);
+  const query = recordId ? `?recordId=${encodeURIComponent(recordId)}` : "";
+  return requestJson<FileAttachment>(`/api/forms/${encodeURIComponent(formId)}/fields/${encodeURIComponent(fieldId)}/attachments${query}`, { method: "POST", credentials: "include", body }, fetcher);
+}
+
+export async function deletePendingFileAttachment(attachmentId: string, fetcher: FormsFetcher = defaultFetcher): Promise<void> {
+  await requestNoContent(`/api/attachments/${encodeURIComponent(attachmentId)}`, { method: "DELETE", credentials: "include" }, fetcher);
+}
+
+export function getFileAttachmentDownloadUrl(attachmentId: string): string {
+  return `/api/attachments/${encodeURIComponent(attachmentId)}/content`;
 }
 
 export async function listRecords(

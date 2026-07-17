@@ -1,5 +1,7 @@
 import {
   AUTONUMBER_MAX_START_AT,
+  FILE_UPLOAD_MAX_BYTES,
+  fileUploadContentTypes,
   type FormField,
   addressSubfields,
   type FormAddressValue,
@@ -125,6 +127,15 @@ function validateField(field: FormField, index: number, fieldIds: Set<string>, e
       if ((config.prefix?.length ?? 0) > 40) errors.push(error(`${path}.autonumber.prefix`, "field.autonumber_prefix", "Autonumber prefix must be at most 40 characters."));
       if ((config.suffix?.length ?? 0) > 40) errors.push(error(`${path}.autonumber.suffix`, "field.autonumber_suffix", "Autonumber suffix must be at most 40 characters."));
     }
+  }
+  if (field.type === "fileUpload") {
+    const config = field.fileUpload ?? { maxSizeBytes: FILE_UPLOAD_MAX_BYTES, allowedContentTypes: [...fileUploadContentTypes] };
+    if (!Number.isInteger(config.maxSizeBytes) || config.maxSizeBytes < 1 || config.maxSizeBytes > FILE_UPLOAD_MAX_BYTES) errors.push(error(`${path}.fileUpload.maxSizeBytes`, "field.file_upload_size", `File size must be between 1 and ${FILE_UPLOAD_MAX_BYTES} bytes.`));
+    if (config.allowedContentTypes.length === 0) errors.push(error(`${path}.fileUpload.allowedContentTypes`, "field.file_upload_types_required", "At least one file type is required."));
+    if (new Set(config.allowedContentTypes).size !== config.allowedContentTypes.length) errors.push(error(`${path}.fileUpload.allowedContentTypes`, "field.file_upload_type_duplicate", "Allowed file types must be unique."));
+    config.allowedContentTypes.forEach((contentType, contentTypeIndex) => {
+      if (!(fileUploadContentTypes as readonly string[]).includes(contentType)) errors.push(error(`${path}.fileUpload.allowedContentTypes[${contentTypeIndex}]`, "field.file_upload_type_unsupported", `File type '${contentType}' is unsupported.`));
+    });
   }
 }
 

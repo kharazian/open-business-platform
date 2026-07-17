@@ -134,3 +134,7 @@ Trigger event outbox:
 ## Backend-Generated Autonumbers Migration
 
 `20260717191123_BackendGeneratedAutonumbers` adds workspace-owned `form_autonumber_sequences`. A unique `(workspace_id, form_id, field_id)` index supports atomic per-field allocation, and restrictive workspace/form foreign keys preserve ownership. The migration does not backfill or modify existing schemas, form versions, or record JSON.
+
+## Protected File Attachments Migration
+
+`20260717201359_ProtectedFileAttachments` adds workspace-owned `file_attachments` with restrictive form, immutable form-version, record, uploader, and workspace foreign keys. Private PostgreSQL `bytea` content is bounded to 10 MiB by the service and is never returned in metadata projections. Existing schemas, published versions, and legacy file strings require no backfill.

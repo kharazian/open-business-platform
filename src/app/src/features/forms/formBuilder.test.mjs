@@ -231,12 +231,17 @@ test("form builder exposes additional business field metadata", () => {
   assert.deepEqual(addressResult.field.address, { requiredSubfields: [] });
   const autonumberResult = addFieldToSchema(addressResult.schema, "autonumber");
   assert.deepEqual(autonumberResult.field.autonumber, { startAt: 1, padding: 0 });
+  const fileResult = addFieldToSchema(autonumberResult.schema, "fileUpload");
+  assert.equal(fileResult.field.fileUpload.maxSizeBytes, 10 * 1024 * 1024);
+  assert.equal(fileResult.field.fileUpload.allowedContentTypes.includes("application/pdf"), true);
 });
 
 test("form builder wires icons and preview input types for additional business fields", () => {
   const source = readFileSync(new URL("./pages/FormBuilderPage.tsx", import.meta.url), "utf8");
 
   assert.equal(source.includes("Upload"), true);
+  assert.equal(source.includes("FileUploadSettings"), true);
+  assert.equal(source.includes("Maximum size (MiB)"), true);
   assert.equal(source.includes("DollarSign"), true);
   assert.equal(source.includes("Percent"), true);
   assert.equal(source.includes("Star"), true);

@@ -49,6 +49,10 @@ export type FormFieldAddressConfig = {
 };
 export type FormFieldAutonumberConfig = { prefix?: string; suffix?: string; startAt: number; padding: number };
 export const AUTONUMBER_MAX_START_AT = 999_999_999_999_999;
+export const FILE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export const fileUploadContentTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/csv"] as const;
+export type FileUploadContentType = (typeof fileUploadContentTypes)[number];
+export type FormFieldFileUploadConfig = { maxSizeBytes: number; allowedContentTypes: FileUploadContentType[] };
 
 export type FormFieldLookupConfig = {
   sourceType: "form_records";
@@ -89,6 +93,7 @@ export type FormField = {
   subTable?: FormFieldSubTableConfig;
   address?: FormFieldAddressConfig;
   autonumber?: FormFieldAutonumberConfig;
+  fileUpload?: FormFieldFileUploadConfig;
 };
 
 export type ResponsiveSpan = {

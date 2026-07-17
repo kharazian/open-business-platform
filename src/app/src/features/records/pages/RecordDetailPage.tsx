@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Edit3, FileDown, GitBranch, History, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { ArrowLeft, Download, Edit3, FileDown, GitBranch, History, MoveRight, Play, Printer, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -10,7 +10,7 @@ import { PageHeader } from "../../../components/ui/PageHeader";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { FormRenderer, SubTablePreviewField } from "../../forms/components/FormRenderer";
-import { deleteRecord, getRecord, getRecordTimeline, updateRecord, type FormRecordDetail, type RecordTimeline } from "../../forms/api";
+import { deleteRecord, getFileAttachmentDownloadUrl, getRecord, getRecordTimeline, updateRecord, type FormRecordDetail, type RecordTimeline } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
 import { formatFormRecordValue } from "../../forms/valueFormatting";
 import { validateRecordValues } from "../../forms/validation";
@@ -530,6 +530,7 @@ function ValueRow({
   if (field?.type === "subTable") {
     return <SubTablePreviewField errors={[]} field={field} recordId={recordId} />;
   }
+  const attachmentId = field?.type === "fileUpload" && typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) ? value : null;
 
   return (
     <div className="print-value-row grid gap-2 rounded-xl border border-border bg-card/70 p-4 md:grid-cols-[14rem_minmax(0,1fr)]">
@@ -537,7 +538,7 @@ function ValueRow({
         <p className="truncate font-bold text-foreground">{field?.label ?? label}</p>
         {field ? <p className="mt-1 text-xs font-semibold uppercase tracking-normal text-muted-foreground">{field.type}</p> : null}
       </div>
-      <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{displayValue ?? formatRecordValue(value)}</p>
+      {attachmentId ? <a className="inline-flex min-w-0 items-center gap-2 text-sm font-bold text-primary hover:underline" href={getFileAttachmentDownloadUrl(attachmentId)}><span className="truncate">{displayValue ?? "Attachment"}</span><Download className="size-4 shrink-0" /></a> : <p className="min-w-0 whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{displayValue ?? formatRecordValue(value)}</p>}
     </div>
   );
 }

@@ -625,6 +625,33 @@ Fields:
 
 The unique `(workspace_id, form_id, field_id)` index gives every autonumber field an independent counter. Record creation uses a PostgreSQL upsert with `RETURNING` while the record transaction is active, so concurrent writers cannot receive the same number. Restrictive workspace/form foreign keys prevent sequence state from outliving its ownership boundary. The table stores only allocation state; prefix, suffix, starting value, and padding remain in the published form schema. Migration `20260717191123_BackendGeneratedAutonumbers` creates this table and does not rewrite existing form versions or records.
 
+### file_attachments
+
+Fields:
+
+- id uuid
+- workspace_id uuid
+- form_id uuid
+- form_version_id uuid
+- record_id uuid nullable
+- uploaded_by_id uuid
+- field_id varchar(120)
+- file_name varchar(180)
+- content_type varchar(120)
+- size_bytes bigint
+- sha256 varchar(64)
+- storage_provider varchar(40)
+- storage_key varchar(160)
+- content bytea
+- scan_status varchar(40)
+- status: pending, attached, removed, deleted
+- attached_at nullable
+- removed_at nullable
+- created_at
+- created_by_id nullable
+
+Migration `20260717201359_ProtectedFileAttachments` adds workspace/form/form-version/record/uploader ownership with restrictive foreign keys. Indexes support form-field lifecycle queries, immutable versions, records, pending uploader lists, creation time, and workspace isolation. PostgreSQL `bytea` is the initial private content provider behind `IFileAttachmentContentStore`; API projections never expose it. The deterministic `IFileAttachmentScanner` implementation checks supported signatures/types/extensions and is an explicit replacement boundary for a future external malware scanner; it does not claim antivirus coverage.
+
 ## Records
 
 ### records
@@ -653,7 +680,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`values_json` stores submitted field values validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. V10 `address` values are bounded JSON objects with optional `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude` members. V10 `autonumber` values are backend-generated immutable strings inserted during record creation; clients cannot choose or change them. Resolved lookup labels and combined address text are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
+`values_json` stores submitted field values validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. V10 `address` values are bounded JSON objects with optional address members. V10 `autonumber` values are backend-generated immutable strings. V10 `fileUpload` values are protected attachment UUID strings; safe filenames are response-only display values and binary content is never embedded in record JSON. Legacy filename strings remain readable but do not authorize downloads. Resolved lookup labels, combined address text, and attachment filenames are returned through `displayValues` and are not persisted as a second source of truth.
 
 Important indexes:
 

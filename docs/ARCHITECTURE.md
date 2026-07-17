@@ -225,13 +225,14 @@ Infrastructure responsibility:
 1. User opens published form.
 2. Frontend fetches published form version.
 3. FormRenderer renders fields from schema/layout.
-4. User submits values.
-5. Backend validates values against form version schema.
-6. Backend checks submit permission.
-7. Backend creates record with form version ID.
-8. Backend writes audit log.
-9. Backend dispatches trigger event later.
-10. Frontend shows success.
+4. File fields upload bounded content to protected pending attachment storage and retain only returned IDs.
+5. User submits values.
+6. Backend validates values and attachment ownership against the immutable form version.
+7. Backend checks submit permission.
+8. Backend creates the record and conditionally claims pending attachments in one transaction.
+9. Backend writes audit logs.
+10. Backend dispatches trigger events later.
+11. Frontend shows success.
 
 ## Data Flow: Record List
 
@@ -257,6 +258,7 @@ Infrastructure responsibility:
 
 - Store flexible schemas as JSONB.
 - Store common query fields as relational columns.
+- Store attachment metadata and bounded private PostgreSQL content separately from record JSON. Access content through a storage interface, inspect it through a scanner interface, and authorize every download against current record/field access.
 - Use backend permission checks for every sensitive API.
 - Keep responsive form layout grid-based, not canvas-based.
 - Use XYFlow only for workflow visual authoring.

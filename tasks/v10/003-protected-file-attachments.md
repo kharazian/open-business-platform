@@ -28,17 +28,17 @@ The current schema accepts `fileUpload` as arbitrary text. Attachments need a tw
 
 ## Acceptance Criteria
 
-- [ ] Schema validation accepts bounded attachment configuration and rejects unsupported types or excessive sizes.
-- [ ] Upload validation enforces size, filename, declared type, and content signature bounds.
-- [ ] Binary storage is accessed through an interface and protected metadata is workspace-owned.
-- [ ] Pending attachments cannot be claimed by another user, form, version, field, or workspace.
-- [ ] Record creation/edit atomically claims valid attachments and rejects invalid references.
-- [ ] Downloads enforce form, record-scope, and hidden-field permissions and write audit entries.
-- [ ] The frontend uploads, replaces, displays, downloads, and removes one attachment without embedding bytes in record JSON.
-- [ ] Reports, CSV, print, lookup, trigger, and workflow display paths use safe filenames.
-- [ ] Existing schemas and legacy string values remain readable.
-- [ ] Migration, API, data-model, and security behavior are documented.
-- [ ] Backend harness/build, frontend tests/build, migration consistency, PostgreSQL/API acceptance, and `git diff --check` pass.
+- [x] Schema validation accepts bounded attachment configuration and rejects unsupported types or excessive sizes.
+- [x] Upload validation enforces size, filename, declared type, and content signature bounds.
+- [x] Binary storage is accessed through an interface and protected metadata is workspace-owned.
+- [x] Pending attachments cannot be claimed by another user, form, version, field, or workspace.
+- [x] Record creation/edit atomically claims valid attachments and rejects invalid references.
+- [x] Downloads enforce form, record-scope, and hidden-field permissions and write audit entries.
+- [x] The frontend uploads, replaces, displays, downloads, and removes one attachment without embedding bytes in record JSON.
+- [x] Reports, CSV, print, lookup, trigger, and workflow display paths use safe filenames.
+- [x] Existing schemas and legacy string values remain readable.
+- [x] Migration, API, data-model, and security behavior are documented.
+- [x] Backend harness/build, frontend tests/build, migration consistency, PostgreSQL/API acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -65,4 +65,5 @@ The current schema accepts `fileUpload` as arbitrary text. Attachments need a tw
 
 - Cookie-authenticated multipart writes stay within the existing same-origin authenticated API boundary.
 - Treat declared MIME type as untrusted; deterministic inspection selects the stored type.
+- Clean API acceptance verified upload, SHA-256-identical download, pending-to-record claim, filename display resolution, authenticated no-access `404`, anonymous `401`, double-claim `400`, extension mismatch `400`, audited upload/claim/download, and pending deletion with content reduced to zero bytes.
 - Implement only this task.

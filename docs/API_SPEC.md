@@ -959,6 +959,8 @@ An `address` field has an `address.requiredSubfields` array containing zero or m
 
 An `autonumber` field has an `autonumber` object with optional `prefix` and `suffix` strings (40 characters each), a required integer `startAt` from `0` through `999999999999999`, and required `padding` from `0` through `18`. Record creation rejects client-supplied values, allocates the next number atomically in PostgreSQL inside the record transaction, formats it as prefix + zero-padded number + suffix, and stores that string in `values`. Record edits preserve the stored value and reject changes. Autonumbers are read-only in form entry/edit UIs and otherwise behave as display/search text in records, lookups, reports, CSV, print, triggers, and workflows.
 
+A `fileUpload` field may have a `fileUpload` object with `maxSizeBytes` from `1` through `10485760` and a non-empty unique `allowedContentTypes` subset of `application/pdf`, `image/png`, `image/jpeg`, `image/webp`, `text/plain`, and `text/csv`. Omitted configuration uses the 10 MiB limit and all supported types for compatibility. New record values contain only an attachment UUID. Legacy filename strings remain display-only and never become downloadable references. Attachment filenames in `displayValues` replace UUIDs for record, lookup, report, CSV, and print presentation.
+
 Canonical draft/version schema shape:
 
 ```json
@@ -1614,6 +1616,16 @@ Response:
   ]
 }
 ```
+
+### Protected file attachments
+
+`POST /api/forms/{formId}/fields/{fieldId}/attachments` accepts multipart form data with one `file` part. For new records it requires submit access to a visible writable field on the current published version. `?recordId={recordId}` targets an edit and instead requires edit access and record scope; the pending attachment is bound to that record's immutable form version. The endpoint inspects size, extension, declared type, and content signature, stores a SHA-256 digest, writes `file_attachment_uploaded`, and returns `201 Created` metadata without content or a public URL.
+
+`GET /api/attachments/{attachmentId}` returns metadata. `DELETE /api/attachments/{attachmentId}` securely empties and marks pending content deleted. Both pending operations are visible only to the uploader.
+
+`GET /api/attachments/{attachmentId}/content` returns an attachment response after re-evaluating record view scope and hidden-field access on every request. Successful downloads write `file_attachment_downloaded`. Removed/deleted content, deleted records, hidden fields, cross-workspace IDs, and inaccessible records return `404` to avoid disclosing existence.
+
+Submitting or editing a record atomically changes a same-user/same-workspace/same-form/same-version/same-field pending attachment to `attached`. Conditional PostgreSQL updates prevent concurrent double claims. Replaced attachments become `removed`; their bytes remain protected for future retention handling. Record JSON stores only the attachment UUID.
 
 ### Submit record
 

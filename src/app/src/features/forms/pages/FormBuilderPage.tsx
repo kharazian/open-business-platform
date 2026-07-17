@@ -120,12 +120,15 @@ import {
 import { createInitialRecordValues, type FormPreviewSize } from "../renderer";
 import {
   AUTONUMBER_MAX_START_AT,
+  FILE_UPLOAD_MAX_BYTES,
+  fileUploadContentTypes,
   formFieldTypes,
   addressSubfields,
   type AddressSubfield,
   type FormField,
   type FormFieldOption,
   type FormFieldType,
+  type FileUploadContentType,
   type FormLayoutColumn,
   type FormLayoutRow,
   type FormLayoutSection,
@@ -2018,7 +2021,7 @@ function FieldSettings({
             value={field.type}
           />
           <Input label="Label" onChange={(event) => patchField({ label: event.target.value })} value={field.label} />
-          {field.type !== "checkbox" && field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" ? (
+          {field.type !== "checkbox" && field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" && field.type !== "fileUpload" ? (
             <Input
               label="Placeholder"
               onChange={(event) => patchField({ placeholder: event.target.value })}
@@ -2040,12 +2043,13 @@ function FieldSettings({
               onChange={(event) => patchField({ required: event.target.checked })}
             />
           ) : null}
-          {field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
+          {field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" && field.type !== "fileUpload" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
           {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} schema={schema} sourceForms={sourceForms} /> : null}
           {field.type === "subTable" ? <SubTableSettings field={field} onChange={onChange} sourceForms={sourceForms} /> : null}
           {field.type === "address" ? <AddressSettings field={field} onChange={onChange} /> : null}
           {field.type === "autonumber" ? <AutonumberSettings field={field} onChange={onChange} /> : null}
+          {field.type === "fileUpload" ? <FileUploadSettings field={field} onChange={onChange} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -2085,6 +2089,26 @@ function AutonumberSettings({ field, onChange }: { field: FormField; onChange: (
     <Input label="Suffix" maxLength={40} onChange={(event) => update({ suffix: event.target.value })} value={config.suffix ?? ""} />
     <Input label="Start at" max={AUTONUMBER_MAX_START_AT} min={0} onChange={(event) => update({ startAt: Number(event.target.value) })} type="number" value={String(config.startAt)} />
     <Input label="Padding" max={18} min={0} onChange={(event) => update({ padding: Number(event.target.value) })} type="number" value={String(config.padding)} />
+  </div>;
+}
+
+const fileUploadContentTypeLabels: Record<FileUploadContentType, string> = {
+  "application/pdf": "PDF", "image/png": "PNG image", "image/jpeg": "JPEG image", "image/webp": "WebP image", "text/plain": "Plain text", "text/csv": "CSV"
+};
+
+function FileUploadSettings({ field, onChange }: { field: FormField; onChange: (field: FormField) => void }) {
+  const config = field.fileUpload ?? { maxSizeBytes: FILE_UPLOAD_MAX_BYTES, allowedContentTypes: [...fileUploadContentTypes] };
+  const allowed = new Set(config.allowedContentTypes);
+  function toggle(contentType: FileUploadContentType, checked: boolean) {
+    const next = new Set(allowed);
+    if (checked) next.add(contentType); else next.delete(contentType);
+    onChange({ ...field, fileUpload: { ...config, allowedContentTypes: fileUploadContentTypes.filter((candidate) => next.has(candidate)) } });
+  }
+  return <div className="grid gap-3 rounded-xl border border-border p-3">
+    <Input label="Maximum size (MiB)" max={10} min={1} onChange={(event) => onChange({ ...field, fileUpload: { ...config, maxSizeBytes: Math.round(Number(event.target.value) * 1024 * 1024) } })} type="number" value={String(config.maxSizeBytes / 1024 / 1024)} />
+    <div className="grid gap-2"><span className="text-sm font-bold text-foreground">Allowed types</span>
+      {fileUploadContentTypes.map((contentType) => <Checkbox checked={allowed.has(contentType)} key={contentType} label={fileUploadContentTypeLabels[contentType]} onChange={(event) => toggle(contentType, event.target.checked)} />)}
+    </div>
   </div>;
 }
 

@@ -1,4 +1,8 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using OpenBusinessPlatform.Api.Infrastructure.Persistence;
+using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 
 namespace OpenBusinessPlatform.Api.Modules.Records;
@@ -38,6 +42,48 @@ public static class RecordsEndpoints
                 return Results.Ok(options);
             });
         }).WithTags("Records").RequireAuthorization();
+
+        endpoints.MapPost("/api/forms/{formId:guid}/fields/{fieldId}/attachments", async (
+            Guid formId,
+            string fieldId,
+            Guid? recordId,
+            IFormFile file,
+            FileAttachmentService attachments,
+            OpenBusinessPlatformDbContext dbContext,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (recordId is null)
+            {
+                if (!await permissionService.CanAccessFormAsync(httpContext.User, formId, PlatformPermissions.Form.Submit, cancellationToken)) return Results.Forbid();
+            }
+            else
+            {
+                var record = await dbContext.Records.AsNoTracking().FirstOrDefaultAsync(item => item.Id == recordId && item.FormId == formId && !item.IsDeleted, cancellationToken);
+                if (record is null) return Results.NotFound();
+                if (!await permissionService.CanAccessRecordAsync(httpContext.User, record, PlatformPermissions.Form.Edit, cancellationToken)) return Results.Forbid();
+            }
+            var fieldAccess = await permissionService.GetFieldAccessAsync(httpContext.User, formId, cancellationToken);
+            if (fieldAccess.HiddenFieldIds.Contains(fieldId) || fieldAccess.ReadOnlyFieldIds.Contains(fieldId)) return Results.Forbid();
+            return await HandleRecordRequestAsync(async () =>
+            {
+                var attachment = await attachments.UploadAsync(formId, fieldId, recordId, file, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.Created($"/api/attachments/{attachment.Id}", attachment);
+            });
+        })
+        .WithTags("Records")
+        .RequireAuthorization()
+        .DisableAntiforgery()
+        .WithMetadata(new RequestSizeLimitAttribute(FormFileUploadLimits.MaxSizeBytes + 64 * 1024));
+
+        var attachmentGroup = endpoints.MapGroup("/api/attachments").WithTags("Records").RequireAuthorization();
+        attachmentGroup.MapGet("/{attachmentId:guid}", async (Guid attachmentId, FileAttachmentService attachments, PermissionService permissions, HttpContext context, CancellationToken ct) =>
+            await HandleRecordRequestAsync(async () => Results.Ok(await attachments.GetMetadataAsync(attachmentId, context.User, GetCurrentUserId(context), permissions, ct))));
+        attachmentGroup.MapGet("/{attachmentId:guid}/content", async (Guid attachmentId, FileAttachmentService attachments, PermissionService permissions, HttpContext context, CancellationToken ct) =>
+            await HandleRecordRequestAsync(async () => { var file = await attachments.DownloadAsync(attachmentId, context.User, GetCurrentUserId(context), permissions, ct); return Results.File(file.Content, file.ContentType, file.FileName); }));
+        attachmentGroup.MapDelete("/{attachmentId:guid}", async (Guid attachmentId, FileAttachmentService attachments, HttpContext context, CancellationToken ct) =>
+            await HandleRecordRequestAsync(async () => { await attachments.DeletePendingAsync(attachmentId, GetCurrentUserId(context), ct); return Results.NoContent(); }));
 
         group.MapGet("", async (
             Guid formId,
@@ -314,6 +360,11 @@ public static class RecordsEndpoints
             return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
         }
         catch (RecordMutationException exception)
+        {
+            var errors = exception.Errors.Count == 0 ? null : exception.Errors;
+            return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);
+        }
+        catch (FileAttachmentException exception)
         {
             var errors = exception.Errors.Count == 0 ? null : exception.Errors;
             return Results.Json(new RecordErrorResponse(exception.Message, errors), statusCode: exception.StatusCode);

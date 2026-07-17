@@ -105,12 +105,9 @@ public sealed class RecordLookupService
             .ThenByDescending(record => record.Id)
             .ToArrayAsync(cancellationToken);
 
+        var lookupValueSets = await ReplaceAttachmentReferencesAsync(records.Select(record => DeserializeValues(record.ValuesJson)).ToArray(), visibleLabelFieldIds.Concat(visibleSearchFieldIds).Distinct().ToArray(), cancellationToken);
         var candidates = records
-            .Select(record => new
-            {
-                Record = record,
-                Values = DeserializeValues(record.ValuesJson)
-            })
+            .Select((record, index) => new { Record = record, Values = lookupValueSets[index] })
             .Where(item => MatchesLookupFilters(item.Values, lookupField.Lookup.Filters, dependencyValues))
             .Where(item => search is null || MatchesLookupSearch(item.Values, visibleSearchFieldIds, search))
             .ToArray();
@@ -151,6 +148,23 @@ public sealed class RecordLookupService
                 if (valueSets[index].TryGetValue(field.Id, out var value) && FormAddressValueFormatter.TryFormat(value, out var formatted) && formatted.Length > 0)
                     displayValues[index][field.Id] = formatted;
             }
+        }
+
+        var attachmentFields = schema.Fields.Where(field => field.Type == FormFieldTypes.FileUpload).ToArray();
+        var attachmentValues = new List<(int Index, string FieldId, Guid AttachmentId)>();
+        for (var index = 0; index < valueSets.Count; index++)
+            foreach (var field in attachmentFields)
+                if (valueSets[index].TryGetValue(field.Id, out var value) && TryGetLookupRecordId(value, out var attachmentId))
+                    attachmentValues.Add((index, field.Id, attachmentId));
+        if (attachmentValues.Count > 0)
+        {
+            var ids = attachmentValues.Select(item => item.AttachmentId).Distinct().ToArray();
+            var names = await dbContext.FileAttachments.AsNoTracking()
+                .Where(item => ids.Contains(item.Id) && item.Status == AttachmentStatuses.Attached)
+                .Select(item => new { item.Id, item.FileName })
+                .ToDictionaryAsync(item => item.Id, item => item.FileName, cancellationToken);
+            foreach (var item in attachmentValues)
+                if (names.TryGetValue(item.AttachmentId, out var fileName)) displayValues[item.Index][item.FieldId] = fileName;
         }
 
         var lookupFields = schema.Fields
@@ -201,10 +215,9 @@ public sealed class RecordLookupService
                 PlatformPermissions.Form.View,
                 cancellationToken);
 
-            var labelsByRecordId = (await sourceQuery.ToArrayAsync(cancellationToken))
-                .ToDictionary(
-                    record => record.Id,
-                    record => ComposeLookupLabel(DeserializeValues(record.ValuesJson), visibleLabelFieldIds));
+            var sourceRecords = await sourceQuery.ToArrayAsync(cancellationToken);
+            var sourceValues = await ReplaceAttachmentReferencesAsync(sourceRecords.Select(record => DeserializeValues(record.ValuesJson)).ToArray(), visibleLabelFieldIds, cancellationToken);
+            var labelsByRecordId = sourceRecords.Select((record, index) => new { record.Id, Label = ComposeLookupLabel(sourceValues[index], visibleLabelFieldIds) }).ToDictionary(item => item.Id, item => item.Label);
 
             foreach (var selectedValue in selectedValues)
             {
@@ -440,6 +453,20 @@ public sealed class RecordLookupService
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private async Task<IReadOnlyDictionary<string, object?>[]> ReplaceAttachmentReferencesAsync(IReadOnlyList<IReadOnlyDictionary<string, object?>> values, IReadOnlyCollection<string> fieldIds, CancellationToken ct)
+    {
+        var ids = values.SelectMany(valueSet => fieldIds.Select(fieldId => valueSet.TryGetValue(fieldId, out var value) && TryGetLookupRecordId(value, out var id) ? id : Guid.Empty)).Where(id => id != Guid.Empty).Distinct().ToArray();
+        if (ids.Length == 0) return values.Select(valueSet => (IReadOnlyDictionary<string, object?>)valueSet).ToArray();
+        var names = await dbContext.FileAttachments.AsNoTracking().Where(item => ids.Contains(item.Id) && item.Status == AttachmentStatuses.Attached).Select(item => new { item.Id, item.FileName }).ToDictionaryAsync(item => item.Id, item => item.FileName, ct);
+        return values.Select(valueSet =>
+        {
+            var resolved = new Dictionary<string, object?>(valueSet, StringComparer.Ordinal);
+            foreach (var fieldId in fieldIds)
+                if (resolved.TryGetValue(fieldId, out var value) && TryGetLookupRecordId(value, out var id) && names.TryGetValue(id, out var name)) resolved[fieldId] = name;
+            return (IReadOnlyDictionary<string, object?>)resolved;
+        }).ToArray();
     }
 
     private sealed record SelectedLookupValue(int Index, Guid RecordId);

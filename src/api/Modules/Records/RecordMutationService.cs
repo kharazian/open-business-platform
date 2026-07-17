@@ -15,15 +15,18 @@ public sealed class RecordMutationService
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly RecordLookupService recordLookup;
+    private readonly FileAttachmentService attachments;
 
     public RecordMutationService(
         OpenBusinessPlatformDbContext dbContext,
         TriggerEventOutbox triggerEventOutbox,
-        RecordLookupService recordLookup)
+        RecordLookupService recordLookup,
+        FileAttachmentService attachments)
     {
         this.dbContext = dbContext;
         this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
+        this.attachments = attachments;
     }
 
     public async Task<FormRecordDetailDto> UpdateRecordAsync(
@@ -98,6 +101,10 @@ public sealed class RecordMutationService
         {
             throw new RecordMutationException(StatusCodes.Status400BadRequest, "Record values are invalid.", lookupValidation);
         }
+
+        var attachmentValidation = await attachments.ValidateAndClaimAsync(record.Id, record.FormId, record.FormVersionId, schema, currentValues, effectiveValues, updatedById, cancellationToken);
+        if (attachmentValidation.Count > 0)
+            throw new RecordMutationException(StatusCodes.Status400BadRequest, "Record values are invalid.", attachmentValidation);
 
         record.ValuesJson = JsonSerializer.SerializeToDocument(effectiveValues, JsonOptions);
         record.UpdatedById = updatedById;

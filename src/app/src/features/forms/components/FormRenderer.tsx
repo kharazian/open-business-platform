@@ -1,5 +1,5 @@
-import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Edit3, Plus, Search, Trash2, X } from "lucide-react";
+import { type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Edit3, Loader2, Paperclip, Plus, Search, Trash2, X } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -32,10 +32,13 @@ import {
   type FormRecordDetail,
   type PublishedFormForSubmission,
   type RecordLookupOption,
-  type SubTableRowsResult
+  type SubTableRowsResult,
+  deletePendingFileAttachment,
+  getFileAttachmentDownloadUrl,
+  uploadFileAttachment
 } from "../api";
 import { clearSubmissionFieldErrors } from "../submission";
-import type { AddressSubfield, FormAddressValue, FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
+import { FILE_UPLOAD_MAX_BYTES, fileUploadContentTypes, type AddressSubfield, type FormAddressValue, type FormField, type FormRecordValue, type FormRecordValues, type FormSchema, type ValidationError } from "../types";
 import { formatFormRecordValue, normalizeAddressValue } from "../valueFormatting";
 import { validateRecordValues } from "../validation";
 
@@ -204,6 +207,9 @@ function RenderedField({
   if (field.type === "autonumber") {
     return <Input disabled help={field.helpText ?? "Generated when the record is created."} label={getFieldLabel(field)} value={getStringValue(value)} />;
   }
+  if (field.type === "fileUpload") {
+    return <FileAttachmentField disabled={disabled} displayValue={displayValue} error={error} field={field} formId={formId} recordId={recordId} onChange={onChange} value={getStringValue(value)} />;
+  }
 
   if (field.type === "textarea") {
     return (
@@ -330,6 +336,52 @@ function RenderedField({
       value={getStringValue(value)}
     />
   );
+}
+
+function FileAttachmentField({ disabled, displayValue, error, field, formId, recordId, onChange, value }: { disabled: boolean; displayValue?: string; error?: string; field: FormField; formId?: string; recordId?: string; onChange: (value: FormRecordValue) => void; value: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [localError, setLocalError] = useState("");
+  const [uploadedId, setUploadedId] = useState<string | null>(null);
+  const [uploadedName, setUploadedName] = useState("");
+  const isAttachmentId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  const fileName = uploadedName || displayValue || (!isAttachmentId ? value : "Attachment");
+
+  async function selectFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !formId) return;
+    const config = field.fileUpload ?? { maxSizeBytes: FILE_UPLOAD_MAX_BYTES, allowedContentTypes: [...fileUploadContentTypes] };
+    if (file.size > config.maxSizeBytes) { setLocalError(`File must be ${Math.ceil(config.maxSizeBytes / 1024 / 1024)} MiB or smaller.`); return; }
+    if (file.type && !(config.allowedContentTypes as readonly string[]).includes(file.type)) { setLocalError("This file type is not allowed."); return; }
+    setUploading(true); setLocalError("");
+    try {
+      const uploaded = await uploadFileAttachment(formId, field.id, file, recordId);
+      if (uploadedId) await deletePendingFileAttachment(uploadedId).catch(() => undefined);
+      setUploadedId(uploaded.id); setUploadedName(uploaded.fileName); onChange(uploaded.id);
+    } catch (reason) { setLocalError(reason instanceof Error ? reason.message : "File upload failed."); }
+    finally { setUploading(false); }
+  }
+
+  async function remove() {
+    if (uploadedId) await deletePendingFileAttachment(uploadedId).catch(() => undefined);
+    setUploadedId(null); setUploadedName(""); setLocalError(""); onChange(null);
+  }
+
+  if (disabled) return <FieldShell errors={[error].filter((item): item is string => Boolean(item))} helpText={field.helpText}>
+    <div className="grid gap-2"><span className="text-sm font-bold text-foreground">{getFieldLabel(field)}</span>
+      {value ? isAttachmentId ? <a className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card/90 px-4 text-sm font-bold text-foreground hover:bg-muted" href={getFileAttachmentDownloadUrl(value)}><Paperclip className="size-4" /><span className="min-w-0 flex-1 truncate">{fileName}</span><Download className="size-4" /></a> : <div className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card/90 px-4 text-sm font-bold text-foreground"><Paperclip className="size-4" /><span className="min-w-0 flex-1 truncate">{fileName}</span></div> : <span className="text-sm text-muted-foreground">No attachment</span>}
+    </div>
+  </FieldShell>;
+
+  return <FieldShell errors={[error, localError].filter((item): item is string => Boolean(item))} helpText={field.helpText}>
+    <div className="grid gap-2"><span className="text-sm font-bold text-foreground">{getFieldLabel(field)}</span>
+      <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card/90 px-4 text-sm font-bold text-foreground hover:bg-muted">
+        {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}{uploading ? "Uploading…" : value ? "Replace file" : "Choose file"}
+        <input accept={(field.fileUpload?.allowedContentTypes ?? fileUploadContentTypes).join(",")} className="sr-only" disabled={uploading} onChange={(event) => void selectFile(event)} type="file" />
+      </label>
+      {value ? <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-3 py-2 text-sm"><span className="min-w-0 truncate font-semibold">{fileName}</span><Button disabled={uploading} onClick={() => void remove()} size="sm" variant="ghost"><X className="size-4" />Remove</Button></div> : null}
+    </div>
+  </FieldShell>;
 }
 
 const addressInputs: Array<{ key: AddressSubfield; label: string; type?: "number" }> = [

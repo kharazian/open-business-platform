@@ -131,6 +131,15 @@ test("form renderer keeps autonumbers server-generated and read-only", () => {
   assert.equal(rendererSource.includes('help={field.helpText ?? "Generated when the record is created."}'), true);
 });
 
+test("form renderer uses protected attachment upload and download paths", () => {
+  const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+  assert.equal(rendererSource.includes("FileAttachmentField"), true);
+  assert.equal(rendererSource.includes("uploadFileAttachment"), true);
+  assert.equal(rendererSource.includes("deletePendingFileAttachment"), true);
+  assert.equal(rendererSource.includes("getFileAttachmentDownloadUrl"), true);
+  assert.equal(rendererSource.includes('type="file"'), true);
+});
+
 test("form renderer exposes read-only sub-table preview", () => {
   const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
   const recordDetailSource = readFileSync(new URL("../records/pages/RecordDetailPage.tsx", import.meta.url), "utf8");

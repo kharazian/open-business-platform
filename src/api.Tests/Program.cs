@@ -162,6 +162,7 @@ AssertTable<UserDepartment>(model, "user_departments");
 AssertTable<FormDefinition>(model, "forms");
 AssertTable<FormVersion>(model, "form_versions");
 AssertTable<FormAutonumberSequence>(model, "form_autonumber_sequences");
+AssertTable<FileAttachment>(model, "file_attachments");
 AssertTable<FormRecord>(model, "records");
 AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
@@ -211,6 +212,7 @@ AssertWorkspaceOwned<UserGroup>(model);
 AssertWorkspaceOwned<UserDepartment>(model);
 AssertWorkspaceOwned<FormDefinition>(model);
 AssertWorkspaceOwned<FormAutonumberSequence>(model);
+AssertWorkspaceOwned<FileAttachment>(model);
 AssertUniqueIndex<FormAutonumberSequence>(model, new[] { nameof(FormAutonumberSequence.WorkspaceId), nameof(FormAutonumberSequence.FormId), nameof(FormAutonumberSequence.FieldId) }, "Autonumber allocation should have one counter per workspace, form, and field.");
 AssertWorkspaceOwned<FormRecord>(model);
 AssertWorkspaceOwned<DashboardDefinition>(model);
@@ -3192,6 +3194,19 @@ AssertEqual("REQ-000042-CA", AutonumberService.Format(42, autonumberSchema.Field
 AssertThrows<RecordSubmissionException>(() => AutonumberService.EnsureClientValuesAbsent(autonumberSchema, new Dictionary<string, object?> { ["request_number"] = "chosen" }), "Record clients should not supply generated autonumber values.");
 AssertFalse(FormSchemaValidator.ValidateSchema(autonumberSchema with { Fields = new[] { autonumberSchema.Fields.Single() with { Autonumber = new FormFieldAutonumberDefinition(new string('x', 41), null, -1, 19) } } }).Valid, "Invalid autonumber bounds should prevent publishing.");
 AssertFalse(FormSchemaValidator.ValidateSchema(autonumberSchema with { Fields = new[] { autonumberSchema.Fields.Single() with { Autonumber = new FormFieldAutonumberDefinition(StartAt: FormAutonumberLimits.MaxStartAt + 1) } } }).Valid, "Autonumber starts beyond the cross-client safe bound should prevent publishing.");
+var fileUploadSchema = autonumberSchema with
+{
+    Fields = new[] { new FormFieldDefinition("attachment", FormFieldTypes.FileUpload, "Attachment", FileUpload: new FormFieldFileUploadDefinition(1024, new[] { "application/pdf" })) },
+    Layout = autonumberSchema.Layout with { Pages = new[] { autonumberSchema.Layout.Pages.Single() with { Sections = new[] { autonumberSchema.Layout.Pages.Single().Sections.Single() with { Rows = new[] { autonumberSchema.Layout.Pages.Single().Sections.Single().Rows.Single() with { Columns = new[] { autonumberSchema.Layout.Pages.Single().Sections.Single().Rows.Single().Columns.Single() with { Fields = new[] { "attachment" } } } } } } } } } }
+};
+AssertTrue(FormSchemaValidator.ValidateSchema(fileUploadSchema).Valid, "File upload schemas should accept bounded storage configuration.");
+AssertFalse(FormSchemaValidator.ValidateSchema(fileUploadSchema with { Fields = new[] { fileUploadSchema.Fields.Single() with { FileUpload = new FormFieldFileUploadDefinition(FormFileUploadLimits.MaxSizeBytes + 1, new[] { "application/x-msdownload" }) } } }).Valid, "File upload schemas should reject excessive sizes and unsupported types.");
+var fileScanner = new DeterministicFileAttachmentScanner();
+var inspectedPdf = fileScanner.Inspect("request.pdf", "application/pdf", "%PDF-1.7\nbody"u8.ToArray(), fileUploadSchema.Fields.Single().FileUpload!);
+AssertTrue(inspectedPdf.Accepted && inspectedPdf.ContentType == "application/pdf", "Attachment inspection should accept matching bounded PDF content.");
+AssertFalse(fileScanner.Inspect("request.exe", "application/pdf", "%PDF-1.7\nbody"u8.ToArray(), fileUploadSchema.Fields.Single().FileUpload!).Accepted, "Attachment inspection should reject filename/content mismatches.");
+AssertEqual("report.pdf", FileAttachmentService.NormalizeFileName("../unsafe/report.pdf"), "Attachment filenames should discard client path segments.");
+AssertEqual("report.pdf", FileAttachmentService.NormalizeFileName("C:\\fakepath\\report.pdf"), "Attachment filenames should discard Windows client path segments.");
 var dependentLookupSchema = lookupSchema with
 {
     Fields = new[]

@@ -1,5 +1,7 @@
 import {
   formFieldTypes,
+  FILE_UPLOAD_MAX_BYTES,
+  fileUploadContentTypes,
   type FormField,
   type FormFieldOption,
   type FormFieldType,
@@ -47,7 +49,7 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   checkbox: "True or false checkbox",
   radio: "Single visible choice",
   recordLookup: "Search and select a record from another form",
-  fileUpload: "Placeholder for future file upload storage",
+  fileUpload: "Protected single-file attachment",
   currency: "Money amount",
   percent: "Percentage from 0 to 100",
   rating: "Rating from 1 to 5",
@@ -236,6 +238,7 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
     field.address = { requiredSubfields: [] };
   }
   if (type === "autonumber") field.autonumber = { startAt: 1, padding: 0 };
+  if (type === "fileUpload") field.fileUpload = { maxSizeBytes: FILE_UPLOAD_MAX_BYTES, allowedContentTypes: [...fileUploadContentTypes] };
 
   return field;
 }
@@ -313,6 +316,14 @@ function normalizeField(field: FormField): FormField {
     normalized.autonumber = { prefix: normalizeText(field.autonumber?.prefix), suffix: normalizeText(field.autonumber?.suffix), startAt: Math.max(0, Math.trunc(field.autonumber?.startAt ?? 1)), padding: Math.min(18, Math.max(0, Math.trunc(field.autonumber?.padding ?? 0))) };
     delete normalized.defaultValue; delete normalized.placeholder; normalized.required = false;
   } else delete normalized.autonumber;
+  if (field.type === "fileUpload") {
+    normalized.fileUpload = {
+      maxSizeBytes: Math.min(FILE_UPLOAD_MAX_BYTES, Math.max(1, Math.trunc(field.fileUpload?.maxSizeBytes ?? FILE_UPLOAD_MAX_BYTES))),
+      allowedContentTypes: Array.from(new Set(field.fileUpload?.allowedContentTypes ?? fileUploadContentTypes))
+    };
+    delete normalized.defaultValue;
+    delete normalized.placeholder;
+  } else delete normalized.fileUpload;
 
   removeUndefinedOptionalProperties(normalized);
 

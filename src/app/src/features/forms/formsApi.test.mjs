@@ -2,6 +2,23 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import * as api from "./api.ts";
 
+test("forms API uploads and deletes protected attachments", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    if (init.method === "DELETE") return { ok: true, status: 204, json: async () => null };
+    return { ok: true, json: async () => ({ id: "attachment-1", formId: "form-1", formVersionId: "version-1", fieldId: "document", fileName: "request.pdf", contentType: "application/pdf", sizeBytes: 12, sha256: "abc", scanStatus: "accepted", status: "pending", createdAt: "2026-07-17T00:00:00Z" }) };
+  };
+  const file = new File(["%PDF-1.7"], "request.pdf", { type: "application/pdf" });
+  const uploaded = await api.uploadFileAttachment("form-1", "document", file, undefined, fetcher);
+  await api.deletePendingFileAttachment("attachment-1", fetcher);
+  assert.equal(uploaded.fileName, "request.pdf");
+  assert.equal(calls[0].input, "/api/forms/form-1/fields/document/attachments");
+  assert.equal(calls[0].init.body instanceof FormData, true);
+  assert.equal(calls[1].input, "/api/attachments/attachment-1");
+  assert.equal(api.getFileAttachmentDownloadUrl("attachment 1"), "/api/attachments/attachment%201/content");
+});
+
 test("forms API client maps requests, responses, and errors", async () => {
   const calls = [];
   const fetcher = async (input, init = {}) => {

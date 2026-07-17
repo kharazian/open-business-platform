@@ -83,6 +83,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<FormVersion> FormVersions => Set<FormVersion>();
     public DbSet<FormAutonumberSequence> FormAutonumberSequences => Set<FormAutonumberSequence>();
+    public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
 
     public DbSet<FormRecord> Records => Set<FormRecord>();
 
@@ -797,6 +798,35 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(sequence => sequence.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(sequence => sequence.UpdatedAt).HasColumnName("updated_at").IsRequired();
             entity.HasOne(sequence => sequence.Form).WithMany().HasForeignKey(sequence => sequence.FormId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FileAttachment>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "file_attachments");
+            entity.HasIndex(item => new { item.FormId, item.FieldId, item.Status });
+            entity.HasIndex(item => item.FormVersionId);
+            entity.HasIndex(item => item.RecordId);
+            entity.HasIndex(item => new { item.UploadedById, item.Status, item.CreatedAt });
+            entity.Property(item => item.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.FormVersionId).HasColumnName("form_version_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.RecordId).HasColumnName("record_id").HasColumnType("uuid");
+            entity.Property(item => item.UploadedById).HasColumnName("uploaded_by_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.FieldId).HasColumnName("field_id").HasMaxLength(120).IsRequired();
+            entity.Property(item => item.FileName).HasColumnName("file_name").HasMaxLength(180).IsRequired();
+            entity.Property(item => item.ContentType).HasColumnName("content_type").HasMaxLength(120).IsRequired();
+            entity.Property(item => item.SizeBytes).HasColumnName("size_bytes").IsRequired();
+            entity.Property(item => item.Sha256).HasColumnName("sha256").HasMaxLength(64).IsRequired();
+            entity.Property(item => item.StorageProvider).HasColumnName("storage_provider").HasMaxLength(40).IsRequired();
+            entity.Property(item => item.StorageKey).HasColumnName("storage_key").HasMaxLength(160).IsRequired();
+            entity.Property(item => item.Content).HasColumnName("content").HasColumnType("bytea").IsRequired();
+            entity.Property(item => item.ScanStatus).HasColumnName("scan_status").HasMaxLength(40).IsRequired();
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(item => item.AttachedAt).HasColumnName("attached_at");
+            entity.Property(item => item.RemovedAt).HasColumnName("removed_at");
+            entity.HasOne(item => item.Form).WithMany().HasForeignKey(item => item.FormId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.FormVersion).WithMany().HasForeignKey(item => item.FormVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.Record).WithMany().HasForeignKey(item => item.RecordId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.UploadedBy).WithMany().HasForeignKey(item => item.UploadedById).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

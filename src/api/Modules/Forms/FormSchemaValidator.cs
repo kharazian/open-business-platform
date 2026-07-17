@@ -145,6 +145,7 @@ public static partial class FormSchemaValidator
             ValidateAddress(field, path, errors);
         }
         if (requireFieldConfiguration && field.Type == FormFieldTypes.Autonumber) ValidateAutonumber(field, path, errors);
+        if (requireFieldConfiguration && field.Type == FormFieldTypes.FileUpload) ValidateFileUpload(field, path, errors);
     }
 
     private static void ValidateOptions(
@@ -307,6 +308,20 @@ public static partial class FormSchemaValidator
         if (config.Padding is < 0 or > FormAutonumberLimits.MaxPadding) errors.Add(Error($"{path}.autonumber.padding", "field.autonumber_padding", $"Autonumber padding must be between 0 and {FormAutonumberLimits.MaxPadding}."));
         if ((config.Prefix?.Length ?? 0) > FormAutonumberLimits.MaxAffixLength) errors.Add(Error($"{path}.autonumber.prefix", "field.autonumber_prefix", $"Autonumber prefix must be at most {FormAutonumberLimits.MaxAffixLength} characters."));
         if ((config.Suffix?.Length ?? 0) > FormAutonumberLimits.MaxAffixLength) errors.Add(Error($"{path}.autonumber.suffix", "field.autonumber_suffix", $"Autonumber suffix must be at most {FormAutonumberLimits.MaxAffixLength} characters."));
+    }
+
+    private static void ValidateFileUpload(FormFieldDefinition field, string path, List<FormValidationError> errors)
+    {
+        var config = field.FileUpload ?? new FormFieldFileUploadDefinition();
+        if (config.MaxSizeBytes is < 1 or > FormFileUploadLimits.MaxSizeBytes)
+            errors.Add(Error($"{path}.fileUpload.maxSizeBytes", "field.file_upload_size", $"File size must be between 1 and {FormFileUploadLimits.MaxSizeBytes} bytes."));
+        var allowed = config.AllowedContentTypes ?? FormFileUploadLimits.SupportedContentTypes;
+        if (allowed.Count == 0) errors.Add(Error($"{path}.fileUpload.allowedContentTypes", "field.file_upload_types_required", "At least one file type is required."));
+        foreach (var (contentType, index) in allowed.Select((value, index) => (value, index)))
+            if (!FormFileUploadLimits.SupportedContentTypes.Contains(contentType, StringComparer.Ordinal))
+                errors.Add(Error($"{path}.fileUpload.allowedContentTypes[{index}]", "field.file_upload_type_unsupported", $"File type '{contentType}' is unsupported."));
+        if (allowed.Distinct(StringComparer.Ordinal).Count() != allowed.Count)
+            errors.Add(Error($"{path}.fileUpload.allowedContentTypes", "field.file_upload_type_duplicate", "Allowed file types must be unique."));
     }
 
     private static void ValidateLayout(
