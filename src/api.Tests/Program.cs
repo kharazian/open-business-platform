@@ -2245,6 +2245,10 @@ AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermission
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Branding.Manage), "Built-in permissions should include workspace branding management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Localization.Manage), "Built-in permissions should include workspace localization management.");
 AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Domains.Manage), "Built-in permissions should include custom-domain management.");
+AssertTrue(PlatformPermissions.AllBuiltInPermissions.Contains(PlatformPermissions.Compliance.Manage), "Built-in permissions should include compliance administration.");
+AssertNotNull(typeof(ComplianceService).GetMethod(nameof(ComplianceService.GetPostureAsync)), "Compliance service should expose operational posture evidence.");
+AssertNotNull(typeof(ComplianceService).GetMethod(nameof(ComplianceService.SearchAuditAsync)), "Compliance service should expose bounded audit search.");
+AssertNotNull(typeof(ComplianceService).GetMethod(nameof(ComplianceService.ExportAuditAsync)), "Compliance service should expose audited CSV export.");
 var defaultWorkspaceBranding = WorkspaceBrandingService.Resolve(null, "Acme Operations");
 AssertEqual("Acme Operations", defaultWorkspaceBranding.AppName, "Branding defaults should use the workspace name.");
 AssertEqual(WorkspaceBrandingService.DefaultLogoText, defaultWorkspaceBranding.LogoText, "Branding defaults should use safe deployment logo text.");

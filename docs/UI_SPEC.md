@@ -1,5 +1,7 @@
 # UI Specification
 
+The real `/compliance` route is a permission-aware enterprise administration surface for operational posture and audit review. It uses shared app components and localization helpers. `/theme` audit pages remain sample-data playgrounds and do not query compliance APIs.
+
 ## Current UI Foundation
 
 The frontend already has a shared app shell and design-system foundation:

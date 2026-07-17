@@ -110,6 +110,7 @@ builder.Services.AddScoped<AdministrativeBackupService>();
 builder.Services.AddScoped<WorkspaceBrandingService>();
 builder.Services.AddScoped<LocalizationService>();
 builder.Services.AddScoped<CustomDomainService>();
+builder.Services.AddScoped<ComplianceService>();
 builder.Services.AddHttpClient<IDnsTxtResolver, CloudflareDnsTxtResolver>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

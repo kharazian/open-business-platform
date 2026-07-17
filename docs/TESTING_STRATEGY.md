@@ -1,5 +1,7 @@
 # Testing Strategy
 
+Enterprise compliance coverage should verify permission registration, workspace-scoped posture queries, payload omission/metadata redaction, bounded audit query/export behavior, and frontend API filter encoding.
+
 ## Current Status
 
 The current repository has build validation, lightweight frontend logic/API tests, a lightweight backend executable test harness, and manual API smoke coverage for the finalized V1 baseline.

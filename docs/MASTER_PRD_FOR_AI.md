@@ -103,6 +103,7 @@ V9 task 006 is complete: versioned checksummed workspace snapshots, secret-safe 
 V9 task 007 is complete: workspace branding persists safe app identity and bounded logo data separately from user appearance, with public login projection and authorized audited administration.
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
+V9 task 010 is complete: permission-gated operational posture and payload-safe audit search/export provide administrative evidence without claiming certification or duplicating authoritative control state.
 
 ## 2. Core Product Philosophy
 
@@ -941,7 +942,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-V9 is complete through task 009: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, backup planning, branding, localization, and verified custom domains are implemented. Next concrete work is V9 task 010, compliance and audit administration.
+V9 tasks 001 through 010 are complete: ownership, membership context, OIDC SSO, policy guardrails, retention/legal holds, backup planning, branding, localization, verified custom domains, and compliance/audit administration are implemented. Next concrete work should begin only after V9 acceptance and a separately scoped V10 plan.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

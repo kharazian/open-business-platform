@@ -177,6 +177,8 @@ The frontend container serves the built React app through Nginx. The proxy keeps
 
 Verified enabled custom hosts are resolved by API middleware before workspace membership enforcement. Anonymous requests may discover the mapped workspace; authenticated requests are rejected when the host mapping conflicts with the signed workspace claim. Proxy acceptance and TLS certificate issuance remain deployment responsibilities.
 
+Compliance administration is a read model over authoritative workspace modules. It does not copy policy/retention/backup/domain state into a parallel compliance table. Audit review omits before/after payloads, sanitizes metadata, and bounds search/export work.
+
 Future backend module structure:
 
 ```txt

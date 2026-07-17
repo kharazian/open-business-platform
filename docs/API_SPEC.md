@@ -2654,4 +2654,10 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 - `GET /api/custom-domains` and `POST /api/custom-domains` require `domains.manage` and list/register domains for the signed workspace.
 - `POST /api/custom-domains/{id}/check` verifies the displayed `_obp-verification` TXT challenge using the fixed DNS resolver.
 - `POST /api/custom-domains/{id}/enable|disable|rotate` requires `domains.manage`, current concurrency state, and writes an audit entry; enable requires verified status.
+
+## Compliance And Audit Administration
+
+- `GET /api/compliance/posture` requires `compliance.manage` and returns operational signals derived from current workspace controls; it is not a certification.
+- `GET /api/compliance/audit` requires `compliance.manage`, accepts a maximum 366-day range plus exact entity/action/actor filters, and returns at most 200 payload-safe rows per page.
+- `GET /api/compliance/audit/export` requires `compliance.manage`, exports at most 10,000 index-only CSV rows, and writes `compliance_audit_exported` to the audit log.
 - Record create/update/status/assignment APIs dispatch V4 trigger events after the primary record transaction succeeds.

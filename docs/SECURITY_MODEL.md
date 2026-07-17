@@ -19,6 +19,7 @@ Status: the established authentication, permission, field-security, and audit ba
 - Restrict branding mutations to `branding.manage`; anonymous branding lookup accepts active tenant/workspace slugs but returns display fields only. Logo content is limited to bounded PNG/JPEG/WebP data URLs, colors to validated hex values, and every update is audited.
 - Restrict workspace localization changes to `localization.manage`. Personal localization writes derive the user and workspace from the signed principal, accept only server-recognized cultures/timezones, and cannot select another user.
 - Restrict custom-domain lifecycle changes to `domains.manage`. Hostnames are normalized and globally unique, activation requires a DNS TXT challenge checked through a fixed resolver, pending/disabled registrations do not route, and host resolution cannot override a conflicting signed workspace claim.
+- Restrict compliance posture, audit search, and audit export to `compliance.manage`. Audit review never returns before/after payloads, redacts credential-like metadata keys, bounds date ranges/pages/exports, and writes an audit entry for every CSV export.
 
 ## Workspace Boundary
 
