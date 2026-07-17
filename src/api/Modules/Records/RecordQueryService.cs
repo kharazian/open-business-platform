@@ -498,6 +498,7 @@ public sealed class RecordQueryService
 
     private static string? ToDisplayString(object? value)
     {
+        if (FormAddressValueFormatter.TryFormat(value, out var address)) return address;
         return value switch
         {
             null => null,

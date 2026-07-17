@@ -143,6 +143,16 @@ public sealed class RecordLookupService
             return displayValues;
         }
 
+        var addressFields = schema.Fields.Where(field => string.Equals(field.Type, FormFieldTypes.Address, StringComparison.Ordinal)).ToArray();
+        for (var index = 0; index < valueSets.Count; index++)
+        {
+            foreach (var field in addressFields)
+            {
+                if (valueSets[index].TryGetValue(field.Id, out var value) && FormAddressValueFormatter.TryFormat(value, out var formatted) && formatted.Length > 0)
+                    displayValues[index][field.Id] = formatted;
+            }
+        }
+
         var lookupFields = schema.Fields
             .Where(field => string.Equals(field.Type, FormFieldTypes.RecordLookup, StringComparison.Ordinal))
             .Where(field => field.Lookup is not null)
@@ -413,6 +423,7 @@ public sealed class RecordLookupService
 
     private static string? ToDisplayString(object? value)
     {
+        if (FormAddressValueFormatter.TryFormat(value, out var address)) return address;
         return value switch
         {
             null => null,

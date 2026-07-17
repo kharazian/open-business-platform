@@ -211,6 +211,7 @@ test("form builder exposes additional business field metadata", () => {
   assert.equal(fieldTypeLabels.datetime, "Date and time");
   assert.equal(fieldTypeLabels.userPicker, "User picker");
   assert.equal(fieldTypeLabels.departmentPicker, "Department picker");
+  assert.equal(fieldTypeLabels.address, "Address");
   assert.equal(fieldTypeDescriptions.userPicker, "Select an active platform user");
   assert.equal(fieldTypeDescriptions.departmentPicker, "Select an active department");
 
@@ -224,6 +225,9 @@ test("form builder exposes additional business field metadata", () => {
   assert.equal(userResult.field.label, "User picker");
   assert.equal(userResult.schema.fields.length, 2);
   assert.equal(userResult.schema.layout.pages[0].sections[0].rows.length, 2);
+
+  const addressResult = addFieldToSchema(userResult.schema, "address");
+  assert.deepEqual(addressResult.field.address, { requiredSubfields: [] });
 });
 
 test("form builder wires icons and preview input types for additional business fields", () => {

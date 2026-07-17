@@ -12,6 +12,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { FormRenderer, SubTablePreviewField } from "../../forms/components/FormRenderer";
 import { deleteRecord, getRecord, getRecordTimeline, updateRecord, type FormRecordDetail, type RecordTimeline } from "../../forms/api";
 import type { FormField, FormRecordValue, FormRecordValues, ValidationError } from "../../forms/types";
+import { formatFormRecordValue } from "../../forms/valueFormatting";
 import { validateRecordValues } from "../../forms/validation";
 import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/components/PrintDocument";
 import { PrintTemplateDocument } from "../../printing/components/PrintTemplateDocument";
@@ -772,9 +773,7 @@ function formatDateTime(value: string): string {
 }
 
 function formatRecordValue(value: FormRecordValue | undefined): string {
-  if (value === null || value === undefined || value === "") return "Empty";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
+  return formatFormRecordValue(value, "Empty");
 }
 
 function formatWorkflowAction(action: string): string {

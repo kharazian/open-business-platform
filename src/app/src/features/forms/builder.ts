@@ -31,7 +31,8 @@ export const fieldTypeLabels: Record<FormFieldType, string> = {
   datetime: "Date and time",
   userPicker: "User picker",
   departmentPicker: "Department picker",
-  subTable: "Sub-table"
+  subTable: "Sub-table",
+  address: "Address"
 };
 
 export const fieldTypeDescriptions: Record<FormFieldType, string> = {
@@ -54,7 +55,8 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   datetime: "Date and time",
   userPicker: "Select an active platform user",
   departmentPicker: "Select an active department",
-  subTable: "Show related child form records"
+  subTable: "Show related child form records",
+  address: "Structured postal address"
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
@@ -228,6 +230,10 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
     };
   }
 
+  if (type === "address") {
+    field.address = { requiredSubfields: [] };
+  }
+
   return field;
 }
 
@@ -289,6 +295,16 @@ function normalizeField(field: FormField): FormField {
     delete normalized.lookup;
   } else {
     delete normalized.subTable;
+  }
+
+  if (field.type === "address") {
+    normalized.address = {
+      requiredSubfields: Array.from(new Set(field.address?.requiredSubfields ?? []))
+    };
+    delete normalized.defaultValue;
+    delete normalized.placeholder;
+  } else {
+    delete normalized.address;
   }
 
   removeUndefinedOptionalProperties(normalized);

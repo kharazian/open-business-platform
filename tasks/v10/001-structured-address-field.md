@@ -33,14 +33,14 @@ The current schema already supports many practical business field types. Address
 
 ## Acceptance Criteria
 
-- [ ] Draft and publish validation accept valid address configuration and reject unsupported members.
-- [ ] Record create/edit validation accepts valid structured addresses and returns path-specific errors for invalid members.
-- [ ] Required subfields are enforced by the backend.
-- [ ] Builder, renderer, preview, submission, record edit, list/detail, report, CSV, and print paths handle address values without displaying `[object Object]`.
-- [ ] Existing primitive field values and schema version 1 remain compatible.
-- [ ] Frontend and backend tests cover valid, invalid, optional, and required address cases.
-- [ ] API/data-model documentation describes the contract and JSONB storage.
-- [ ] Backend harness/build, frontend tests/build, and `git diff --check` pass.
+- [x] Draft and publish validation accept valid address configuration and reject unsupported members.
+- [x] Record create/edit validation accepts valid structured addresses and returns path-specific errors for invalid members.
+- [x] Required subfields are enforced by the backend.
+- [x] Builder, renderer, preview, submission, record edit, list/detail, report, CSV, and print paths handle address values without displaying `[object Object]`.
+- [x] Existing primitive field values and schema version 1 remain compatible.
+- [x] Frontend and backend tests cover valid, invalid, optional, and required address cases.
+- [x] API/data-model documentation describes the contract and JSONB storage.
+- [x] Backend harness/build, frontend tests/build, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -61,4 +61,3 @@ The current schema already supports many practical business field types. Address
 - Keep the address contract bounded and explicit; do not accept arbitrary nested JSON.
 - Use invariant numeric rules for coordinates and localization only for presentation.
 - Implement only this task.
-

@@ -139,6 +139,11 @@ public static partial class FormSchemaValidator
         {
             ValidateSubTable(field, path, errors);
         }
+
+        if (requireFieldConfiguration && string.Equals(field.Type, FormFieldTypes.Address, StringComparison.Ordinal))
+        {
+            ValidateAddress(field, path, errors);
+        }
     }
 
     private static void ValidateOptions(
@@ -266,6 +271,30 @@ public static partial class FormSchemaValidator
         if (field.SubTable.MinRows.HasValue && field.SubTable.MaxRows.HasValue && field.SubTable.MinRows.Value > field.SubTable.MaxRows.Value)
         {
             errors.Add(Error($"{path}.subTable.maxRows", "field.sub_table_row_range", $"'{field.Label}' minimum rows cannot exceed maximum rows."));
+        }
+    }
+
+    private static void ValidateAddress(FormFieldDefinition field, string path, List<FormValidationError> errors)
+    {
+        if (field.Address is null)
+        {
+            errors.Add(Error($"{path}.address", "field.address_required", $"'{field.Label}' requires address configuration."));
+            return;
+        }
+
+        var required = field.Address.RequiredSubfields ?? Array.Empty<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < required.Count; index++)
+        {
+            var subfield = required[index];
+            if (!FormAddressSubfields.Supported.Contains(subfield))
+            {
+                errors.Add(Error($"{path}.address.requiredSubfields[{index}]", "field.address_subfield_unknown", $"Address subfield '{subfield}' is not supported."));
+            }
+            else if (!seen.Add(subfield))
+            {
+                errors.Add(Error($"{path}.address.requiredSubfields[{index}]", "field.address_subfield_duplicate", $"Address subfield '{subfield}' is duplicated."));
+            }
         }
     }
 
@@ -574,6 +603,9 @@ public static partial class FormSchemaValidator
             case FormFieldTypes.SubTable:
                 errors.Add(Error(path, "record.sub_table_readonly", $"'{field.Label}' is stored through related child records."));
                 return;
+            case FormFieldTypes.Address:
+                ValidateAddressValue(field, value, path, errors);
+                return;
         }
 
         if (FormFieldTypes.IsChoice(field.Type))
@@ -602,8 +634,83 @@ public static partial class FormSchemaValidator
         return value is null
             || value is string { Length: 0 }
             || value is JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined }
-            || value is JsonElement { ValueKind: JsonValueKind.String } element && string.IsNullOrEmpty(element.GetString());
+            || value is JsonElement { ValueKind: JsonValueKind.String } element && string.IsNullOrEmpty(element.GetString())
+            || TryGetAddressObject(value, out var address) && !address.EnumerateObject().Any(property => !IsEmptyAddressMember(property.Value));
     }
+
+    private static void ValidateAddressValue(FormFieldDefinition field, object? value, string path, List<FormValidationError> errors)
+    {
+        if (!TryGetAddressObject(value, out var address))
+        {
+            errors.Add(Error(path, "record.address_type", $"'{field.Label}' must be a structured address."));
+            return;
+        }
+
+        var members = address.EnumerateObject().ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
+        foreach (var member in members)
+        {
+            var memberPath = $"{path}.{member.Key}";
+            if (!FormAddressSubfields.Supported.Contains(member.Key))
+            {
+                errors.Add(Error(memberPath, "record.address_member_unknown", $"'{field.Label}' contains an unsupported address member."));
+                continue;
+            }
+
+            if (member.Key is FormAddressSubfields.Latitude or FormAddressSubfields.Longitude)
+            {
+                if (IsEmptyAddressMember(member.Value)) continue;
+                if (member.Value.ValueKind != JsonValueKind.Number || !member.Value.TryGetDecimal(out var coordinate))
+                {
+                    errors.Add(Error(memberPath, "record.address_coordinate_type", $"'{field.Label}' coordinate must be a finite number."));
+                    continue;
+                }
+                var min = member.Key == FormAddressSubfields.Latitude ? -90 : -180;
+                var max = member.Key == FormAddressSubfields.Latitude ? 90 : 180;
+                if (coordinate < min || coordinate > max)
+                    errors.Add(Error(memberPath, "record.address_coordinate_range", $"'{field.Label}' {member.Key} must be between {min} and {max}."));
+                continue;
+            }
+
+            if (IsEmptyAddressMember(member.Value)) continue;
+            if (member.Value.ValueKind != JsonValueKind.String)
+            {
+                errors.Add(Error(memberPath, "record.address_member_type", $"'{field.Label}' address text must be a string."));
+                continue;
+            }
+            var maxLength = member.Key == FormAddressSubfields.Country ? 100 : 200;
+            if (member.Value.GetString()!.Trim().Length > maxLength)
+                errors.Add(Error(memberPath, "record.address_member_length", $"'{field.Label}' {member.Key} must be at most {maxLength} characters."));
+        }
+
+        foreach (var required in field.Address?.RequiredSubfields ?? Array.Empty<string>())
+        {
+            if (!members.TryGetValue(required, out var member) || IsEmptyAddressMember(member))
+                errors.Add(Error($"{path}.{required}", "record.address_member_required", $"'{field.Label}' {required} is required."));
+        }
+    }
+
+    private static bool TryGetAddressObject(object? value, out JsonElement address)
+    {
+        if (value is JsonElement { ValueKind: JsonValueKind.Object } element)
+        {
+            address = element;
+            return true;
+        }
+        if (value is not null && value is not string && value is not ValueType)
+        {
+            var serialized = JsonSerializer.SerializeToElement(value);
+            if (serialized.ValueKind == JsonValueKind.Object)
+            {
+                address = serialized;
+                return true;
+            }
+        }
+        address = default;
+        return false;
+    }
+
+    private static bool IsEmptyAddressMember(JsonElement value) => value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+        || value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(value.GetString());
 
     private static bool IsStringValue(object? value)
     {

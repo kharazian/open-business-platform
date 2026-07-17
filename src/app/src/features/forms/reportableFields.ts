@@ -62,7 +62,7 @@ function toReportableField(field: FormField): ReportableField {
     })),
     filterable: true,
     sortable: true,
-    searchable: ["text", "textarea", "email", "phone", "select", "radio", "url", "fileUpload", "userPicker", "departmentPicker"].includes(field.type),
+    searchable: ["text", "textarea", "email", "phone", "select", "radio", "url", "fileUpload", "userPicker", "departmentPicker", "address"].includes(field.type),
     supportsAggregation: isNumeric,
     supportsChoiceGrouping: isGroupable
   };

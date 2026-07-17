@@ -65,6 +65,10 @@ export function coerceFieldInputValue(field: FormField, value: FormRecordValue |
     return null;
   }
 
+  if (field.type === "address") {
+    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
+  }
+
   if (field.type === "checkbox") {
     return Boolean(value);
   }
@@ -87,7 +91,7 @@ export function coerceFieldInputValue(field: FormField, value: FormRecordValue |
 
 export function getFieldErrorsById(errors: ValidationError[] = []): Record<string, string[]> {
   return errors.reduce<Record<string, string[]>>((result, validationError) => {
-    const match = /^values\.([^.[\]]+)$/.exec(validationError.path);
+    const match = /^values\.([^.[\]]+)(?:\.|\[|$)/.exec(validationError.path);
 
     if (!match) {
       return result;
@@ -132,6 +136,10 @@ export function getColumnSpanClass(column: FormLayoutColumn, previewSize: FormPr
 function normalizeInitialFieldValue(field: FormField): FormRecordValue {
   if (field.type === "subTable") {
     return null;
+  }
+
+  if (field.type === "address") {
+    return {};
   }
 
   if (field.defaultValue !== undefined) {

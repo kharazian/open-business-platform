@@ -284,7 +284,7 @@ Goal: support richer operational business applications on top of the V9 enterpri
 
 Planned sequence:
 
-- Structured address fields.
+- Structured address fields implemented in V10 task 001 with bounded configuration/value contracts and stable record/report/print display.
 - Backend-generated autonumber fields.
 - Protected file attachment storage.
 - Stronger lookup relationships and nested report data.

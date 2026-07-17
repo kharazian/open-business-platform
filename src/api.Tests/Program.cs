@@ -3164,6 +3164,21 @@ AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.time"
 AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.datetime"), "Date-time values should use datetime-local format.");
 AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.user_picker_type"), "User picker values should be selected user ids.");
 AssertTrue(invalidBusinessValues.Errors.Any(error => error.Code == "record.department_picker_type"), "Department picker values should be selected department ids.");
+var addressSchema = new FormSchemaDefinition(
+    1,
+    new[] { new FormFieldDefinition("site_address", FormFieldTypes.Address, "Site address", Address: new FormFieldAddressDefinition(new[] { FormAddressSubfields.Line1, FormAddressSubfields.Country })) },
+    new FormLayoutDefinition(new[] { new FormLayoutPageDefinition("page_1", null, null, new[] { new FormLayoutSectionDefinition("section_1", null, null, new[] { new FormLayoutRowDefinition("row_1", new[] { new FormLayoutColumnDefinition("col_1", new ResponsiveSpanDefinition(12, 12, 12), new[] { "site_address" }) }) }) }) }));
+AssertTrue(FormSchemaValidator.ValidateSchema(addressSchema).Valid, "Structured address schemas should validate with supported required subfields.");
+var validAddress = JsonSerializer.SerializeToElement(new { line1 = "100 King Street West", city = "Toronto", region = "ON", postalCode = "M5X 1A9", country = "Canada", latitude = 43.648m, longitude = -79.381m });
+AssertTrue(FormSchemaValidator.ValidateRecordValues(addressSchema, new Dictionary<string, object?> { ["site_address"] = validAddress }).Valid, "Structured address values should validate.");
+AssertEqual("100 King Street West, Toronto, ON, M5X 1A9, Canada", FormAddressValueFormatter.TryFormat(validAddress, out var formattedAddress) ? formattedAddress : null, "Addresses should have a stable human-readable display value.");
+var invalidAddress = FormSchemaValidator.ValidateRecordValues(addressSchema, new Dictionary<string, object?> { ["site_address"] = JsonSerializer.SerializeToElement(new { city = "Toronto", country = "", latitude = 91, secret = "no" }) });
+AssertTrue(invalidAddress.Errors.Any(error => error.Path == "values.site_address.line1" && error.Code == "record.address_member_required"), "Required address members should use member-specific paths.");
+AssertTrue(invalidAddress.Errors.Any(error => error.Code == "record.address_coordinate_range"), "Address coordinates should use bounded ranges.");
+AssertTrue(invalidAddress.Errors.Any(error => error.Code == "record.address_member_unknown"), "Unknown address members should be rejected.");
+AssertFalse(
+    FormSchemaValidator.ValidateSchema(addressSchema with { Fields = new[] { addressSchema.Fields.Single() with { Address = new FormFieldAddressDefinition(new[] { "unsupported" }) } } }).Valid,
+    "Unsupported required address subfields should prevent publishing.");
 var dependentLookupSchema = lookupSchema with
 {
     Fields = new[]

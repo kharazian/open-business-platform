@@ -382,3 +382,19 @@ test("form schema supports practical business field types", () => {
   assert.equal(invalid.errors.some((error) => error.path === "values.owner" && error.code === "record.user_picker_type"), true);
   assert.equal(invalid.errors.some((error) => error.path === "values.department" && error.code === "record.department_picker_type"), true);
 });
+
+test("structured address fields validate bounded values and required parts", () => {
+  const schema = {
+    schemaVersion: 1,
+    fields: [{ id: "site_address", type: "address", label: "Site address", address: { requiredSubfields: ["line1", "country"] } }],
+    layout: { pages: [{ id: "page_1", sections: [{ id: "section_1", rows: [{ id: "row_1", columns: [{ id: "col_1", span: { mobile: 12, tablet: 12, desktop: 12 }, fields: ["site_address"] }] }] }] }] }
+  };
+  assert.deepEqual(validateFormSchema(schema), { valid: true, errors: [] });
+  assert.deepEqual(validateRecordValues(schema, { site_address: { line1: "100 King Street West", city: "Toronto", country: "Canada", latitude: 43.648, longitude: -79.381 } }), { valid: true, errors: [] });
+  const invalid = validateRecordValues(schema, { site_address: { country: "", latitude: 91, secret: "no" } });
+  assert.equal(invalid.errors.some((error) => error.path === "values.site_address.line1" && error.code === "record.address_member_required"), true);
+  assert.equal(invalid.errors.some((error) => error.code === "record.address_coordinate_range"), true);
+  assert.equal(invalid.errors.some((error) => error.code === "record.address_member_unknown"), true);
+  const invalidConfig = { ...schema, fields: [{ ...schema.fields[0], address: { requiredSubfields: ["unsupported"] } }] };
+  assert.equal(validateFormSchema(invalidConfig).errors.some((error) => error.code === "field.address_subfield_unknown"), true);
+});

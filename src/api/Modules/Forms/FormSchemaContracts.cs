@@ -22,6 +22,7 @@ public static class FormFieldTypes
     public const string UserPicker = "userPicker";
     public const string DepartmentPicker = "departmentPicker";
     public const string SubTable = "subTable";
+    public const string Address = "address";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -44,7 +45,8 @@ public static class FormFieldTypes
         Datetime,
         UserPicker,
         DepartmentPicker,
-        SubTable
+        SubTable,
+        Address
     };
 
     public static bool IsChoice(string type)
@@ -96,6 +98,25 @@ public sealed record FormFieldSubTableDefinition(
     int? MinRows = null,
     int? MaxRows = null);
 
+public static class FormAddressSubfields
+{
+    public const string Line1 = "line1";
+    public const string Line2 = "line2";
+    public const string City = "city";
+    public const string Region = "region";
+    public const string PostalCode = "postalCode";
+    public const string Country = "country";
+    public const string Latitude = "latitude";
+    public const string Longitude = "longitude";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Line1, Line2, City, Region, PostalCode, Country, Latitude, Longitude
+    };
+}
+
+public sealed record FormFieldAddressDefinition(IReadOnlyList<string>? RequiredSubfields = null);
+
 public sealed record FormFieldDefinition(
     string Id,
     string Type,
@@ -107,7 +128,8 @@ public sealed record FormFieldDefinition(
     IReadOnlyList<FormFieldOptionDefinition>? Options = null,
     FormFieldValidationDefinition? Validation = null,
     FormFieldLookupDefinition? Lookup = null,
-    FormFieldSubTableDefinition? SubTable = null);
+    FormFieldSubTableDefinition? SubTable = null,
+    FormFieldAddressDefinition? Address = null);
 
 public sealed record ResponsiveSpanDefinition(
     int Mobile,

@@ -35,7 +35,8 @@ import {
   type SubTableRowsResult
 } from "../api";
 import { clearSubmissionFieldErrors } from "../submission";
-import type { FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
+import type { AddressSubfield, FormAddressValue, FormField, FormRecordValue, FormRecordValues, FormSchema, ValidationError } from "../types";
+import { formatFormRecordValue, normalizeAddressValue } from "../valueFormatting";
 import { validateRecordValues } from "../validation";
 
 type FormRendererMode = "entry" | "readonly";
@@ -197,6 +198,10 @@ function RenderedField({
     return <SubTablePreviewField errors={errors} field={field} recordId={recordId} />;
   }
 
+  if (field.type === "address") {
+    return <AddressField disabled={disabled} errors={errors} field={field} onChange={onChange} value={normalizeAddressValue(value)} />;
+  }
+
   if (field.type === "textarea") {
     return (
       <Textarea
@@ -321,6 +326,48 @@ function RenderedField({
       type={getInputType(field.type)}
       value={getStringValue(value)}
     />
+  );
+}
+
+const addressInputs: Array<{ key: AddressSubfield; label: string; type?: "number" }> = [
+  { key: "line1", label: "Address line 1" }, { key: "line2", label: "Address line 2" },
+  { key: "city", label: "City" }, { key: "region", label: "State / province / region" },
+  { key: "postalCode", label: "Postal code" }, { key: "country", label: "Country" },
+  { key: "latitude", label: "Latitude", type: "number" }, { key: "longitude", label: "Longitude", type: "number" }
+];
+
+function AddressField({ disabled, errors, field, onChange, value }: { disabled: boolean; errors: string[]; field: FormField; onChange: (value: FormAddressValue) => void; value: FormAddressValue }) {
+  const required = new Set(field.address?.requiredSubfields ?? []);
+  function update(subfield: AddressSubfield, rawValue: string) {
+    const next = { ...value };
+    if (!rawValue.trim()) delete next[subfield];
+    else if (subfield === "latitude" || subfield === "longitude") next[subfield] = Number(rawValue);
+    else next[subfield] = rawValue;
+    onChange(next);
+  }
+  return (
+    <FieldShell errors={errors} helpText={field.helpText}>
+      <fieldset className="grid gap-3 rounded-xl border border-border p-4">
+        <legend className="px-1 text-sm font-bold text-foreground">{getFieldLabel(field)}</legend>
+        <div className="grid gap-3 md:grid-cols-2">
+          {addressInputs.map((input) => (
+            <Input
+              disabled={disabled}
+              key={input.key}
+              label={`${input.label}${required.has(input.key) ? " *" : ""}`}
+              maxLength={input.type ? undefined : input.key === "country" ? 100 : 200}
+              min={input.key === "latitude" ? -90 : input.key === "longitude" ? -180 : undefined}
+              max={input.key === "latitude" ? 90 : input.key === "longitude" ? 180 : undefined}
+              onChange={(event) => update(input.key, event.target.value)}
+              required={required.has(input.key)}
+              step={input.type ? "any" : undefined}
+              type={input.type ?? "text"}
+              value={value[input.key] === undefined ? "" : String(value[input.key])}
+            />
+          ))}
+        </div>
+      </fieldset>
+    </FieldShell>
   );
 }
 
@@ -1116,15 +1163,7 @@ function removeFieldFromSchema(schema: FormSchema, fieldId: string): FormSchema 
 }
 
 function formatTableValue(value: FormRecordValue | string | undefined): string {
-  if (value === undefined || value === null || value === "") {
-    return "Empty";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  return String(value);
+  return formatFormRecordValue(value, "Empty");
 }
 
 function formatRowCount(count: number): string {

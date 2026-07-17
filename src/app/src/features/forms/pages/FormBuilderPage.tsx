@@ -32,6 +32,7 @@ import {
   LinkIcon,
   List,
   Mail,
+  MapPin,
   Minus,
   Monitor,
   MoreVertical,
@@ -119,6 +120,8 @@ import {
 import { createInitialRecordValues, type FormPreviewSize } from "../renderer";
 import {
   formFieldTypes,
+  addressSubfields,
+  type AddressSubfield,
   type FormField,
   type FormFieldOption,
   type FormFieldType,
@@ -154,7 +157,8 @@ const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
   datetime: CalendarClock,
   userPicker: UserRound,
   departmentPicker: Building2,
-  subTable: Rows3
+  subTable: Rows3,
+  address: MapPin
 };
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
@@ -2012,7 +2016,7 @@ function FieldSettings({
             value={field.type}
           />
           <Input label="Label" onChange={(event) => patchField({ label: event.target.value })} value={field.label} />
-          {field.type !== "checkbox" && field.type !== "subTable" ? (
+          {field.type !== "checkbox" && field.type !== "subTable" && field.type !== "address" ? (
             <Input
               label="Placeholder"
               onChange={(event) => patchField({ placeholder: event.target.value })}
@@ -2034,10 +2038,11 @@ function FieldSettings({
               onChange={(event) => patchField({ required: event.target.checked })}
             />
           ) : null}
-          {field.type !== "subTable" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
+          {field.type !== "subTable" && field.type !== "address" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
           {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} schema={schema} sourceForms={sourceForms} /> : null}
           {field.type === "subTable" ? <SubTableSettings field={field} onChange={onChange} sourceForms={sourceForms} /> : null}
+          {field.type === "address" ? <AddressSettings field={field} onChange={onChange} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -2045,6 +2050,27 @@ function FieldSettings({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+const addressSubfieldLabels: Record<AddressSubfield, string> = {
+  line1: "Address line 1", line2: "Address line 2", city: "City", region: "State / province / region",
+  postalCode: "Postal code", country: "Country", latitude: "Latitude", longitude: "Longitude"
+};
+
+function AddressSettings({ field, onChange }: { field: FormField; onChange: (field: FormField) => void }) {
+  const required = new Set(field.address?.requiredSubfields ?? []);
+  function toggle(subfield: AddressSubfield, checked: boolean) {
+    const next = checked ? [...required, subfield] : [...required].filter((candidate) => candidate !== subfield);
+    onChange({ ...field, address: { requiredSubfields: addressSubfields.filter((candidate) => next.includes(candidate)) } });
+  }
+  return (
+    <div className="grid gap-2 rounded-xl border border-border p-3">
+      <p className="text-sm font-bold text-foreground">Required address parts</p>
+      {addressSubfields.map((subfield) => (
+        <Checkbox checked={required.has(subfield)} key={subfield} label={addressSubfieldLabels[subfield]} onChange={(event) => toggle(subfield, event.target.checked)} />
+      ))}
+    </div>
   );
 }
 

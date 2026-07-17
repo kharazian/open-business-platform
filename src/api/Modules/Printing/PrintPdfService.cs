@@ -170,6 +170,7 @@ public sealed class PrintPdfService
             bool boolean => boolean ? "Yes" : "No",
             DateTimeOffset dateTime => dateTime.ToString("u", CultureInfo.InvariantCulture),
             Guid guid => guid.ToString(),
+            JsonElement json when FormAddressValueFormatter.TryFormat(json, out var address) && address.Length > 0 => address,
             JsonElement json => FormatJsonElement(json),
             IEnumerable<object?> items => string.Join(", ", items.Select(FormatValue)),
             _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "-"

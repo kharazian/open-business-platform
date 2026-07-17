@@ -1,5 +1,7 @@
 import {
   type FormField,
+  addressSubfields,
+  type FormAddressValue,
   type FormLayout,
   type FormRecordValue,
   type FormRecordValues,
@@ -15,6 +17,7 @@ const textFieldTypes = new Set(["text", "textarea", "phone", "fileUpload"]);
 const numericFieldTypes = new Set(["number", "currency"]);
 const lookupFieldTypes = new Set(["recordLookup"]);
 const subTableFieldTypes = new Set(["subTable"]);
+const addressSubfieldSet = new Set<string>(addressSubfields);
 const breakpoints = ["mobile", "tablet", "desktop"] as const;
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -108,6 +111,27 @@ function validateField(field: FormField, index: number, fieldIds: Set<string>, e
   if (subTableFieldTypes.has(field.type)) {
     validateSubTableConfig(field, path, errors);
   }
+
+  if (field.type === "address") {
+    validateAddressConfig(field, path, errors);
+  }
+}
+
+function validateAddressConfig(field: FormField, path: string, errors: ValidationError[]) {
+  if (!field.address) {
+    errors.push(error(`${path}.address`, "field.address_required", `'${field.label}' requires address configuration.`));
+    return;
+  }
+  const seen = new Set<string>();
+  (field.address.requiredSubfields ?? []).forEach((subfield, index) => {
+    if (!addressSubfieldSet.has(subfield)) {
+      errors.push(error(`${path}.address.requiredSubfields[${index}]`, "field.address_subfield_unknown", `Address subfield '${subfield}' is not supported.`));
+    } else if (seen.has(subfield)) {
+      errors.push(error(`${path}.address.requiredSubfields[${index}]`, "field.address_subfield_duplicate", `Address subfield '${subfield}' is duplicated.`));
+    } else {
+      seen.add(subfield);
+    }
+  });
 }
 
 function validateOptions(field: FormField, path: string, errors: ValidationError[]) {
@@ -339,6 +363,11 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
     return;
   }
 
+  if (field.type === "address") {
+    validateAddressValue(field, value, path, errors);
+    return;
+  }
+
   if (textFieldTypes.has(field.type) && typeof value !== "string") {
     errors.push(error(path, "record.type", `'${field.label}' must be text.`));
     return;
@@ -469,8 +498,49 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
   }
 }
 
+function validateAddressValue(field: FormField, value: FormRecordValue, path: string, errors: ValidationError[]) {
+  if (!isAddressValue(value)) {
+    errors.push(error(path, "record.address_type", `'${field.label}' must be a structured address.`));
+    return;
+  }
+  for (const [member, memberValue] of Object.entries(value)) {
+    const memberPath = `${path}.${member}`;
+    if (!addressSubfieldSet.has(member)) {
+      errors.push(error(memberPath, "record.address_member_unknown", `'${field.label}' contains an unsupported address member.`));
+      continue;
+    }
+    if (memberValue === null || memberValue === undefined || memberValue === "") continue;
+    if (member === "latitude" || member === "longitude") {
+      const min = member === "latitude" ? -90 : -180;
+      const max = member === "latitude" ? 90 : 180;
+      if (typeof memberValue !== "number" || !Number.isFinite(memberValue)) {
+        errors.push(error(memberPath, "record.address_coordinate_type", `'${field.label}' coordinate must be a finite number.`));
+      } else if (memberValue < min || memberValue > max) {
+        errors.push(error(memberPath, "record.address_coordinate_range", `'${field.label}' ${member} must be between ${min} and ${max}.`));
+      }
+      continue;
+    }
+    const maxLength = member === "country" ? 100 : 200;
+    if (typeof memberValue !== "string") {
+      errors.push(error(memberPath, "record.address_member_type", `'${field.label}' address text must be a string.`));
+    } else if (memberValue.trim().length > maxLength) {
+      errors.push(error(memberPath, "record.address_member_length", `'${field.label}' ${member} must be at most ${maxLength} characters.`));
+    }
+  }
+  for (const required of field.address?.requiredSubfields ?? []) {
+    const memberValue = value[required];
+    if (memberValue === undefined || memberValue === null || memberValue === "") {
+      errors.push(error(`${path}.${required}`, "record.address_member_required", `'${field.label}' ${required} is required.`));
+    }
+  }
+}
+
+function isAddressValue(value: FormRecordValue): value is FormAddressValue {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isEmptyValue(value: FormRecordValue | undefined): boolean {
-  return value === undefined || value === null || value === "";
+  return value === undefined || value === null || value === "" || (isAddressValue(value) && Object.values(value).every((member) => member === undefined || member === null || member === ""));
 }
 
 function isNonEmptyString(value: unknown): value is string {

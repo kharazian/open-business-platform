@@ -92,6 +92,7 @@ public static class FormReportableFieldMetadata
             or FormFieldTypes.Url
             or FormFieldTypes.FileUpload
             or FormFieldTypes.UserPicker
-            or FormFieldTypes.DepartmentPicker;
+            or FormFieldTypes.DepartmentPicker
+            or FormFieldTypes.Address;
     }
 }

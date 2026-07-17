@@ -930,7 +930,7 @@ The current shared schema contract is implemented in:
 - Frontend: `src/app/src/features/forms`
 - Backend: `src/api/Modules/Forms`
 
-Supported V1 field types:
+Supported schema version 1 field types:
 
 - `text`
 - `textarea`
@@ -941,6 +941,20 @@ Supported V1 field types:
 - `select`
 - `checkbox`
 - `radio`
+- `recordLookup`
+- `fileUpload`
+- `currency`
+- `percent`
+- `rating`
+- `url`
+- `time`
+- `datetime`
+- `userPicker`
+- `departmentPicker`
+- `subTable`
+- `address`
+
+An `address` field has an `address.requiredSubfields` array containing zero or more of `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude`. Record values use an object with only those members. Text members are bounded to 200 characters, except country at 100; latitude is bounded to -90 through 90 and longitude to -180 through 180. Unknown members are rejected. Lists, reports, CSV, print, and record detail responses use a stable combined address in `displayValues` while preserving the structured object in `values`.
 
 Canonical draft/version schema shape:
 

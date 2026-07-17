@@ -943,6 +943,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
 V9 tasks 001 through 010 are complete: ownership, membership context, OIDC SSO, policy guardrails, retention/legal holds, backup planning, branding, localization, verified custom domains, and compliance/audit administration are implemented. Next concrete work should begin only after V9 acceptance and a separately scoped V10 plan.
+V10 task 001 is complete: schema-version-1 forms now support bounded structured address configuration and JSONB values across builder, renderer, record validation/editing, list/detail, reports, CSV, and print display without adding a database table.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

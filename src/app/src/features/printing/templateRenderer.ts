@@ -1,4 +1,5 @@
 import type { FormField, FormRecordValue, FormSchema } from "../forms/types";
+import { formatFormRecordValue } from "../forms/valueFormatting";
 import type {
   PrintTemplateConfig,
   PrintTemplateRecordRows,
@@ -126,19 +127,7 @@ export function shouldRenderPrintTemplateSection(
 }
 
 export function formatRecordValue(value: FormRecordValue): string {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(", ") : "-";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  return String(value);
+  return formatFormRecordValue(value);
 }
 
 function recordConditionValue(values: Record<string, FormRecordValue>, fieldId: string): string {

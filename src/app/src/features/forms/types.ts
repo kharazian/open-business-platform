@@ -18,7 +18,8 @@ export const formFieldTypes = [
   "datetime",
   "userPicker",
   "departmentPicker",
-  "subTable"
+  "subTable",
+  "address"
 ] as const;
 
 export type FormFieldType = (typeof formFieldTypes)[number];
@@ -37,7 +38,14 @@ export type FormFieldValidation = {
   pattern?: string;
 };
 
-export type FormRecordValue = string | number | boolean | null;
+export const addressSubfields = ["line1", "line2", "city", "region", "postalCode", "country", "latitude", "longitude"] as const;
+export type AddressSubfield = (typeof addressSubfields)[number];
+export type FormAddressValue = Partial<Record<AddressSubfield, string | number>>;
+export type FormRecordValue = string | number | boolean | FormAddressValue | null;
+
+export type FormFieldAddressConfig = {
+  requiredSubfields?: AddressSubfield[];
+};
 
 export type FormFieldLookupConfig = {
   sourceType: "form_records";
@@ -76,6 +84,7 @@ export type FormField = {
   validation?: FormFieldValidation;
   lookup?: FormFieldLookupConfig;
   subTable?: FormFieldSubTableConfig;
+  address?: FormFieldAddressConfig;
 };
 
 export type ResponsiveSpan = {

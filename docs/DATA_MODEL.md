@@ -591,7 +591,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete V1 schema while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row. `recordLookup` fields store their source form, label fields, search fields, and optional dependent filters inside this schema JSON; no separate lookup table is required for the current implementation.
+`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete schema-version-1 definition while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row. `recordLookup` fields store their source form, label fields, search fields, and optional dependent filters inside this schema JSON; no separate lookup table is required for the current implementation. V10 `address` fields store their bounded required-subfield configuration in the same schema JSON and do not add a relational table.
 
 ### form_versions
 
@@ -639,7 +639,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`values_json` stores submitted field values exactly as submitted and validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. Resolved lookup labels are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
+`values_json` stores submitted field values exactly as submitted and validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. V10 `address` values are bounded JSON objects with optional `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude` members. Resolved lookup labels and combined address text are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
 
 Important indexes:
 
@@ -1174,7 +1174,7 @@ This matches the current shared frontend/backend V1 schema shape.
 }
 ```
 
-## Current V1 Schema Validation Rules
+## Current Schema Version 1 Validation Rules
 
 The current frontend and backend validators enforce:
 
@@ -1182,10 +1182,10 @@ The current frontend and backend validators enforce:
 - At least one field is required.
 - Field IDs must be present and unique.
 - Field labels are required.
-- Supported field types are `text`, `textarea`, `number`, `email`, `phone`, `date`, `select`, `checkbox`, and `radio`.
+- Supported field types are `text`, `textarea`, `number`, `email`, `phone`, `date`, `select`, `checkbox`, `radio`, `recordLookup`, `fileUpload`, `currency`, `percent`, `rating`, `url`, `time`, `datetime`, `userPicker`, `departmentPicker`, `subTable`, and `address`.
 - `select` and `radio` fields require options with unique non-empty values.
 - Layout requires at least one page, section, row, and column.
 - Column spans must be integers from `1` to `12` for mobile, tablet, and desktop.
 - Every schema field must be placed in the layout exactly once.
 
-The current record value validator rejects unknown fields, enforces required values, checks basic types, validates email and `YYYY-MM-DD` date strings, and requires choice values to match defined options.
+The current record value validator rejects unknown fields, enforces required values, checks field-specific types and ranges, validates email/date/time/URL shapes, requires choice values to match defined options, and validates bounded structured address members and required subfields.

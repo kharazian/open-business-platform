@@ -15,6 +15,7 @@ import { PrintDocumentFooter, PrintDocumentHeader } from "../../printing/compone
 import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
 import { listRecords, type FormRecordListItem } from "../../forms/api";
 import type { FormRecordValue } from "../../forms/types";
+import { formatFormRecordValue } from "../../forms/valueFormatting";
 import { getRecordListPrintDescription, requestBrowserPrint } from "../recordPrint";
 
 const pageSize = 25;
@@ -333,9 +334,7 @@ function formatDateTime(value: string): string {
 }
 
 function formatRecordValue(value: FormRecordValue | undefined): string {
-  if (value === null || value === undefined || value === "") return "Empty";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  return String(value);
+  return formatFormRecordValue(value, "Empty");
 }
 
 function getErrorMessage(error: unknown): string {
