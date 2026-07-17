@@ -35,6 +35,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<WorkspaceBranding> WorkspaceBrandings => Set<WorkspaceBranding>();
 
+    public DbSet<WorkspaceLocalization> WorkspaceLocalizations => Set<WorkspaceLocalization>();
+
+    public DbSet<UserLocalizationPreference> UserLocalizationPreferences => Set<UserLocalizationPreference>();
+
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
 
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
@@ -153,6 +157,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureTenantsAndWorkspaces(modelBuilder);
         ConfigureWorkspaceMemberships(modelBuilder);
         ConfigureWorkspaceBranding(modelBuilder);
+        ConfigureLocalization(modelBuilder);
         ConfigureSso(modelBuilder);
         ConfigureAccessPolicies(modelBuilder);
         ConfigureRetention(modelBuilder);
@@ -327,6 +332,27 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(branding => branding.LogoDataUrl).HasColumnName("logo_data_url").HasColumnType("text");
             entity.Property(branding => branding.PrimaryColor).HasColumnName("primary_color").HasMaxLength(7).IsRequired();
             entity.Property(branding => branding.LoginMessage).HasColumnName("login_message").HasMaxLength(240);
+        });
+    }
+
+    private static void ConfigureLocalization(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkspaceLocalization>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "workspace_localizations");
+            entity.HasIndex(item => item.WorkspaceId).IsUnique();
+            entity.Property(item => item.DefaultLocale).HasColumnName("default_locale").HasMaxLength(35).IsRequired();
+            entity.Property(item => item.DefaultTimeZone).HasColumnName("default_time_zone").HasMaxLength(120).IsRequired();
+            entity.Property(item => item.FirstDayOfWeek).HasColumnName("first_day_of_week").IsRequired();
+        });
+        modelBuilder.Entity<UserLocalizationPreference>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "user_localization_preferences");
+            entity.HasIndex(item => new { item.WorkspaceId, item.UserId }).IsUnique();
+            entity.Property(item => item.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.Locale).HasColumnName("locale").HasMaxLength(35);
+            entity.Property(item => item.TimeZone).HasColumnName("time_zone").HasMaxLength(120);
+            entity.HasOne(item => item.User).WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

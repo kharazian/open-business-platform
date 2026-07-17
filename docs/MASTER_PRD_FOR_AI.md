@@ -55,6 +55,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, integration connectors, integration logs, incoming webhook listeners, record import jobs, and external export jobs
 - `src/api/Modules/Workspaces`: V9 tenant/workspace constants, default scoped context, ownership write guard, and authenticated current-context endpoint
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
+- `src/app/src/context/WorkspaceBrandingContext.tsx` and `LocalizationContext.tsx`: backend-owned workspace identity plus effective workspace/user locale and timezone formatting for the real app
 - `src/app/src/context/ThemeAppearanceContext.tsx`: separate `/theme` playground appearance settings
 - `src/app/src/theme`: sample-data theme playground
 - `docker-compose.yml`: PostgreSQL and Redis
@@ -67,7 +68,7 @@ V4 is complete through task 010: trigger definitions, trigger logs, management A
 V5 is complete through task 007: workflow definition persistence, management UI, record workflow state, published starts, direct transitions, approval inbox/notifications, transition action execution, trigger-to-workflow starts, and an optional workflow-only XYFlow visual builder over the typed draft config.
 V6 print template foundation is complete through task 007: persisted record/report templates, permission-protected APIs, validation, audit logs, `/printing` management UI, selected record/report template rendering, browser print/save-as-PDF generation, page setup, repeated table headers, section page-break controls, conditional sections, immutable published template versions, safe small logo uploads, dependency-light server-side PDF downloads, and trigger email record PDF attachments.
 V7 is complete through task 004: a dashboard analytics execution API now supports typed summary, breakdown, trend, and table requests over permission-filtered form or saved list report records without replacing V2 chart previews or saved dashboard definitions; the saved dashboard builder can configure V7 analytics widgets while preserving the existing saved chart config contract; the saved dashboard viewer renders those widgets with per-widget loading, retry, empty, permission, and stale-source states; and conservative dashboard visibility/default settings are backend-enforced through existing dashboard JSONB metadata without adding workspace ownership.
-Advanced notification delivery, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The settings page currently persists real app appearance preferences only; it does not persist workspace settings to the backend. Build product modules through the task files under `tasks/`.
+Advanced notification delivery, report/scheduled PDF attachments, custom code, and workspace ownership for dashboards remain later modules. The Settings page keeps browser-local appearance separate from backend-owned workspace branding/localization and per-user localization overrides. Build product modules through the task files under `tasks/`.
 
 V6 task 003 is complete for field-based conditional print template sections over already-permission-filtered record/report data.
 V6 task 004 is complete for immutable published print template versions, publish/history APIs, builder publish controls, and latest-published rendering for selected record/report templates.
@@ -99,6 +100,8 @@ V9 task 003 is complete: workspace-owned OIDC providers, server-side client-secr
 V9 task 004 is complete: typed workspace access policies apply deny-overrides subject/resource conditions after existing RBAC grants, preserve the bootstrap recovery path, filter record queries in SQL, and expose authorized audited management and simulation APIs.
 V9 task 005 is complete: workspace retention definitions and legal holds support audited, payload-free dry-run evaluation for records, audit logs, and integration logs without destructive execution.
 V9 task 006 is complete: versioned checksummed workspace snapshots, secret-safe module exports, protected audited downloads, and conflict-reporting restore plans provide an administrative backup foundation without applying restores.
+V9 task 007 is complete: workspace branding persists safe app identity and bounded logo data separately from user appearance, with public login projection and authorized audited administration.
+V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 
 ## 2. Core Product Philosophy
 
@@ -937,7 +940,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-V9 is complete through task 007: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, administrative backup planning, and workspace branding are implemented. Next concrete work is V9 task 008, localization foundation.
+V9 is complete through task 008: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, administrative backup planning, workspace branding, and localization foundations are implemented. Next concrete work is V9 task 009, custom domains.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

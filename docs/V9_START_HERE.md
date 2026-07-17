@@ -7,7 +7,7 @@ This packet is the handoff for V9: Enterprise Platform.
 - V1 through V8 are complete for the current task lists.
 - V8 finalized integrations and API foundations without adding tenant/workspace ownership, SSO, arbitrary custom code, public links, or broad external sync.
 - The V8 finalization packet is `docs/V8_FINALIZATION.md`.
-- V9 is in progress. Tasks 001 through 007 are complete, including protected administrative snapshots, validation-only restore planning, and workspace branding.
+- V9 is in progress. Tasks 001 through 008 are complete, including workspace branding and the localization foundation.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order

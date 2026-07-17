@@ -122,3 +122,7 @@ Trigger event outbox:
 ## Workspace Branding Migration
 
 `20260717150535_WorkspaceBranding` adds one optional `workspace_branding` row per workspace. Existing workspaces require no backfill: APIs resolve deployment/workspace defaults until an authorized administrator saves branding. The unique workspace index, global workspace filter, write guard, and concurrency stamp provide isolation and optimistic concurrency.
+
+## Localization Foundation Migration
+
+`20260717151922_LocalizationFoundation` adds optional `workspace_localizations` defaults and `user_localization_preferences` overrides. Existing workspaces/users require no backfill because effective settings fall back to `en-CA` and `UTC`; unique workspace/user indexes and concurrency stamps protect later writes.

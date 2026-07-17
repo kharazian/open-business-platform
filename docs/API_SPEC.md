@@ -2641,4 +2641,10 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 - `GET /api/branding/public?tenant={tenantSlug}&workspace={workspaceSlug}` is anonymous and returns only app name, logo text/data, primary color, and login message for an active tenant/workspace.
 - `GET /api/branding/current` requires authentication and resolves branding for the signed active workspace.
 - `PUT /api/branding/current` requires authentication plus `branding.manage`, validates bounded safe display values, requires the current concurrency stamp after initial creation, and writes an audit entry.
+
+## Localization
+
+- `GET /api/localization/current` returns workspace defaults, the signed user's optional overrides, and effective locale/timezone.
+- `PUT /api/localization/workspace` requires `localization.manage`, validates culture, timezone, first-day-of-week, and concurrency state, and writes an audit entry.
+- `PUT /api/localization/me` updates only the signed persisted user's optional locale/timezone overrides and writes an audit entry.
 - Record create/update/status/assignment APIs dispatch V4 trigger events after the primary record transaction succeeds.

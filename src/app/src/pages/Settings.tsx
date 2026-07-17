@@ -18,6 +18,7 @@ import {
 } from "../context/AppThemeContext";
 import type { ThemeColorMode } from "../context/ThemeAppearanceContext";
 import { useWorkspaceBranding } from "../context/WorkspaceBrandingContext";
+import { LocalizationSettingsCard } from "../features/localization/LocalizationSettingsCard";
 
 export function Settings() {
   const { branding, canManage, saveBranding } = useWorkspaceBranding();
@@ -183,6 +184,8 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      <LocalizationSettingsCard />
 
       <Card>
         <CardHeader>
