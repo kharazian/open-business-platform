@@ -7,7 +7,7 @@ This packet is the handoff for V9: Enterprise Platform.
 - V1 through V8 are complete for the current task lists.
 - V8 finalized integrations and API foundations without adding tenant/workspace ownership, SSO, arbitrary custom code, public links, or broad external sync.
 - The V8 finalization packet is `docs/V8_FINALIZATION.md`.
-- V9 is in progress. Tasks 001 and 002 are complete: tenant/workspace ownership is enforced centrally, users have lifecycle-managed workspace memberships, authenticated identities carry a checked workspace, and role/permission context is refreshed when switching.
+- V9 is in progress. Tasks 001 through 003 are complete: tenant/workspace ownership and membership context are enforced centrally, and workspace-owned OIDC providers can authenticate existing active members through a protected authorization-code/PKCE flow.
 - The working branch used for preparation was `dev`.
 
 ## Read In This Order

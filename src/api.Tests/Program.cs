@@ -137,6 +137,8 @@ AssertTable<User>(model, "users");
 AssertTable<Tenant>(model, "tenants");
 AssertTable<Workspace>(model, "workspaces");
 AssertTable<WorkspaceMembership>(model, "workspace_memberships");
+AssertTable<SsoProvider>(model, "sso_providers");
+AssertTable<ExternalIdentity>(model, "external_identities");
 AssertTable<PasswordResetToken>(model, "password_reset_tokens");
 AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
@@ -179,6 +181,9 @@ AssertUniqueIndex<Workspace>(model, new[] { nameof(Workspace.TenantId) }, "Each 
 AssertUniqueIndex<WorkspaceMembership>(model, new[] { nameof(WorkspaceMembership.WorkspaceId), nameof(WorkspaceMembership.UserId) }, "A user should have one membership per workspace.");
 AssertIndex<WorkspaceMembership>(model, new[] { nameof(WorkspaceMembership.UserId), nameof(WorkspaceMembership.Status) }, "Membership lookup by user and status should be indexed.");
 AssertConcurrencyStamp<WorkspaceMembership>(model);
+AssertWorkspaceOwned<SsoProvider>(model);
+AssertWorkspaceOwned<ExternalIdentity>(model);
+AssertConcurrencyStamp<SsoProvider>(model);
 AssertWorkspaceOwned<Role>(model);
 AssertWorkspaceOwned<UserRole>(model);
 AssertWorkspaceOwned<UserGroup>(model);
@@ -618,6 +623,10 @@ AssertTrue(
 AssertFalse(
     WorkspaceMembershipPolicy.CanTransition(WorkspaceMembershipStatuses.Suspended, WorkspaceMembershipStatuses.Active),
     "Suspended workspace members should require a new invitation before activation.");
+AssertEqual("/reports", SsoPolicy.NormalizeReturnPath("/reports"), "SSO should preserve local return paths.");
+AssertEqual("/", SsoPolicy.NormalizeReturnPath("https://attacker.test"), "SSO should reject absolute return URLs.");
+AssertEqual("/", SsoPolicy.NormalizeReturnPath("//attacker.test"), "SSO should reject scheme-relative return URLs.");
+AssertTrue(SsoPolicy.CreateCodeChallenge("test-verifier").Length > 20, "SSO should derive a PKCE challenge.");
 var linkedApiUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 var apiKeyPrincipal = IntegrationApiKeyPrincipalFactory.Create(
     new IntegrationApiKey

@@ -42,6 +42,33 @@ public static class IdentityEndpoints
                 return Results.NoContent();
             });
         });
+        group.MapGet("/sso/providers", async (
+            string tenantSlug,
+            string workspaceSlug,
+            SsoProviderService providers,
+            CancellationToken cancellationToken) => await HandleSsoRequestAsync(async () => Results.Ok(new
+            {
+                items = await providers.ListPublicAsync(tenantSlug, workspaceSlug, cancellationToken)
+            })));
+        group.MapPost("/sso/start", async (
+            StartSsoRequest request,
+            OidcSsoService sso,
+            CancellationToken cancellationToken) => await HandleSsoRequestAsync(
+                async () => Results.Ok(await sso.StartAsync(request, cancellationToken))));
+        group.MapGet("/sso/callback", async (
+            string? code,
+            string? state,
+            OidcSsoService sso,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) => await HandleSsoRequestAsync(async () =>
+            {
+                var result = await sso.CompleteAsync(code, state, httpContext, cancellationToken);
+                await httpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    result.Principal,
+                    new AuthenticationProperties { IssuedUtc = DateTimeOffset.UtcNow, IsPersistent = false });
+                return Results.LocalRedirect(result.ReturnPath);
+            }));
         group.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
         group.MapPost("/logout", async (HttpContext httpContext) => await SignOutAsync(httpContext)).RequireAuthorization();
 
@@ -371,6 +398,59 @@ public static class IdentityEndpoints
             });
         });
 
+        var ssoProviders = endpoints.MapGroup("/api/sso/providers")
+            .WithTags("SSO providers")
+            .RequireAuthorization();
+        ssoProviders.MapGet("/", async (
+            SsoProviderService providers,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+            return Results.Ok(new { items = await providers.ListAsync(cancellationToken) });
+        });
+        ssoProviders.MapPost("/", async (
+            SaveSsoProviderRequest request,
+            SsoProviderService providers,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+            return await HandleSsoRequestAsync(async () => Results.Created(
+                "/api/sso/providers",
+                await providers.CreateAsync(request, WorkspaceMembershipService.GetUserId(httpContext.User), cancellationToken)));
+        });
+        ssoProviders.MapPut("/{providerId:guid}", async (
+            Guid providerId,
+            SaveSsoProviderRequest request,
+            SsoProviderService providers,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await permissionService.CanAsync(httpContext.User, PlatformPermissions.Users.Manage, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+            return await HandleSsoRequestAsync(async () =>
+            {
+                var provider = await providers.UpdateAsync(
+                    providerId,
+                    request,
+                    WorkspaceMembershipService.GetUserId(httpContext.User),
+                    cancellationToken);
+                return provider is null ? Results.NotFound() : Results.Ok(provider);
+            });
+        });
+
         return endpoints;
     }
 
@@ -457,6 +537,18 @@ public static class IdentityEndpoints
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> HandleSsoRequestAsync(Func<Task<IResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (SsoException exception)
+        {
+            return Results.Json(new { message = exception.Message }, statusCode: exception.StatusCode);
+        }
     }
 
     private static async Task<IResult> HandleIdentityRequestAsync(Func<Task<IResult>> action)

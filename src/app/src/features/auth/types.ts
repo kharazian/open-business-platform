@@ -22,3 +22,16 @@ export type CompletePasswordResetRequest = {
 export type AuthSessionResponse = {
   user: AuthUser;
 };
+
+export type SsoProvider = {
+  id: string;
+  providerKey: string;
+  displayName: string;
+};
+
+export type StartSsoRequest = {
+  tenantSlug: string;
+  workspaceSlug: string;
+  providerKey: string;
+  returnPath: string;
+};

@@ -33,6 +33,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
 
+    public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
+
+    public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -136,6 +140,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureUsers(modelBuilder);
         ConfigureTenantsAndWorkspaces(modelBuilder);
         ConfigureWorkspaceMemberships(modelBuilder);
+        ConfigureSso(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -292,6 +297,42 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(membership => membership.InvitedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureSso(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<SsoProvider>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "sso_providers");
+            entity.HasIndex(provider => new { provider.WorkspaceId, provider.ProviderKey }).IsUnique();
+            entity.Property(provider => provider.ProviderKey).HasColumnName("provider_key").HasMaxLength(80).IsRequired();
+            entity.Property(provider => provider.DisplayName).HasColumnName("display_name").HasMaxLength(120).IsRequired();
+            entity.Property(provider => provider.Issuer).HasColumnName("issuer").HasMaxLength(500).IsRequired();
+            entity.Property(provider => provider.ClientId).HasColumnName("client_id").HasMaxLength(300).IsRequired();
+            entity.Property(provider => provider.ClientSecretConfigurationKey).HasColumnName("client_secret_configuration_key").HasMaxLength(200).IsRequired();
+            entity.Property(provider => provider.CallbackUrl).HasColumnName("callback_url").HasMaxLength(500).IsRequired();
+            entity.Property(provider => provider.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<ExternalIdentity>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "external_identities");
+            entity.HasIndex(identity => new { identity.WorkspaceId, identity.ProviderId, identity.Subject }).IsUnique();
+            entity.HasIndex(identity => new { identity.WorkspaceId, identity.ProviderId, identity.UserId }).IsUnique();
+            entity.Property(identity => identity.ProviderId).HasColumnName("provider_id").HasColumnType("uuid").IsRequired();
+            entity.Property(identity => identity.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(identity => identity.Subject).HasColumnName("subject").HasMaxLength(300).IsRequired();
+            entity.Property(identity => identity.EmailAtLink).HasColumnName("email_at_link").HasMaxLength(320).IsRequired();
+            entity.Property(identity => identity.LastSignedInAt).HasColumnName("last_signed_in_at").IsRequired();
+            entity.HasOne(identity => identity.Provider)
+                .WithMany(provider => provider.ExternalIdentities)
+                .HasForeignKey(identity => identity.ProviderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(identity => identity.User)
+                .WithMany(user => user.ExternalIdentities)
+                .HasForeignKey(identity => identity.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

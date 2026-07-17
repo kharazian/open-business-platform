@@ -1,6 +1,6 @@
 # Security Model
 
-Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 002 workspace membership and request identity enforcement.
+Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 003 OIDC SSO and external identity linking.
 
 ## Core Rules
 
@@ -22,6 +22,12 @@ Status: the established authentication, permission, field-security, and audit ba
 V9 task 001 assigns every persisted business, permission, audit, automation, notification, and integration row to the active workspace. V9 task 002 adds explicit local-user memberships. Login selects an active membership, writes its workspace ID into the protected authentication ticket, and reloads role claims from that workspace. Middleware revalidates active user, membership, workspace, and tenant state on each cookie-authenticated request, so suspension takes effect without waiting for cookie expiration.
 
 Users may list their memberships and request a workspace switch, but the backend accepts the target only when the user has an active membership. Switching replaces the signed workspace and role claims. Integration API-key principals carry the key's persisted workspace ID; request parameters never establish workspace ownership. Membership lifecycle changes require `users.manage`, optimistic concurrency, and audit logging.
+
+## SSO Boundary
+
+OIDC provider definitions and external identity links are workspace-owned. Provider client secrets are referenced by server configuration key and are never stored in PostgreSQL or returned through public APIs. Anonymous discovery exposes enabled provider IDs, keys, and display names only.
+
+Authorization uses a short-lived data-protected state envelope, nonce, and PKCE S256 challenge. The callback retrieves trusted OIDC metadata and signing keys and validates issuer, signature, audience, lifetime, nonce, subject, and verified email. Successful provider authentication still requires an existing active platform user and active membership in the protected target workspace. The first verified login may link that user by the platform's unique normalized email; no user or membership is automatically provisioned. Return paths are restricted to local application paths, and local password login remains available.
 
 ## API Security
 

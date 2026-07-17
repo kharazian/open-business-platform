@@ -45,6 +45,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IWorkspaceContext, HttpContextWorkspaceContext>();
 builder.Services.AddScoped<WorkspaceContextService>();
 builder.Services.AddScoped<WorkspaceMembershipService>();
+builder.Services.AddScoped<SsoProviderService>();
+builder.Services.AddScoped<OidcSsoService>();
 builder.Services.AddSingleton<BootstrapAdminUserDirectory>();
 builder.Services.AddSingleton<LocalPasswordHasher>();
 builder.Services.AddSingleton<PasswordResetTokenGenerator>();
@@ -140,6 +142,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<AutomationOutboxHealthCheck>("automation_outbox", tags: new[] { "automation" });
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient("trigger-webhooks");
+builder.Services.AddHttpClient("oidc-discovery");
+builder.Services.AddHttpClient("oidc-token");
 
 var allowedOrigins = GetAllowedOrigins(builder.Configuration);
 

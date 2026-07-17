@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { appBranding } from "../config/branding";
 import { useAuth } from "../context/AuthContext";
+import { getSsoProviders, startSso, type SsoProvider } from "../features/auth";
 
 type LoginLocationState = {
   from?: {
@@ -20,8 +21,27 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [ssoProviders, setSsoProviders] = useState<SsoProvider[]>([]);
+  const [startingProvider, setStartingProvider] = useState<string | null>(null);
   const locationState = location.state as LoginLocationState | null;
   const destination = locationState?.from?.pathname ?? "/";
+  const query = new URLSearchParams(location.search);
+  const tenantSlug = query.get("tenant");
+  const workspaceSlug = query.get("workspace");
+
+  useEffect(() => {
+    if (!tenantSlug || !workspaceSlug) {
+      setSsoProviders([]);
+      return;
+    }
+    let active = true;
+    getSsoProviders(tenantSlug, workspaceSlug)
+      .then((providers) => active && setSsoProviders(providers))
+      .catch(() => active && setSsoProviders([]));
+    return () => {
+      active = false;
+    };
+  }, [tenantSlug, workspaceSlug]);
 
   if (status === "authenticated") {
     return <Navigate replace to={destination} />;
@@ -39,6 +59,19 @@ export function Login() {
       setError(error instanceof Error ? error.message : "Sign in failed.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSso(provider: SsoProvider) {
+    if (!tenantSlug || !workspaceSlug) return;
+    setError(null);
+    setStartingProvider(provider.providerKey);
+    try {
+      const authorizationUrl = await startSso({ tenantSlug, workspaceSlug, providerKey: provider.providerKey, returnPath: destination });
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "SSO sign in failed.");
+      setStartingProvider(null);
     }
   }
 
@@ -80,6 +113,21 @@ export function Login() {
             {submitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>
+        {ssoProviders.length > 0 ? (
+          <div className="mt-5 grid gap-3 border-t border-border pt-5">
+            {ssoProviders.map((provider) => (
+              <Button
+                key={provider.id}
+                type="button"
+                variant="outline"
+                disabled={startingProvider !== null}
+                onClick={() => void handleSso(provider)}
+              >
+                {startingProvider === provider.providerKey ? "Redirecting..." : `Continue with ${provider.displayName}`}
+              </Button>
+            ))}
+          </div>
+        ) : null}
       </Card>
     </main>
   );

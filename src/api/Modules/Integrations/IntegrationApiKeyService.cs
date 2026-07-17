@@ -40,7 +40,6 @@ public sealed class IntegrationApiKeyService
     public async Task<IntegrationApiKeyDto?> GetAsync(Guid apiKeyId, CancellationToken cancellationToken)
     {
         var apiKey = await dbContext.IntegrationApiKeys
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleOrDefaultAsync(candidate => candidate.Id == apiKeyId, cancellationToken);
 
@@ -168,7 +167,10 @@ public sealed class IntegrationApiKeyService
             return Failed("API key format is invalid.");
         }
 
+        // Authentication runs before a workspace principal exists, so the key lookup must
+        // establish its own persisted workspace boundary before creating the principal.
         var apiKey = await dbContext.IntegrationApiKeys
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleOrDefaultAsync(candidate => candidate.KeyPrefix == keyPrefix, cancellationToken);
 

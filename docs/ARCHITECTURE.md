@@ -144,6 +144,7 @@ Current backend module behavior:
 - `Infrastructure/Persistence/Migrations` contains EF Core migrations.
 - `Modules/Dashboard` maps authenticated `GET /api/dashboard/summary`.
 - `Modules/Identity` maps bootstrap-admin cookie authentication, local PostgreSQL user login, user management, role management, password reset, role permissions, and effective permission endpoints.
+- `Modules/Identity` also owns the V9 OIDC SSO boundary: workspace-owned provider administration, public provider discovery, protected authorization-code/PKCE state, token validation, and external identity linking to existing active members.
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
 - `Modules/Workspaces` owns tenant/workspace constants, signed request context, ownership guards, membership lifecycle services, per-request membership validation, and authenticated context/list/switch endpoints. Workspace-specific platform role claims are refreshed at login and switch time.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.

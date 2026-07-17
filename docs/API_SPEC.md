@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 and 002 add enforced tenant/workspace ownership, membership-aware authentication, and workspace context/list/switch APIs. Add later enterprise APIs task by task as modules are implemented.
+Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 through 003 add enforced workspace context, membership-aware authentication, and an OIDC SSO foundation. Add later enterprise APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -97,6 +97,28 @@ Invites an existing active global user with `{ "userId": "...", "role": "owner|a
 `POST /api/workspaces/memberships/{membershipId}/suspend`
 
 Both require `users.manage` and `{ "concurrencyStamp": "..." }`. Membership changes are audited; users cannot suspend their own membership.
+
+### OIDC SSO
+
+`GET /api/auth/sso/providers?tenantSlug={tenant}&workspaceSlug={workspace}`
+
+Anonymous discovery endpoint. Returns enabled provider `id`, `providerKey`, and `displayName` for an active tenant/workspace. It never returns issuer, client identifiers, secret references, or identity links.
+
+`POST /api/auth/sso/start`
+
+Accepts `{ "tenantSlug": "...", "workspaceSlug": "...", "providerKey": "...", "returnPath": "/" }`. Returns an HTTPS `authorizationUrl` containing protected short-lived state, nonce, and PKCE challenge. Return paths are limited to local application paths.
+
+`GET /api/auth/sso/callback?code={code}&state={protectedState}`
+
+Fixed OIDC callback. Exchanges the code using the server-configured client secret, validates the ID token, links or resolves an existing active user, verifies active target-workspace membership, issues the normal workspace-aware cookie, and redirects to the protected local return path. It does not provision users or memberships.
+
+`GET /api/sso/providers/`
+
+`POST /api/sso/providers/`
+
+`PUT /api/sso/providers/{providerId}`
+
+Provider administration requires `users.manage`. Create/update contracts contain `providerKey`, `displayName`, HTTPS `issuer`, `clientId`, `clientSecretConfigurationKey`, HTTPS `callbackUrl`, `isEnabled`, and update `concurrencyStamp`. Responses report whether the referenced secret is configured but never return its value. Enabling requires that the referenced server configuration value already exists; mutations are audited.
 
 ### Integration API keys
 

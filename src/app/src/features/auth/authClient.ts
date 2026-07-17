@@ -1,4 +1,4 @@
-import type { AuthSessionResponse, AuthUser, CompletePasswordResetRequest, LoginCredentials } from "./types";
+import type { AuthSessionResponse, AuthUser, CompletePasswordResetRequest, LoginCredentials, SsoProvider, StartSsoRequest } from "./types";
 
 type AuthFetchResponse = {
   ok: boolean;
@@ -74,6 +74,43 @@ export async function completePasswordReset(request: CompletePasswordResetReques
   await parseEmptyResponse(response, "Password reset failed.");
 }
 
+export async function getSsoProviders(
+  tenantSlug: string,
+  workspaceSlug: string,
+  fetcher: AuthFetcher = defaultFetcher
+): Promise<SsoProvider[]> {
+  const query = new URLSearchParams({ tenantSlug, workspaceSlug });
+  const response = await fetcher(`/api/auth/sso/providers?${query.toString()}`, {
+    method: "GET",
+    credentials: "include"
+  });
+  const body = await readJson(response);
+  if (!response.ok) {
+    throw new AuthRequestError(getErrorMessage(body, "SSO providers could not be loaded."));
+  }
+  if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isSsoProvider)) {
+    throw new AuthRequestError("SSO provider response was not recognized.");
+  }
+  return body.items;
+}
+
+export async function startSso(request: StartSsoRequest, fetcher: AuthFetcher = defaultFetcher): Promise<string> {
+  const response = await fetcher("/api/auth/sso/start", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request)
+  });
+  const body = await readJson(response);
+  if (!response.ok) {
+    throw new AuthRequestError(getErrorMessage(body, "SSO sign in could not be started."));
+  }
+  if (!isRecord(body) || typeof body.authorizationUrl !== "string" || !body.authorizationUrl.startsWith("https://")) {
+    throw new AuthRequestError("SSO start response was not recognized.");
+  }
+  return body.authorizationUrl;
+}
+
 async function parseRequiredAuthUser(response: AuthFetchResponse): Promise<AuthUser> {
   const body = await readJson(response);
 
@@ -128,6 +165,10 @@ function isAuthUser(value: unknown): value is AuthUser {
     Array.isArray(value.permissions) &&
     value.permissions.every((permission) => typeof permission === "string")
   );
+}
+
+function isSsoProvider(value: unknown): value is SsoProvider {
+  return isRecord(value) && typeof value.id === "string" && typeof value.providerKey === "string" && typeof value.displayName === "string";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

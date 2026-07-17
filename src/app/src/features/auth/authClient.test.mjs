@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { completePasswordReset, getCurrentUser, login, logout, requestPasswordReset } from "./authClient.ts";
+import { completePasswordReset, getCurrentUser, getSsoProviders, login, logout, requestPasswordReset, startSso } from "./authClient.ts";
 
 test("auth client maps login, session, logout, and auth errors", async () => {
   const loginCalls = [];
@@ -156,4 +156,37 @@ test("auth client maps forgot and reset password requests", async () => {
       ),
     /Reset token is invalid or expired\./
   );
+});
+
+test("auth client discovers and starts workspace SSO", async () => {
+  const calls = [];
+  const providers = await getSsoProviders("acme", "operations", async (input, init) => {
+    calls.push({ input, init });
+    return {
+      ok: true,
+      json: async () => ({ items: [{ id: "provider-id", providerKey: "entra", displayName: "Company SSO" }] })
+    };
+  });
+
+  assert.deepEqual(providers, [{ id: "provider-id", providerKey: "entra", displayName: "Company SSO" }]);
+  assert.equal(calls[0].input, "/api/auth/sso/providers?tenantSlug=acme&workspaceSlug=operations");
+  assert.equal(calls[0].init.method, "GET");
+
+  const authorizationUrl = await startSso(
+    { tenantSlug: "acme", workspaceSlug: "operations", providerKey: "entra", returnPath: "/reports" },
+    async (input, init) => {
+      calls.push({ input, init });
+      return { ok: true, json: async () => ({ authorizationUrl: "https://identity.example.test/authorize?state=protected" }) };
+    }
+  );
+
+  assert.equal(authorizationUrl, "https://identity.example.test/authorize?state=protected");
+  assert.equal(calls[1].input, "/api/auth/sso/start");
+  assert.equal(calls[1].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].init.body), {
+    tenantSlug: "acme",
+    workspaceSlug: "operations",
+    providerKey: "entra",
+    returnPath: "/reports"
+  });
 });
