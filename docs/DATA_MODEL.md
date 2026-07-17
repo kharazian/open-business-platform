@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete and V9 task 004 adds workspace-aware enterprise access policies. The model includes tenants, workspaces, memberships, SSO providers, external identity links, access policies, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete and V9 is complete through task 007. The model includes tenants, workspaces, memberships, SSO providers, external identity links, access policies, retention/backup administration, workspace branding, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -14,6 +14,7 @@ The current migrations include:
 - `access_policies`
 - `retention_policies`, `legal_holds`
 - `administrative_backups`, `restore_plans`
+- `workspace_branding`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`

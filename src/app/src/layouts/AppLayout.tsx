@@ -4,6 +4,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { appNavigation } from "../config/appNavigation";
 import { useAppTheme } from "../context/AppThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspaceBranding } from "../context/WorkspaceBrandingContext";
 import { getNotificationPreferences, getUnreadNotificationCount } from "../features/notifications/api";
 import { applyNotificationBadge } from "../features/notifications/navigationBadge";
 import { subscribeToNotificationsChanged } from "../features/notifications/events";
@@ -16,6 +17,7 @@ type AppLayoutProps = {
 
 export function AppLayout({ theme, onThemeToggle }: AppLayoutProps) {
   const { appThemeClassName, appThemeStyle } = useAppTheme();
+  const { branding, brandingStyle } = useWorkspaceBranding();
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
@@ -82,7 +84,13 @@ export function AppLayout({ theme, onThemeToggle }: AppLayoutProps) {
       navigation={visibleNavigationWithBadges}
       notificationBadgeCount={showNotificationBadge ? notificationBadgeCount : 0}
       onThemeToggle={onThemeToggle}
-      style={appThemeStyle}
+      navbarLogoText={branding.logoText}
+      navbarLogoUrl={branding.logoDataUrl}
+      navbarTitle={branding.appName}
+      sidebarLogoText={branding.logoText}
+      sidebarLogoUrl={branding.logoDataUrl}
+      sidebarTitle={branding.appName}
+      style={{ ...appThemeStyle, ...brandingStyle }}
       theme={theme}
       userEmail={user?.email}
       userMenu={[

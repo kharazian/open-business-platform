@@ -937,7 +937,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-Next concrete work is V9 planning/implementation when the enterprise platform sequence is ready.
+V9 is complete through task 007: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, administrative backup planning, and workspace branding are implemented. Next concrete work is V9 task 008, localization foundation.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

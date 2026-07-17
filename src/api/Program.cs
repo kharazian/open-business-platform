@@ -107,6 +107,7 @@ builder.Services.AddScoped<AccessPolicyEvaluator>();
 builder.Services.AddScoped<AccessPolicyService>();
 builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<AdministrativeBackupService>();
+builder.Services.AddScoped<WorkspaceBrandingService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;

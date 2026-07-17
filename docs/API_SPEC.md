@@ -2635,4 +2635,10 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 - All record APIs must check permissions.
 - Hidden fields must not be returned to unauthorized users.
 - Mutating APIs should write audit logs.
+
+## Workspace Branding
+
+- `GET /api/branding/public?tenant={tenantSlug}&workspace={workspaceSlug}` is anonymous and returns only app name, logo text/data, primary color, and login message for an active tenant/workspace.
+- `GET /api/branding/current` requires authentication and resolves branding for the signed active workspace.
+- `PUT /api/branding/current` requires authentication plus `branding.manage`, validates bounded safe display values, requires the current concurrency stamp after initial creation, and writes an audit entry.
 - Record create/update/status/assignment APIs dispatch V4 trigger events after the primary record transaction succeeds.

@@ -33,6 +33,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<WorkspaceMembership> WorkspaceMemberships => Set<WorkspaceMembership>();
 
+    public DbSet<WorkspaceBranding> WorkspaceBrandings => Set<WorkspaceBranding>();
+
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
 
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
@@ -150,6 +152,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureUsers(modelBuilder);
         ConfigureTenantsAndWorkspaces(modelBuilder);
         ConfigureWorkspaceMemberships(modelBuilder);
+        ConfigureWorkspaceBranding(modelBuilder);
         ConfigureSso(modelBuilder);
         ConfigureAccessPolicies(modelBuilder);
         ConfigureRetention(modelBuilder);
@@ -310,6 +313,20 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(membership => membership.InvitedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureWorkspaceBranding(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkspaceBranding>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "workspace_branding");
+            entity.HasIndex(branding => branding.WorkspaceId).IsUnique();
+            entity.Property(branding => branding.AppName).HasColumnName("app_name").HasMaxLength(120).IsRequired();
+            entity.Property(branding => branding.LogoText).HasColumnName("logo_text").HasMaxLength(8).IsRequired();
+            entity.Property(branding => branding.LogoDataUrl).HasColumnName("logo_data_url").HasColumnType("text");
+            entity.Property(branding => branding.PrimaryColor).HasColumnName("primary_color").HasMaxLength(7).IsRequired();
+            entity.Property(branding => branding.LoginMessage).HasColumnName("login_message").HasMaxLength(240);
         });
     }
 

@@ -258,3 +258,4 @@ Infrastructure responsibility:
 - Use XYFlow only for workflow visual authoring.
 - Keep shared UI in `src/app/src/components`.
 - Keep `/theme` as a playground, not as the owner of reusable UI.
+- Store workspace branding as backend-owned workspace configuration. The real app and slug-selected login page consume a safe display projection; per-user appearance settings remain local and `/theme` remains an independent playground.

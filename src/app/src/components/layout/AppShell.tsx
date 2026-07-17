@@ -33,10 +33,12 @@ type AppShellProps = {
   navbarTitle?: string;
   navbarSubtitle?: string;
   navbarLogoText?: string;
+  navbarLogoUrl?: string | null;
   searchPlaceholder?: string;
   sidebarTitle?: string;
   sidebarSubtitle?: string;
   sidebarLogoText?: string;
+  sidebarLogoUrl?: string | null;
   sidebarVariant?: "default" | "hybrid";
   sidebarAriaLabel?: string;
   onSidebarToggle?: () => void;
@@ -100,10 +102,12 @@ export function AppShell({
   navbarTitle,
   navbarSubtitle,
   navbarLogoText = appBranding.logoText,
+  navbarLogoUrl,
   searchPlaceholder,
   sidebarTitle,
   sidebarSubtitle,
   sidebarLogoText = appBranding.logoText,
+  sidebarLogoUrl,
   sidebarVariant = "default",
   sidebarAriaLabel,
   onSidebarToggle,
@@ -153,6 +157,7 @@ export function AppShell({
         open={mobileOpen}
         sidebarAriaLabel={resolvedSidebarAriaLabel}
         sidebarLogoText={sidebarLogoText}
+        sidebarLogoUrl={sidebarLogoUrl}
         sidebarSubtitle={resolvedSidebarSubtitle}
         sidebarTitle={resolvedSidebarTitle}
         sidebarVariant={resolvedSidebarVariant}
@@ -165,6 +170,7 @@ export function AppShell({
           collapsed={sidebarCollapsed}
           hoverExpand={sidebarHoverExpand}
           logoText={sidebarLogoText}
+          logoUrl={sidebarLogoUrl}
           navigation={navigation}
           subtitle={resolvedSidebarSubtitle}
           title={resolvedSidebarTitle}
@@ -177,6 +183,7 @@ export function AppShell({
           brandClassName={hasSidebar ? "lg:hidden" : undefined}
           containerClassName={resolvedContainerClassName}
           logoText={navbarLogoText}
+          logoUrl={navbarLogoUrl}
           navigation={navigation}
           onMenuClick={openMobileMenu}
           onSidebarToggle={hasSidebar && effectiveLayout !== "hybrid" ? toggleSidebar : undefined}

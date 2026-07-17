@@ -118,3 +118,7 @@ Trigger event outbox:
 ## Transactional Trigger Event Outbox Migration
 
 `20260715180727_TransactionalTriggerEventOutbox` adds `trigger_event_outbox` for record events committed atomically with their source mutation. The table stores internal JSONB event payloads, delivery status, bounded retry metadata, and five-minute lease/fencing fields. It does not backfill historical record changes.
+
+## Workspace Branding Migration
+
+`20260717150535_WorkspaceBranding` adds one optional `workspace_branding` row per workspace. Existing workspaces require no backfill: APIs resolve deployment/workspace defaults until an authorized administrator saves branding. The unique workspace index, global workspace filter, write guard, and concurrency stamp provide isolation and optimistic concurrency.

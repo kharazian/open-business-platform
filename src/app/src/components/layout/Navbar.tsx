@@ -88,20 +88,22 @@ function UserMenu({
 
 function NavbarBrand({
   className,
+  logoUrl,
   logoText,
   subtitle,
   title
 }: {
   className?: string;
+  logoUrl?: string | null;
   logoText: string;
   subtitle?: string;
   title: string;
 }) {
   return (
     <div className={cn("flex min-w-0 items-center gap-3", className)}>
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">
-        {logoText}
-      </span>
+      {logoUrl ? <img alt="" className="size-10 shrink-0 rounded-xl object-contain" src={logoUrl} /> : (
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">{logoText}</span>
+      )}
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-foreground">{title}</p>
         {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
@@ -175,6 +177,7 @@ export function Navbar({
   title = appBranding.appName,
   subtitle,
   logoText = appBranding.logoText,
+  logoUrl,
   searchPlaceholder = "Search...",
   showTopNav = false,
   showMobileMenuButton = false,
@@ -196,6 +199,7 @@ export function Navbar({
   title?: string;
   subtitle?: string;
   logoText?: string;
+  logoUrl?: string | null;
   searchPlaceholder?: string;
   showTopNav?: boolean;
   showMobileMenuButton?: boolean;
@@ -236,7 +240,7 @@ export function Navbar({
           </Button>
         ) : null}
 
-        <NavbarBrand className={brandClassName} logoText={logoText} subtitle={subtitle} title={title} />
+        <NavbarBrand className={brandClassName} logoText={logoText} logoUrl={logoUrl} subtitle={subtitle} title={title} />
 
         <NavbarSearch placeholder={searchPlaceholder} />
 

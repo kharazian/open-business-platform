@@ -177,6 +177,7 @@ export function Sidebar({
   onToggleCollapsed,
   variant = "default",
   logoText = appBranding.logoText,
+  logoUrl,
   title = "Theme Lab",
   subtitle = "Admin demo",
   ariaLabel = "Navigation",
@@ -189,6 +190,7 @@ export function Sidebar({
   onToggleCollapsed?: () => void;
   variant?: "default" | "hybrid";
   logoText?: string;
+  logoUrl?: string | null;
   title?: string;
   subtitle?: string;
   ariaLabel?: string;
@@ -240,9 +242,9 @@ export function Sidebar({
       onMouseLeave={() => setHovered(false)}
     >
       <div className={cn("flex items-center gap-3 px-1 py-2", displayCollapsed && "justify-center")}>
-        <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white", palette.primaryBg)}>
-          {logoText}
-        </span>
+        {logoUrl ? <img alt="" className="size-11 shrink-0 rounded-xl object-contain" src={logoUrl} /> : (
+          <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white", palette.primaryBg)}>{logoText}</span>
+        )}
         {!displayCollapsed ? (
           <div className="min-w-0">
             <strong className="block truncate leading-tight text-foreground">

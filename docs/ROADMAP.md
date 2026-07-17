@@ -273,10 +273,11 @@ Features:
 - Advanced RBAC/ABAC implemented in V9 task 004 as workspace-scoped, deny-overrides policies layered over existing platform, form, report, and record grants
 - Data retention/legal-hold foundation implemented in V9 task 005 with payload-free dry-runs and no destructive executor
 - Administrative backup/export foundation implemented in V9 task 006 with checksummed workspace snapshots, protected audited downloads, and validation-only restore plans
+- White labeling foundation implemented in V9 task 007 with safe workspace branding, public login projection, permission-gated administration, and real-app chrome integration
 - Advanced RBAC/ABAC
 - Data retention
 - Backup/restore
-- White labeling
+- White labeling implemented
 - Localization
 - Custom domains
 - Compliance features

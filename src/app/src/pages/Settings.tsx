@@ -1,12 +1,11 @@
 import { Save } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Select } from "../components/ui/Select";
-import { appBranding } from "../config/branding";
 import { themePalettes, type ThemePaletteId } from "../config/themePalettes";
 import type { ThemeDensity } from "../config/themeTokens";
 import {
@@ -18,8 +17,10 @@ import {
   type AppThemeShadow
 } from "../context/AppThemeContext";
 import type { ThemeColorMode } from "../context/ThemeAppearanceContext";
+import { useWorkspaceBranding } from "../context/WorkspaceBrandingContext";
 
 export function Settings() {
+  const { branding, canManage, saveBranding } = useWorkspaceBranding();
   const {
     appThemeSettings,
     savedAppThemeSettings,
@@ -28,6 +29,37 @@ export function Settings() {
     resetAppThemeSettings
   } = useAppTheme();
   const [message, setMessage] = useState("");
+  const [brandingDraft, setBrandingDraft] = useState(branding);
+  const [brandingMessage, setBrandingMessage] = useState("");
+  const [savingBranding, setSavingBranding] = useState(false);
+
+  useEffect(() => setBrandingDraft(branding), [branding]);
+
+  const uploadLogo = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 256 * 1024) {
+      setBrandingMessage("Choose a PNG, JPEG, or WebP logo that is 256 KiB or smaller.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setBrandingDraft((current) => ({ ...current, logoDataUrl: String(reader.result) }));
+    reader.readAsDataURL(file);
+  };
+
+  const persistBranding = async () => {
+    setSavingBranding(true);
+    setBrandingMessage("");
+    try {
+      const saved = await saveBranding(brandingDraft);
+      setBrandingDraft(saved);
+      setBrandingMessage("Workspace branding saved.");
+    } catch (error) {
+      setBrandingMessage(error instanceof Error ? error.message : "Workspace branding could not be saved.");
+    } finally {
+      setSavingBranding(false);
+    }
+  };
 
   const updateTheme = (settings: Partial<typeof appThemeSettings>) => {
     updateAppThemeSettings(settings);
@@ -154,36 +186,32 @@ export function Settings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Workspace</CardTitle>
-          <CardDescription>These controls are static samples for the first UI shell.</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Workspace branding</CardTitle>
+              <CardDescription>Shared identity for this workspace's login page and real app chrome.</CardDescription>
+            </div>
+            <Badge tone={canManage ? "success" : "default"}>{canManage ? "Can manage" : "Read only"}</Badge>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Workspace name" defaultValue={appBranding.appName} />
-            <Input label="Support email" defaultValue="support@company.test" type="email" />
-            <Select
-              label="Default module"
-              defaultValue="dashboard"
-              options={[
-                { label: "Dashboard", value: "dashboard" },
-                { label: "Users", value: "users" },
-                { label: "Reports", value: "reports" }
-              ]}
-            />
-            <Select
-              label="Audit retention"
-              defaultValue="365"
-              options={[
-                { label: "90 days", value: "90" },
-                { label: "180 days", value: "180" },
-                { label: "365 days", value: "365" }
-              ]}
-            />
+            <Input disabled={!canManage} label="App name" maxLength={120} onChange={(event) => setBrandingDraft({ ...brandingDraft, appName: event.target.value })} value={brandingDraft.appName} />
+            <Input disabled={!canManage} help="Up to 8 characters for compact navigation." label="Logo text" maxLength={8} onChange={(event) => setBrandingDraft({ ...brandingDraft, logoText: event.target.value })} value={brandingDraft.logoText} />
+            <Input disabled={!canManage} label="Primary color" onChange={(event) => setBrandingDraft({ ...brandingDraft, primaryColor: event.target.value })} type="color" value={brandingDraft.primaryColor} />
+            <Input disabled={!canManage} label="Login message" maxLength={240} onChange={(event) => setBrandingDraft({ ...brandingDraft, loginMessage: event.target.value || null })} value={brandingDraft.loginMessage ?? ""} />
+            <Input accept="image/png,image/jpeg,image/webp" disabled={!canManage} help="PNG, JPEG, or WebP; maximum 256 KiB." label="Logo image" onChange={uploadLogo} type="file" />
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/35 p-3">
+              {brandingDraft.logoDataUrl ? <img alt="Brand preview" className="size-12 rounded-xl object-contain" src={brandingDraft.logoDataUrl} /> : <span className="grid size-12 place-items-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">{brandingDraft.logoText}</span>}
+              <div className="min-w-0"><p className="truncate font-bold text-foreground">{brandingDraft.appName}</p><p className="text-sm text-muted-foreground">Workspace preview</p></div>
+              {brandingDraft.logoDataUrl && canManage ? <Button className="ml-auto" onClick={() => setBrandingDraft({ ...brandingDraft, logoDataUrl: null })} size="sm" variant="outline">Remove</Button> : null}
+            </div>
           </div>
+          {brandingMessage ? <p className="mt-4 text-sm font-semibold text-foreground">{brandingMessage}</p> : null}
           <div className="mt-6 flex justify-end">
-            <Button>
+            <Button disabled={!canManage || savingBranding} onClick={() => void persistBranding()}>
               <Save className="size-4" />
-              Save changes
+              {savingBranding ? "Saving..." : "Save branding"}
             </Button>
           </div>
         </CardContent>

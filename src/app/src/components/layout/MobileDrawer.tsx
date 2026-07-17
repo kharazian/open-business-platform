@@ -10,6 +10,7 @@ export function MobileDrawer({
   sidebarTitle,
   sidebarSubtitle,
   sidebarLogoText,
+  sidebarLogoUrl,
   sidebarVariant = "default",
   sidebarAriaLabel
 }: {
@@ -19,6 +20,7 @@ export function MobileDrawer({
   sidebarTitle?: string;
   sidebarSubtitle?: string;
   sidebarLogoText?: string;
+  sidebarLogoUrl?: string | null;
   sidebarVariant?: "default" | "hybrid";
   sidebarAriaLabel?: string;
 }) {
@@ -37,6 +39,7 @@ export function MobileDrawer({
           ariaLabel={sidebarAriaLabel}
           collapsed={false}
           logoText={sidebarLogoText}
+          logoUrl={sidebarLogoUrl}
           navigation={navigation}
           onNavigate={onClose}
           subtitle={sidebarSubtitle}

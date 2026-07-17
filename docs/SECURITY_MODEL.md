@@ -16,6 +16,7 @@ Status: the established authentication, permission, field-security, and audit ba
 - Keep monitoring output aggregate and payload-free; production metrics require a server-side token that is never exposed through Vite variables.
 - Resolve workspace context on the backend; never trust a request body, query string, or frontend-only selection as ownership authority.
 - Apply workspace filters to direct reads and reject cross-workspace creates, updates, deletes, and ownership changes centrally in persistence.
+- Restrict branding mutations to `branding.manage`; anonymous branding lookup accepts active tenant/workspace slugs but returns display fields only. Logo content is limited to bounded PNG/JPEG/WebP data URLs, colors to validated hex values, and every update is audited.
 
 ## Workspace Boundary
 
