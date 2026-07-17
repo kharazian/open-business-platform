@@ -39,6 +39,10 @@ Any matching policy denies access. Resource IDs may be omitted for workspace-wid
 
 Task 005 adds only `retention.manage`-protected definitions, legal holds, and dry-runs. Candidate evaluation stays database-side, excludes active holds, returns at most 100 IDs plus a count, and never returns payloads. No deletion, anonymization, or archival executor exists.
 
+## Backup And Restore Safety
+
+Task 006 protects snapshot administration with `backup.manage`; full record snapshots additionally require effective `forms.manage_all` and complete form/record export access after enterprise policy evaluation. Artifacts exclude credentials, hashes, secret-bearing extra properties, and previous artifact bodies, are capped at 25 MiB, and carry payload plus whole-artifact SHA-256 checksums. Downloads recompute checksums and write audit logs. Restore planning accepts only the current workspace's stored artifacts, validates format/modules/counts/checksums, reports ID conflicts, and always returns `canApply: false`.
+
 ## API Security
 
 Every API should verify:

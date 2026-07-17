@@ -272,6 +272,7 @@ Features:
 - OIDC SSO foundation implemented in V9 task 003 with secret references, protected authorization state, PKCE, validated external identity linking, and active-membership enforcement
 - Advanced RBAC/ABAC implemented in V9 task 004 as workspace-scoped, deny-overrides policies layered over existing platform, form, report, and record grants
 - Data retention/legal-hold foundation implemented in V9 task 005 with payload-free dry-runs and no destructive executor
+- Administrative backup/export foundation implemented in V9 task 006 with checksummed workspace snapshots, protected audited downloads, and validation-only restore plans
 - Advanced RBAC/ABAC
 - Data retention
 - Backup/restore

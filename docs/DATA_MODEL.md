@@ -13,6 +13,7 @@ The current migrations include:
 - `sso_providers`, `external_identities`
 - `access_policies`
 - `retention_policies`, `legal_holds`
+- `administrative_backups`, `restore_plans`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`
@@ -137,6 +138,8 @@ External identity rows uniquely map a provider subject to one existing user with
 Migration `20260717143848_AdvancedAccessPolicies` adds workspace-owned policy guardrails. Each row stores name/description, resource type, optional resource ID, action, typed condition JSONB, priority, enabled state, concurrency stamp, and audit metadata. Indexes support enabled resource/action evaluation and resource-specific administration. Policies are deny-only in task 004: they can restrict an existing grant but cannot create access.
 
 Migration `20260717144628_RetentionAndLegalHoldFoundation` adds workspace-owned retention definitions and legal holds. Policies define bounded age rules for records, audit logs, or integration logs; holds preserve typed entity IDs, reasons, placement, release history, and concurrency. Task 005 evaluates only payload-free candidates and performs no deletion.
+
+Migration `20260717145545_AdministrativeBackupAndRestorePlanning` adds workspace-owned administrative snapshot artifacts and immutable restore-plan results. Backups store a versioned manifest, protected JSON artifact body, size, and SHA-256 checksum. Restore plans store validation/conflict output only and have no apply state or execution path.
 
 ### users
 

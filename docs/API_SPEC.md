@@ -144,6 +144,12 @@ All endpoints require `retention.manage`. `GET|POST /api/retention/policies` and
 
 `GET|POST /api/retention/legal-holds` list/place typed entity holds. `POST /api/retention/legal-holds/{id}/release` requires a release reason and concurrency stamp. Active holds exclude entities from dry-runs; released holds retain history and cannot be reactivated.
 
+### Administrative backups and restore plans
+
+All endpoints require `backup.manage`. `GET /api/administration/backups/` and `GET /api/administration/backups/{id}` return metadata and manifests but never artifact bodies. `POST /api/administration/backups/` accepts `{ "scope": "configuration_only|full" }`; full scope also requires effective `forms.manage_all` and complete form/record export access after policy evaluation. Snapshots include supported workspace configuration modules and, for full scope, records. They exclude identity credentials, secret hashes/references, extra-property bags, and previous artifacts.
+
+`GET /api/administration/backups/{id}/artifact` verifies the whole-artifact SHA-256 checksum, audits the download, and returns the protected JSON file. `POST /api/administration/backups/{id}/restore-plan` verifies workspace, format version, supported modules, counts, payload checksum, and artifact checksum, then returns errors/warnings/conflict counts with `canApply: false`. Task 006 exposes no restore-apply endpoint.
+
 ### Integration API keys
 
 Integration API key management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.

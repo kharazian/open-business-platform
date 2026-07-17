@@ -11,7 +11,7 @@ The sequence below is a planning list only. Create a specific task file before i
 3. `003-sso-foundation.md` - complete; workspace-scoped OIDC providers, protected authorization-code/PKCE flow, validated external identity links, and optional workspace login buttons.
 4. `004-advanced-rbac-abac-policy-model.md` - complete; typed workspace deny policies now layer role, membership-role, department, group, status, and ownership conditions over existing grants.
 5. `005-data-retention-and-legal-hold.md` - complete; non-destructive retention definitions, legal holds, and payload-free dry-run evaluation.
-6. `006-backup-restore-and-admin-export.md` - add administrative export/backup contracts and safe restore planning without weakening record permissions.
+6. `006-backup-restore-and-admin-export.md` - complete; protected workspace snapshots, checksummed manifests, audited downloads, and validation-only restore plans.
 7. `007-white-labeling-and-workspace-branding.md` - persist workspace branding, app labels, logos, and theme defaults separately from user appearance preferences.
 8. `008-localization-foundation.md` - add locale, timezone, date/number formatting, and translatable label foundations.
 9. `009-custom-domains.md` - add custom domain configuration after workspace routing and branding are stable.

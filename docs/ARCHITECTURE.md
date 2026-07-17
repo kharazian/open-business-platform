@@ -147,6 +147,7 @@ Current backend module behavior:
 - `Modules/Identity` also owns the V9 OIDC SSO boundary: workspace-owned provider administration, public provider discovery, protected authorization-code/PKCE state, token validation, and external identity linking to existing active members.
 - `Modules/Identity/AccessPolicyService.cs` adds typed enterprise deny guardrails after existing RBAC grants. Record status/ownership rules are composed into EF queries so list, report, export, dashboard, and print consumers retain database-side filtering.
 - `Modules/Identity/RetentionService.cs` owns the non-destructive retention/legal-hold foundation and database-side dry-run evaluation.
+- `Modules/Identity/AdministrativeBackupService.cs` creates bounded protected workspace snapshots and validation-only restore plans; it has no mutation path into business modules.
 - `Modules/Identity/PermissionService.cs` centralizes the current global role permission and per-form role access checks.
 - `Modules/Workspaces` owns tenant/workspace constants, signed request context, ownership guards, membership lifecycle services, per-request membership validation, and authenticated context/list/switch endpoints. Workspace-specific platform role claims are refreshed at login and switch time.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.

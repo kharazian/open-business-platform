@@ -98,6 +98,7 @@ V9 task 002 is complete: workspace memberships, signed active context, per-reque
 V9 task 003 is complete: workspace-owned OIDC providers, server-side client-secret references, protected state and PKCE, issuer/signature/audience/lifetime/nonce validation, verified-email external identity linking, and active-membership checks add SSO without disabling local login or auto-provisioning users.
 V9 task 004 is complete: typed workspace access policies apply deny-overrides subject/resource conditions after existing RBAC grants, preserve the bootstrap recovery path, filter record queries in SQL, and expose authorized audited management and simulation APIs.
 V9 task 005 is complete: workspace retention definitions and legal holds support audited, payload-free dry-run evaluation for records, audit logs, and integration logs without destructive execution.
+V9 task 006 is complete: versioned checksummed workspace snapshots, secret-safe module exports, protected audited downloads, and conflict-reporting restore plans provide an administrative backup foundation without applying restores.
 
 ## 2. Core Product Philosophy
 

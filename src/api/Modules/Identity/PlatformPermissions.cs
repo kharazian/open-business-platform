@@ -17,7 +17,8 @@ public static class PlatformPermissions
         Reports.Manage,
         Workflows.Manage,
         Integrations.Manage,
-        Retention.Manage
+        Retention.Manage,
+        Backup.Manage
     };
 
     public static readonly IReadOnlyCollection<string> FormActions = new[]
@@ -91,6 +92,11 @@ public static class PlatformPermissions
     public static class Retention
     {
         public const string Manage = "retention.manage";
+    }
+
+    public static class Backup
+    {
+        public const string Manage = "backup.manage";
     }
 
     public static class Form

@@ -43,6 +43,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<LegalHold> LegalHolds => Set<LegalHold>();
 
+    public DbSet<AdministrativeBackup> AdministrativeBackups => Set<AdministrativeBackup>();
+
+    public DbSet<RestorePlan> RestorePlans => Set<RestorePlan>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -149,6 +153,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureSso(modelBuilder);
         ConfigureAccessPolicies(modelBuilder);
         ConfigureRetention(modelBuilder);
+        ConfigureAdministrativeBackups(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -387,6 +392,35 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(hold => hold.ReleasedAt).HasColumnName("released_at");
             entity.Property(hold => hold.ReleasedById).HasColumnName("released_by_id").HasColumnType("uuid");
             entity.Property(hold => hold.ReleaseReason).HasColumnName("release_reason").HasMaxLength(1000);
+        });
+    }
+
+    private static void ConfigureAdministrativeBackups(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AdministrativeBackup>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "administrative_backups");
+            entity.HasIndex(backup => new { backup.WorkspaceId, backup.CreatedAt });
+            entity.Property(backup => backup.Scope).HasColumnName("scope").HasMaxLength(40).IsRequired();
+            entity.Property(backup => backup.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(backup => backup.FileName).HasColumnName("file_name").HasMaxLength(240).IsRequired();
+            entity.Property(backup => backup.ContentType).HasColumnName("content_type").HasMaxLength(120).IsRequired();
+            entity.Property(backup => backup.SizeBytes).HasColumnName("size_bytes").IsRequired();
+            entity.Property(backup => backup.Sha256).HasColumnName("sha256").HasMaxLength(64).IsRequired();
+            entity.Property(backup => backup.ManifestJson).HasColumnName("manifest_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(backup => backup.ArtifactContent).HasColumnName("artifact_content").HasColumnType("text").IsRequired();
+            entity.Property(backup => backup.CompletedAt).HasColumnName("completed_at").IsRequired();
+        });
+        modelBuilder.Entity<RestorePlan>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "restore_plans");
+            entity.HasIndex(plan => new { plan.WorkspaceId, plan.BackupId, plan.PlannedAt });
+            entity.Property(plan => plan.BackupId).HasColumnName("backup_id").HasColumnType("uuid").IsRequired();
+            entity.Property(plan => plan.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(plan => plan.ValidationJson).HasColumnName("validation_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(plan => plan.PlannedAt).HasColumnName("planned_at").IsRequired();
+            entity.Property(plan => plan.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
+            entity.HasOne(plan => plan.Backup).WithMany().HasForeignKey(plan => plan.BackupId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 
