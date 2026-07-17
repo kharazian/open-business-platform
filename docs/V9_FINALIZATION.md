@@ -26,8 +26,12 @@ V9 Enterprise Platform is complete for tasks 001 through 010.
 
 ## Verification Gate
 
-Each task was committed only after backend harness/build, frontend tests/build, migration consistency where applicable, and `git diff --check`. The known `Microsoft.OpenApi 2.0.0` NU1903 high-severity advisory remains an explicit dependency risk for follow-up.
+Each task was committed only after backend harness/build, frontend tests/build, migration consistency where applicable, and `git diff --check`.
+
+Final acceptance also covered a clean isolated PostgreSQL/Redis environment, all 36 migrations, authentication boundaries, enterprise administration APIs, custom-domain fail-closed behavior, and checksummed backup/restore planning. The acceptance run found and fixed backup payload checksum canonicalization. See `docs/V9_PRACTICAL_TESTING.md` for the evidence and remaining deployment-specific checks.
+
+The `Microsoft.OpenApi` dependency is pinned to patched version `2.7.5`; the final direct/transitive vulnerability scan reports no vulnerable packages.
 
 ## Next
 
-Accept V9 as a checkpoint before opening a separately scoped V10 plan. Do not infer new product scope from the completion of this enterprise foundation.
+V9 is accepted as a checkpoint. Open a separately scoped V10 plan before adding product scope.

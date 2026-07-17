@@ -45,7 +45,7 @@ public sealed class CloudflareDnsTxtResolver(HttpClient httpClient) : IDnsTxtRes
             .Select(answer => NormalizeTxt(answer.GetProperty("data").GetString()!)).ToArray();
     }
 
-    internal static string NormalizeTxt(string value) => value.Trim().Replace("\" \"", string.Empty, StringComparison.Ordinal).Trim('"');
+    public static string NormalizeTxt(string value) => value.Trim().Replace("\" \"", string.Empty, StringComparison.Ordinal).Trim('"');
 }
 
 public sealed class CustomDomainService(OpenBusinessPlatformDbContext dbContext, IDnsTxtResolver dnsResolver)

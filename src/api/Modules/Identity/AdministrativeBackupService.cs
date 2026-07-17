@@ -72,10 +72,12 @@ public sealed class AdministrativeBackupService(OpenBusinessPlatformDbContext db
         };
         if (scope == AdministrativeBackupScopes.Full) modules["records"] = records;
         var payloadJson = JsonSerializer.Serialize(modules, SnapshotJsonOptions);
-        var payloadSha = Sha256(payloadJson);
+        using var payloadDocument = JsonDocument.Parse(payloadJson);
+        var payload = payloadDocument.RootElement.Clone();
+        var payloadSha = Sha256(Canonicalize(payload));
         var counts = modules.ToDictionary(pair => pair.Key, pair => ((System.Collections.ICollection)pair.Value).Count, StringComparer.Ordinal);
         var manifest = new BackupManifest(1, workspace.Id, DateTimeOffset.UtcNow, scope, modules.Keys.ToArray(), counts, payloadSha);
-        var artifact = JsonSerializer.Serialize(new { manifest, workspace = new { workspace.Id, workspace.TenantId, workspace.Name, workspace.Slug }, data = modules }, SnapshotJsonOptions);
+        var artifact = JsonSerializer.Serialize(new { manifest, workspace = new { workspace.Id, workspace.TenantId, workspace.Name, workspace.Slug }, data = payload }, SnapshotJsonOptions);
         var size = Encoding.UTF8.GetByteCount(artifact);
         if (size > MaxArtifactBytes) throw new AdministrativeBackupException(413, "Backup artifact exceeds the 25 MiB task limit.");
         var backup = new AdministrativeBackup
@@ -110,8 +112,7 @@ public sealed class AdministrativeBackupService(OpenBusinessPlatformDbContext db
             if (manifest.FormatVersion != 1) errors.Add("unsupported_format_version");
             if (manifest.WorkspaceId != dbContext.ActiveWorkspaceId) errors.Add("workspace_mismatch");
             var data = artifact.RootElement.GetProperty("data");
-            var payload = JsonSerializer.Serialize(data, JsonOptions);
-            if (Sha256(payload) != manifest.PayloadSha256) errors.Add("payload_checksum_mismatch");
+            if (Sha256(Canonicalize(data)) != manifest.PayloadSha256) errors.Add("payload_checksum_mismatch");
             foreach (var module in manifest.Modules)
             {
                 if (!SupportedModules.Contains(module)) { errors.Add($"unsupported_module:{module}"); continue; }
@@ -147,6 +148,7 @@ public sealed class AdministrativeBackupService(OpenBusinessPlatformDbContext db
     }
 
     private static string Sha256(string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
+    private static string Canonicalize(JsonElement payload) => JsonSerializer.Serialize(payload, JsonOptions);
     private async Task<FormRecord[]> LoadFullyAuthorizedRecordsAsync(
         ClaimsPrincipal principal,
         IReadOnlyCollection<FormDefinition> forms,
