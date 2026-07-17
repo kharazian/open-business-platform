@@ -1,6 +1,12 @@
 # Permission Model
 
-Status: V5 workflow transition execution extends the implemented V3/V4 permission model with workflow management, workflow action contract constants, record workflow execution through scoped record status access, and assigned-user approval inbox authorization. Local users, roles, groups, departments, department managers, per-form scoped record access, report access, action access, trigger management through form manage access, workflow management through form manage access, record workflow start/direct transition execution, current-user workflow approvals, and basic field-level hidden/read-only rules are implemented.
+Status: V9 task 004 layers typed, deny-overrides enterprise policies over the existing role, form scope, report, workflow, and field permission model without changing existing grants.
+
+## V9 Enterprise Policies
+
+Workspace access policies can deny an already-granted platform permission, form action, report action, or record action. Policies never grant access. They may target all resources of a type or one form/report, and may condition denial on platform roles, workspace membership roles, departments, groups, record status, and current-user ownership. Empty condition dimensions are unconstrained; dimensions combine with AND and values within each dimension use OR.
+
+Record policies are applied to both individual record checks and permission-filtered EF queries. This keeps list, report, export, chart, dashboard, and print consumers aligned. The bootstrap administrator bypasses policies solely as a recovery path; normal Admin users do not.
 
 ## Goals
 

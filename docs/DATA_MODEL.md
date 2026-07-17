@@ -4,13 +4,14 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete and V9 task 003 adds workspace-aware OIDC identity. The model includes tenants, workspaces, memberships, SSO providers, external identity links, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete and V9 task 004 adds workspace-aware enterprise access policies. The model includes tenants, workspaces, memberships, SSO providers, external identity links, access policies, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
 - `users`, `roles`, `user_roles`
 - `tenants`, `workspaces`, `workspace_memberships`
 - `sso_providers`, `external_identities`
+- `access_policies`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`
@@ -129,6 +130,10 @@ Migration `20260716212634_WorkspaceMembershipAndUserContext` creates the table a
 Migration `20260717142243_SsoFoundation` adds workspace-owned OIDC provider metadata and external identity links. Provider rows store a normalized provider key, display name, issuer, client ID, client-secret configuration reference, fixed callback URL, enabled state, concurrency stamp, and audit metadata. Raw client secrets and tokens are never persisted.
 
 External identity rows uniquely map a provider subject to one existing user within a workspace and record the verified email used at link time plus the latest successful sign-in time. Unique workspace/provider/subject and workspace/provider/user indexes prevent ambiguous links. Both tables have required restrictive workspace foreign keys; provider deletion cascades only its identity links.
+
+### access_policies
+
+Migration `20260717143848_AdvancedAccessPolicies` adds workspace-owned policy guardrails. Each row stores name/description, resource type, optional resource ID, action, typed condition JSONB, priority, enabled state, concurrency stamp, and audit metadata. Indexes support enabled resource/action evaluation and resource-specific administration. Policies are deny-only in task 004: they can restrict an existing grant but cannot create access.
 
 ### users
 

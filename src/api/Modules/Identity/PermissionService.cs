@@ -7,39 +7,37 @@ namespace OpenBusinessPlatform.Api.Modules.Identity;
 
 public sealed record FieldAccessResult(IReadOnlySet<string> HiddenFieldIds, IReadOnlySet<string> ReadOnlyFieldIds);
 
-public sealed class PermissionService
+public sealed class PermissionService(
+    OpenBusinessPlatformDbContext dbContext,
+    AccessPolicyEvaluator accessPolicies)
 {
-    private readonly OpenBusinessPlatformDbContext dbContext;
-
-    public PermissionService(OpenBusinessPlatformDbContext dbContext)
-    {
-        this.dbContext = dbContext;
-    }
 
     public async Task<IReadOnlyCollection<string>> GetEffectivePermissionsAsync(
         ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
+        IReadOnlyCollection<string> granted;
         if (HasAllAccess(principal))
         {
-            return PlatformPermissions.AllBuiltInPermissions;
+            granted = PlatformPermissions.AllBuiltInPermissions;
         }
-
-        var userId = GetLocalUserId(principal);
-
-        if (userId is null)
+        else
         {
-            return Array.Empty<string>();
+            var userId = GetLocalUserId(principal);
+            if (userId is null) return Array.Empty<string>();
+            granted = await dbContext.UserRoles.AsNoTracking()
+                .Where(userRole => userRole.UserId == userId.Value)
+                .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
+                .SelectMany(userRole => userRole.Role!.Permissions.Select(permission => permission.Permission))
+                .Distinct().OrderBy(permission => permission).ToArrayAsync(cancellationToken);
         }
-
-        return await dbContext.UserRoles
-            .AsNoTracking()
-            .Where(userRole => userRole.UserId == userId.Value)
-            .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
-            .SelectMany(userRole => userRole.Role!.Permissions.Select(permission => permission.Permission))
-            .Distinct()
-            .OrderBy(permission => permission)
-            .ToArrayAsync(cancellationToken);
+        var effective = new List<string>();
+        foreach (var permission in granted)
+        {
+            if (!await accessPolicies.IsDeniedAsync(principal, new(AccessPolicyResourceTypes.Platform, null, permission), cancellationToken))
+                effective.Add(permission);
+        }
+        return effective;
     }
 
     public async Task<bool> CanAsync(
@@ -52,25 +50,13 @@ public sealed class PermissionService
             return false;
         }
 
-        if (HasAllAccess(principal))
-        {
-            return true;
-        }
-
         var userId = GetLocalUserId(principal);
-
-        if (userId is null)
-        {
-            return false;
-        }
-
-        return await dbContext.UserRoles
-            .AsNoTracking()
+        var granted = HasAllAccess(principal) || userId is not null && await dbContext.UserRoles.AsNoTracking()
             .Where(userRole => userRole.UserId == userId.Value)
             .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
-            .AnyAsync(
-                userRole => userRole.Role!.Permissions.Any(rolePermission => rolePermission.Permission == permission),
-                cancellationToken);
+            .AnyAsync(userRole => userRole.Role!.Permissions.Any(rolePermission => rolePermission.Permission == permission), cancellationToken);
+        return granted && !await accessPolicies.IsDeniedAsync(
+            principal, new(AccessPolicyResourceTypes.Platform, null, permission), cancellationToken);
     }
 
     public async Task<bool> CanAccessFormAsync(
@@ -84,31 +70,22 @@ public sealed class PermissionService
             return false;
         }
 
-        if (HasAllAccess(principal) || await CanAsync(principal, PlatformPermissions.Forms.ManageAll, cancellationToken))
+        var granted = HasAllAccess(principal) || await CanAsync(principal, PlatformPermissions.Forms.ManageAll, cancellationToken);
+        if (!granted)
         {
-            return true;
+            var userId = GetLocalUserId(principal);
+            if (userId is null) return false;
+            var allowedActions = action == PlatformPermissions.Form.Manage
+                ? new[] { PlatformPermissions.Form.Manage }
+                : new[] { action, PlatformPermissions.Form.Manage };
+            granted = await dbContext.UserRoles.AsNoTracking()
+                .Where(userRole => userRole.UserId == userId.Value)
+                .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
+                .AnyAsync(userRole => userRole.Role!.FormPermissions.Any(formPermission =>
+                    formPermission.FormId == formId && allowedActions.Contains(formPermission.Action)), cancellationToken);
         }
-
-        var userId = GetLocalUserId(principal);
-
-        if (userId is null)
-        {
-            return false;
-        }
-
-        var allowedActions = action == PlatformPermissions.Form.Manage
-            ? new[] { PlatformPermissions.Form.Manage }
-            : new[] { action, PlatformPermissions.Form.Manage };
-
-        return await dbContext.UserRoles
-            .AsNoTracking()
-            .Where(userRole => userRole.UserId == userId.Value)
-            .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
-            .AnyAsync(
-                userRole => userRole.Role!.FormPermissions.Any(formPermission =>
-                    formPermission.FormId == formId
-                    && allowedActions.Contains(formPermission.Action)),
-                cancellationToken);
+        return granted && !await accessPolicies.IsDeniedAsync(
+            principal, new(AccessPolicyResourceTypes.Form, formId, action), cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<string>> GetAllowedRecordScopesAsync(
@@ -118,6 +95,12 @@ public sealed class PermissionService
         CancellationToken cancellationToken)
     {
         if (formId == Guid.Empty || !PlatformPermissions.FormActions.Contains(action))
+        {
+            return Array.Empty<string>();
+        }
+
+        if (await accessPolicies.IsDeniedAsync(
+                principal, new(AccessPolicyResourceTypes.Form, formId, action), cancellationToken))
         {
             return Array.Empty<string>();
         }
@@ -162,7 +145,8 @@ public sealed class PermissionService
         }
 
         var context = await GetRecordAccessContextAsync(principal, cancellationToken);
-        return RecordAccessEvaluator.Apply(records, context, scopes);
+        var scoped = RecordAccessEvaluator.Apply(records, context, scopes);
+        return await accessPolicies.ApplyRecordPoliciesAsync(principal, scoped, formId, action, cancellationToken);
     }
 
     public async Task<bool> CanAccessRecordAsync(
@@ -178,13 +162,10 @@ public sealed class PermissionService
             return false;
         }
 
-        if (scopes.Contains(PlatformPermissions.RecordScopes.All))
-        {
-            return true;
-        }
-
-        var context = await GetRecordAccessContextAsync(principal, cancellationToken);
-        return RecordAccessEvaluator.CanAccess(record, context, scopes);
+        var granted = scopes.Contains(PlatformPermissions.RecordScopes.All)
+            || RecordAccessEvaluator.CanAccess(record, await GetRecordAccessContextAsync(principal, cancellationToken), scopes);
+        return granted && !await accessPolicies.IsDeniedAsync(principal, new(
+            AccessPolicyResourceTypes.Record, record.FormId, action, record.Status, record.CreatedById), cancellationToken);
     }
 
     public async Task<FieldAccessResult> GetFieldAccessAsync(
@@ -238,10 +219,7 @@ public sealed class PermissionService
             return false;
         }
 
-        if (HasAllAccess(principal) || await CanAsync(principal, PlatformPermissions.Reports.Manage, cancellationToken))
-        {
-            return true;
-        }
+        var broadGrant = HasAllAccess(principal) || await CanAsync(principal, PlatformPermissions.Reports.Manage, cancellationToken);
 
         var report = await dbContext.Reports
             .AsNoTracking()
@@ -254,36 +232,38 @@ public sealed class PermissionService
             return false;
         }
 
+        if (broadGrant)
+        {
+            return !await accessPolicies.IsDeniedAsync(
+                principal, new(AccessPolicyResourceTypes.Report, reportId, action), cancellationToken);
+        }
+
         var hasExplicitReportPermissions = await dbContext.RoleReportPermissions
             .AsNoTracking()
             .AnyAsync(permission => permission.ReportId == reportId, cancellationToken);
 
+        bool granted;
         if (!hasExplicitReportPermissions)
         {
-            return action == PlatformPermissions.Report.Manage
+            granted = action == PlatformPermissions.Report.Manage
                 ? await CanAccessFormAsync(principal, report.FormId, PlatformPermissions.Form.Manage, cancellationToken)
                 : await CanAccessFormAsync(principal, report.FormId, PlatformPermissions.Form.View, cancellationToken);
         }
-
-        var userId = GetLocalUserId(principal);
-
-        if (userId is null)
+        else
         {
-            return false;
+            var userId = GetLocalUserId(principal);
+            if (userId is null) return false;
+            var allowedActions = action == PlatformPermissions.Report.Manage
+                ? new[] { PlatformPermissions.Report.Manage }
+                : new[] { action, PlatformPermissions.Report.Manage };
+            granted = await dbContext.UserRoles.AsNoTracking()
+                .Where(userRole => userRole.UserId == userId.Value)
+                .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
+                .AnyAsync(userRole => userRole.Role!.ReportPermissions.Any(permission =>
+                    permission.ReportId == reportId && allowedActions.Contains(permission.Action)), cancellationToken);
         }
-
-        var allowedActions = action == PlatformPermissions.Report.Manage
-            ? new[] { PlatformPermissions.Report.Manage }
-            : new[] { action, PlatformPermissions.Report.Manage };
-
-        return await dbContext.UserRoles
-            .AsNoTracking()
-            .Where(userRole => userRole.UserId == userId.Value)
-            .Where(userRole => userRole.Role != null && userRole.Role.IsActive)
-            .AnyAsync(
-                userRole => userRole.Role!.ReportPermissions.Any(permission =>
-                    permission.ReportId == reportId && allowedActions.Contains(permission.Action)),
-                cancellationToken);
+        return granted && !await accessPolicies.IsDeniedAsync(
+            principal, new(AccessPolicyResourceTypes.Report, reportId, action), cancellationToken);
     }
 
     private async Task<RecordAccessContext> GetRecordAccessContextAsync(

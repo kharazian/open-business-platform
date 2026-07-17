@@ -270,6 +270,7 @@ Features:
 - Multi-tenant workspace foundation implemented in V9 task 001 with stable default ownership, migration backfill, active-workspace query filters, and cross-workspace write guards
 - Workspace membership and active-user context implemented in V9 task 002 with migration backfill, signed cookie/API-key workspace claims, per-request membership validation, workspace switching, and workspace-scoped user management
 - OIDC SSO foundation implemented in V9 task 003 with secret references, protected authorization state, PKCE, validated external identity linking, and active-membership enforcement
+- Advanced RBAC/ABAC implemented in V9 task 004 as workspace-scoped, deny-overrides policies layered over existing platform, form, report, and record grants
 - Advanced RBAC/ABAC
 - Data retention
 - Backup/restore

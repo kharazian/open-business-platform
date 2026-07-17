@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 through 003 add enforced workspace context, membership-aware authentication, and an OIDC SSO foundation. Add later enterprise APIs task by task as modules are implemented.
+Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 through 004 add enforced workspace context, membership-aware authentication, OIDC SSO, and typed enterprise access policies. Add later enterprise APIs task by task as modules are implemented.
 
 ## Local API Explorer
 
@@ -119,6 +119,24 @@ Fixed OIDC callback. Exchanges the code using the server-configured client secre
 `PUT /api/sso/providers/{providerId}`
 
 Provider administration requires `users.manage`. Create/update contracts contain `providerKey`, `displayName`, HTTPS `issuer`, `clientId`, `clientSecretConfigurationKey`, HTTPS `callbackUrl`, `isEnabled`, and update `concurrencyStamp`. Responses report whether the referenced secret is configured but never return its value. Enabling requires that the referenced server configuration value already exists; mutations are audited.
+
+### Enterprise access policies
+
+All policy endpoints require authentication and `roles.manage`.
+
+`GET /api/access-policies/`
+
+Lists workspace policies ordered by priority and name.
+
+`POST /api/access-policies/`
+
+`PUT /api/access-policies/{policyId}`
+
+Create or update a deny-overrides policy. The typed contract contains `name`, optional `description`, `resourceType` (`platform`, `form`, `report`, or `record`), optional `resourceId`, a valid action for that resource, `conditions`, priority from -1000 through 1000, `isEnabled`, and an update concurrency stamp. For record policies, `resourceId` is the source form ID and actions are limited to view, edit, delete, print, export, assign, and change-status. Conditions support `roleAny`, `membershipRoleAny`, `departmentAny`, `groupAny`, `recordStatusAny`, and `recordOwnerIsCurrentUser`. Record conditions are rejected on non-record policies. Mutations are audited.
+
+`POST /api/access-policies/simulate`
+
+Evaluates policies for an active workspace member and a supplied typed resource context. Returns `{ "denied": true|false, "matchingPolicyIds": [...] }`. Simulation reports policy effects only; it does not imply that underlying RBAC granted the action.
 
 ### Integration API keys
 

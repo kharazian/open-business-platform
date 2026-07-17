@@ -9,7 +9,7 @@ The sequence below is a planning list only. Create a specific task file before i
 1. `001-workspace-and-tenant-foundation.md` - complete; tenant/workspace entities, stable default ownership, safe migration backfill, central query filters/write guards, and current-context API.
 2. `002-workspace-membership-and-user-context.md` - complete; workspace membership, signed active context, invitation/activation/suspension rules, workspace switching, and backend authorization checks.
 3. `003-sso-foundation.md` - complete; workspace-scoped OIDC providers, protected authorization-code/PKCE flow, validated external identity links, and optional workspace login buttons.
-4. `004-advanced-rbac-abac-policy-model.md` - extend roles and scoped permissions with enterprise policy rules while preserving existing permission semantics.
+4. `004-advanced-rbac-abac-policy-model.md` - complete; typed workspace deny policies now layer role, membership-role, department, group, status, and ownership conditions over existing grants.
 5. `005-data-retention-and-legal-hold.md` - add retention policy definitions, dry-run evaluation, legal hold exclusions, and audit logs.
 6. `006-backup-restore-and-admin-export.md` - add administrative export/backup contracts and safe restore planning without weakening record permissions.
 7. `007-white-labeling-and-workspace-branding.md` - persist workspace branding, app labels, logos, and theme defaults separately from user appearance preferences.

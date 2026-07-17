@@ -1,6 +1,6 @@
 # Security Model
 
-Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 003 OIDC SSO and external identity linking.
+Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 004 deny-overrides enterprise policy guardrails.
 
 ## Core Rules
 
@@ -28,6 +28,12 @@ Users may list their memberships and request a workspace switch, but the backend
 OIDC provider definitions and external identity links are workspace-owned. Provider client secrets are referenced by server configuration key and are never stored in PostgreSQL or returned through public APIs. Anonymous discovery exposes enabled provider IDs, keys, and display names only.
 
 Authorization uses a short-lived data-protected state envelope, nonce, and PKCE S256 challenge. The callback retrieves trusted OIDC metadata and signing keys and validates issuer, signature, audience, lifetime, nonce, subject, and verified email. Successful provider authentication still requires an existing active platform user and active membership in the protected target workspace. The first verified login may link that user by the platform's unique normalized email; no user or membership is automatically provisioned. Return paths are restricted to local application paths, and local password login remains available.
+
+## Enterprise Policy Guardrails
+
+Task 004 evaluates existing RBAC grants and record scopes first, then applies enabled workspace access policies. Policies are deny-only and support platform, form, report, and record resources. Subject dimensions—role, membership role, department, and group—combine with AND, while values within a dimension combine with OR. Record policies may additionally match status and whether the current user owns the record.
+
+Any matching policy denies access. Resource IDs may be omitted for workspace-wide coverage. Record conditions are translated into the existing EF query so denied rows do not enter application memory. The bootstrap recovery administrator is the only policy bypass; ordinary `Admin` role users remain subject to guardrails. Policy management and simulation require `roles.manage`, remain workspace-filtered, and policy mutations are audited.
 
 ## API Security
 

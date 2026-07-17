@@ -139,6 +139,7 @@ AssertTable<Workspace>(model, "workspaces");
 AssertTable<WorkspaceMembership>(model, "workspace_memberships");
 AssertTable<SsoProvider>(model, "sso_providers");
 AssertTable<ExternalIdentity>(model, "external_identities");
+AssertTable<AccessPolicy>(model, "access_policies");
 AssertTable<PasswordResetToken>(model, "password_reset_tokens");
 AssertTable<Role>(model, "roles");
 AssertTable<UserRole>(model, "user_roles");
@@ -183,7 +184,9 @@ AssertIndex<WorkspaceMembership>(model, new[] { nameof(WorkspaceMembership.UserI
 AssertConcurrencyStamp<WorkspaceMembership>(model);
 AssertWorkspaceOwned<SsoProvider>(model);
 AssertWorkspaceOwned<ExternalIdentity>(model);
+AssertWorkspaceOwned<AccessPolicy>(model);
 AssertConcurrencyStamp<SsoProvider>(model);
+AssertConcurrencyStamp<AccessPolicy>(model);
 AssertWorkspaceOwned<Role>(model);
 AssertWorkspaceOwned<UserRole>(model);
 AssertWorkspaceOwned<UserGroup>(model);
@@ -627,6 +630,51 @@ AssertEqual("/reports", SsoPolicy.NormalizeReturnPath("/reports"), "SSO should p
 AssertEqual("/", SsoPolicy.NormalizeReturnPath("https://attacker.test"), "SSO should reject absolute return URLs.");
 AssertEqual("/", SsoPolicy.NormalizeReturnPath("//attacker.test"), "SSO should reject scheme-relative return URLs.");
 AssertTrue(SsoPolicy.CreateCodeChallenge("test-verifier").Length > 20, "SSO should derive a PKCE challenge.");
+var policyDepartmentId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+var policyFormId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+var policySubject = new AccessPolicySubject(
+    Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+    new HashSet<string>(new[] { "Finance" }, StringComparer.Ordinal),
+    new HashSet<string>(new[] { WorkspaceMembershipRoles.Member }, StringComparer.Ordinal),
+    new HashSet<Guid>(new[] { policyDepartmentId }),
+    new HashSet<Guid>(),
+    false);
+var matchingPolicyConditions = new AccessPolicyConditions(
+    RoleAny: new[] { "Finance" },
+    MembershipRoleAny: new[] { WorkspaceMembershipRoles.Member },
+    DepartmentAny: new[] { policyDepartmentId },
+    RecordStatusAny: new[] { "approved" },
+    RecordOwnerIsCurrentUser: true);
+AssertTrue(
+    AccessPolicyEvaluator.Matches(
+        matchingPolicyConditions,
+        policySubject,
+        new AccessPolicyResource(
+            AccessPolicyResourceTypes.Record,
+            policyFormId,
+            PlatformPermissions.Form.Edit,
+            "approved",
+            policySubject.UserId)),
+    "ABAC policy dimensions should combine with AND and values within a dimension with OR.");
+AssertFalse(
+    AccessPolicyEvaluator.Matches(
+        matchingPolicyConditions,
+        policySubject,
+        new AccessPolicyResource(
+            AccessPolicyResourceTypes.Record,
+            policyFormId,
+            PlatformPermissions.Form.Edit,
+            "draft",
+            policySubject.UserId)),
+    "A non-matching record status should not trigger the deny policy.");
+var policyFilteredSql = AccessPolicyEvaluator.ApplyRecordCondition(
+    dbContext.Records,
+    policySubject,
+    matchingPolicyConditions).ToQueryString();
+AssertTrue(
+    policyFilteredSql.Contains("status", StringComparison.OrdinalIgnoreCase)
+        && policyFilteredSql.Contains("created_by_id", StringComparison.OrdinalIgnoreCase),
+    "Record ABAC guardrails should remain part of the database query.");
 var linkedApiUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 var apiKeyPrincipal = IntegrationApiKeyPrincipalFactory.Create(
     new IntegrationApiKey
@@ -2264,7 +2312,7 @@ var bootstrapPrincipal = new ClaimsPrincipal(new ClaimsIdentity(new[]
     new Claim(ClaimTypes.NameIdentifier, BootstrapAdminUserDirectory.BootstrapAdminId),
     new Claim(ClaimTypes.Role, PlatformRoles.Admin)
 }, "Test"));
-var permissionService = new PermissionService(dbContext);
+var permissionService = new PermissionService(dbContext, new AccessPolicyEvaluator(dbContext));
 AssertTrue(await permissionService.CanAsync(bootstrapPrincipal, PlatformPermissions.Users.Manage, CancellationToken.None), "Bootstrap admin should have user management permission.");
 AssertTrue(await permissionService.CanAccessFormAsync(bootstrapPrincipal, Guid.NewGuid(), PlatformPermissions.Form.Manage, CancellationToken.None), "Bootstrap admin should have form management permission.");
 AssertNotNull(typeof(PermissionService).GetMethod(nameof(PermissionService.GetAllowedRecordScopesAsync)), "PermissionService should expose record scope resolution.");

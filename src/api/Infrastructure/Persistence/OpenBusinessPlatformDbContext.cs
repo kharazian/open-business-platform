@@ -37,6 +37,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
 
+    public DbSet<AccessPolicy> AccessPolicies => Set<AccessPolicy>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -141,6 +143,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureTenantsAndWorkspaces(modelBuilder);
         ConfigureWorkspaceMemberships(modelBuilder);
         ConfigureSso(modelBuilder);
+        ConfigureAccessPolicies(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -333,6 +336,24 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany(user => user.ExternalIdentities)
                 .HasForeignKey(identity => identity.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureAccessPolicies(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AccessPolicy>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "access_policies");
+            entity.HasIndex(policy => new { policy.WorkspaceId, policy.IsEnabled, policy.ResourceType, policy.Action });
+            entity.HasIndex(policy => new { policy.WorkspaceId, policy.ResourceType, policy.ResourceId });
+            entity.Property(policy => policy.Name).HasColumnName("name").HasMaxLength(160).IsRequired();
+            entity.Property(policy => policy.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(policy => policy.ResourceType).HasColumnName("resource_type").HasMaxLength(40).IsRequired();
+            entity.Property(policy => policy.ResourceId).HasColumnName("resource_id").HasColumnType("uuid");
+            entity.Property(policy => policy.Action).HasColumnName("action").HasMaxLength(120).IsRequired();
+            entity.Property(policy => policy.ConditionsJson).HasColumnName("conditions_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(policy => policy.Priority).HasColumnName("priority").HasDefaultValue(0);
+            entity.Property(policy => policy.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
         });
     }
 

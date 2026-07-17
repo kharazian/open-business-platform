@@ -103,6 +103,8 @@ builder.Services.AddScoped<IncomingWebhookExecutionService>();
 builder.Services.AddScoped<RecordImportJobService>();
 builder.Services.AddScoped<ExternalExportJobService>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<AccessPolicyEvaluator>();
+builder.Services.AddScoped<AccessPolicyService>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
