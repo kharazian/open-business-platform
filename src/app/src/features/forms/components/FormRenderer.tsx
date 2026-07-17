@@ -201,6 +201,9 @@ function RenderedField({
   if (field.type === "address") {
     return <AddressField disabled={disabled} errors={errors} field={field} onChange={onChange} value={normalizeAddressValue(value)} />;
   }
+  if (field.type === "autonumber") {
+    return <Input disabled help={field.helpText ?? "Generated when the record is created."} label={getFieldLabel(field)} value={getStringValue(value)} />;
+  }
 
   if (field.type === "textarea") {
     return (

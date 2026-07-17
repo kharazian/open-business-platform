@@ -591,7 +591,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete schema-version-1 definition while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row. `recordLookup` fields store their source form, label fields, search fields, and optional dependent filters inside this schema JSON; no separate lookup table is required for the current implementation. V10 `address` fields store their bounded required-subfield configuration in the same schema JSON and do not add a relational table.
+`draft_schema_json` is the backend-owned builder draft. It may contain an incomplete schema-version-1 definition while a form is being edited. Publishing validates this draft strictly and copies it into an immutable `form_versions.schema_json` row. `recordLookup` fields store their source form, label fields, search fields, and optional dependent filters inside this schema JSON; no separate lookup table is required for the current implementation. V10 `address` and `autonumber` fields store their bounded configuration in the same schema JSON. Address fields add no relational table; autonumber counter state is kept separately from immutable formatting configuration.
 
 ### form_versions
 
@@ -610,6 +610,20 @@ Fields:
 
 The form version is immutable after publish.
 The current in-code `FormSchemaDefinition` includes layout inside the schema object. Persistence can either store that canonical schema together in `schema_json` or split layout/validation into separate JSONB columns as long as API contracts remain consistent.
+
+### form_autonumber_sequences
+
+Fields:
+
+- id uuid
+- workspace_id uuid
+- form_id uuid
+- field_id varchar(120)
+- next_value bigint
+- created_at
+- updated_at
+
+The unique `(workspace_id, form_id, field_id)` index gives every autonumber field an independent counter. Record creation uses a PostgreSQL upsert with `RETURNING` while the record transaction is active, so concurrent writers cannot receive the same number. Restrictive workspace/form foreign keys prevent sequence state from outliving its ownership boundary. The table stores only allocation state; prefix, suffix, starting value, and padding remain in the published form schema. Migration `20260717191123_BackendGeneratedAutonumbers` creates this table and does not rewrite existing form versions or records.
 
 ## Records
 
@@ -639,7 +653,7 @@ Fields:
 - deleted_at nullable
 - deleted_by_id nullable
 
-`values_json` stores submitted field values exactly as submitted and validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. V10 `address` values are bounded JSON objects with optional `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude` members. Resolved lookup labels and combined address text are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
+`values_json` stores submitted field values validated against the stored form version. For `recordLookup` fields, the stored value is the selected source record ID string. V10 `address` values are bounded JSON objects with optional `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude` members. V10 `autonumber` values are backend-generated immutable strings inserted during record creation; clients cannot choose or change them. Resolved lookup labels and combined address text are returned through response-only `displayValues` maps for record detail/list/report views and are not persisted as a second source of truth.
 
 Important indexes:
 
@@ -1182,10 +1196,10 @@ The current frontend and backend validators enforce:
 - At least one field is required.
 - Field IDs must be present and unique.
 - Field labels are required.
-- Supported field types are `text`, `textarea`, `number`, `email`, `phone`, `date`, `select`, `checkbox`, `radio`, `recordLookup`, `fileUpload`, `currency`, `percent`, `rating`, `url`, `time`, `datetime`, `userPicker`, `departmentPicker`, `subTable`, and `address`.
+- Supported field types are `text`, `textarea`, `number`, `email`, `phone`, `date`, `select`, `checkbox`, `radio`, `recordLookup`, `fileUpload`, `currency`, `percent`, `rating`, `url`, `time`, `datetime`, `userPicker`, `departmentPicker`, `subTable`, `address`, and `autonumber`.
 - `select` and `radio` fields require options with unique non-empty values.
 - Layout requires at least one page, section, row, and column.
 - Column spans must be integers from `1` to `12` for mobile, tablet, and desktop.
 - Every schema field must be placed in the layout exactly once.
 
-The current record value validator rejects unknown fields, enforces required values, checks field-specific types and ranges, validates email/date/time/URL shapes, requires choice values to match defined options, and validates bounded structured address members and required subfields.
+The current record value validator rejects unknown fields, enforces required values, checks field-specific types and ranges, validates email/date/time/URL shapes, requires choice values to match defined options, validates bounded structured address members and required subfields, and accepts autonumber strings only after backend allocation.

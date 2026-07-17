@@ -161,6 +161,7 @@ AssertTable<Department>(model, "departments");
 AssertTable<UserDepartment>(model, "user_departments");
 AssertTable<FormDefinition>(model, "forms");
 AssertTable<FormVersion>(model, "form_versions");
+AssertTable<FormAutonumberSequence>(model, "form_autonumber_sequences");
 AssertTable<FormRecord>(model, "records");
 AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
@@ -209,6 +210,8 @@ AssertWorkspaceOwned<UserRole>(model);
 AssertWorkspaceOwned<UserGroup>(model);
 AssertWorkspaceOwned<UserDepartment>(model);
 AssertWorkspaceOwned<FormDefinition>(model);
+AssertWorkspaceOwned<FormAutonumberSequence>(model);
+AssertUniqueIndex<FormAutonumberSequence>(model, new[] { nameof(FormAutonumberSequence.WorkspaceId), nameof(FormAutonumberSequence.FormId), nameof(FormAutonumberSequence.FieldId) }, "Autonumber allocation should have one counter per workspace, form, and field.");
 AssertWorkspaceOwned<FormRecord>(model);
 AssertWorkspaceOwned<DashboardDefinition>(model);
 AssertWorkspaceOwned<TriggerEventOutboxMessage>(model);
@@ -3179,6 +3182,16 @@ AssertTrue(invalidAddress.Errors.Any(error => error.Code == "record.address_memb
 AssertFalse(
     FormSchemaValidator.ValidateSchema(addressSchema with { Fields = new[] { addressSchema.Fields.Single() with { Address = new FormFieldAddressDefinition(new[] { "unsupported" }) } } }).Valid,
     "Unsupported required address subfields should prevent publishing.");
+var autonumberSchema = addressSchema with
+{
+    Fields = new[] { new FormFieldDefinition("request_number", FormFieldTypes.Autonumber, "Request number", Autonumber: new FormFieldAutonumberDefinition("REQ-", "-CA", 42, 6)) },
+    Layout = addressSchema.Layout with { Pages = new[] { addressSchema.Layout.Pages.Single() with { Sections = new[] { addressSchema.Layout.Pages.Single().Sections.Single() with { Rows = new[] { addressSchema.Layout.Pages.Single().Sections.Single().Rows.Single() with { Columns = new[] { addressSchema.Layout.Pages.Single().Sections.Single().Rows.Single().Columns.Single() with { Fields = new[] { "request_number" } } } } } } } } } }
+};
+AssertTrue(FormSchemaValidator.ValidateSchema(autonumberSchema).Valid, "Autonumber schemas should accept bounded formatting configuration.");
+AssertEqual("REQ-000042-CA", AutonumberService.Format(42, autonumberSchema.Fields.Single().Autonumber!), "Autonumber formatting should apply prefix, padding, and suffix deterministically.");
+AssertThrows<RecordSubmissionException>(() => AutonumberService.EnsureClientValuesAbsent(autonumberSchema, new Dictionary<string, object?> { ["request_number"] = "chosen" }), "Record clients should not supply generated autonumber values.");
+AssertFalse(FormSchemaValidator.ValidateSchema(autonumberSchema with { Fields = new[] { autonumberSchema.Fields.Single() with { Autonumber = new FormFieldAutonumberDefinition(new string('x', 41), null, -1, 19) } } }).Valid, "Invalid autonumber bounds should prevent publishing.");
+AssertFalse(FormSchemaValidator.ValidateSchema(autonumberSchema with { Fields = new[] { autonumberSchema.Fields.Single() with { Autonumber = new FormFieldAutonumberDefinition(StartAt: FormAutonumberLimits.MaxStartAt + 1) } } }).Valid, "Autonumber starts beyond the cross-client safe bound should prevent publishing.");
 var dependentLookupSchema = lookupSchema with
 {
     Fields = new[]
@@ -3449,7 +3462,8 @@ var mergedProtectedValues = (IReadOnlyDictionary<string, object?>)mergeProtected
         {
             ["employee_name"] = "Jane Cooper",
             ["email"] = "jane@company.test",
-            ["salary"] = 100000
+            ["salary"] = 100000,
+            ["request_number"] = "REQ-000042-CA"
         },
         new Dictionary<string, object?>
         {
@@ -3457,11 +3471,13 @@ var mergedProtectedValues = (IReadOnlyDictionary<string, object?>)mergeProtected
         },
         new FieldAccessResult(
             new HashSet<string>(new[] { "salary" }, StringComparer.Ordinal),
-            new HashSet<string>(new[] { "email" }, StringComparer.Ordinal))
+            new HashSet<string>(new[] { "email" }, StringComparer.Ordinal)),
+        autonumberSchema
     })!;
 AssertEqual("Jordan Lee", mergedProtectedValues["employee_name"], "Record updates should keep editable submitted values.");
 AssertEqual("jane@company.test", mergedProtectedValues["email"], "Record updates should preserve omitted read-only values.");
 AssertEqual(100000, Convert.ToInt32(mergedProtectedValues["salary"]), "Record updates should preserve omitted hidden values.");
+AssertEqual("REQ-000042-CA", mergedProtectedValues["request_number"], "Record updates should preserve omitted autonumber values.");
 var removeHiddenFieldsFromSchema = typeof(RecordQueryService).GetMethod(
     "RemoveHiddenFieldsFromSchema",
     System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);

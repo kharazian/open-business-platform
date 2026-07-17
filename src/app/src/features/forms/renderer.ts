@@ -57,7 +57,7 @@ const desktopColumnSpanClasses: Record<number, string> = {
 };
 
 export function createInitialRecordValues(schema: FormSchema): FormRecordValues {
-  return Object.fromEntries(schema.fields.map((field) => [field.id, normalizeInitialFieldValue(field)]));
+  return Object.fromEntries(schema.fields.filter((field) => field.type !== "autonumber").map((field) => [field.id, normalizeInitialFieldValue(field)]));
 }
 
 export function coerceFieldInputValue(field: FormField, value: FormRecordValue | string | boolean): FormRecordValue {

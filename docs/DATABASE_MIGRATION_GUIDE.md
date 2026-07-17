@@ -130,3 +130,7 @@ Trigger event outbox:
 ## Custom Domains Migration
 
 `20260717152713_CustomDomains` adds `workspace_custom_domains` with globally unique normalized hostnames, verification lifecycle fields, workspace ownership, and optimistic concurrency. It has no backfill and does not change proxy or TLS configuration.
+
+## Backend-Generated Autonumbers Migration
+
+`20260717191123_BackendGeneratedAutonumbers` adds workspace-owned `form_autonumber_sequences`. A unique `(workspace_id, form_id, field_id)` index supports atomic per-field allocation, and restrictive workspace/form foreign keys preserve ownership. The migration does not backfill or modify existing schemas, form versions, or record JSON.

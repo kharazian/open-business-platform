@@ -119,6 +119,7 @@ import {
 } from "../designer";
 import { createInitialRecordValues, type FormPreviewSize } from "../renderer";
 import {
+  AUTONUMBER_MAX_START_AT,
   formFieldTypes,
   addressSubfields,
   type AddressSubfield,
@@ -158,7 +159,8 @@ const fieldTypeIcons: Record<FormFieldType, LucideIcon> = {
   userPicker: UserRound,
   departmentPicker: Building2,
   subTable: Rows3,
-  address: MapPin
+  address: MapPin,
+  autonumber: Hash
 };
 const layoutWidthSelectOptions = layoutWidthOptions.map(({ label, value }) => ({ label, value }));
 const spanSelectOptions = Array.from({ length: 12 }, (_, index) => {
@@ -1994,7 +1996,7 @@ function FieldSettings({
     onChange({ ...field, ...patch });
   }
 
-  const supportsFieldValueSettings = field.type !== "subTable";
+  const supportsFieldValueSettings = field.type !== "subTable" && field.type !== "autonumber";
 
   return (
     <Card className="self-start">
@@ -2016,7 +2018,7 @@ function FieldSettings({
             value={field.type}
           />
           <Input label="Label" onChange={(event) => patchField({ label: event.target.value })} value={field.label} />
-          {field.type !== "checkbox" && field.type !== "subTable" && field.type !== "address" ? (
+          {field.type !== "checkbox" && field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" ? (
             <Input
               label="Placeholder"
               onChange={(event) => patchField({ placeholder: event.target.value })}
@@ -2038,11 +2040,12 @@ function FieldSettings({
               onChange={(event) => patchField({ required: event.target.checked })}
             />
           ) : null}
-          {field.type !== "subTable" && field.type !== "address" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
+          {field.type !== "subTable" && field.type !== "address" && field.type !== "autonumber" ? <DefaultValueSetting field={field} onChange={(defaultValue) => patchField({ defaultValue })} /> : null}
           {isChoiceFieldType(field.type) ? <OptionsEditor field={field} onChange={(options) => patchField({ options })} /> : null}
           {field.type === "recordLookup" ? <RecordLookupSettings field={field} onChange={onChange} schema={schema} sourceForms={sourceForms} /> : null}
           {field.type === "subTable" ? <SubTableSettings field={field} onChange={onChange} sourceForms={sourceForms} /> : null}
           {field.type === "address" ? <AddressSettings field={field} onChange={onChange} /> : null}
+          {field.type === "autonumber" ? <AutonumberSettings field={field} onChange={onChange} /> : null}
           <Button className={formBuilderSoftDangerButtonClassName} onClick={() => onRequestDelete(field)} variant="outline">
             <Trash2 className="size-4" />
             Delete field
@@ -2072,6 +2075,17 @@ function AddressSettings({ field, onChange }: { field: FormField; onChange: (fie
       ))}
     </div>
   );
+}
+
+function AutonumberSettings({ field, onChange }: { field: FormField; onChange: (field: FormField) => void }) {
+  const config = field.autonumber ?? { startAt: 1, padding: 0 };
+  const update = (patch: Partial<typeof config>) => onChange({ ...field, autonumber: { ...config, ...patch } });
+  return <div className="grid gap-3 rounded-xl border border-border p-3">
+    <Input label="Prefix" maxLength={40} onChange={(event) => update({ prefix: event.target.value })} value={config.prefix ?? ""} />
+    <Input label="Suffix" maxLength={40} onChange={(event) => update({ suffix: event.target.value })} value={config.suffix ?? ""} />
+    <Input label="Start at" max={AUTONUMBER_MAX_START_AT} min={0} onChange={(event) => update({ startAt: Number(event.target.value) })} type="number" value={String(config.startAt)} />
+    <Input label="Padding" max={18} min={0} onChange={(event) => update({ padding: Number(event.target.value) })} type="number" value={String(config.padding)} />
+  </div>;
 }
 
 function RecordLookupSettings({

@@ -15,15 +15,18 @@ public sealed class RecordSubmissionService
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly RecordLookupService recordLookup;
+    private readonly AutonumberService autonumbers;
 
     public RecordSubmissionService(
         OpenBusinessPlatformDbContext dbContext,
         TriggerEventOutbox triggerEventOutbox,
-        RecordLookupService recordLookup)
+        RecordLookupService recordLookup,
+        AutonumberService autonumbers)
     {
         this.dbContext = dbContext;
         this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
+        this.autonumbers = autonumbers;
     }
 
     public async Task<FormRecordDto> SubmitRecordAsync(
@@ -66,7 +69,9 @@ public sealed class RecordSubmissionService
             throw new RecordSubmissionException(StatusCodes.Status409Conflict, "Published form version schema is invalid.");
         }
 
-        var validation = FormSchemaValidator.ValidateRecordValues(schema, request.Values);
+        var values = new Dictionary<string, object?>(request.Values, StringComparer.Ordinal);
+        await autonumbers.ApplyAsync(form.Id, schema, values, cancellationToken);
+        var validation = FormSchemaValidator.ValidateRecordValues(schema, values);
         if (!validation.Valid)
         {
             throw new RecordSubmissionException(StatusCodes.Status400BadRequest, "Record values are invalid.", validation.Errors);
@@ -75,7 +80,7 @@ public sealed class RecordSubmissionService
         var lookupValidation = await recordLookup.ValidateLookupValuesAsync(
             principal,
             schema,
-            request.Values,
+            values,
             permissionService,
             cancellationToken);
         if (lookupValidation.Count > 0)
@@ -90,13 +95,13 @@ public sealed class RecordSubmissionService
             FormVersionId = form.CurrentVersion.Id,
             Status = RecordStatuses.Active,
             OwnerId = submittedById,
-            ValuesJson = JsonSerializer.SerializeToDocument(request.Values, JsonOptions),
+            ValuesJson = JsonSerializer.SerializeToDocument(values, JsonOptions),
             CreatedById = submittedById
         };
 
         dbContext.Records.Add(record);
         AddAudit(record, submittedById);
-        var snapshot = ToTriggerSnapshot(record, request.Values);
+        var snapshot = ToTriggerSnapshot(record, values);
         triggerEventOutbox.Enqueue(new TriggerEventContext(
             TriggerEvents.RecordCreated,
             record.FormId,
@@ -119,11 +124,11 @@ public sealed class RecordSubmissionService
         var displayValues = await recordLookup.ResolveLookupDisplayValuesAsync(
             principal,
             schema,
-            new[] { request.Values },
+            new[] { (IReadOnlyDictionary<string, object?>)values },
             permissionService,
             cancellationToken);
 
-        return ToDto(record, request.Values, displayValues[0]);
+        return ToDto(record, values, displayValues[0]);
     }
 
     private void AddAudit(FormRecord record, Guid? userId)

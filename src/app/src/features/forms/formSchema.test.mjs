@@ -398,3 +398,14 @@ test("structured address fields validate bounded values and required parts", () 
   const invalidConfig = { ...schema, fields: [{ ...schema.fields[0], address: { requiredSubfields: ["unsupported"] } }] };
   assert.equal(validateFormSchema(invalidConfig).errors.some((error) => error.code === "field.address_subfield_unknown"), true);
 });
+
+test("autonumber fields validate bounded configuration and generated strings", () => {
+  const schema = { schemaVersion: 1, fields: [{ id: "request_number", type: "autonumber", label: "Request number", autonumber: { prefix: "REQ-", suffix: "-CA", startAt: 42, padding: 6 } }], layout: { pages: [{ id: "page_1", sections: [{ id: "section_1", rows: [{ id: "row_1", columns: [{ id: "col_1", span: { mobile: 12, tablet: 12, desktop: 12 }, fields: ["request_number"] }] }] }] }] } };
+  assert.deepEqual(validateFormSchema(schema), { valid: true, errors: [] });
+  assert.deepEqual(validateRecordValues(schema, { request_number: "REQ-000042-CA" }), { valid: true, errors: [] });
+  const invalid = { ...schema, fields: [{ ...schema.fields[0], autonumber: { prefix: "x".repeat(41), startAt: -1, padding: 19 } }] };
+  assert.equal(validateFormSchema(invalid).errors.some((error) => error.code === "field.autonumber_start"), true);
+  assert.equal(validateFormSchema(invalid).errors.some((error) => error.code === "field.autonumber_padding"), true);
+  const unsafeStart = { ...schema, fields: [{ ...schema.fields[0], autonumber: { startAt: Number.MAX_SAFE_INTEGER, padding: 0 } }] };
+  assert.equal(validateFormSchema(unsafeStart).errors.some((error) => error.code === "field.autonumber_start"), true);
+});

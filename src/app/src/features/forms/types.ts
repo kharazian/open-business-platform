@@ -19,7 +19,8 @@ export const formFieldTypes = [
   "userPicker",
   "departmentPicker",
   "subTable",
-  "address"
+  "address",
+  "autonumber"
 ] as const;
 
 export type FormFieldType = (typeof formFieldTypes)[number];
@@ -46,6 +47,8 @@ export type FormRecordValue = string | number | boolean | FormAddressValue | nul
 export type FormFieldAddressConfig = {
   requiredSubfields?: AddressSubfield[];
 };
+export type FormFieldAutonumberConfig = { prefix?: string; suffix?: string; startAt: number; padding: number };
+export const AUTONUMBER_MAX_START_AT = 999_999_999_999_999;
 
 export type FormFieldLookupConfig = {
   sourceType: "form_records";
@@ -85,6 +88,7 @@ export type FormField = {
   lookup?: FormFieldLookupConfig;
   subTable?: FormFieldSubTableConfig;
   address?: FormFieldAddressConfig;
+  autonumber?: FormFieldAutonumberConfig;
 };
 
 export type ResponsiveSpan = {

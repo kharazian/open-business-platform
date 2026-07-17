@@ -23,6 +23,7 @@ public static class FormFieldTypes
     public const string DepartmentPicker = "departmentPicker";
     public const string SubTable = "subTable";
     public const string Address = "address";
+    public const string Autonumber = "autonumber";
 
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -46,7 +47,8 @@ public static class FormFieldTypes
         UserPicker,
         DepartmentPicker,
         SubTable,
-        Address
+        Address,
+        Autonumber
     };
 
     public static bool IsChoice(string type)
@@ -116,6 +118,14 @@ public static class FormAddressSubfields
 }
 
 public sealed record FormFieldAddressDefinition(IReadOnlyList<string>? RequiredSubfields = null);
+public sealed record FormFieldAutonumberDefinition(string? Prefix = null, string? Suffix = null, long StartAt = 1, int Padding = 0);
+
+public static class FormAutonumberLimits
+{
+    public const long MaxStartAt = 999_999_999_999_999;
+    public const int MaxPadding = 18;
+    public const int MaxAffixLength = 40;
+}
 
 public sealed record FormFieldDefinition(
     string Id,
@@ -129,7 +139,8 @@ public sealed record FormFieldDefinition(
     FormFieldValidationDefinition? Validation = null,
     FormFieldLookupDefinition? Lookup = null,
     FormFieldSubTableDefinition? SubTable = null,
-    FormFieldAddressDefinition? Address = null);
+    FormFieldAddressDefinition? Address = null,
+    FormFieldAutonumberDefinition? Autonumber = null);
 
 public sealed record ResponsiveSpanDefinition(
     int Mobile,

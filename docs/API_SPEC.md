@@ -953,8 +953,11 @@ Supported schema version 1 field types:
 - `departmentPicker`
 - `subTable`
 - `address`
+- `autonumber`
 
 An `address` field has an `address.requiredSubfields` array containing zero or more of `line1`, `line2`, `city`, `region`, `postalCode`, `country`, `latitude`, and `longitude`. Record values use an object with only those members. Text members are bounded to 200 characters, except country at 100; latitude is bounded to -90 through 90 and longitude to -180 through 180. Unknown members are rejected. Lists, reports, CSV, print, and record detail responses use a stable combined address in `displayValues` while preserving the structured object in `values`.
+
+An `autonumber` field has an `autonumber` object with optional `prefix` and `suffix` strings (40 characters each), a required integer `startAt` from `0` through `999999999999999`, and required `padding` from `0` through `18`. Record creation rejects client-supplied values, allocates the next number atomically in PostgreSQL inside the record transaction, formats it as prefix + zero-padded number + suffix, and stores that string in `values`. Record edits preserve the stored value and reject changes. Autonumbers are read-only in form entry/edit UIs and otherwise behave as display/search text in records, lookups, reports, CSV, print, triggers, and workflows.
 
 Canonical draft/version schema shape:
 

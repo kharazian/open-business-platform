@@ -34,16 +34,16 @@ Structured addresses established the first V10 composite value without relationa
 
 ## Acceptance Criteria
 
-- [ ] Draft/publish validation accepts bounded autonumber configuration and rejects invalid configuration.
-- [ ] Concurrent record creation cannot allocate duplicate values for the same workspace/form/field.
-- [ ] Separate forms, workspaces, and field IDs have independent counters.
-- [ ] The configured starting value, prefix, suffix, and padding produce deterministic strings.
-- [ ] Create payloads containing an autonumber value are rejected with a field-specific validation error.
-- [ ] Record edits preserve the original number and reject changes.
-- [ ] Builder, renderer, record, report, CSV, print, lookup, trigger, and workflow paths treat the generated value as ordinary display text.
-- [ ] Existing schemas and records remain compatible.
-- [ ] Migration, API, and data-model documentation are updated.
-- [ ] Backend harness/build, frontend tests/build, migration consistency, and `git diff --check` pass.
+- [x] Draft/publish validation accepts bounded autonumber configuration and rejects invalid configuration.
+- [x] Concurrent record creation cannot allocate duplicate values for the same workspace/form/field.
+- [x] Separate forms, workspaces, and field IDs have independent counters.
+- [x] The configured starting value, prefix, suffix, and padding produce deterministic strings.
+- [x] Create payloads containing an autonumber value are rejected with a field-specific validation error.
+- [x] Record edits preserve the original number and reject changes.
+- [x] Builder, renderer, record, report, CSV, print, lookup, trigger, and workflow paths treat the generated value as ordinary display text.
+- [x] Existing schemas and records remain compatible.
+- [x] Migration, API, and data-model documentation are updated.
+- [x] Backend harness/build, frontend tests/build, migration consistency, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -63,8 +63,8 @@ Structured addresses established the first V10 composite value without relationa
 
 ## Migration Notes
 
-- Add a workspace-owned sequence table with restrictive workspace/form foreign keys.
-- Add a unique `(workspace_id, form_id, field_id)` index.
+- Migration `20260717191123_BackendGeneratedAutonumbers` adds a workspace-owned sequence table with restrictive workspace/form foreign keys.
+- The migration adds a unique `(workspace_id, form_id, field_id)` index.
 - Do not modify historical record JSON or published form versions.
 
 ## Notes
@@ -72,5 +72,5 @@ Structured addresses established the first V10 composite value without relationa
 - Sequence allocation and record persistence must share one database transaction.
 - A form may contain multiple independent autonumber fields.
 - Formatting belongs to the immutable published schema; counter state belongs to PostgreSQL.
+- A clean PostgreSQL acceptance run allocated 32 concurrent values with 32 distinct results spanning `1000` through `1031`; the stored next value was `1032`.
 - Implement only this task.
-

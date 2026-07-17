@@ -1,4 +1,5 @@
 import {
+  AUTONUMBER_MAX_START_AT,
   type FormField,
   addressSubfields,
   type FormAddressValue,
@@ -114,6 +115,16 @@ function validateField(field: FormField, index: number, fieldIds: Set<string>, e
 
   if (field.type === "address") {
     validateAddressConfig(field, path, errors);
+  }
+  if (field.type === "autonumber") {
+    const config = field.autonumber;
+    if (!config) errors.push(error(`${path}.autonumber`, "field.autonumber_required", `'${field.label}' requires autonumber configuration.`));
+    else {
+      if (!Number.isSafeInteger(config.startAt) || config.startAt < 0 || config.startAt > AUTONUMBER_MAX_START_AT) errors.push(error(`${path}.autonumber.startAt`, "field.autonumber_start", `Autonumber start must be between 0 and ${AUTONUMBER_MAX_START_AT}.`));
+      if (!Number.isInteger(config.padding) || config.padding < 0 || config.padding > 18) errors.push(error(`${path}.autonumber.padding`, "field.autonumber_padding", "Autonumber padding must be between 0 and 18."));
+      if ((config.prefix?.length ?? 0) > 40) errors.push(error(`${path}.autonumber.prefix`, "field.autonumber_prefix", "Autonumber prefix must be at most 40 characters."));
+      if ((config.suffix?.length ?? 0) > 40) errors.push(error(`${path}.autonumber.suffix`, "field.autonumber_suffix", "Autonumber suffix must be at most 40 characters."));
+    }
   }
 }
 
@@ -365,6 +376,10 @@ function validateRecordFieldValue(field: FormField, value: FormRecordValue, erro
 
   if (field.type === "address") {
     validateAddressValue(field, value, path, errors);
+    return;
+  }
+  if (field.type === "autonumber") {
+    if (typeof value !== "string") errors.push(error(path, "record.autonumber_type", `'${field.label}' must be a generated string.`));
     return;
   }
 

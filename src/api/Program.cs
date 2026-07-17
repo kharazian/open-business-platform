@@ -64,6 +64,7 @@ builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<RecordLookupService>();
+builder.Services.AddScoped<AutonumberService>();
 builder.Services.AddScoped<RecordTimelineService>();
 builder.Services.AddScoped<PrintTemplateService>();
 builder.Services.AddScoped<PrintPdfService>();

@@ -32,7 +32,8 @@ export const fieldTypeLabels: Record<FormFieldType, string> = {
   userPicker: "User picker",
   departmentPicker: "Department picker",
   subTable: "Sub-table",
-  address: "Address"
+  address: "Address",
+  autonumber: "Autonumber"
 };
 
 export const fieldTypeDescriptions: Record<FormFieldType, string> = {
@@ -56,7 +57,8 @@ export const fieldTypeDescriptions: Record<FormFieldType, string> = {
   userPicker: "Select an active platform user",
   departmentPicker: "Select an active department",
   subTable: "Show related child form records",
-  address: "Structured postal address"
+  address: "Structured postal address",
+  autonumber: "Server-generated sequential identifier"
 };
 
 export const choiceFieldTypes = ["select", "radio"] as const;
@@ -233,6 +235,7 @@ function createField(type: FormFieldType, existingFields: FormField[]): FormFiel
   if (type === "address") {
     field.address = { requiredSubfields: [] };
   }
+  if (type === "autonumber") field.autonumber = { startAt: 1, padding: 0 };
 
   return field;
 }
@@ -306,6 +309,10 @@ function normalizeField(field: FormField): FormField {
   } else {
     delete normalized.address;
   }
+  if (field.type === "autonumber") {
+    normalized.autonumber = { prefix: normalizeText(field.autonumber?.prefix), suffix: normalizeText(field.autonumber?.suffix), startAt: Math.max(0, Math.trunc(field.autonumber?.startAt ?? 1)), padding: Math.min(18, Math.max(0, Math.trunc(field.autonumber?.padding ?? 0))) };
+    delete normalized.defaultValue; delete normalized.placeholder; normalized.required = false;
+  } else delete normalized.autonumber;
 
   removeUndefinedOptionalProperties(normalized);
 

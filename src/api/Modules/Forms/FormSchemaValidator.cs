@@ -144,6 +144,7 @@ public static partial class FormSchemaValidator
         {
             ValidateAddress(field, path, errors);
         }
+        if (requireFieldConfiguration && field.Type == FormFieldTypes.Autonumber) ValidateAutonumber(field, path, errors);
     }
 
     private static void ValidateOptions(
@@ -296,6 +297,16 @@ public static partial class FormSchemaValidator
                 errors.Add(Error($"{path}.address.requiredSubfields[{index}]", "field.address_subfield_duplicate", $"Address subfield '{subfield}' is duplicated."));
             }
         }
+    }
+
+    private static void ValidateAutonumber(FormFieldDefinition field, string path, List<FormValidationError> errors)
+    {
+        var config = field.Autonumber;
+        if (config is null) { errors.Add(Error($"{path}.autonumber", "field.autonumber_required", $"'{field.Label}' requires autonumber configuration.")); return; }
+        if (config.StartAt is < 0 or > FormAutonumberLimits.MaxStartAt) errors.Add(Error($"{path}.autonumber.startAt", "field.autonumber_start", $"Autonumber start must be between 0 and {FormAutonumberLimits.MaxStartAt}."));
+        if (config.Padding is < 0 or > FormAutonumberLimits.MaxPadding) errors.Add(Error($"{path}.autonumber.padding", "field.autonumber_padding", $"Autonumber padding must be between 0 and {FormAutonumberLimits.MaxPadding}."));
+        if ((config.Prefix?.Length ?? 0) > FormAutonumberLimits.MaxAffixLength) errors.Add(Error($"{path}.autonumber.prefix", "field.autonumber_prefix", $"Autonumber prefix must be at most {FormAutonumberLimits.MaxAffixLength} characters."));
+        if ((config.Suffix?.Length ?? 0) > FormAutonumberLimits.MaxAffixLength) errors.Add(Error($"{path}.autonumber.suffix", "field.autonumber_suffix", $"Autonumber suffix must be at most {FormAutonumberLimits.MaxAffixLength} characters."));
     }
 
     private static void ValidateLayout(
@@ -605,6 +616,9 @@ public static partial class FormSchemaValidator
                 return;
             case FormFieldTypes.Address:
                 ValidateAddressValue(field, value, path, errors);
+                return;
+            case FormFieldTypes.Autonumber:
+                if (!IsStringValue(value)) errors.Add(Error(path, "record.autonumber_type", $"'{field.Label}' must be a generated string."));
                 return;
         }
 

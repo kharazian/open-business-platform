@@ -38,7 +38,8 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
           parentLookupFieldId: "parent_request",
           displayColumnFieldIds: ["item_name"]
         }
-      }
+      },
+      { id: "request_number", type: "autonumber", label: "Request number", defaultValue: "ignored", autonumber: { startAt: 1, padding: 0 } }
     ],
     layout: {
       pages: [
@@ -120,6 +121,14 @@ test("form renderer helpers initialize, coerce, map errors, and build span class
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "tablet"), "col-span-6");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "desktop"), "col-span-4");
   assert.equal(getColumnSpanClass(schema.layout.pages[0].sections[0].rows[0].columns[0], "responsive"), "col-span-12 md:col-span-6 xl:col-span-4");
+});
+
+test("form renderer keeps autonumbers server-generated and read-only", () => {
+  const rendererSource = readFileSync(new URL("./components/FormRenderer.tsx", import.meta.url), "utf8");
+
+  assert.deepEqual(createInitialRecordValues({ schemaVersion: 1, fields: [{ id: "request_number", type: "autonumber", label: "Request number", autonumber: { startAt: 1, padding: 0 } }], layout: { pages: [] } }), {});
+  assert.equal(rendererSource.includes('field.type === "autonumber"'), true);
+  assert.equal(rendererSource.includes('help={field.helpText ?? "Generated when the record is created."}'), true);
 });
 
 test("form renderer exposes read-only sub-table preview", () => {

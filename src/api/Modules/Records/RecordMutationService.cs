@@ -78,7 +78,7 @@ public sealed class RecordMutationService
 
         var fieldAccess = await permissionService.GetFieldAccessAsync(principal, record.FormId, cancellationToken);
         var currentValues = DeserializeValues(record.ValuesJson);
-        var effectiveValues = MergeProtectedValues(currentValues, request.Values, fieldAccess);
+        var effectiveValues = MergeProtectedValues(currentValues, request.Values, fieldAccess, schema);
         var beforeSnapshot = ToTriggerSnapshot(record, currentValues);
         var changedFieldIds = GetChangedFieldIds(currentValues, effectiveValues);
 
@@ -409,11 +409,13 @@ public sealed class RecordMutationService
     private static IReadOnlyDictionary<string, object?> MergeProtectedValues(
         IReadOnlyDictionary<string, object?> currentValues,
         IReadOnlyDictionary<string, object?> requestedValues,
-        FieldAccessResult fieldAccess)
+        FieldAccessResult fieldAccess,
+        FormSchemaDefinition schema)
     {
         var merged = requestedValues.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var blocked = fieldAccess.HiddenFieldIds
             .Concat(fieldAccess.ReadOnlyFieldIds)
+            .Concat(schema.Fields.Where(field => field.Type == FormFieldTypes.Autonumber).Select(field => field.Id))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 

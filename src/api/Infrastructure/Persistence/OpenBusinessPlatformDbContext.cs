@@ -82,6 +82,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
     public DbSet<FormDefinition> Forms => Set<FormDefinition>();
 
     public DbSet<FormVersion> FormVersions => Set<FormVersion>();
+    public DbSet<FormAutonumberSequence> FormAutonumberSequences => Set<FormAutonumberSequence>();
 
     public DbSet<FormRecord> Records => Set<FormRecord>();
 
@@ -782,6 +783,20 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany(form => form.Versions)
                 .HasForeignKey(version => version.FormId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FormAutonumberSequence>(entity =>
+        {
+            entity.ToTable("form_autonumber_sequences");
+            entity.HasKey(sequence => sequence.Id);
+            entity.HasIndex(sequence => new { sequence.WorkspaceId, sequence.FormId, sequence.FieldId }).IsUnique();
+            entity.Property(sequence => sequence.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(sequence => sequence.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(sequence => sequence.FieldId).HasColumnName("field_id").HasMaxLength(120).IsRequired();
+            entity.Property(sequence => sequence.NextValue).HasColumnName("next_value").IsRequired();
+            entity.Property(sequence => sequence.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(sequence => sequence.UpdatedAt).HasColumnName("updated_at").IsRequired();
+            entity.HasOne(sequence => sequence.Form).WithMany().HasForeignKey(sequence => sequence.FormId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 
