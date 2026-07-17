@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1 Finalized, V2-V8 Complete, V9 In Progress
+## Current State: V1-V9 Complete, V10 Planned
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
 
-Next: V9 can be postponed; when ready, start from `docs/V9_START_HERE.md` and `tasks/v9/README.md`.
+Next: V10 operational app modeling starts from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. The first bounded implementation task is `tasks/v10/001-structured-address-field.md`.
 
 The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
 
@@ -277,10 +277,19 @@ Features:
 - Localization foundation implemented in V9 task 008 with workspace locale/timezone defaults, per-user overrides, and shared formatting/message helpers
 - Custom domains implemented in V9 task 009 with normalized global hostname ownership, DNS TXT verification, audited lifecycle controls, and signed-workspace conflict rejection
 - Compliance and audit administration implemented in V9 task 010 with operational posture evidence, payload-safe audit search, and bounded audited CSV export
-- Advanced RBAC/ABAC
-- Data retention
-- Backup/restore
-- White labeling implemented
-- Localization implemented
-- Custom domains implemented
-- Compliance features implemented
+
+## V10: Operational App Modeling
+
+Goal: support richer operational business applications on top of the V9 enterprise boundary.
+
+Planned sequence:
+
+- Structured address fields.
+- Backend-generated autonumber fields.
+- Protected file attachment storage.
+- Stronger lookup relationships and nested report data.
+- Related-record workspaces and typed operational actions.
+- Bounded processing jobs, operational logs, and failure notifications.
+- An analysis-only Creator-style export assistant.
+
+Start with `tasks/v10/001-structured-address-field.md`. Later items require their own task files before implementation.
