@@ -35,6 +35,10 @@ Task 004 evaluates existing RBAC grants and record scopes first, then applies en
 
 Any matching policy denies access. Resource IDs may be omitted for workspace-wide coverage. Record conditions are translated into the existing EF query so denied rows do not enter application memory. The bootstrap recovery administrator is the only policy bypass; ordinary `Admin` role users remain subject to guardrails. Policy management and simulation require `roles.manage`, remain workspace-filtered, and policy mutations are audited.
 
+## Retention Safety
+
+Task 005 adds only `retention.manage`-protected definitions, legal holds, and dry-runs. Candidate evaluation stays database-side, excludes active holds, returns at most 100 IDs plus a count, and never returns payloads. No deletion, anonymization, or archival executor exists.
+
 ## API Security
 
 Every API should verify:

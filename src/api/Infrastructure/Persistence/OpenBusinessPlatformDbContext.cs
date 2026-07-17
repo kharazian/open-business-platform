@@ -39,6 +39,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<AccessPolicy> AccessPolicies => Set<AccessPolicy>();
 
+    public DbSet<RetentionPolicy> RetentionPolicies => Set<RetentionPolicy>();
+
+    public DbSet<LegalHold> LegalHolds => Set<LegalHold>();
+
     public DbSet<User> Users => Set<User>();
 
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -144,6 +148,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureWorkspaceMemberships(modelBuilder);
         ConfigureSso(modelBuilder);
         ConfigureAccessPolicies(modelBuilder);
+        ConfigureRetention(modelBuilder);
         ConfigureGroups(modelBuilder);
         ConfigureForms(modelBuilder);
         ConfigureRecords(modelBuilder);
@@ -354,6 +359,34 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(policy => policy.ConditionsJson).HasColumnName("conditions_json").HasColumnType("jsonb").IsRequired();
             entity.Property(policy => policy.Priority).HasColumnName("priority").HasDefaultValue(0);
             entity.Property(policy => policy.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
+        });
+    }
+
+    private static void ConfigureRetention(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RetentionPolicy>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "retention_policies");
+            entity.HasIndex(policy => new { policy.WorkspaceId, policy.IsEnabled, policy.ResourceType });
+            entity.Property(policy => policy.Name).HasColumnName("name").HasMaxLength(160).IsRequired();
+            entity.Property(policy => policy.ResourceType).HasColumnName("resource_type").HasMaxLength(40).IsRequired();
+            entity.Property(policy => policy.FormId).HasColumnName("form_id").HasColumnType("uuid");
+            entity.Property(policy => policy.RetentionDays).HasColumnName("retention_days").IsRequired();
+            entity.Property(policy => policy.Priority).HasColumnName("priority").HasDefaultValue(0);
+            entity.Property(policy => policy.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
+        });
+        modelBuilder.Entity<LegalHold>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "legal_holds");
+            entity.HasIndex(hold => new { hold.WorkspaceId, hold.ResourceType, hold.EntityId, hold.ReleasedAt });
+            entity.Property(hold => hold.ResourceType).HasColumnName("resource_type").HasMaxLength(40).IsRequired();
+            entity.Property(hold => hold.EntityId).HasColumnName("entity_id").HasColumnType("uuid").IsRequired();
+            entity.Property(hold => hold.Reason).HasColumnName("reason").HasMaxLength(1000).IsRequired();
+            entity.Property(hold => hold.PlacedAt).HasColumnName("placed_at").IsRequired();
+            entity.Property(hold => hold.PlacedById).HasColumnName("placed_by_id").HasColumnType("uuid");
+            entity.Property(hold => hold.ReleasedAt).HasColumnName("released_at");
+            entity.Property(hold => hold.ReleasedById).HasColumnName("released_by_id").HasColumnType("uuid");
+            entity.Property(hold => hold.ReleaseReason).HasColumnName("release_reason").HasMaxLength(1000);
         });
     }
 

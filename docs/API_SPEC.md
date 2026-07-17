@@ -138,6 +138,12 @@ Create or update a deny-overrides policy. The typed contract contains `name`, op
 
 Evaluates policies for an active workspace member and a supplied typed resource context. Returns `{ "denied": true|false, "matchingPolicyIds": [...] }`. Simulation reports policy effects only; it does not imply that underlying RBAC granted the action.
 
+### Retention and legal holds
+
+All endpoints require `retention.manage`. `GET|POST /api/retention/policies` and `PUT /api/retention/policies/{id}` manage bounded age policies for `record`, `audit_log`, or `integration_log`; record policies may optionally target one form. `POST /api/retention/policies/{id}/dry-run` returns cutoff, candidate count, up to 100 entity IDs, and truncation state without returning payloads or deleting data.
+
+`GET|POST /api/retention/legal-holds` list/place typed entity holds. `POST /api/retention/legal-holds/{id}/release` requires a release reason and concurrency stamp. Active holds exclude entities from dry-runs; released holds retain history and cannot be reactivated.
+
 ### Integration API keys
 
 Integration API key management uses the normal cookie-authenticated admin surface. Every endpoint below requires authentication and `integrations.manage`.
