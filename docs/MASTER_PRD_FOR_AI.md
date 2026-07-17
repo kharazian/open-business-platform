@@ -946,6 +946,7 @@ V9 tasks 001 through 010 are complete: ownership, membership context, OIDC SSO, 
 V10 task 001 is complete: schema-version-1 forms now support bounded structured address configuration and JSONB values across builder, renderer, record validation/editing, list/detail, reports, CSV, and print display without adding a database table.
 V10 task 002 is complete: immutable autonumber fields use bounded published formatting configuration and workspace/form/field-scoped PostgreSQL allocation inside record creation transactions; clients cannot supply or edit generated values.
 V10 task 003 is complete: `fileUpload` fields use bounded protected uploads, workspace-owned metadata, private PostgreSQL content behind storage/scanner interfaces, atomic record claims, safe filename display, and audited permission-checked downloads.
+V10 task 004 is complete: record lookups now materialize workspace-owned source/target edges, restrict referenced deletes including legacy JSON-only links, require published targets for new selections, and preserve unchanged selections after archival.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

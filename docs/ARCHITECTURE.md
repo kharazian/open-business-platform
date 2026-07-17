@@ -259,6 +259,7 @@ Infrastructure responsibility:
 - Store flexible schemas as JSONB.
 - Store common query fields as relational columns.
 - Store attachment metadata and bounded private PostgreSQL content separately from record JSON. Access content through a storage interface, inspect it through a scanner interface, and authorize every download against current record/field access.
+- Treat lookup UUIDs in immutable-version record JSON as source values and `record_relationships` as derived integrity/index metadata. Synchronize edges transactionally, restrict referenced target deletion, and never expose a generic edge mutation API.
 - Use backend permission checks for every sensitive API.
 - Keep responsive form layout grid-based, not canvas-based.
 - Use XYFlow only for workflow visual authoring.

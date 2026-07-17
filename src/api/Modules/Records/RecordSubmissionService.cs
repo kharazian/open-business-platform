@@ -17,19 +17,22 @@ public sealed class RecordSubmissionService
     private readonly RecordLookupService recordLookup;
     private readonly AutonumberService autonumbers;
     private readonly FileAttachmentService attachments;
+    private readonly RecordRelationshipService relationships;
 
     public RecordSubmissionService(
         OpenBusinessPlatformDbContext dbContext,
         TriggerEventOutbox triggerEventOutbox,
         RecordLookupService recordLookup,
         AutonumberService autonumbers,
-        FileAttachmentService attachments)
+        FileAttachmentService attachments,
+        RecordRelationshipService relationships)
     {
         this.dbContext = dbContext;
         this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
         this.autonumbers = autonumbers;
         this.attachments = attachments;
+        this.relationships = relationships;
     }
 
     public async Task<FormRecordDto> SubmitRecordAsync(
@@ -84,6 +87,7 @@ public sealed class RecordSubmissionService
             principal,
             schema,
             values,
+            null,
             permissionService,
             cancellationToken);
         if (lookupValidation.Count > 0)
@@ -107,6 +111,7 @@ public sealed class RecordSubmissionService
         var attachmentValidation = await attachments.ValidateAndClaimAsync(record.Id, form.Id, form.CurrentVersion.Id, schema, null, values, submittedById, cancellationToken);
         if (attachmentValidation.Count > 0)
             throw new RecordSubmissionException(StatusCodes.Status400BadRequest, "Record values are invalid.", attachmentValidation);
+        await relationships.SynchronizeAsync(record.Id, record.FormId, record.FormVersionId, schema, values, submittedById, cancellationToken);
 
         AddAudit(record, submittedById);
         var snapshot = ToTriggerSnapshot(record, values);

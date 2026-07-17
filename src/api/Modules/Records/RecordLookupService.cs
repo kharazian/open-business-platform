@@ -76,14 +76,18 @@ public sealed class RecordLookupService
             throw new RecordQueryException(StatusCodes.Status403Forbidden, "Lookup source access was denied.");
         }
 
-        var sourceFormExists = await dbContext.Forms
+        var sourceFormStatus = await dbContext.Forms
             .AsNoTracking()
-            .AnyAsync(form => form.Id == sourceFormId && !form.IsDeleted, cancellationToken);
+            .Where(form => form.Id == sourceFormId && !form.IsDeleted)
+            .Select(form => form.Status)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!sourceFormExists)
+        if (sourceFormStatus is null)
         {
             throw new RecordQueryException(StatusCodes.Status404NotFound, "Lookup source form was not found.");
         }
+        if (sourceFormStatus != FormStatuses.Published)
+            throw new RecordQueryException(StatusCodes.Status409Conflict, "Lookup source form is not available for new selections.");
 
         var sourceFieldAccess = await permissionService.GetFieldAccessAsync(principal, sourceFormId, cancellationToken);
         var visibleLabelFieldIds = lookupField.Lookup.LabelFieldIds
@@ -257,6 +261,7 @@ public sealed class RecordLookupService
         ClaimsPrincipal principal,
         FormSchemaDefinition schema,
         IReadOnlyDictionary<string, object?> values,
+        IReadOnlyDictionary<string, object?>? currentValues,
         PermissionService permissionService,
         CancellationToken cancellationToken)
     {
@@ -268,6 +273,9 @@ public sealed class RecordLookupService
             {
                 continue;
             }
+
+            if (currentValues is not null && currentValues.TryGetValue(field.Id, out var currentValue) && string.Equals(AsLookupString(currentValue), AsLookupString(value), StringComparison.Ordinal))
+                continue;
 
             if (!TryGetLookupRecordId(value, out var selectedRecordId))
             {
@@ -284,6 +292,13 @@ public sealed class RecordLookupService
             }
 
             if (!await permissionService.CanAccessFormAsync(principal, sourceFormId, PlatformPermissions.Form.View, cancellationToken))
+            {
+                errors.Add(LookupValueError(field, "record.lookup_record_unknown", $"'{field.Label}' selected record was not found or is not accessible."));
+                continue;
+            }
+
+            var sourceIsPublished = await dbContext.Forms.AsNoTracking().AnyAsync(form => form.Id == sourceFormId && !form.IsDeleted && form.Status == FormStatuses.Published, cancellationToken);
+            if (!sourceIsPublished)
             {
                 errors.Add(LookupValueError(field, "record.lookup_record_unknown", $"'{field.Label}' selected record was not found or is not accessible."));
                 continue;

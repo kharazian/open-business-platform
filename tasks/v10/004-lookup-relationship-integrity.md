@@ -27,17 +27,17 @@ Lookup UUIDs currently live only in record JSON. Validation checks a target at s
 
 ## Acceptance Criteria
 
-- [ ] Relationship metadata is workspace-owned, indexed, and protected by restrictive source/target foreign keys.
-- [ ] Record create/edit synchronizes lookup edges atomically and removes replaced/cleared edges.
-- [ ] Concurrent updates cannot create duplicate edges for one source record/field.
-- [ ] Referenced target deletion returns `409`; unreferenced and source-record deletion still succeeds.
-- [ ] Legacy JSON-only lookup references also restrict target deletion.
-- [ ] Archived/draft source forms cannot supply new lookup selections or options.
-- [ ] Unchanged existing selections remain editable/displayable after source form archival.
-- [ ] Permission and hidden-field behavior remains non-disclosing.
-- [ ] Existing schemas, versions, and record JSON remain compatible.
-- [ ] Migration/API/data-model documentation and tests are complete.
-- [ ] Backend harness/build, frontend tests/build, migration consistency, PostgreSQL/API acceptance, and `git diff --check` pass.
+- [x] Relationship metadata is workspace-owned, indexed, and protected by restrictive source/target foreign keys.
+- [x] Record create/edit synchronizes lookup edges atomically and removes replaced/cleared edges.
+- [x] Concurrent updates cannot create duplicate edges for one source record/field.
+- [x] Referenced target deletion returns `409`; unreferenced and source-record deletion still succeeds.
+- [x] Legacy JSON-only lookup references also restrict target deletion.
+- [x] Archived/draft source forms cannot supply new lookup selections or options.
+- [x] Unchanged existing selections remain editable/displayable after source form archival.
+- [x] Permission and hidden-field behavior remains non-disclosing.
+- [x] Existing schemas, versions, and record JSON remain compatible.
+- [x] Migration/API/data-model documentation and tests are complete.
+- [x] Backend harness/build, frontend tests/build, migration consistency, PostgreSQL/API acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -59,4 +59,6 @@ Lookup UUIDs currently live only in record JSON. Validation checks a target at s
 
 - The record's immutable form version defines which JSON members are lookups.
 - Target record IDs remain the source value; relationship rows are derived integrity/index metadata.
-- Implement only this task.
+- Migration `20260717205617_LookupRelationshipIntegrity` was applied to clean PostgreSQL.
+- Authenticated API acceptance covered edge creation/replacement, legacy JSON-only delete restriction, target archival, unchanged-value editing, rejected new selection, source cleanup, and final target deletion.
+- The acceptance flow also corrected repeated soft-delete workspace invariant checks so workspace-owned records can be soft-deleted without weakening ownership-change detection.

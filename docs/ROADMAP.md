@@ -287,7 +287,8 @@ Planned sequence:
 - Structured address fields implemented in V10 task 001 with bounded configuration/value contracts and stable record/report/print display.
 - Backend-generated autonumber fields implemented in V10 task 002 with bounded formatting, immutable record values, and transactional PostgreSQL allocation.
 - Protected file attachment storage implemented in V10 task 003 with bounded inspection, private PostgreSQL content, atomic record claims, and audited permission-checked downloads.
-- Stronger lookup relationships and nested report data.
+- Lookup relationship integrity implemented in V10 task 004 with canonical edges, delete restriction, legacy detection, and archive-safe existing selections.
+- Nested report relationship data.
 - Related-record workspaces and typed operational actions.
 - Bounded processing jobs, operational logs, and failure notifications.
 - An analysis-only Creator-style export assistant.

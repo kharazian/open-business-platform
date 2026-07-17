@@ -1595,6 +1595,8 @@ Draft, archived, deleted, and invalid published forms do not render a submission
 
 Requires authentication plus parent form `view`, form `manage`, or `forms.manage_all` access. The target field must be a visible `recordLookup` field on the parent form. The backend reads the field's lookup config, applies source form `view` access, V3 source record scopes, hidden source-field rules, optional runtime search, and any configured dependent filters before returning options.
 
+New lookup options and selections require the target form to be currently published. If it becomes draft/archived later, existing stored selections remain readable and unchanged relationships do not block unrelated record edits, but they cannot be newly selected. Validated record mutations materialize a workspace-owned relationship edge; clients cannot mutate edges directly.
+
 Query parameters:
 
 - `page` default `1`
@@ -1666,6 +1668,8 @@ Response:
 ```
 
 Record submission uses the form's current published version. The client sends only values; the backend checks submit access, validates values against the published schema, validates selected `recordLookup` records against source record visibility, stores `records.form_version_id`, sets owner/department metadata from the current user, and writes a `record_created` audit entry. Draft and archived forms reject record submission. `displayValues` is response-only and may include resolved lookup labels while `values` preserves the stored record IDs.
+
+Record deletion returns `409 Conflict` when another active record references the target through a lookup. The response reports only the number of referencing records. This restriction includes canonical `record_relationships` and legacy JSON-only lookups. Deleting a source record removes its outgoing relationship rows in the same transaction; cascade clearing is not supported.
 
 ### List records
 

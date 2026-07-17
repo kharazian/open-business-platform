@@ -138,3 +138,7 @@ Trigger event outbox:
 ## Protected File Attachments Migration
 
 `20260717201359_ProtectedFileAttachments` adds workspace-owned `file_attachments` with restrictive form, immutable form-version, record, uploader, and workspace foreign keys. Private PostgreSQL `bytea` content is bounded to 10 MiB by the service and is never returned in metadata projections. Existing schemas, published versions, and legacy file strings require no backfill.
+
+## Lookup Relationship Integrity Migration
+
+`20260717205617_LookupRelationshipIntegrity` adds workspace-owned `record_relationships` with restrictive source/target record and form ownership plus a unique source-record/field edge. Existing JSON values are not rewritten or bulk-backfilled; new mutations materialize edges and target deletion performs a compatibility scan for legacy lookup values.

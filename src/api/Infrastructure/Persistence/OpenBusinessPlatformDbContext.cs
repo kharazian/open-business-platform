@@ -84,6 +84,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
     public DbSet<FormVersion> FormVersions => Set<FormVersion>();
     public DbSet<FormAutonumberSequence> FormAutonumberSequences => Set<FormAutonumberSequence>();
     public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
+    public DbSet<RecordRelationship> RecordRelationships => Set<RecordRelationship>();
 
     public DbSet<FormRecord> Records => Set<FormRecord>();
 
@@ -221,7 +222,9 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         {
             WorkspaceOwnershipGuard.EnsureActive(workspaceOwned, ActiveWorkspaceId);
 
-            if (entry.Property(nameof(IWorkspaceOwned.WorkspaceId)).IsModified)
+            if (entry.State == EntityState.Modified
+                && entry.Property(nameof(IWorkspaceOwned.WorkspaceId)).OriginalValue is Guid originalWorkspaceId
+                && originalWorkspaceId != workspaceOwned.WorkspaceId)
             {
                 throw new InvalidOperationException("Workspace ownership cannot be changed.");
             }
@@ -827,6 +830,27 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasOne(item => item.FormVersion).WithMany().HasForeignKey(item => item.FormVersionId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.Record).WithMany().HasForeignKey(item => item.RecordId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(item => item.UploadedBy).WithMany().HasForeignKey(item => item.UploadedById).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RecordRelationship>(entity =>
+        {
+            ConfigureAuditedEntity(entity, "record_relationships");
+            entity.HasIndex(item => new { item.WorkspaceId, item.SourceRecordId, item.SourceFieldId }).IsUnique();
+            entity.HasIndex(item => new { item.TargetRecordId, item.SourceRecordId });
+            entity.HasIndex(item => item.SourceFormId);
+            entity.HasIndex(item => item.SourceFormVersionId);
+            entity.HasIndex(item => item.TargetFormId);
+            entity.Property(item => item.SourceFormId).HasColumnName("source_form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.SourceFormVersionId).HasColumnName("source_form_version_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.SourceRecordId).HasColumnName("source_record_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.SourceFieldId).HasColumnName("source_field_id").HasMaxLength(120).IsRequired();
+            entity.Property(item => item.TargetFormId).HasColumnName("target_form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(item => item.TargetRecordId).HasColumnName("target_record_id").HasColumnType("uuid").IsRequired();
+            entity.HasOne(item => item.SourceForm).WithMany().HasForeignKey(item => item.SourceFormId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.SourceFormVersion).WithMany().HasForeignKey(item => item.SourceFormVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.SourceRecord).WithMany().HasForeignKey(item => item.SourceRecordId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.TargetForm).WithMany().HasForeignKey(item => item.TargetFormId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(item => item.TargetRecord).WithMany().HasForeignKey(item => item.TargetRecordId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

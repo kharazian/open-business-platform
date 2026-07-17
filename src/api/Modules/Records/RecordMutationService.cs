@@ -16,17 +16,20 @@ public sealed class RecordMutationService
     private readonly TriggerEventOutbox triggerEventOutbox;
     private readonly RecordLookupService recordLookup;
     private readonly FileAttachmentService attachments;
+    private readonly RecordRelationshipService relationships;
 
     public RecordMutationService(
         OpenBusinessPlatformDbContext dbContext,
         TriggerEventOutbox triggerEventOutbox,
         RecordLookupService recordLookup,
-        FileAttachmentService attachments)
+        FileAttachmentService attachments,
+        RecordRelationshipService relationships)
     {
         this.dbContext = dbContext;
         this.triggerEventOutbox = triggerEventOutbox;
         this.recordLookup = recordLookup;
         this.attachments = attachments;
+        this.relationships = relationships;
     }
 
     public async Task<FormRecordDetailDto> UpdateRecordAsync(
@@ -95,6 +98,7 @@ public sealed class RecordMutationService
             principal,
             schema,
             effectiveValues,
+            currentValues,
             permissionService,
             cancellationToken);
         if (lookupValidation.Count > 0)
@@ -105,6 +109,7 @@ public sealed class RecordMutationService
         var attachmentValidation = await attachments.ValidateAndClaimAsync(record.Id, record.FormId, record.FormVersionId, schema, currentValues, effectiveValues, updatedById, cancellationToken);
         if (attachmentValidation.Count > 0)
             throw new RecordMutationException(StatusCodes.Status400BadRequest, "Record values are invalid.", attachmentValidation);
+        await relationships.SynchronizeAsync(record.Id, record.FormId, record.FormVersionId, schema, effectiveValues, updatedById, cancellationToken);
 
         record.ValuesJson = JsonSerializer.SerializeToDocument(effectiveValues, JsonOptions);
         record.UpdatedById = updatedById;
@@ -180,6 +185,9 @@ public sealed class RecordMutationService
         {
             throw new RecordMutationException(StatusCodes.Status403Forbidden, "Record access was denied.");
         }
+
+        await relationships.EnsureTargetCanBeDeletedAsync(record, cancellationToken);
+        await relationships.RemoveOutgoingAsync(record.Id, cancellationToken);
 
         record.Status = RecordStatuses.Deleted;
         record.DeletedById = deletedById;

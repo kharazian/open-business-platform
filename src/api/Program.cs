@@ -64,6 +64,7 @@ builder.Services.AddScoped<RecordSubmissionService>();
 builder.Services.AddScoped<RecordQueryService>();
 builder.Services.AddScoped<RecordMutationService>();
 builder.Services.AddScoped<RecordLookupService>();
+builder.Services.AddScoped<RecordRelationshipService>();
 builder.Services.AddScoped<AutonumberService>();
 builder.Services.AddScoped<FileAttachmentService>();
 builder.Services.AddScoped<IFileAttachmentContentStore, PostgresFileAttachmentContentStore>();

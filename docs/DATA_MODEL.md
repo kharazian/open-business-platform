@@ -652,6 +652,23 @@ Fields:
 
 Migration `20260717201359_ProtectedFileAttachments` adds workspace/form/form-version/record/uploader ownership with restrictive foreign keys. Indexes support form-field lifecycle queries, immutable versions, records, pending uploader lists, creation time, and workspace isolation. PostgreSQL `bytea` is the initial private content provider behind `IFileAttachmentContentStore`; API projections never expose it. The deterministic `IFileAttachmentScanner` implementation checks supported signatures/types/extensions and is an explicit replacement boundary for a future external malware scanner; it does not claim antivirus coverage.
 
+### record_relationships
+
+Fields:
+
+- id uuid
+- workspace_id uuid
+- source_form_id uuid
+- source_form_version_id uuid
+- source_record_id uuid
+- source_field_id varchar(120)
+- target_form_id uuid
+- target_record_id uuid
+- created_at / created_by_id nullable
+- updated_at / updated_by_id nullable
+
+Migration `20260717205617_LookupRelationshipIntegrity` materializes validated single-record lookup edges without changing record JSON. The unique `(workspace_id, source_record_id, source_field_id)` index prevents duplicate canonical edges; source/target record, form, immutable source version, and workspace foreign keys are restrictive. Record create/edit synchronizes rows in its transaction. Source deletion removes outgoing edges, while target deletion is restricted by active incoming edges and a compatibility scan for legacy JSON-only lookup values.
+
 ## Records
 
 ### records

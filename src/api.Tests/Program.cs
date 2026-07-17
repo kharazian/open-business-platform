@@ -163,6 +163,7 @@ AssertTable<FormDefinition>(model, "forms");
 AssertTable<FormVersion>(model, "form_versions");
 AssertTable<FormAutonumberSequence>(model, "form_autonumber_sequences");
 AssertTable<FileAttachment>(model, "file_attachments");
+AssertTable<RecordRelationship>(model, "record_relationships");
 AssertTable<FormRecord>(model, "records");
 AssertTable<ReportDefinition>(model, "reports");
 AssertTable<DashboardDefinition>(model, "dashboards");
@@ -213,6 +214,8 @@ AssertWorkspaceOwned<UserDepartment>(model);
 AssertWorkspaceOwned<FormDefinition>(model);
 AssertWorkspaceOwned<FormAutonumberSequence>(model);
 AssertWorkspaceOwned<FileAttachment>(model);
+AssertWorkspaceOwned<RecordRelationship>(model);
+AssertUniqueIndex<RecordRelationship>(model, new[] { nameof(RecordRelationship.WorkspaceId), nameof(RecordRelationship.SourceRecordId), nameof(RecordRelationship.SourceFieldId) }, "Lookup relationships should have one canonical edge per source record and field.");
 AssertUniqueIndex<FormAutonumberSequence>(model, new[] { nameof(FormAutonumberSequence.WorkspaceId), nameof(FormAutonumberSequence.FormId), nameof(FormAutonumberSequence.FieldId) }, "Autonumber allocation should have one counter per workspace, form, and field.");
 AssertWorkspaceOwned<FormRecord>(model);
 AssertWorkspaceOwned<DashboardDefinition>(model);
@@ -3220,6 +3223,12 @@ var dependentLookupSchema = lookupSchema with
         }
     }
 };
+var relationshipTargetId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+var relationshipEdges = RecordRelationshipService.ExtractEdges(lookupSchema, new Dictionary<string, object?> { ["customer"] = relationshipTargetId.ToString() });
+AssertEqual(1, relationshipEdges.Count, "Lookup record values should materialize one relationship edge.");
+AssertEqual("customer", relationshipEdges.Single().FieldId, "Relationship edges should retain the source lookup field.");
+AssertEqual(relationshipTargetId, relationshipEdges.Single().TargetRecordId, "Relationship edges should retain the target record.");
+AssertEqual(0, RecordRelationshipService.ExtractEdges(lookupSchema, new Dictionary<string, object?> { ["customer"] = "legacy-invalid" }).Count, "Invalid legacy lookup strings should not materialize relationship edges.");
 AssertTrue(FormSchemaValidator.ValidateSchema(dependentLookupSchema).Valid, "Dependent record lookup filters should validate with source and parent field ids.");
 AssertTrue(
     FormSchemaValidator.ValidateSchema(
