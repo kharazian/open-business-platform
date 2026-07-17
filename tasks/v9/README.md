@@ -14,7 +14,7 @@ The sequence below is a planning list only. Create a specific task file before i
 6. `006-backup-restore-and-admin-export.md` - complete; protected workspace snapshots, checksummed manifests, audited downloads, and validation-only restore plans.
 7. `007-white-labeling-and-workspace-branding.md` - complete; workspace-owned app labels, safe logo data, primary color, login copy, public projection, audited administration, and real-app integration remain separate from user appearance preferences.
 8. `008-localization-foundation.md` - complete; workspace defaults, per-user locale/timezone overrides, shared `Intl` formatting/message helpers, authorized administration, and audit coverage.
-9. `009-custom-domains.md` - add custom domain configuration after workspace routing and branding are stable.
+9. `009-custom-domains.md` - complete; globally unique normalized hosts, DNS TXT proof, lifecycle controls, audited administration, and fail-closed host/workspace routing.
 10. `010-compliance-and-audit-administration.md` - add compliance reporting, audit retention review, and sensitive admin activity surfaces.
 
 ## Scope Rules

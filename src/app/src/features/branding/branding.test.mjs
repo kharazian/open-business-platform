@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { getPublicBranding, saveCurrentBranding } from "./api.ts";
+import { getHostBranding, getPublicBranding, saveCurrentBranding } from "./api.ts";
 
 const branding = { appName: "Acme", logoText: "AC", logoDataUrl: null, primaryColor: "#123456", loginMessage: "Welcome", concurrencyStamp: "stamp" };
 
@@ -12,6 +12,12 @@ test("public branding lookup encodes tenant and workspace slugs", async () => {
   });
   assert.equal(requested, "/api/branding/public?tenant=acme+tenant&workspace=main%2Fworkspace");
   assert.equal(result.appName, "Acme");
+});
+
+test("host branding uses the safe anonymous host projection", async () => {
+  let requested = "";
+  await getHostBranding(async (input) => { requested = input; return new Response(JSON.stringify(branding), { status: 200 }); });
+  assert.equal(requested, "/api/branding/host");
 });
 
 test("branding updates send concurrency state and expose API errors", async () => {

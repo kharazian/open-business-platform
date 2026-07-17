@@ -4,7 +4,7 @@
 
 Database: PostgreSQL
 
-Status: V8 is complete and V9 is complete through task 008. The model includes tenants, workspaces, memberships, SSO providers, external identity links, access policies, retention/backup administration, branding, localization defaults/preferences, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
+Status: V8 is complete and V9 is complete through task 009. The model includes tenants, workspaces, memberships, SSO providers, external identity links, access policies, retention/backup administration, branding, localization, custom domains, and the existing business modules. The backend uses EF Core with Npgsql and keeps migrations in `src/api/Infrastructure/Persistence/Migrations`.
 
 The current migrations include:
 
@@ -16,6 +16,7 @@ The current migrations include:
 - `administrative_backups`, `restore_plans`
 - `workspace_branding`
 - `workspace_localizations`, `user_localization_preferences`
+- `workspace_custom_domains`
 - `password_reset_tokens`
 - `integration_api_keys`
 - `integration_logs`

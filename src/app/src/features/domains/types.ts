@@ -1,0 +1,1 @@
+export type CustomDomain = { id: string; hostname: string; status: "pending" | "verified"; isEnabled: boolean; verificationRecordName: string; verificationRecordValue: string; verifiedAt: string | null; lastCheckedAt: string | null; lastFailure: string | null; concurrencyStamp: string };

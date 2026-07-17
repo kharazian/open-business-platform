@@ -109,6 +109,8 @@ builder.Services.AddScoped<RetentionService>();
 builder.Services.AddScoped<AdministrativeBackupService>();
 builder.Services.AddScoped<WorkspaceBrandingService>();
 builder.Services.AddScoped<LocalizationService>();
+builder.Services.AddScoped<CustomDomainService>();
+builder.Services.AddHttpClient<IDnsTxtResolver, CloudflareDnsTxtResolver>();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -201,6 +203,7 @@ else
 }
 
 app.UseAuthentication();
+app.UseMiddleware<CustomDomainResolutionMiddleware>();
 app.UseMiddleware<WorkspaceMembershipMiddleware>();
 app.UseAuthorization();
 

@@ -102,6 +102,7 @@ V9 task 005 is complete: workspace retention definitions and legal holds support
 V9 task 006 is complete: versioned checksummed workspace snapshots, secret-safe module exports, protected audited downloads, and conflict-reporting restore plans provide an administrative backup foundation without applying restores.
 V9 task 007 is complete: workspace branding persists safe app identity and bounded logo data separately from user appearance, with public login projection and authorized audited administration.
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
+V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
 
 ## 2. Core Product Philosophy
 
@@ -940,7 +941,7 @@ V8 task 009 is complete for the integration operations UI over API keys, webhook
 
 V1 finalization evidence includes frontend tests/build, backend harness/build, and compose API smoke checks for health, demo admin login, current session, forms list, published form schema rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
-V9 is complete through task 008: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, administrative backup planning, workspace branding, and localization foundations are implemented. Next concrete work is V9 task 009, custom domains.
+V9 is complete through task 009: tenant/workspace ownership, membership context, OIDC SSO, enterprise policy guardrails, retention/legal holds, backup planning, branding, localization, and verified custom domains are implemented. Next concrete work is V9 task 010, compliance and audit administration.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

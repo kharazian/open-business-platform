@@ -2639,6 +2639,7 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 ## Workspace Branding
 
 - `GET /api/branding/public?tenant={tenantSlug}&workspace={workspaceSlug}` is anonymous and returns only app name, logo text/data, primary color, and login message for an active tenant/workspace.
+- `GET /api/branding/host` returns the same safe projection for the workspace resolved from a verified request host (or the platform fallback host context).
 - `GET /api/branding/current` requires authentication and resolves branding for the signed active workspace.
 - `PUT /api/branding/current` requires authentication plus `branding.manage`, validates bounded safe display values, requires the current concurrency stamp after initial creation, and writes an audit entry.
 
@@ -2647,4 +2648,10 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 - `GET /api/localization/current` returns workspace defaults, the signed user's optional overrides, and effective locale/timezone.
 - `PUT /api/localization/workspace` requires `localization.manage`, validates culture, timezone, first-day-of-week, and concurrency state, and writes an audit entry.
 - `PUT /api/localization/me` updates only the signed persisted user's optional locale/timezone overrides and writes an audit entry.
+
+## Custom Domains
+
+- `GET /api/custom-domains` and `POST /api/custom-domains` require `domains.manage` and list/register domains for the signed workspace.
+- `POST /api/custom-domains/{id}/check` verifies the displayed `_obp-verification` TXT challenge using the fixed DNS resolver.
+- `POST /api/custom-domains/{id}/enable|disable|rotate` requires `domains.manage`, current concurrency state, and writes an audit entry; enable requires verified status.
 - Record create/update/status/assignment APIs dispatch V4 trigger events after the primary record transaction succeeds.

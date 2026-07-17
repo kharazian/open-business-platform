@@ -25,6 +25,10 @@ export function getPublicBranding(tenant: string, workspace: string, fetcher: Br
   return request(`/api/branding/public?${query.toString()}`, undefined, fetcher);
 }
 
+export function getHostBranding(fetcher: BrandingFetcher = defaultFetcher) {
+  return request("/api/branding/host", undefined, fetcher);
+}
+
 export function saveCurrentBranding(value: SaveWorkspaceBrandingRequest, fetcher: BrandingFetcher = defaultFetcher) {
   return request("/api/branding/current", {
     method: "PUT",

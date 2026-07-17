@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { appBranding } from "../config/branding";
-import { getCurrentBranding, getPublicBranding, saveCurrentBranding, type SaveWorkspaceBrandingRequest, type WorkspaceBranding } from "../features/branding";
+import { getCurrentBranding, getHostBranding, getPublicBranding, saveCurrentBranding, type SaveWorkspaceBrandingRequest, type WorkspaceBranding } from "../features/branding";
 import { useAuth } from "./AuthContext";
 
 const fallbackBranding: WorkspaceBranding = {
@@ -37,7 +37,7 @@ export function WorkspaceBrandingProvider({ children }: { children: ReactNode })
     const workspace = query.get("workspace");
     const load = status === "authenticated"
       ? getCurrentBranding()
-      : tenant && workspace ? getPublicBranding(tenant, workspace) : Promise.resolve(fallbackBranding);
+      : tenant && workspace ? getPublicBranding(tenant, workspace) : getHostBranding();
     setLoading(true);
     load.then((value) => active && setBranding(value)).catch(() => active && setBranding(fallbackBranding)).finally(() => active && setLoading(false));
     return () => { active = false; };

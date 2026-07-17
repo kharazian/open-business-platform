@@ -51,6 +51,17 @@ public sealed partial class WorkspaceBrandingService(OpenBusinessPlatformDbConte
         return Resolve(branding, workspaceName);
     }
 
+    public async Task<PublicWorkspaceBrandingDto?> GetPublicForCurrentHostAsync(CancellationToken ct)
+    {
+        var target = await dbContext.Workspaces.IgnoreQueryFilters().AsNoTracking()
+            .Where(item => item.Id == dbContext.ActiveWorkspaceId && item.IsActive && item.Tenant != null && item.Tenant.IsActive)
+            .Select(item => new { item.Id, item.Name }).SingleOrDefaultAsync(ct);
+        if (target is null) return null;
+        var branding = await dbContext.WorkspaceBrandings.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(item => item.WorkspaceId == target.Id, ct);
+        var resolved = Resolve(branding, target.Name);
+        return new(resolved.AppName, resolved.LogoText, resolved.LogoDataUrl, resolved.PrimaryColor, resolved.LoginMessage);
+    }
+
     public async Task<WorkspaceBrandingDto> SaveCurrentAsync(SaveWorkspaceBrandingRequest request, Guid? actorId, CancellationToken ct)
     {
         var values = Validate(request);

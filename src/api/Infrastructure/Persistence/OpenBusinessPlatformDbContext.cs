@@ -39,6 +39,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<UserLocalizationPreference> UserLocalizationPreferences => Set<UserLocalizationPreference>();
 
+    public DbSet<WorkspaceCustomDomain> WorkspaceCustomDomains => Set<WorkspaceCustomDomain>();
+
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
 
     public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
@@ -158,6 +160,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureWorkspaceMemberships(modelBuilder);
         ConfigureWorkspaceBranding(modelBuilder);
         ConfigureLocalization(modelBuilder);
+        ConfigureCustomDomains(modelBuilder);
         ConfigureSso(modelBuilder);
         ConfigureAccessPolicies(modelBuilder);
         ConfigureRetention(modelBuilder);
@@ -353,6 +356,23 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(item => item.Locale).HasColumnName("locale").HasMaxLength(35);
             entity.Property(item => item.TimeZone).HasColumnName("time_zone").HasMaxLength(120);
             entity.HasOne(item => item.User).WithMany().HasForeignKey(item => item.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureCustomDomains(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkspaceCustomDomain>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "workspace_custom_domains");
+            entity.HasIndex(item => item.Hostname).IsUnique();
+            entity.HasIndex(item => new { item.WorkspaceId, item.Status, item.IsEnabled });
+            entity.Property(item => item.Hostname).HasColumnName("hostname").HasMaxLength(253).IsRequired();
+            entity.Property(item => item.Status).HasColumnName("status").HasMaxLength(32).IsRequired();
+            entity.Property(item => item.VerificationToken).HasColumnName("verification_token").HasMaxLength(100).IsRequired();
+            entity.Property(item => item.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
+            entity.Property(item => item.VerifiedAt).HasColumnName("verified_at");
+            entity.Property(item => item.LastCheckedAt).HasColumnName("last_checked_at");
+            entity.Property(item => item.LastFailure).HasColumnName("last_failure").HasMaxLength(500);
         });
     }
 

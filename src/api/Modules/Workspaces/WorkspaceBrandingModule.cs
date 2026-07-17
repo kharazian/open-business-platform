@@ -16,6 +16,11 @@ public sealed class WorkspaceBrandingModule : IPlatformApiModule
             var branding = await service.GetPublicAsync(tenant, workspace, ct);
             return branding is null ? Results.NotFound() : Results.Ok(branding);
         }).WithTags("Workspace branding").AllowAnonymous();
+        endpoints.MapGet("/api/branding/host", async (WorkspaceBrandingService service, CancellationToken ct) =>
+        {
+            var branding = await service.GetPublicForCurrentHostAsync(ct);
+            return branding is null ? Results.NotFound() : Results.Ok(branding);
+        }).WithTags("Workspace branding").AllowAnonymous();
 
         var group = endpoints.MapGroup("/api/branding/current").WithTags("Workspace branding").RequireAuthorization();
         group.MapGet("/", async (WorkspaceBrandingService service, CancellationToken ct) => Results.Ok(await service.GetCurrentAsync(ct)));

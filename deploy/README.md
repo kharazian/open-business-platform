@@ -52,6 +52,8 @@ obp-prod
 
 Use real domains when possible:
 
+Workspace custom domains registered in the application still require the edge proxy to accept the hostname and provision a valid TLS certificate. Application DNS verification proves workspace ownership but does not modify Caddy/Nginx, DNS, or certificate state.
+
 ```txt
 stage.example.com -> 10.10.50.60
 app.example.com   -> 10.10.50.60

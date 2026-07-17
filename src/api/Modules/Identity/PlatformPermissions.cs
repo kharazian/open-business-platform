@@ -20,7 +20,8 @@ public static class PlatformPermissions
         Retention.Manage,
         Backup.Manage,
         Branding.Manage,
-        Localization.Manage
+        Localization.Manage,
+        Domains.Manage
     };
 
     public static readonly IReadOnlyCollection<string> FormActions = new[]
@@ -109,6 +110,11 @@ public static class PlatformPermissions
     public static class Localization
     {
         public const string Manage = "localization.manage";
+    }
+
+    public static class Domains
+    {
+        public const string Manage = "domains.manage";
     }
 
     public static class Form

@@ -175,6 +175,8 @@ api   -> redis
 
 The frontend container serves the built React app through Nginx. The proxy keeps browser traffic same-origin by routing `/api/*`, `/health*`, and `/metrics` to the API while routing all other paths to the web container. Production metrics require a server-only bearer token. Staging and production should use separate Compose project names, volumes, cookie names, and env files.
 
+Verified enabled custom hosts are resolved by API middleware before workspace membership enforcement. Anonymous requests may discover the mapped workspace; authenticated requests are rejected when the host mapping conflicts with the signed workspace claim. Proxy acceptance and TLS certificate issuance remain deployment responsibilities.
+
 Future backend module structure:
 
 ```txt

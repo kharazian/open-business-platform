@@ -275,10 +275,11 @@ Features:
 - Administrative backup/export foundation implemented in V9 task 006 with checksummed workspace snapshots, protected audited downloads, and validation-only restore plans
 - White labeling foundation implemented in V9 task 007 with safe workspace branding, public login projection, permission-gated administration, and real-app chrome integration
 - Localization foundation implemented in V9 task 008 with workspace locale/timezone defaults, per-user overrides, and shared formatting/message helpers
+- Custom domains implemented in V9 task 009 with normalized global hostname ownership, DNS TXT verification, audited lifecycle controls, and signed-workspace conflict rejection
 - Advanced RBAC/ABAC
 - Data retention
 - Backup/restore
 - White labeling implemented
 - Localization implemented
-- Custom domains
+- Custom domains implemented
 - Compliance features

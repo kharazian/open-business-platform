@@ -126,3 +126,7 @@ Trigger event outbox:
 ## Localization Foundation Migration
 
 `20260717151922_LocalizationFoundation` adds optional `workspace_localizations` defaults and `user_localization_preferences` overrides. Existing workspaces/users require no backfill because effective settings fall back to `en-CA` and `UTC`; unique workspace/user indexes and concurrency stamps protect later writes.
+
+## Custom Domains Migration
+
+`20260717152713_CustomDomains` adds `workspace_custom_domains` with globally unique normalized hostnames, verification lifecycle fields, workspace ownership, and optimistic concurrency. It has no backfill and does not change proxy or TLS configuration.

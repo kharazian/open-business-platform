@@ -22,7 +22,18 @@ public sealed class DefaultWorkspaceContext : IWorkspaceContext
 
 public sealed class HttpContextWorkspaceContext(IHttpContextAccessor httpContextAccessor) : IWorkspaceContext
 {
-    public Guid WorkspaceId => ResolveWorkspaceId(httpContextAccessor.HttpContext?.User);
+    public const string ResolvedDomainWorkspaceItemKey = "obp.resolved_domain_workspace";
+
+    public Guid WorkspaceId
+    {
+        get
+        {
+            var context = httpContextAccessor.HttpContext;
+            return context?.Items[ResolvedDomainWorkspaceItemKey] is Guid domainWorkspaceId && domainWorkspaceId != Guid.Empty
+                ? domainWorkspaceId
+                : ResolveWorkspaceId(context?.User);
+        }
+    }
 
     public static Guid ResolveWorkspaceId(ClaimsPrincipal? principal)
     {
