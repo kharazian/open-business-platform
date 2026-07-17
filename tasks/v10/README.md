@@ -6,7 +6,7 @@ V10 is the Operational App Modeling sequence. It starts only after the accepted 
 
 1. `001-structured-address-field.md` - complete; typed structured addresses now span schema validation, builder, renderer, records, reports, CSV, and print-safe display.
 2. `002-backend-generated-autonumber-fields.md` - complete; immutable formatted identifiers now use PostgreSQL-backed transactional allocation and read-only record values.
-3. File attachment storage - create a task file before implementation; replace string placeholders with metadata, storage abstraction, scanning hooks, and protected downloads.
+3. `003-protected-file-attachments.md` - ready; replace string placeholders with metadata, storage/scanning boundaries, atomic record claims, and protected downloads.
 4. Lookup relationship integrity - create a task file before implementation; define delete/archive behavior and permission-safe relationship validation.
 5. Nested report relationships - create a task file before implementation; add bounded lookup paths, typed filters, and hidden-field protection.
 6. Related-record workspace - create a task file before implementation; add permission-aware related panels to record detail.
