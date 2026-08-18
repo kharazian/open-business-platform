@@ -211,7 +211,8 @@ public static class DemoDataSeeder
                 PlatformPermissions.Menu.Forms,
                 PlatformPermissions.Menu.Reports,
                 PlatformPermissions.Forms.Create,
-                PlatformPermissions.Reports.Manage
+                PlatformPermissions.Reports.Manage,
+                PlatformPermissions.Dashboards.Manage
             },
             cancellationToken);
         await EnsureBuiltInPermissionsAsync(

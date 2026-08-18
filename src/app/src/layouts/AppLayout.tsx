@@ -6,6 +6,9 @@ import { useAppTheme } from "../context/AppThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useWorkspaceBranding } from "../context/WorkspaceBrandingContext";
 import { getNotificationPreferences, getUnreadNotificationCount } from "../features/notifications/api";
+import { listDashboardNavigation } from "../features/dashboards/api";
+import { applyDashboardNavigation } from "../features/dashboards/navigation";
+import type { DashboardNavigationItem } from "../features/dashboards/types";
 import { applyNotificationBadge } from "../features/notifications/navigationBadge";
 import { subscribeToNotificationsChanged } from "../features/notifications/events";
 import { filterNavigationByPermissions } from "../platform/moduleRegistry";
@@ -22,9 +25,10 @@ export function AppLayout({ theme, onThemeToggle }: AppLayoutProps) {
   const navigate = useNavigate();
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
   const [showNotificationBadge, setShowNotificationBadge] = useState(false);
+  const [dashboardNavigation, setDashboardNavigation] = useState<DashboardNavigationItem[]>([]);
   const visibleNavigation = useMemo(
-    () => filterNavigationByPermissions(appNavigation, new Set(user?.permissions ?? [])),
-    [user?.permissions]
+    () => applyDashboardNavigation(filterNavigationByPermissions(appNavigation, new Set(user?.permissions ?? [])), dashboardNavigation),
+    [dashboardNavigation, user?.permissions]
   );
   const visibleNavigationWithBadges = useMemo(
     () => applyNotificationBadge(visibleNavigation, notificationBadgeCount, showNotificationBadge),
@@ -69,6 +73,13 @@ export function AppLayout({ theme, onThemeToggle }: AppLayoutProps) {
       active = false;
       unsubscribe();
     };
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.permissions.includes("menu.dashboard")) { setDashboardNavigation([]); return; }
+    listDashboardNavigation().then((items) => { if (active) setDashboardNavigation(items); }).catch(() => { if (active) setDashboardNavigation([]); });
+    return () => { active = false; };
   }, [user]);
 
   async function handleSignOut() {

@@ -9,6 +9,18 @@ public static class DashboardsEndpoints
     {
         var group = endpoints.MapGroup("/api/dashboards").WithTags("Dashboards").RequireAuthorization();
 
+        group.MapGet("/navigation", async (DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanViewDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(new { items = await dashboards.ListNavigationAsync(await BuildAccessContextAsync(permissionService, httpContext, cancellationToken), cancellationToken) }));
+        });
+
+        group.MapGet("/by-slug/{slug}", async (string slug, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanViewDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetBySlugAsync(slug, await BuildAccessContextAsync(permissionService, httpContext, cancellationToken), cancellationToken)));
+        });
+
         group.MapGet("", async (
             DashboardDefinitionService dashboards,
             PermissionService permissionService,
@@ -82,6 +94,18 @@ public static class DashboardsEndpoints
             return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.UpdateAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken)));
         });
 
+        group.MapPost("/{dashboardId:guid}/publish", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.PublishAsync(dashboardId, GetCurrentUserId(httpContext), cancellationToken)));
+        });
+
+        group.MapPost("/{dashboardId:guid}/unpublish", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.UnpublishAsync(dashboardId, GetCurrentUserId(httpContext), cancellationToken)));
+        });
+
         return endpoints;
     }
 
@@ -92,14 +116,14 @@ public static class DashboardsEndpoints
 
     private static async Task<bool> CanManageDashboardsAsync(PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken)
     {
-        return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Reports.Manage, cancellationToken);
+        return await permissionService.CanAsync(httpContext.User, PlatformPermissions.Dashboards.Manage, cancellationToken);
     }
 
     private static async Task<DashboardAccessContext> BuildAccessContextAsync(PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken)
     {
-        return new DashboardAccessContext(
-            GetCurrentUserId(httpContext),
-            await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken));
+        var permissions = await permissionService.GetEffectivePermissionsAsync(httpContext.User, cancellationToken);
+        return new DashboardAccessContext(GetCurrentUserId(httpContext),
+            permissions.Contains(PlatformPermissions.Dashboards.Manage), permissions.ToHashSet(StringComparer.Ordinal));
     }
 
     private static async Task<IResult> HandleDashboardRequestAsync(Func<Task<IResult>> action)

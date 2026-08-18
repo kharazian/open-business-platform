@@ -20,6 +20,20 @@ export const reportSystemFields = reportableSystemFields;
 export type ReportFilterOperator = (typeof reportFilterOperators)[number];
 export type ReportSortDirection = (typeof reportSortDirections)[number];
 export type ReportRowOpenAction = (typeof reportRowOpenActions)[number];
+export type ReportFieldSource = "form" | "system" | "relationship";
+
+export type ReportFieldCatalogItem = {
+  id: string;
+  label: string;
+  type: string;
+  source: ReportFieldSource;
+  options: Array<{ id: string; label: string; value: string }>;
+  filterable: boolean;
+  sortable: boolean;
+  searchable: boolean;
+  supportsAggregation: boolean;
+  supportsChoiceGrouping: boolean;
+};
 
 export type ListReportColumn = {
   fieldId: string;
@@ -69,7 +83,7 @@ export type ListReportExecutionColumn = {
   fieldId: string;
   label: string;
   type: string;
-  source: "form" | "system";
+  source: ReportFieldSource;
   width?: number | null;
 };
 

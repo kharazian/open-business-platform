@@ -56,3 +56,23 @@ test("dashboard API client maps summary requests and errors", async () => {
     }
   );
 });
+
+test("dashboard publication API maps navigation, slug viewer, publish, and unpublish endpoints", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    if (input === "/api/dashboards/navigation") return { ok: true, json: async () => ({ items: [{ id: "1", slug: "team-overview", label: "Team overview", order: 30 }] }) };
+    return { ok: true, json: async () => ({ id: "1", publication: { status: input.endsWith("/unpublish") ? "draft" : "published" } }) };
+  };
+  assert.equal((await api.listDashboardNavigation(fetcher))[0].slug, "team-overview");
+  await api.getDashboardBySlug("team plan", fetcher);
+  await api.publishDashboard("1", fetcher);
+  await api.unpublishDashboard("1", fetcher);
+  assert.deepEqual(calls.map((call) => call.input), [
+    "/api/dashboards/navigation",
+    "/api/dashboards/by-slug/team%20plan",
+    "/api/dashboards/1/publish",
+    "/api/dashboards/1/unpublish"
+  ]);
+  assert.equal(calls[2].init.method, "POST");
+});

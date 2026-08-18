@@ -18,11 +18,13 @@ public static class ListReportExecutionEngine
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
         RunListReportRequest request,
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null,
+        IReadOnlyDictionary<string, ReportableFieldMetadata>? fieldMetadataById = null,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>? resolvedValuesByRecordId = null)
     {
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var preparedReport = PrepareReport(config, schema, records, request, displayValuesByRecordId);
+        var preparedReport = PrepareReport(config, schema, records, request, displayValuesByRecordId, fieldMetadataById, resolvedValuesByRecordId);
         var pageRecords = preparedReport.Records
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -50,7 +52,9 @@ public static class ListReportExecutionEngine
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
         string? search = null,
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null,
+        IReadOnlyDictionary<string, ReportableFieldMetadata>? fieldMetadataById = null,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>? resolvedValuesByRecordId = null)
     {
         return ExecuteAll(
             reportId,
@@ -61,7 +65,9 @@ public static class ListReportExecutionEngine
             schema,
             records,
             new RunListReportRequest(Search: search),
-            displayValuesByRecordId);
+            displayValuesByRecordId,
+            fieldMetadataById,
+            resolvedValuesByRecordId);
     }
 
     public static ListReportExecutionDto ExecuteAll(
@@ -73,14 +79,18 @@ public static class ListReportExecutionEngine
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
         RunListReportRequest request,
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null)
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId = null,
+        IReadOnlyDictionary<string, ReportableFieldMetadata>? fieldMetadataById = null,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>? resolvedValuesByRecordId = null)
     {
         var preparedReport = PrepareReport(
             config,
             schema,
             records,
             request,
-            displayValuesByRecordId);
+            displayValuesByRecordId,
+            fieldMetadataById,
+            resolvedValuesByRecordId);
         var rows = preparedReport.Records
             .Select(record => ToRowDto(record, preparedReport.Columns))
             .ToArray();
@@ -102,10 +112,12 @@ public static class ListReportExecutionEngine
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
         RunListReportRequest request,
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId)
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>>? displayValuesByRecordId,
+        IReadOnlyDictionary<string, ReportableFieldMetadata>? fieldMetadataById,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>? resolvedValuesByRecordId)
     {
         var normalizedSearch = Normalize(request.Search);
-        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
+        var fieldsById = fieldMetadataById ?? FormReportableFieldMetadata.GetReportableFieldsById(schema);
         var columns = GetVisibleColumns(config, fieldsById);
         var runtimeFilters = NormalizeRuntimeFilters(request.Filters, columns);
         var preparedRecords = records
@@ -114,7 +126,10 @@ public static class ListReportExecutionEngine
                 DeserializeValues(record.ValuesJson),
                 displayValuesByRecordId?.TryGetValue(record.Id, out var displayValues) == true
                     ? displayValues
-                    : new Dictionary<string, string>(StringComparer.Ordinal)))
+                    : new Dictionary<string, string>(StringComparer.Ordinal),
+                resolvedValuesByRecordId?.TryGetValue(record.Id, out var resolvedValues) == true
+                    ? resolvedValues
+                    : new Dictionary<string, ResolvedReportFieldValue>(StringComparer.Ordinal)))
             .Where(record => MatchesFilters(record, config.Filters, fieldsById))
             .Where(record => MatchesRuntimeFilters(record, runtimeFilters))
             .Where(record => MatchesSearch(record, columns, fieldsById, normalizedSearch))
@@ -301,9 +316,11 @@ public static class ListReportExecutionEngine
             column =>
             {
                 var value = GetFieldValue(record, column.FieldId);
-                var displayValue = record.DisplayValues.TryGetValue(column.FieldId, out var resolvedDisplayValue)
-                    ? resolvedDisplayValue
-                    : ToDisplayValue(value);
+                var displayValue = record.ResolvedValues.TryGetValue(column.FieldId, out var relatedValue)
+                    ? relatedValue.DisplayValue
+                    : record.DisplayValues.TryGetValue(column.FieldId, out var resolvedDisplayValue)
+                        ? resolvedDisplayValue
+                        : ToDisplayValue(value);
                 return new ListReportExecutionCellDto(ToSerializableValue(value), displayValue);
             },
             StringComparer.Ordinal);
@@ -313,6 +330,11 @@ public static class ListReportExecutionEngine
 
     private static object? GetFieldValue(PreparedReportRecord record, string fieldId)
     {
+        if (record.ResolvedValues.TryGetValue(fieldId, out var resolvedValue))
+        {
+            return resolvedValue.Value;
+        }
+
         return fieldId switch
         {
             ReportableSystemFields.Status => record.Record.Status,
@@ -328,6 +350,11 @@ public static class ListReportExecutionEngine
 
     private static object? GetComparableFieldValue(PreparedReportRecord record, string fieldId)
     {
+        if (record.ResolvedValues.TryGetValue(fieldId, out var resolvedValue))
+        {
+            return string.IsNullOrWhiteSpace(resolvedValue.DisplayValue) ? resolvedValue.Value : resolvedValue.DisplayValue;
+        }
+
         return record.DisplayValues.TryGetValue(fieldId, out var displayValue)
             ? displayValue
             : GetFieldValue(record, fieldId);
@@ -336,6 +363,14 @@ public static class ListReportExecutionEngine
     private static IReadOnlyList<object?> GetFilterableFieldValues(PreparedReportRecord record, string fieldId)
     {
         var rawValue = GetFieldValue(record, fieldId);
+
+        if (record.ResolvedValues.TryGetValue(fieldId, out var relatedValue))
+        {
+            return string.IsNullOrWhiteSpace(relatedValue.DisplayValue)
+                || string.Equals(ToSearchText(rawValue), relatedValue.DisplayValue, StringComparison.OrdinalIgnoreCase)
+                ? [rawValue]
+                : [rawValue, relatedValue.DisplayValue];
+        }
 
         if (!record.DisplayValues.TryGetValue(fieldId, out var displayValue)
             || string.Equals(ToSearchText(rawValue), displayValue, StringComparison.OrdinalIgnoreCase))
@@ -529,7 +564,8 @@ public static class ListReportExecutionEngine
     private sealed record PreparedReportRecord(
         FormRecord Record,
         IReadOnlyDictionary<string, object?> Values,
-        IReadOnlyDictionary<string, string> DisplayValues);
+        IReadOnlyDictionary<string, string> DisplayValues,
+        IReadOnlyDictionary<string, ResolvedReportFieldValue> ResolvedValues);
 
     private sealed record PreparedReport(IReadOnlyList<ListReportExecutionColumnDto> Columns, PreparedReportRecord[] Records);
 

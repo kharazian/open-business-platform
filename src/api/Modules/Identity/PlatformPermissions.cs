@@ -15,6 +15,7 @@ public static class PlatformPermissions
         Forms.Create,
         Forms.ManageAll,
         Reports.Manage,
+        Dashboards.Manage,
         Workflows.Manage,
         Integrations.Manage,
         Retention.Manage,
@@ -81,6 +82,11 @@ public static class PlatformPermissions
     public static class Reports
     {
         public const string Manage = "reports.manage";
+    }
+
+    public static class Dashboards
+    {
+        public const string Manage = "dashboards.manage";
     }
 
     public static class Workflows

@@ -14,11 +14,33 @@ public sealed class ReportManagementService
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
     private readonly RecordLookupService recordLookup;
+    private readonly ReportRelationshipFieldService relationshipFields;
 
-    public ReportManagementService(OpenBusinessPlatformDbContext dbContext, RecordLookupService recordLookup)
+    public ReportManagementService(
+        OpenBusinessPlatformDbContext dbContext,
+        RecordLookupService recordLookup,
+        ReportRelationshipFieldService relationshipFields)
     {
         this.dbContext = dbContext;
         this.recordLookup = recordLookup;
+        this.relationshipFields = relationshipFields;
+    }
+
+    public async Task<ReportFieldCatalogDto> ListReportFieldsAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var form = await dbContext.Forms.AsNoTracking().Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == formId && !candidate.IsDeleted, cancellationToken);
+        if (form is null) throw new ReportManagementException(StatusCodes.Status404NotFound, "Form was not found.");
+        var schema = ResolveReportSchema(form);
+        if (schema is null) throw new ReportManagementException(StatusCodes.Status409Conflict, "Form schema is not available for report building.");
+        var structural = await relationshipFields.BuildStructuralCatalogAsync(formId, schema, cancellationToken);
+        var permitted = await relationshipFields.FilterPermittedAsync(
+            principal, formId, schema, structural, PlatformPermissions.Form.View, permissionService, cancellationToken);
+        return new ReportFieldCatalogDto(permitted.Fields.Values.OrderBy(field => field.Source == ReportableFieldSources.Relationship).ThenBy(field => field.Label).ToArray());
     }
 
     public async Task<IReadOnlyCollection<ListReportSummaryDto>> ListReportsAsync(Guid formId, CancellationToken cancellationToken)
@@ -96,14 +118,17 @@ public sealed class ReportManagementService
             throw new ReportManagementException(StatusCodes.Status409Conflict, "Form schema is not available for report building.");
         }
 
-        var validation = ListReportConfigValidator.Validate(schema, request.Config);
+        var catalog = await relationshipFields.BuildStructuralCatalogAsync(formId, schema, cancellationToken);
+        var validation = CombineValidation(
+            ListReportConfigValidator.Validate(catalog.Fields, request.Config),
+            request.Config is null ? Array.Empty<ReportValidationError>() : relationshipFields.ValidatePaths(formId, schema, request.Config, catalog));
 
         if (!validation.Valid)
         {
             throw new ReportManagementException(StatusCodes.Status400BadRequest, "Report config is invalid.", validation.Errors);
         }
 
-        var normalizedConfig = NormalizeConfig(request.Config);
+        var normalizedConfig = NormalizeConfig(request.Config!);
 
         var report = new ReportDefinition
         {
@@ -188,7 +213,10 @@ public sealed class ReportManagementService
             throw new ReportManagementException(StatusCodes.Status409Conflict, "Form schema is not available for report building.");
         }
 
-        var validation = ListReportConfigValidator.Validate(schema, request.Config);
+        var catalog = await relationshipFields.BuildStructuralCatalogAsync(formId, schema, cancellationToken);
+        var validation = CombineValidation(
+            ListReportConfigValidator.Validate(catalog.Fields, request.Config),
+            request.Config is null ? Array.Empty<ReportValidationError>() : relationshipFields.ValidatePaths(formId, schema, request.Config, catalog));
 
         if (!validation.Valid)
         {
@@ -196,7 +224,7 @@ public sealed class ReportManagementService
         }
 
         report.Name = name;
-        report.ConfigJson = SerializeConfig(NormalizeConfig(request.Config));
+        report.ConfigJson = SerializeConfig(NormalizeConfig(request.Config!));
         report.UpdatedById = updatedById;
         AddAudit("Report", report.Id, "report_updated", updatedById);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -254,7 +282,9 @@ public sealed class ReportManagementService
             executionContext.Schema,
             executionContext.Records,
             request,
-            executionContext.DisplayValuesByRecordId);
+            executionContext.DisplayValuesByRecordId,
+            executionContext.FieldsById,
+            executionContext.ResolvedValuesByRecordId);
     }
 
     public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
@@ -335,7 +365,9 @@ public sealed class ReportManagementService
             executionContext.Schema,
             executionContext.Records,
             request,
-            executionContext.DisplayValuesByRecordId);
+            executionContext.DisplayValuesByRecordId,
+            executionContext.FieldsById,
+            executionContext.ResolvedValuesByRecordId);
     }
 
     private async Task<ListReportExecutionContext> LoadReportExecutionContextAsync(
@@ -372,7 +404,10 @@ public sealed class ReportManagementService
         }
 
         var config = DeserializeConfig(report.ConfigJson);
-        var validation = ListReportConfigValidator.Validate(schema, config);
+        var structuralCatalog = await relationshipFields.BuildStructuralCatalogAsync(formId, schema, cancellationToken);
+        var validation = CombineValidation(
+            ListReportConfigValidator.Validate(structuralCatalog.Fields, config),
+            relationshipFields.ValidatePaths(formId, schema, config, structuralCatalog));
 
         if (!validation.Valid)
         {
@@ -389,19 +424,31 @@ public sealed class ReportManagementService
         var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
         var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
+        var permittedCatalog = await relationshipFields.FilterPermittedAsync(
+            principal, formId, schema, structuralCatalog, recordAction, permissionService, cancellationToken);
+        var permittedConfig = FilterConfigToFields(config, permittedCatalog.Fields.Keys.ToHashSet(StringComparer.Ordinal));
         var displayValuesByRecordId = await recordLookup.ResolveLookupDisplayValuesByRecordIdAsync(
             principal,
             visibleSchema,
             records,
             permissionService,
             cancellationToken);
+        var requestedFieldIds = permittedConfig.Columns.Select(column => column.FieldId)
+            .Concat(permittedConfig.Filters.Select(filter => filter.FieldId))
+            .Concat(permittedConfig.Sort.Select(sort => sort.FieldId))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var resolvedValuesByRecordId = await relationshipFields.ResolveAsync(
+            principal, records, requestedFieldIds, permittedCatalog, recordAction, permissionService, cancellationToken);
 
         return new ListReportExecutionContext(
             report,
             visibleSchema,
-            RemoveHiddenColumns(config, fieldAccess.HiddenFieldIds),
+            permittedConfig,
             records,
-            displayValuesByRecordId);
+            displayValuesByRecordId,
+            permittedCatalog.Fields,
+            resolvedValuesByRecordId);
     }
 
     private static string GetRecordAccessActionForReportOperation(bool isCsvExport)
@@ -497,21 +544,21 @@ public sealed class ReportManagementService
             NormalizeRowOpenAction(config.RowOpenAction));
     }
 
-    private static ListReportConfigDefinition RemoveHiddenColumns(
+    private static ListReportConfigDefinition FilterConfigToFields(
         ListReportConfigDefinition config,
-        IReadOnlySet<string> hiddenFieldIds)
+        IReadOnlySet<string> allowedFieldIds)
     {
-        if (hiddenFieldIds.Count == 0)
-        {
-            return config;
-        }
-
         return config with
         {
-            Columns = config.Columns.Where(column => !hiddenFieldIds.Contains(column.FieldId)).ToArray(),
-            Filters = config.Filters.Where(filter => !hiddenFieldIds.Contains(filter.FieldId)).ToArray(),
-            Sort = config.Sort.Where(sort => !hiddenFieldIds.Contains(sort.FieldId)).ToArray()
+            Columns = config.Columns.Where(column => allowedFieldIds.Contains(column.FieldId)).ToArray(),
+            Filters = config.Filters.Where(filter => allowedFieldIds.Contains(filter.FieldId)).ToArray(),
+            Sort = config.Sort.Where(sort => allowedFieldIds.Contains(sort.FieldId)).ToArray()
         };
+    }
+
+    private static ReportValidationResult CombineValidation(ReportValidationResult validation, IReadOnlyList<ReportValidationError> pathErrors)
+    {
+        return pathErrors.Count == 0 ? validation : new ReportValidationResult(validation.Errors.Concat(pathErrors).ToArray());
     }
 
     private static FormSchemaDefinition RemoveHiddenFieldsFromSchema(
@@ -609,5 +656,7 @@ public sealed class ReportManagementService
         FormSchemaDefinition Schema,
         ListReportConfigDefinition Config,
         IReadOnlyCollection<FormRecord> Records,
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>> DisplayValuesByRecordId);
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>> DisplayValuesByRecordId,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> FieldsById,
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>> ResolvedValuesByRecordId);
 }

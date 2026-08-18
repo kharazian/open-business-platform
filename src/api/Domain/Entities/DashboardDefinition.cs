@@ -9,6 +9,24 @@ public sealed class DashboardDefinition : WorkspaceFullAuditedAggregateRoot<Guid
 
     public string? Description { get; set; }
 
+    public string Status { get; set; } = "draft";
+
+    public string? Slug { get; set; }
+
+    public bool ShowInNavigation { get; set; }
+
+    public string? MenuLabel { get; set; }
+
+    public string? MenuIcon { get; set; }
+
+    public int MenuOrder { get; set; }
+
+    public string? ViewPermission { get; set; }
+
+    public DateTimeOffset? PublishedAt { get; set; }
+
+    public Guid? PublishedById { get; set; }
+
     public JsonDocument ConfigJson { get; set; } = null!;
 
     public JsonDocument LayoutJson { get; set; } = null!;

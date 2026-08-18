@@ -5,6 +5,7 @@ import type {
   DashboardAnalyticsRequest,
   DashboardAnalyticsResponse,
   DashboardDetail,
+  DashboardNavigationItem,
   DashboardSummary,
   DashboardSummaryItem,
   UpdateDashboardRequest
@@ -41,6 +42,22 @@ export async function getDashboard(dashboardId: string, fetcher: DashboardFetche
     { method: "GET", credentials: "include" },
     fetcher
   );
+}
+
+export async function getDashboardBySlug(slug: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(`/api/dashboards/by-slug/${encodeURIComponent(slug)}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function listDashboardNavigation(fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardNavigationItem[]> {
+  return requestItems<DashboardNavigationItem>("/api/dashboards/navigation", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function publishDashboard(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/publish`, { method: "POST", credentials: "include" }, fetcher);
+}
+
+export async function unpublishDashboard(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/unpublish`, { method: "POST", credentials: "include" }, fetcher);
 }
 
 export async function createDashboard(

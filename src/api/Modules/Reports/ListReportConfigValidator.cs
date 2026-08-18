@@ -40,6 +40,13 @@ public static class ListReportConfigValidator
 
     public static ReportValidationResult Validate(FormSchemaDefinition schema, ListReportConfigDefinition? config)
     {
+        return Validate(FormReportableFieldMetadata.GetReportableFieldsById(schema), config);
+    }
+
+    public static ReportValidationResult Validate(
+        IReadOnlyDictionary<string, ReportableFieldMetadata> validFields,
+        ListReportConfigDefinition? config)
+    {
         var errors = new List<ReportValidationError>();
 
         if (config is null)
@@ -52,8 +59,6 @@ public static class ListReportConfigValidator
         {
             errors.Add(new ReportValidationError("config.schemaVersion", "report.schemaVersion.unsupported", "Report config schema version is not supported."));
         }
-
-        var validFields = FormReportableFieldMetadata.GetReportableFieldsById(schema);
 
         ValidateColumns(config.Columns, validFields, errors);
         ValidateFilters(config.Filters, validFields, errors);

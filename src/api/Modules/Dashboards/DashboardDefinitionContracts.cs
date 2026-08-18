@@ -23,11 +23,21 @@ public sealed record SavedDashboardWidgetDefinition(
     string Id,
     string Title,
     Guid SourceFormId,
-    ChartWidgetConfigDefinition Chart);
+    ChartWidgetConfigDefinition? Chart,
+    string? SectionId = null,
+    DashboardAdapterWidgetDefinition? Adapter = null);
+
+public sealed record DashboardAdapterWidgetDefinition(
+    string AdapterId,
+    string VisualizationId,
+    IReadOnlyDictionary<string, object?> Settings);
+
+public sealed record SavedDashboardSectionDefinition(string Id, string Title, int Order);
 
 public sealed record SavedDashboardConfigDefinition(
     int SchemaVersion,
-    IReadOnlyList<SavedDashboardWidgetDefinition> Widgets);
+    IReadOnlyList<SavedDashboardWidgetDefinition> Widgets,
+    IReadOnlyList<SavedDashboardSectionDefinition>? Sections = null);
 
 public sealed record SavedDashboardWidgetLayoutDefinition(
     string Id,
@@ -43,7 +53,8 @@ public sealed record CreateDashboardRequest(
     string? Description,
     SavedDashboardConfigDefinition Config,
     SavedDashboardLayoutDefinition Layout,
-    DashboardSettingsDefinition? Settings = null);
+    DashboardSettingsDefinition? Settings = null,
+    DashboardPublicationSettingsDefinition? Publication = null);
 
 public sealed record UpdateDashboardRequest(
     string Name,
@@ -51,7 +62,17 @@ public sealed record UpdateDashboardRequest(
     SavedDashboardConfigDefinition Config,
     SavedDashboardLayoutDefinition Layout,
     string ConcurrencyStamp,
-    DashboardSettingsDefinition? Settings = null);
+    DashboardSettingsDefinition? Settings = null,
+    DashboardPublicationSettingsDefinition? Publication = null);
+
+public sealed record DashboardPublicationSettingsDefinition(
+    string Status,
+    string? Slug,
+    bool ShowInNavigation,
+    string? MenuLabel,
+    string? MenuIcon,
+    int MenuOrder,
+    string? ViewPermission);
 
 public sealed record DashboardSummaryDto(
     Guid Id,
@@ -60,6 +81,7 @@ public sealed record DashboardSummaryDto(
     int WidgetCount,
     string Visibility,
     bool IsDefault,
+    DashboardPublicationSettingsDefinition Publication,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
@@ -74,11 +96,14 @@ public sealed record DashboardDetailDto(
     SavedDashboardLayoutDefinition Layout,
     string Visibility,
     bool IsDefault,
+    DashboardPublicationSettingsDefinition Publication,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
     DateTimeOffset? UpdatedAt,
     Guid? UpdatedById);
+
+public sealed record DashboardNavigationItemDto(Guid Id, string Slug, string Label, string? Icon, int Order);
 
 public sealed record DashboardValidationError(string Path, string Code, string Message);
 

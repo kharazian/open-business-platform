@@ -74,6 +74,7 @@ builder.Services.AddScoped<PrintTemplateService>();
 builder.Services.AddScoped<PrintPdfService>();
 builder.Services.AddScoped<DefaultReportProvisioningService>();
 builder.Services.AddScoped<ReportManagementService>();
+builder.Services.AddScoped<ReportRelationshipFieldService>();
 builder.Services.AddScoped<TriggerDefinitionService>();
 builder.Services.AddScoped<TriggerActionRegistry>();
 builder.Services.AddScoped<TriggerPdfAttachmentService>();

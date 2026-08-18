@@ -581,6 +581,7 @@ AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.Type) }, "R
 AssertIndex<ReportDefinition>(model, new[] { nameof(ReportDefinition.CreatedById) }, "Reports should be indexed by creator.");
 AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.CreatedById) }, "Dashboards should be indexed by creator.");
 AssertIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.Name) }, "Dashboards should be indexed by name.");
+AssertUniqueIndex<DashboardDefinition>(model, new[] { nameof(DashboardDefinition.WorkspaceId), nameof(DashboardDefinition.Slug) }, "Dashboard slugs should be unique within a workspace.");
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.FormId) }, "Triggers should be indexed by form.");
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.EventName) }, "Triggers should be indexed by event.");
 AssertIndex<TriggerDefinition>(model, new[] { nameof(TriggerDefinition.IsEnabled) }, "Triggers should be indexed by enabled state.");
@@ -3694,6 +3695,35 @@ AssertFalse(
             Columns = new[] { new ListReportColumnDefinition("missing_field", "Missing", true, 180) }
         }).Valid,
     "List report configs should reject unknown fields.");
+var relatedTargetSchema = new FormSchemaDefinition(
+    1,
+    new[] { new FormFieldDefinition("credit_limit", FormFieldTypes.Currency, "Credit limit") },
+    new FormLayoutDefinition(Array.Empty<FormLayoutPageDefinition>()));
+var relatedMetadata = new ReportableFieldMetadata(
+    "customer.credit_limit", "Customer › Credit limit", FormFieldTypes.Currency, ReportableFieldSources.Relationship,
+    Array.Empty<ReportableFieldOptionMetadata>(), true, true, true, true, false);
+var relatedCatalog = new ReportFieldCatalog(
+    new Dictionary<string, ReportableFieldMetadata> { [relatedMetadata.Id] = relatedMetadata },
+    new Dictionary<string, RelatedReportField>
+    {
+        [relatedMetadata.Id] = new RelatedReportField(relatedMetadata.Id, "customer", Guid.Parse("11111111-1111-1111-1111-111111111111"), "credit_limit", relatedMetadata, relatedTargetSchema)
+    });
+var relatedConfig = new ListReportConfigDefinition(
+    1,
+    new[] { new ListReportColumnDefinition("customer.credit_limit", "Customer credit", true, 160) },
+    new[] { new ListReportFilterDefinition("customer.credit_limit", ReportFilterOperators.GreaterThan, "90000") },
+    new[] { new ListReportSortDefinition("customer.credit_limit", ReportSortDirections.Desc) });
+AssertTrue(ListReportConfigValidator.Validate(relatedCatalog.Fields, relatedConfig).Valid, "Related report fields should retain terminal numeric validation behavior.");
+var relationshipReportFields = new ReportRelationshipFieldService(null!, null!);
+AssertEqual(0, relationshipReportFields.ValidatePaths(sampleDepartmentId, lookupSchema, relatedConfig, relatedCatalog).Count, "One-hop record lookup report paths should validate.");
+AssertTrue(
+    relationshipReportFields.ValidatePaths(sampleDepartmentId, lookupSchema, relatedConfig with { Columns = new[] { new ListReportColumnDefinition("customer.parent.credit_limit", "Too deep") } }, relatedCatalog)
+        .Any(error => error.Code == "report.relationship.depth"),
+    "Related report paths deeper than one lookup should be rejected.");
+AssertTrue(
+    relationshipReportFields.ValidatePaths(Guid.Parse("11111111-1111-1111-1111-111111111111"), lookupSchema, relatedConfig, relatedCatalog)
+        .Any(error => error.Code == "report.relationship.cycle"),
+    "Self-referencing report paths should be rejected as cyclic.");
 
 var reportSummary = new ListReportSummaryDto(
     Guid.Parse("66666666-6666-6666-6666-666666666666"),
@@ -3784,6 +3814,25 @@ var executedReport = ListReportExecutionEngine.Execute(
 AssertEqual(1, executedReport.TotalCount, "Report execution should apply runtime search after saved filters.");
 AssertEqual("Jane Cooper", executedReport.Rows.Single().Cells["employee_name"].DisplayValue, "Report rows should expose display cells by field.");
 AssertEqual(RecordStatuses.Active, executedReport.Rows.Single().Cells[ReportableSystemFields.Status].Value, "Report rows should expose system field values.");
+var relatedExecution = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Customer credit",
+    "Employee information",
+    relatedConfig,
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(Page: 1, PageSize: 10, Search: "120000"),
+    fieldMetadataById: relatedCatalog.Fields,
+    resolvedValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>
+    {
+        [executionRecords[0].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(80000m, "80000") },
+        [executionRecords[1].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(120000m, "120000") },
+        [executionRecords[2].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(200000m, "200000") }
+    });
+AssertEqual(1, relatedExecution.TotalCount, "Related report values should participate in typed saved filters and runtime search.");
+AssertEqual(120000m, relatedExecution.Rows.Single().Cells[relatedMetadata.Id].Value, "Related report cells should preserve terminal raw values.");
+AssertEqual("120000", relatedExecution.Rows.Single().Cells[relatedMetadata.Id].DisplayValue, "Related report cells should expose permission-safe display values.");
 
 var runtimeFilteredReport = ListReportExecutionEngine.Execute(
     reportSummary.Id,
@@ -4268,14 +4317,15 @@ var privateDashboard = new DashboardDefinition
     ConfigJson = SerializeHarnessJson(dashboardConfig),
     LayoutJson = SerializeHarnessJson(dashboardLayout),
     CreatedById = dashboardOwnerId,
+    Status = DashboardPublicationStatuses.Published,
     ExtraPropertiesJson = SerializeHarnessJson(new DashboardSettingsDefinition(DashboardVisibilityModes.Private, false))
 };
 var legacySettings = DashboardDefinitionAccess.ResolveSettings(existingDashboardWithoutSettings);
 AssertEqual(DashboardVisibilityModes.Workspace, legacySettings.Visibility, "Legacy dashboards without settings should resolve to workspace visibility.");
 AssertFalse(legacySettings.IsDefault, "Legacy dashboards should not become default dashboards implicitly.");
-AssertTrue(
+AssertFalse(
     DashboardDefinitionAccess.CanView(existingDashboardWithoutSettings, new DashboardAccessContext(dashboardViewerId, CanManageDashboards: false)),
-    "Workspace dashboards should remain visible to dashboard viewers under the old permission model.");
+    "Legacy dashboards should remain drafts and hidden from normal viewers.");
 AssertFalse(
     DashboardDefinitionAccess.CanView(privateDashboard, new DashboardAccessContext(dashboardViewerId, CanManageDashboards: false)),
     "Private dashboards should not be visible to unrelated dashboard viewers.");
@@ -4288,6 +4338,17 @@ AssertTrue(
 AssertFalse(
     DashboardDefinitionAccess.ValidateSettings(new DashboardSettingsDefinition(DashboardVisibilityModes.Private, true)).Valid,
     "Private dashboards should not be allowed to become the shared default dashboard.");
+AssertTrue(DashboardSlugs.IsValid("operations-overview"), "Human-readable dashboard slugs should validate.");
+AssertFalse(DashboardSlugs.IsValid("Operations Overview"), "Dashboard slugs should reject spaces and uppercase characters.");
+AssertFalse(DashboardSlugs.IsValid("builder"), "Dashboard slugs should reject reserved route values.");
+var permissionProtectedDashboard = new DashboardDefinition
+{
+    Id = Guid.NewGuid(), Name = "Protected", Status = DashboardPublicationStatuses.Published,
+    ViewPermission = "dashboards.team.view", ConfigJson = SerializeHarnessJson(dashboardConfig), LayoutJson = SerializeHarnessJson(dashboardLayout)
+};
+AssertFalse(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new DashboardAccessContext(dashboardViewerId, false, new HashSet<string>())), "Dashboard view permissions should be backend enforced.");
+AssertTrue(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new DashboardAccessContext(dashboardViewerId, false, new HashSet<string> { "dashboards.team.view" })), "Users with the configured dashboard permission should be able to view a published workspace dashboard.");
+AssertTrue(DashboardMenuIcons.Approved.Contains("factory"), "Dashboard menus should use approved icon registry keys.");
 AssertTypeAssignable<object, DashboardDefinitionService>();
 AssertTypeAssignable<IPlatformApiModule, DashboardsModule>();
 

@@ -15,7 +15,7 @@ import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "./layo
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
   const request = {
-    name: "Operations dashboard",
+    name: "Team dashboard",
     description: "Saved widgets",
     config: {
       schemaVersion: 1,
@@ -55,7 +55,7 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
           items: [
             {
               id: "dash-1",
-              name: "Operations dashboard",
+              name: "Team dashboard",
               widgetCount: 1,
               visibility: "workspace",
               isDefault: true,

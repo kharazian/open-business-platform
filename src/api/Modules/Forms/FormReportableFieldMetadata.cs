@@ -4,6 +4,7 @@ public static class ReportableFieldSources
 {
     public const string Form = "form";
     public const string System = "system";
+    public const string Relationship = "relationship";
 }
 
 public static class ReportableSystemFields

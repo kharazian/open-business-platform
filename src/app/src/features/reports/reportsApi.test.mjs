@@ -70,6 +70,15 @@ test("reports API client maps list report requests and errors", async () => {
       };
     }
 
+    if (input === "/api/forms/form-2/reports/fields" && init.method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          items: [{ id: "customer.name", label: "Customer › Name", type: "text", source: "relationship", options: [] }]
+        })
+      };
+    }
+
     if (input === "/api/forms/form-2/reports/report-1" && init.method === "GET") {
       return {
         ok: true,
@@ -164,6 +173,7 @@ test("reports API client maps list report requests and errors", async () => {
     },
     fetcher
   );
+  const fields = await api.listReportFields("form-2", fetcher);
   const exportUrl = api.getListReportCsvExportUrl("form-2", "report-1", {
     search: " Jane ",
     sortFieldId: "site_name",
@@ -196,6 +206,8 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(executed.totalCount, 12);
   assert.equal(executed.columns[0].fieldId, "site_name");
   assert.equal(executed.rows[0].cells.site_name.displayValue, "Warehouse A");
+  assert.equal(fields[0].id, "customer.name");
+  assert.equal(fields[0].source, "relationship");
   assert.equal(calls[0].input, "/api/forms/form-2/reports");
   assert.equal(calls[0].init.method, "GET");
   assert.equal(calls[0].init.credentials, "include");
@@ -221,6 +233,8 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[5].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
   assert.equal(calls[5].init.method, "GET");
   assert.equal(calls[5].init.credentials, "include");
+  assert.equal(calls[6].input, "/api/forms/form-2/reports/fields");
+  assert.equal(calls[6].init.method, "GET");
   assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
   assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
 

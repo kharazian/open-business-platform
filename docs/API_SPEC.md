@@ -892,7 +892,7 @@ Response:
 
 `GET /api/dashboards`
 
-Lists saved dashboard definitions. Requires authentication and `menu.dashboard`. Workspace-visible dashboards are returned to dashboard viewers. Private dashboards are returned only to their creator or users with dashboard management permission. Default dashboards sort before other visible dashboards.
+Lists saved dashboard definitions. Requires authentication and `menu.dashboard`. Normal viewers receive only published dashboards allowed by visibility and `viewPermission`; dashboard managers receive drafts as well. Private dashboards are returned only to their creator or dashboard managers. Default dashboards sort before other visible dashboards.
 
 `GET /api/dashboards/{dashboardId}`
 
@@ -900,11 +900,11 @@ Returns a saved dashboard definition with `config`, `layout`, `visibility`, and 
 
 `POST /api/dashboards`
 
-Creates a saved dashboard definition. Requires authentication and `reports.manage`.
+Creates a draft saved dashboard definition. Requires authentication and `dashboards.manage`.
 
 `PUT /api/dashboards/{dashboardId}`
 
-Updates a saved dashboard definition. Requires authentication and `reports.manage`.
+Updates a saved dashboard definition. Requires authentication and `dashboards.manage`. Stale concurrency stamps return `409`.
 
 Dashboard config stores widget definitions, and dashboard layout stores responsive width/order metadata. Supported widths are `small`, `medium`, `wide`, and `full`. Saved widgets reuse chart widget config values and are validated against source forms, source reports, fields, metrics, and widget types before save.
 
@@ -921,7 +921,13 @@ Create and update requests may include optional dashboard settings:
 
 Supported visibility values are `workspace` and `private`. Missing settings resolve to `workspace` and `isDefault: false`. Only workspace-visible dashboards can be saved as the shared default. Saving one dashboard as default clears the previous default.
 
-Saved dashboard definitions are persisted in the `dashboards` table added by the `DashboardDefinitions` EF Core migration. V7 task 004 stores conservative visibility/default settings in `extra_properties_json`; it does not add a schema migration. Workspace ownership is intentionally deferred to a later workspace module.
+Saved dashboard definitions are persisted in the workspace-owned `dashboards` table. The `DashboardPublishingAndNavigation` migration adds publication status, a workspace-unique slug, navigation metadata, an optional view permission, and publication actor/time. Existing rows backfill to `draft` with navigation disabled.
+
+`GET /api/dashboards/by-slug/{slug}` returns only a published dashboard visible to the current user. It returns `404` for drafts, unauthorized dashboards, deleted dashboards, and missing slugs so direct links cannot bypass access rules.
+
+`GET /api/dashboards/navigation` returns only published, navigation-enabled, visible, permitted dashboards, ordered by `menuOrder` and label.
+
+`POST /api/dashboards/{dashboardId}/publish` and `POST /api/dashboards/{dashboardId}/unpublish` require `dashboards.manage`. Publishing requires a valid name, unique safe slug, at least one section and widget, valid widget configuration, and valid enabled menu metadata. Publication, unpublication, and navigation changes are audited.
 
 ## Shared V1 Form Schema Contract
 

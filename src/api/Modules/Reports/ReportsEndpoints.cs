@@ -29,6 +29,25 @@ public static class ReportsEndpoints
             });
         });
 
+        group.MapGet("/fields", async (
+            Guid formId,
+            ReportManagementService reportManagement,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            if (!await CanListReportsAsync(permissionService, httpContext, formId, cancellationToken))
+            {
+                return Results.Forbid();
+            }
+
+            return await HandleReportRequestAsync(async () =>
+            {
+                var fields = await reportManagement.ListReportFieldsAsync(httpContext.User, formId, permissionService, cancellationToken);
+                return Results.Ok(fields);
+            });
+        });
+
         group.MapPost("", async (
             Guid formId,
             CreateListReportRequest request,

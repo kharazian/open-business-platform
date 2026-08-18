@@ -4,6 +4,8 @@ import type { PlatformModule } from "../../platform/moduleRegistry";
 
 const Dashboard = lazy(() => import("../../pages/Dashboard").then((module) => ({ default: module.Dashboard })));
 const DashboardsPage = lazy(() => import("../../features/dashboards/pages/DashboardsPage").then((module) => ({ default: module.DashboardsPage })));
+const DashboardDirectoryPage = lazy(() => import("../../features/dashboards/pages/DashboardDirectoryPage").then((module) => ({ default: module.DashboardDirectoryPage })));
+const DashboardViewerPage = lazy(() => import("../../features/dashboards/pages/DashboardViewerPage").then((module) => ({ default: module.DashboardViewerPage })));
 
 export const dashboardModule: PlatformModule = {
   id: "core.dashboard",
@@ -13,7 +15,10 @@ export const dashboardModule: PlatformModule = {
   routes: [
     { index: true, element: <Dashboard />, permission: "menu.dashboard" },
     { path: "/dashboard", element: <Dashboard />, permission: "menu.dashboard" },
-    { path: "/dashboards", element: <DashboardsPage />, permission: "menu.dashboard" }
+    { path: "/dashboards", element: <DashboardDirectoryPage />, permission: "menu.dashboard" },
+    { path: "/dashboards/:slug", element: <DashboardViewerPage />, permission: "menu.dashboard" },
+    { path: "/dashboard-builder", element: <DashboardsPage />, permission: "dashboards.manage" },
+    { path: "/dashboard-builder/:id", element: <DashboardsPage />, permission: "dashboards.manage" }
   ],
   navigation: [
     { label: "Home", path: "/", icon: Home, order: 10, permission: "menu.dashboard" },

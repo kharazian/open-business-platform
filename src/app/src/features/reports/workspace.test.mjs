@@ -23,11 +23,13 @@ test("report workspace keeps saved reports when form detail is forbidden", async
         updatedAt: null,
         updatedById: null
       }
-    ]
+    ],
+    listReportFields: async () => [{ id: "customer.name", label: "Customer › Name", type: "text", source: "relationship", options: [] }]
   });
 
   assert.equal(result.formDetail, null);
   assert.equal(result.reports[0].name, "Directory");
+  assert.equal(result.fieldOptions[0].id, "customer.name");
 });
 
 test("report workspace still fails when saved reports cannot be listed", async () => {
@@ -50,7 +52,8 @@ test("report workspace still fails when saved reports cannot be listed", async (
         }),
         listReports: async () => {
           throw new Error("Reports unavailable");
-        }
+        },
+        listReportFields: async () => []
       }),
     /Reports unavailable/
   );

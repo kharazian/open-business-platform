@@ -1,14 +1,8 @@
-import { getReportableFields, type ReportableField, type ReportableFieldOption } from "../forms/reportableFields";
+import { getReportableFields, type ReportableField } from "../forms/reportableFields";
 import type { FormSchema } from "../forms/types";
-import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFilterOperator, ReportRowOpenAction, ReportSortDirection } from "./types";
+import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFieldCatalogItem, ReportFilterOperator, ReportRowOpenAction, ReportSortDirection } from "./types";
 
-export type ReportFieldOption = {
-  id: string;
-  label: string;
-  type: string;
-  source: "form" | "system";
-  options: ReportableFieldOption[];
-};
+export type ReportFieldOption = Pick<ReportFieldCatalogItem, "id" | "label" | "type" | "source" | "options">;
 
 export type ReportFilterOperatorOption = {
   label: string;

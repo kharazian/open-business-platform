@@ -19,7 +19,33 @@ public sealed record DashboardSettingsDefinition(
     string Visibility = DashboardVisibilityModes.Workspace,
     bool IsDefault = false);
 
-public sealed record DashboardAccessContext(Guid? UserId, bool CanManageDashboards);
+public sealed record DashboardAccessContext(Guid? UserId, bool CanManageDashboards, IReadOnlySet<string>? Permissions = null);
+
+public static class DashboardPublicationStatuses
+{
+    public const string Draft = "draft";
+    public const string Published = "published";
+}
+
+public static class DashboardMenuIcons
+{
+    public static IReadOnlySet<string> Approved { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "layout-dashboard", "chart-column", "chart-line", "factory", "landmark", "briefcase-business", "activity"
+    };
+}
+
+public static class DashboardSlugs
+{
+    private static readonly HashSet<string> Reserved = new(StringComparer.Ordinal) { "new", "builder", "settings" };
+
+    public static string Normalize(string? value) => value?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    public static bool IsValid(string value) =>
+        value.Length is >= 2 and <= 100 &&
+        !Reserved.Contains(value) &&
+        System.Text.RegularExpressions.Regex.IsMatch(value, "^[a-z0-9]+(?:-[a-z0-9]+)*$");
+}
 
 public static class DashboardDefinitionAccess
 {
@@ -81,6 +107,17 @@ public static class DashboardDefinitionAccess
         if (accessContext.CanManageDashboards)
         {
             return true;
+        }
+
+        if (!string.Equals(dashboard.Status, DashboardPublicationStatuses.Published, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dashboard.ViewPermission)
+            && !(accessContext.Permissions?.Contains(dashboard.ViewPermission) ?? false))
+        {
+            return false;
         }
 
         var settings = ResolveSettings(dashboard);

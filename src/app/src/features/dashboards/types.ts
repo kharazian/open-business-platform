@@ -1,4 +1,5 @@
 import type { EntityId } from "../../types/entities";
+import type { ComponentType } from "react";
 
 export type DashboardMetric = {
   key: string;
@@ -126,16 +127,51 @@ export type DashboardSettings = {
   isDefault: boolean;
 };
 
+export type DashboardPublicationStatus = "draft" | "published";
+
+export type DashboardPublicationSettings = {
+  status: DashboardPublicationStatus;
+  slug: string | null;
+  showInNavigation: boolean;
+  menuLabel: string | null;
+  menuIcon: string | null;
+  menuOrder: number;
+  viewPermission: string | null;
+};
+
+export type DashboardAdapterSettingField = {
+  key: string;
+  label: string;
+  type: "select" | "text" | "number" | "boolean";
+  required?: boolean;
+  options?: Array<{ label: string; value: string }>;
+};
+
+export type DashboardAdapterVisualization = { id: string; name: string; settings: DashboardAdapterSettingField[] };
+export type DashboardAdapterWidget = { adapterId: string; visualizationId: string; settings: Record<string, string | number | boolean | null> };
+export type DashboardAdapterRendererProps = { widget: SavedDashboardWidget };
+export type DashboardAdapterRegistration = {
+  id: string;
+  name: string;
+  visualizations: DashboardAdapterVisualization[];
+  render: ComponentType<DashboardAdapterRendererProps>;
+};
+
+export type SavedDashboardSection = { id: string; title: string; order: number };
+
 export type SavedDashboardWidget = {
   id: string;
   title: string;
   sourceFormId: EntityId;
-  chart: ChartWidgetConfig;
+  chart?: ChartWidgetConfig | null;
+  sectionId?: string | null;
+  adapter?: DashboardAdapterWidget | null;
 };
 
 export type SavedDashboardConfig = {
   schemaVersion: 1;
   widgets: SavedDashboardWidget[];
+  sections?: SavedDashboardSection[] | null;
 };
 
 export type SavedDashboardWidgetLayout = {
@@ -156,6 +192,7 @@ export type DashboardSummaryItem = {
   widgetCount: number;
   visibility: DashboardVisibility;
   isDefault: boolean;
+  publication: DashboardPublicationSettings;
   concurrencyStamp: string;
   createdAt: string;
   createdById?: EntityId | null;
@@ -174,7 +211,10 @@ export type CreateDashboardRequest = {
   config: SavedDashboardConfig;
   layout: SavedDashboardLayout;
   settings?: DashboardSettings;
+  publication?: DashboardPublicationSettings;
 };
+
+export type DashboardNavigationItem = { id: EntityId; slug: string; label: string; icon?: string | null; order: number };
 
 export type UpdateDashboardRequest = CreateDashboardRequest & {
   concurrencyStamp: string;

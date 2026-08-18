@@ -4,6 +4,7 @@ import type {
   ListReportDetail,
   ListReportExecution,
   ListReportSummary,
+  ReportFieldCatalogItem,
   ReportValidationError,
   UpdateListReportRequest
 } from "./types";
@@ -36,6 +37,14 @@ const defaultCsvDownloader: ReportCsvDownloader = (url) => {
 export async function listReports(formId: string, fetcher: ReportsFetcher = defaultFetcher): Promise<ListReportSummary[]> {
   return requestItems<ListReportSummary>(
     `/api/forms/${encodeURIComponent(formId)}/reports`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listReportFields(formId: string, fetcher: ReportsFetcher = defaultFetcher): Promise<ReportFieldCatalogItem[]> {
+  return requestItems<ReportFieldCatalogItem>(
+    `/api/forms/${encodeURIComponent(formId)}/reports/fields`,
     { method: "GET", credentials: "include" },
     fetcher
   );

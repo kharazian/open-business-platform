@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -14,7 +15,7 @@ import type { FormSummary } from "../../forms/drafts";
 import { getReportableFields } from "../../forms/reportableFields";
 import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
-import { createDashboard, getDashboard, listDashboards, runDashboardAnalytics, updateDashboard } from "../api";
+import { createDashboard, getDashboard, listDashboards, publishDashboard, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
@@ -27,12 +28,15 @@ import {
   type DashboardPreviewState
 } from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
+import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
+import { getDashboardAdapter, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import {
   dashboardWidgetWidths,
   type ChartMetricType,
   type ChartWidgetConfig,
   type DashboardAnalyticsResponse,
+  type DashboardAdapterWidget,
   type DashboardAnalyticsWidgetType,
   type DashboardDetail,
   type DashboardSummaryItem,
@@ -62,6 +66,8 @@ const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = 
 ];
 
 export function DashboardsPage() {
+  const navigate = useNavigate();
+  const { id: routeDashboardId } = useParams();
   const [dashboards, setDashboards] = useState<DashboardSummaryItem[]>([]);
   const [selectedDashboardId, setSelectedDashboardId] = useState("");
   const [dashboardDetail, setDashboardDetail] = useState<DashboardDetail | null>(null);
@@ -69,11 +75,23 @@ export function DashboardsPage() {
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
   const [previewStates, setPreviewStates] = useState<Record<string, DashboardPreviewState | undefined>>({});
-  const [dashboardName, setDashboardName] = useState("Operations dashboard");
+  const [dashboardName, setDashboardName] = useState("New dashboard");
   const [dashboardDescription, setDashboardDescription] = useState("");
   const [dashboardVisibility, setDashboardVisibility] = useState<DashboardVisibility>("workspace");
   const [dashboardIsDefault, setDashboardIsDefault] = useState(false);
+  const [slug, setSlug] = useState("");
+  const [showInNavigation, setShowInNavigation] = useState(false);
+  const [menuLabel, setMenuLabel] = useState("");
+  const [menuIcon, setMenuIcon] = useState("layout-dashboard");
+  const [menuOrder, setMenuOrder] = useState(0);
+  const [viewPermission, setViewPermission] = useState("");
   const [selectedFormId, setSelectedFormId] = useState("");
+  const [widgetSourceType, setWidgetSourceType] = useState<"analytics" | "adapter">("analytics");
+  const adapters = useMemo(() => listDashboardAdapters(), []);
+  const [adapterWidget, setAdapterWidget] = useState<DashboardAdapterWidget | null>(() => {
+    const adapter = listDashboardAdapters()[0]; const visualization = adapter?.visualizations[0];
+    return adapter && visualization ? { adapterId: adapter.id, visualizationId: visualization.id, settings: {} } : null;
+  });
   const [selectedReportId, setSelectedReportId] = useState("");
   const [widgetTitle, setWidgetTitle] = useState("New widget");
   const [widgetType, setWidgetType] = useState<DashboardAnalyticsWidgetType>("summary");
@@ -140,7 +158,8 @@ export function DashboardsPage() {
     limit: 10,
     reportId: selectedReportId || null
   };
-  const canAddWidget = Boolean(selectedFormId && widgetTitle.trim()) && hasRequiredDashboardAnalyticsConfig(builderConfig);
+  const selectedAdapter = adapterWidget ? adapters.find((item) => item.id === adapterWidget.adapterId) : undefined;
+  const canAddWidget = Boolean(widgetTitle.trim()) && (widgetSourceType === "adapter" ? Boolean(selectedAdapter && adapterWidget?.visualizationId) : Boolean(selectedFormId) && hasRequiredDashboardAnalyticsConfig(builderConfig));
 
   useEffect(() => {
     if (numericFields.length > 0 && !numericFields.some((field) => field.id === metricFieldId)) {
@@ -180,7 +199,7 @@ export function DashboardsPage() {
       const [dashboardItems, formItems] = await Promise.all([listDashboards(), listForms()]);
       setDashboards(dashboardItems);
       setForms(formItems);
-      setSelectedDashboardId((current) => current || dashboardItems[0]?.id || "");
+      setSelectedDashboardId((current) => current || routeDashboardId || dashboardItems[0]?.id || "");
       setSelectedFormId((current) => current || formItems[0]?.id || "");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -200,6 +219,12 @@ export function DashboardsPage() {
       const settings = normalizeDashboardSettings({ visibility: detail.visibility, isDefault: detail.isDefault });
       setDashboardVisibility(settings.visibility);
       setDashboardIsDefault(settings.isDefault);
+      setSlug(detail.publication.slug ?? "");
+      setShowInNavigation(detail.publication.showInNavigation);
+      setMenuLabel(detail.publication.menuLabel ?? "");
+      setMenuIcon(detail.publication.menuIcon ?? "layout-dashboard");
+      setMenuOrder(detail.publication.menuOrder);
+      setViewPermission(detail.publication.viewPermission ?? "");
       setWidgets(detail.config.widgets);
       setLayoutWidgets(detail.layout.widgets);
       await loadPreviews(detail.config.widgets);
@@ -224,6 +249,10 @@ export function DashboardsPage() {
   }
 
   async function refreshWidgetPreview(widget: SavedDashboardWidget, setLoadingState = true) {
+    if (!widget.chart) {
+      setPreviewStates((current) => ({ ...current, [widget.id]: { status: "error", error: widget.adapter ? `Adapter '${widget.adapter.adapterId}' is not installed in the builder.` : "Widget configuration is missing." } }));
+      return;
+    }
     if (setLoadingState) {
       setPreviewStates((current) => ({ ...current, [widget.id]: { status: "loading" } }));
     }
@@ -244,16 +273,16 @@ export function DashboardsPage() {
     if (!canAddWidget) return;
 
     const id = `widget-${Date.now()}`;
-    const chart = buildChartConfig();
-    const widget = { id, title: widgetTitle.trim(), sourceFormId: selectedFormId, chart };
+    const chart = widgetSourceType === "analytics" ? buildChartConfig() : null;
+    const widget: SavedDashboardWidget = { id, title: widgetTitle.trim(), sourceFormId: widgetSourceType === "analytics" ? selectedFormId : "00000000-0000-0000-0000-000000000000", chart, adapter: widgetSourceType === "adapter" ? adapterWidget : null };
 
     setError(null);
 
     try {
-      const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(selectedFormId, chart));
+      const preview = chart ? await runDashboardAnalytics(buildDashboardAnalyticsRequest(selectedFormId, chart)) : null;
       setWidgets((current) => [...current, widget]);
       setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
-      setPreviewStates((current) => ({ ...current, [id]: { status: "ready", preview } }));
+      if (preview) setPreviewStates((current) => ({ ...current, [id]: { status: "ready", preview } }));
       setNotice("Widget added. Save the dashboard to persist it.");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -290,9 +319,10 @@ export function DashboardsPage() {
     const request = {
       name: dashboardName,
       description: dashboardDescription || null,
-      config: { schemaVersion: 1 as const, widgets },
+      config: { schemaVersion: 1 as const, sections: [{ id: "overview", title: "Overview", order: 0 }], widgets: widgets.map((widget) => ({ ...widget, sectionId: widget.sectionId ?? "overview" })) },
       layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
-      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault })
+      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault }),
+      publication: { status: dashboardDetail?.publication.status ?? "draft", slug: slug || null, showInNavigation, menuLabel: menuLabel || null, menuIcon: menuIcon || null, menuOrder, viewPermission: viewPermission || null }
     };
 
     try {
@@ -301,6 +331,7 @@ export function DashboardsPage() {
         : await createDashboard(request);
       setDashboardDetail(saved);
       setSelectedDashboardId(saved.id);
+      navigate(`/dashboard-builder/${saved.id}`, { replace: true });
       const settings = normalizeDashboardSettings({ visibility: saved.visibility, isDefault: saved.isDefault });
       setDashboardVisibility(settings.visibility);
       setDashboardIsDefault(settings.isDefault);
@@ -319,10 +350,11 @@ export function DashboardsPage() {
   function handleNewDashboard() {
     setSelectedDashboardId("");
     setDashboardDetail(null);
-    setDashboardName("Operations dashboard");
+    setDashboardName("New dashboard");
     setDashboardDescription("");
     setDashboardVisibility("workspace");
     setDashboardIsDefault(false);
+    setSlug(""); setShowInNavigation(false); setMenuLabel(""); setMenuIcon("layout-dashboard"); setMenuOrder(0); setViewPermission("");
     setWidgets([]);
     setLayoutWidgets([]);
     setPreviewStates({});
@@ -336,7 +368,21 @@ export function DashboardsPage() {
     }
 
     setSelectedDashboardId(dashboardId);
+    navigate(`/dashboard-builder/${dashboardId}`);
   }
+
+  async function handlePublicationAction() {
+    if (!dashboardDetail) return;
+    setSaving(true); setError(null);
+    try {
+      const saved = dashboardDetail.publication.status === "published" ? await unpublishDashboard(dashboardDetail.id) : await publishDashboard(dashboardDetail.id);
+      setDashboardDetail(saved); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Dashboard published." : "Dashboard returned to draft.");
+      setDashboards(await listDashboards());
+    } catch (caught) { setError(getErrorMessage(caught)); } finally { setSaving(false); }
+  }
+
+  const slugError = slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? "Use lowercase letters, numbers, and single hyphens only." : ["new", "builder", "settings"].includes(slug) ? "This slug is reserved." : null;
+  const publicationDirty = Boolean(dashboardDetail && (slug !== (dashboardDetail.publication.slug ?? "") || showInNavigation !== dashboardDetail.publication.showInNavigation || menuLabel !== (dashboardDetail.publication.menuLabel ?? "") || menuIcon !== (dashboardDetail.publication.menuIcon ?? "layout-dashboard") || menuOrder !== dashboardDetail.publication.menuOrder || viewPermission !== (dashboardDetail.publication.viewPermission ?? "")));
 
   return (
     <div className="grid gap-6">
@@ -400,6 +446,20 @@ export function DashboardsPage() {
               <Badge tone={dashboardVisibility === "workspace" ? "info" : "warning"}>{getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
               {dashboardIsDefault ? <Badge tone="success">Default</Badge> : null}
             </div>
+            <div className="grid gap-3 border-t border-border pt-4">
+              <div><p className="text-sm font-bold text-foreground">Publishing and navigation</p><p className="text-xs text-muted-foreground">Status: {dashboardDetail?.publication.status ?? "draft"}</p></div>
+              <Input label="URL slug" onChange={(event) => setSlug(event.target.value.toLowerCase())} value={slug} />
+              {slugError ? <p className="text-xs font-semibold text-danger">{slugError}</p> : dashboardDetail?.publication.slug && dashboardDetail.publication.slug !== slug ? <p className="text-xs font-semibold text-warning">Changing the slug will break existing dashboard links.</p> : null}
+              <Checkbox checked={showInNavigation} label="Show in navigation" onChange={(event) => setShowInNavigation(event.target.checked)} />
+              {showInNavigation ? <><Input label="Menu label" onChange={(event) => setMenuLabel(event.target.value)} value={menuLabel} />{!menuLabel.trim() ? <p className="text-xs font-semibold text-danger">Menu label is required when navigation is enabled.</p> : null}<Select label="Menu icon" onChange={(event) => setMenuIcon(event.target.value)} options={[{label:"Dashboard",value:"layout-dashboard"},{label:"Factory",value:"factory"},{label:"Landmark",value:"landmark"},{label:"Bar chart",value:"chart-column"},{label:"Trend",value:"chart-line"},{label:"Activity",value:"activity"},{label:"Business",value:"briefcase-business"}]} value={menuIcon} /><Input label="Menu order" onChange={(event) => setMenuOrder(Number(event.target.value))} type="number" value={menuOrder} /></> : null}
+              <Input label="Required view permission" onChange={(event) => setViewPermission(event.target.value)} value={viewPermission} />
+              <div className="flex flex-wrap gap-2">
+                {dashboardDetail?.publication.slug ? <Button onClick={() => window.open(`/dashboards/${dashboardDetail.publication.slug}`, "_blank")} variant="outline"><ExternalLink className="size-4" />Open dashboard</Button> : null}
+                {dashboardDetail?.publication.slug ? <Button onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/dashboards/${dashboardDetail.publication.slug}`)} variant="outline"><Copy className="size-4" />Copy link</Button> : null}
+                <Button disabled={!dashboardDetail || saving || Boolean(slugError) || publicationDirty} onClick={() => void handlePublicationAction()} variant={dashboardDetail?.publication.status === "published" ? "danger" : "primary"}>{dashboardDetail?.publication.status === "published" ? "Unpublish" : "Publish"}</Button>
+              </div>
+              {publicationDirty ? <p className="text-xs font-semibold text-warning">Save publishing changes before publishing or unpublishing.</p> : null}
+            </div>
           </CardContent>
         </Card>
 
@@ -409,6 +469,9 @@ export function DashboardsPage() {
             <CardDescription>Add analytics widgets to the saved dashboard layout.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
+            {adapters.length > 0 ? <Select label="Widget source" onChange={(event) => setWidgetSourceType(event.target.value as "analytics" | "adapter")} options={[{ label: "Platform analytics", value: "analytics" }, { label: "Installed adapter", value: "adapter" }]} value={widgetSourceType} /> : null}
+            {widgetSourceType === "adapter" && adapterWidget ? <><Select label="Module" onChange={(event) => { const adapter = adapters.find((item) => item.id === event.target.value); const visualization = adapter?.visualizations[0]; if (adapter && visualization) setAdapterWidget({ adapterId: adapter.id, visualizationId: visualization.id, settings: {} }); }} options={adapters.map((item) => ({ label: item.name, value: item.id }))} value={adapterWidget.adapterId} />{selectedAdapter ? <DashboardAdapterSettingsEditor adapter={selectedAdapter} onChange={setAdapterWidget} value={adapterWidget} /> : null}</> : null}
+            {widgetSourceType === "analytics" ? <>
             <div className="grid gap-4 lg:grid-cols-3">
               <Select disabled={forms.length === 0} label="Form" onChange={(event) => setSelectedFormId(event.target.value)} value={selectedFormId}>
                 {forms.map((form) => (
@@ -478,6 +541,7 @@ export function DashboardsPage() {
                 </div>
               </div>
             ) : null}
+            </> : <div className="grid gap-4 sm:grid-cols-2"><Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} /><Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} /><Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}><Plus className="size-4" />Add adapter widget</Button></div>}
           </CardContent>
         </Card>
       </section>
@@ -494,7 +558,7 @@ export function DashboardsPage() {
 
             if (!widget) return null;
 
-            const analyticsWidgetType = toDashboardAnalyticsWidgetType(widget.chart.widgetType);
+            const analyticsWidgetType = widget.chart ? toDashboardAnalyticsWidgetType(widget.chart.widgetType) : null;
             const statusTone = getPreviewStatusTone(previewState);
 
             return (
@@ -504,11 +568,11 @@ export function DashboardsPage() {
                     <div className="min-w-0">
                       <CardTitle className="break-words text-base">{widget.title}</CardTitle>
                       <CardDescription className="break-words">
-                        {getDashboardAnalyticsWidgetLabel(analyticsWidgetType)} · {getMetricLabel(widget.chart.metric.type)}
+                        {analyticsWidgetType && widget.chart ? `${getDashboardAnalyticsWidgetLabel(analyticsWidgetType)} · ${getMetricLabel(widget.chart.metric.type)}` : `Adapter · ${widget.adapter?.adapterId ?? "Unavailable"}`}
                       </CardDescription>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Badge tone={statusTone}>{getPreviewStatusLabel(previewState)}</Badge>
+                      <Badge tone={widget.adapter ? (getDashboardAdapter(widget.adapter.adapterId) ? "success" : "danger") : statusTone}>{widget.adapter ? (getDashboardAdapter(widget.adapter.adapterId) ? "Adapter ready" : "Adapter unavailable") : getPreviewStatusLabel(previewState)}</Badge>
                       {previewState?.status === "ready" && previewState.preview ? <Badge>{formatPreviewCount(previewState.preview)}</Badge> : null}
                       <Button
                         aria-label="Refresh widget preview"
@@ -532,7 +596,7 @@ export function DashboardsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="min-w-0">
-                  <DashboardWidgetPreviewStateView state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />
+                  {widget.adapter && getDashboardAdapter(widget.adapter.adapterId) ? (() => { const Renderer = getDashboardAdapter(widget.adapter!.adapterId)!.render; return <Renderer widget={widget} />; })() : <DashboardWidgetPreviewStateView state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />}
                 </CardContent>
               </Card>
             );

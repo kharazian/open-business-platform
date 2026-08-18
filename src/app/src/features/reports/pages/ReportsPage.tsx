@@ -25,7 +25,6 @@ import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../
 import {
   createListReportConfig,
   filterOperatorRequiresValue,
-  getReportFieldOptions,
   getReportFilterOperatorOptions,
   getReportFilterValueInputType,
   getReportFilterValueOptions,
@@ -62,6 +61,7 @@ import {
   reportFilterOperators,
   reportRowOpenActions,
   type ReportFilterOperator,
+  type ReportFieldCatalogItem,
   type ReportRowOpenAction,
   type ReportSortDirection
 } from "../types";
@@ -84,6 +84,7 @@ export function ReportsPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
+  const [reportFieldOptions, setReportFieldOptions] = useState<ReportFieldCatalogItem[]>([]);
   const [reports, setReports] = useState<ListReportSummary[]>([]);
   const [selectedReportId, setSelectedReportId] = useState("");
   const [reportExecution, setReportExecution] = useState<ListReportExecution | null>(null);
@@ -195,6 +196,7 @@ export function ReportsPage() {
   useEffect(() => {
     if (!selectedFormId) {
       setFormDetail(null);
+      setReportFieldOptions([]);
       setReports([]);
       setSelectedReportId("");
       setReportExecution(null);
@@ -239,6 +241,7 @@ export function ReportsPage() {
       .then((workspace) => {
         if (!active) return;
         setFormDetail(workspace.formDetail);
+        setReportFieldOptions(workspace.fieldOptions);
         setReports(workspace.reports);
         setReportName(`${workspace.formDetail?.name ?? forms.find((form) => form.id === selectedFormId)?.name ?? "Form"} list`);
       })
@@ -246,6 +249,7 @@ export function ReportsPage() {
         if (!active) return;
         setError(getErrorMessage(caught));
         setFormDetail(null);
+        setReportFieldOptions([]);
         setReports([]);
       })
       .finally(() => {
@@ -259,7 +263,7 @@ export function ReportsPage() {
     };
   }, [forms, selectedFormId]);
 
-  const fieldOptions = useMemo(() => (formDetail ? getReportFieldOptions(formDetail.draftSchema) : []), [formDetail]);
+  const fieldOptions = reportFieldOptions;
 
   useEffect(() => {
     if (fieldOptions.length === 0) {

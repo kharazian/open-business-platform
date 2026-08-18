@@ -105,6 +105,10 @@ public sealed record ListReportExecutionColumnDto(
 
 public sealed record ListReportExecutionCellDto(object? Value, string DisplayValue);
 
+public sealed record ResolvedReportFieldValue(object? Value, string DisplayValue);
+
+public sealed record ReportFieldCatalogDto(IReadOnlyList<ReportableFieldMetadata> Items);
+
 public sealed record ListReportExecutionRowDto(
     Guid RecordId,
     string Status,
