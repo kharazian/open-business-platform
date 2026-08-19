@@ -135,7 +135,13 @@ public static class DashboardDefinitionValidator
             return;
         }
 
-        var source = sources.SingleOrDefault(candidate => candidate.FormId == widget.SourceFormId);
+        if (widget.SourceFormId is null)
+        {
+            errors.Add(new DashboardValidationError("config.widgets.sourceFormId", "dashboard.widget.form_required", "Analytics widgets require a source form."));
+            return;
+        }
+
+        var source = sources.SingleOrDefault(candidate => candidate.FormId == widget.SourceFormId.Value);
 
         if (source is null)
         {

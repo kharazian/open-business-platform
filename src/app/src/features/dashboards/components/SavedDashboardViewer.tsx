@@ -36,6 +36,10 @@ export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail
 
   async function refresh(widget: SavedDashboardWidget) {
     if (!widget.chart) return;
+    if (!widget.sourceFormId) {
+      setStates((current) => ({ ...current, [widget.id]: { status: "error", error: "Widget source form is unavailable." } }));
+      return;
+    }
     setStates((current) => ({ ...current, [widget.id]: { status: "loading" } }));
     try {
       const preview = await runDashboardAnalytics(buildDashboardAnalyticsRequest(widget.sourceFormId, widget.chart));

@@ -253,6 +253,10 @@ export function DashboardsPage() {
       setPreviewStates((current) => ({ ...current, [widget.id]: { status: "error", error: widget.adapter ? `Adapter '${widget.adapter.adapterId}' is not installed in the builder.` : "Widget configuration is missing." } }));
       return;
     }
+    if (!widget.sourceFormId) {
+      setPreviewStates((current) => ({ ...current, [widget.id]: { status: "error", error: "Widget source form is unavailable." } }));
+      return;
+    }
     if (setLoadingState) {
       setPreviewStates((current) => ({ ...current, [widget.id]: { status: "loading" } }));
     }

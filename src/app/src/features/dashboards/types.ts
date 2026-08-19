@@ -162,7 +162,7 @@ export type SavedDashboardSection = { id: string; title: string; order: number }
 export type SavedDashboardWidget = {
   id: string;
   title: string;
-  sourceFormId: EntityId;
+  sourceFormId: EntityId | null;
   chart?: ChartWidgetConfig | null;
   sectionId?: string | null;
   adapter?: DashboardAdapterWidget | null;

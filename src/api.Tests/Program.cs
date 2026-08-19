@@ -4292,6 +4292,23 @@ var invalidLayout = dashboardLayout with
     }
 };
 AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig, invalidLayout, dashboardSources).Valid, "Dashboard configs should reject layout widgets that do not match config widgets.");
+var legacyAdapterConfig = new SavedDashboardConfigDefinition(
+    1,
+    new[]
+    {
+        new SavedDashboardWidgetDefinition(
+            "legacy-adapter",
+            "Legacy adapter",
+            null,
+            null,
+            "overview",
+            new DashboardAdapterWidgetDefinition("installed-later", "summary", new Dictionary<string, object?> { ["period"] = "week" }))
+    },
+    new[] { new SavedDashboardSectionDefinition("overview", "Overview", 0) });
+var legacyAdapterLayout = new SavedDashboardLayoutDefinition(1, new[] { new SavedDashboardWidgetLayoutDefinition("legacy-adapter", DashboardWidgetWidths.Full, 1) });
+AssertTrue(
+    DashboardDefinitionValidator.Validate(legacyAdapterConfig, legacyAdapterLayout, Array.Empty<DashboardSourceDefinition>()).Valid,
+    "Legacy adapter widgets should support a null analytics source form without crashing dashboard reads.");
 
 var createDashboardRequest = new CreateDashboardRequest(
     "Operations dashboard",

@@ -299,6 +299,8 @@ public sealed class DashboardDefinitionService
     {
         var formIds = (config.Widgets ?? Array.Empty<SavedDashboardWidgetDefinition>())
             .Select(widget => widget.SourceFormId)
+            .Where(formId => formId.HasValue)
+            .Select(formId => formId!.Value)
             .Distinct()
             .ToArray();
         var forms = await dbContext.Forms

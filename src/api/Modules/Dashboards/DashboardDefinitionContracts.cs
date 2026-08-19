@@ -22,7 +22,7 @@ public static class DashboardWidgetWidths
 public sealed record SavedDashboardWidgetDefinition(
     string Id,
     string Title,
-    Guid SourceFormId,
+    Guid? SourceFormId,
     ChartWidgetConfigDefinition? Chart,
     string? SectionId = null,
     DashboardAdapterWidgetDefinition? Adapter = null);
