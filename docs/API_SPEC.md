@@ -896,7 +896,7 @@ Lists saved dashboard definitions. Requires authentication and `menu.dashboard`.
 
 `GET /api/dashboards/{dashboardId}`
 
-Returns a saved dashboard definition with `config`, `layout`, `visibility`, and `isDefault`. Requires authentication and `menu.dashboard` plus the same visibility rules used by the list endpoint.
+Returns a saved dashboard definition with `config`, `layout`, `visibility`, `isDefault`, `publishedAt`, and `publishedById`. Requires authentication and `menu.dashboard` plus the same visibility rules used by the list endpoint.
 
 `POST /api/dashboards`
 
@@ -927,7 +927,7 @@ Saved dashboard definitions are persisted in the workspace-owned `dashboards` ta
 
 `GET /api/dashboards/navigation` returns only published, navigation-enabled, visible, permitted dashboards, ordered by `menuOrder` and label.
 
-`POST /api/dashboards/{dashboardId}/publish` and `POST /api/dashboards/{dashboardId}/unpublish` require `dashboards.manage`. Publishing requires a valid name, unique safe slug, at least one section and widget, valid widget configuration, and valid enabled menu metadata. Publication, unpublication, and navigation changes are audited.
+`POST /api/dashboards/{dashboardId}/publish` and `POST /api/dashboards/{dashboardId}/unpublish` require `dashboards.manage`. Both accept `{ "concurrencyStamp": "..." }`; stale stamps return `409`. Publishing requires a valid name, unique safe slug, at least one section and widget, valid widget configuration, and valid enabled menu metadata. Publication, unpublication, and navigation changes are audited.
 
 ## Shared V1 Form Schema Contract
 

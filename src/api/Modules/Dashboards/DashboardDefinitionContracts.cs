@@ -74,6 +74,8 @@ public sealed record DashboardPublicationSettingsDefinition(
     int MenuOrder,
     string? ViewPermission);
 
+public sealed record DashboardPublicationMutationRequest(string ConcurrencyStamp);
+
 public sealed record DashboardSummaryDto(
     Guid Id,
     string Name,
@@ -82,6 +84,8 @@ public sealed record DashboardSummaryDto(
     string Visibility,
     bool IsDefault,
     DashboardPublicationSettingsDefinition Publication,
+    DateTimeOffset? PublishedAt,
+    Guid? PublishedById,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,
@@ -97,6 +101,8 @@ public sealed record DashboardDetailDto(
     string Visibility,
     bool IsDefault,
     DashboardPublicationSettingsDefinition Publication,
+    DateTimeOffset? PublishedAt,
+    Guid? PublishedById,
     string ConcurrencyStamp,
     DateTimeOffset CreatedAt,
     Guid? CreatedById,

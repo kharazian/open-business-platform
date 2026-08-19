@@ -9,6 +9,7 @@ import { runDashboardAnalytics } from "../api";
 import { buildDashboardAnalyticsRequest } from "../analytics";
 import { getDashboardAdapter } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
+import { normalizeDashboardSections } from "../sections";
 import type { DashboardAnalyticsResponse, DashboardDetail, SavedDashboardWidget } from "../types";
 import { ChartWidgetPreview } from "./ChartWidgetPreview";
 
@@ -16,8 +17,7 @@ type WidgetState = { status: "loading" | "ready" | "error"; preview?: DashboardA
 
 export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail }) {
   const sections = useMemo(() => {
-    const configured = [...(dashboard.config.sections ?? [])].sort((left, right) => left.order - right.order);
-    return configured.length > 0 ? configured : [{ id: "overview", title: "Overview", order: 0 }];
+    return normalizeDashboardSections(dashboard.config.sections);
   }, [dashboard.config.sections]);
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "overview");
   const [states, setStates] = useState<Record<string, WidgetState>>({});
@@ -55,7 +55,7 @@ export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail
         <div className="flex flex-wrap items-center gap-2"><Badge tone="success">Published</Badge>{dashboard.isDefault ? <Badge>Default</Badge> : null}</div>
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{dashboard.name}</h1>
         {dashboard.description ? <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{dashboard.description}</p> : null}
-        <p className="text-xs font-semibold text-muted-foreground">Updated {new Date(dashboard.updatedAt ?? dashboard.createdAt).toLocaleDateString()}</p>
+        <p className="text-xs font-semibold text-muted-foreground">Published {new Date(dashboard.publishedAt ?? dashboard.updatedAt ?? dashboard.createdAt).toLocaleDateString()}</p>
       </header>
 
       {sections.length > 1 ? (

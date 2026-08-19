@@ -66,8 +66,8 @@ test("dashboard publication API maps navigation, slug viewer, publish, and unpub
   };
   assert.equal((await api.listDashboardNavigation(fetcher))[0].slug, "team-overview");
   await api.getDashboardBySlug("team plan", fetcher);
-  await api.publishDashboard("1", fetcher);
-  await api.unpublishDashboard("1", fetcher);
+  await api.publishDashboard("1", "stamp-1", fetcher);
+  await api.unpublishDashboard("1", "stamp-2", fetcher);
   assert.deepEqual(calls.map((call) => call.input), [
     "/api/dashboards/navigation",
     "/api/dashboards/by-slug/team%20plan",
@@ -75,4 +75,24 @@ test("dashboard publication API maps navigation, slug viewer, publish, and unpub
     "/api/dashboards/1/unpublish"
   ]);
   assert.equal(calls[2].init.method, "POST");
+  assert.equal(calls[2].init.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(calls[2].init.body), { concurrencyStamp: "stamp-1" });
+  assert.deepEqual(JSON.parse(calls[3].init.body), { concurrencyStamp: "stamp-2" });
+});
+
+test("dashboard API errors retain structured validation details", async () => {
+  await assert.rejects(
+    () => api.listDashboards(async () => ({
+      ok: false,
+      json: async () => ({
+        message: "Dashboard config is invalid.",
+        errors: [{ path: "config.sections", code: "dashboard.section.invalid", message: "Each section needs a title." }]
+      })
+    })),
+    (error) => {
+      assert.equal(error.name, "DashboardApiError");
+      assert.deepEqual(error.errors, [{ path: "config.sections", code: "dashboard.section.invalid", message: "Each section needs a title." }]);
+      return true;
+    }
+  );
 });

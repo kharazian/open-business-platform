@@ -4317,6 +4317,8 @@ var createDashboardRequest = new CreateDashboardRequest(
     dashboardLayout);
 AssertEqual("Operations dashboard", createDashboardRequest.Name, "Create dashboard requests should carry dashboard names.");
 AssertEqual(1, createDashboardRequest.Config.Widgets.Count, "Create dashboard requests should carry widgets.");
+var dashboardPublicationMutation = new DashboardPublicationMutationRequest("dashboard-stamp");
+AssertEqual("dashboard-stamp", dashboardPublicationMutation.ConcurrencyStamp, "Dashboard publication requests should carry the browser concurrency stamp.");
 var dashboardOwnerId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
 var dashboardViewerId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
 var existingDashboardWithoutSettings = new DashboardDefinition

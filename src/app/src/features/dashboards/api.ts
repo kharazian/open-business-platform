@@ -8,6 +8,7 @@ import type {
   DashboardNavigationItem,
   DashboardSummary,
   DashboardSummaryItem,
+  DashboardValidationError,
   UpdateDashboardRequest
 } from "./types";
 
@@ -20,9 +21,12 @@ type ApiFetchResponse = {
 export type DashboardFetcher = (input: string, init?: RequestInit) => Promise<ApiFetchResponse>;
 
 export class DashboardApiError extends Error {
-  constructor(message: string) {
+  readonly errors: DashboardValidationError[];
+
+  constructor(message: string, errors: DashboardValidationError[] = []) {
     super(message);
     this.name = "DashboardApiError";
+    this.errors = errors;
   }
 }
 
@@ -52,12 +56,25 @@ export async function listDashboardNavigation(fetcher: DashboardFetcher = defaul
   return requestItems<DashboardNavigationItem>("/api/dashboards/navigation", { method: "GET", credentials: "include" }, fetcher);
 }
 
-export async function publishDashboard(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
-  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/publish`, { method: "POST", credentials: "include" }, fetcher);
+export async function publishDashboard(dashboardId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return mutatePublication(dashboardId, "publish", concurrencyStamp, fetcher);
 }
 
-export async function unpublishDashboard(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
-  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/unpublish`, { method: "POST", credentials: "include" }, fetcher);
+export async function unpublishDashboard(dashboardId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return mutatePublication(dashboardId, "unpublish", concurrencyStamp, fetcher);
+}
+
+function mutatePublication(dashboardId: string, action: "publish" | "unpublish", concurrencyStamp: string, fetcher: DashboardFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(
+    `/api/dashboards/${encodeURIComponent(dashboardId)}/${action}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ concurrencyStamp })
+    },
+    fetcher
+  );
 }
 
 export async function createDashboard(
@@ -141,7 +158,7 @@ async function requestJson<T>(input: string, init: RequestInit, fetcher: Dashboa
   const body = await readJson(response);
 
   if (!response.ok) {
-    throw new DashboardApiError(getErrorMessageFromBody(body));
+    throw new DashboardApiError(getErrorMessageFromBody(body), getValidationErrorsFromBody(body));
   }
 
   return body as T;
@@ -161,6 +178,17 @@ function getErrorMessageFromBody(body: unknown): string {
   }
 
   return "Dashboard request failed.";
+}
+
+function getValidationErrorsFromBody(body: unknown): DashboardValidationError[] {
+  if (!isRecord(body) || !Array.isArray(body.errors)) return [];
+
+  return body.errors.filter((error): error is DashboardValidationError =>
+    isRecord(error)
+    && typeof error.path === "string"
+    && typeof error.code === "string"
+    && typeof error.message === "string"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

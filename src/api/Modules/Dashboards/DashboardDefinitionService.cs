@@ -149,9 +149,10 @@ public sealed class DashboardDefinitionService
         return ToDetailDto(dashboard);
     }
 
-    public async Task<DashboardDetailDto> PublishAsync(Guid dashboardId, Guid? userId, CancellationToken cancellationToken)
+    public async Task<DashboardDetailDto> PublishAsync(Guid dashboardId, DashboardPublicationMutationRequest request, Guid? userId, CancellationToken cancellationToken)
     {
         var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
         var config = Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new(1, Array.Empty<SavedDashboardWidgetDefinition>());
         var layout = Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>());
         await ValidateRequestAsync(NormalizeName(dashboard.Name), config, layout, cancellationToken);
@@ -165,9 +166,10 @@ public sealed class DashboardDefinitionService
         return ToDetailDto(dashboard);
     }
 
-    public async Task<DashboardDetailDto> UnpublishAsync(Guid dashboardId, Guid? userId, CancellationToken cancellationToken)
+    public async Task<DashboardDetailDto> UnpublishAsync(Guid dashboardId, DashboardPublicationMutationRequest request, Guid? userId, CancellationToken cancellationToken)
     {
         var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
         dashboard.Status = DashboardPublicationStatuses.Draft;
         dashboard.ShowInNavigation = false;
         dashboard.PublishedAt = null;
@@ -177,6 +179,14 @@ public sealed class DashboardDefinitionService
         AddAudit("Dashboard", dashboard.Id, "dashboard_navigation_changed", userId);
         await SaveWithConflictAsync(cancellationToken);
         return ToDetailDto(dashboard);
+    }
+
+    private static void EnsureConcurrencyStamp(DashboardDefinition dashboard, string concurrencyStamp)
+    {
+        if (!string.Equals(dashboard.ConcurrencyStamp, concurrencyStamp, StringComparison.Ordinal))
+        {
+            throw new DashboardDefinitionException(StatusCodes.Status409Conflict, "Dashboard was updated by someone else. Refresh and try again.");
+        }
     }
 
     private async Task<DashboardDefinition> FindManagedAsync(Guid id, CancellationToken cancellationToken)
@@ -344,6 +354,8 @@ public sealed class DashboardDefinitionService
             settings.Visibility,
             settings.IsDefault,
             ToPublication(dashboard),
+            dashboard.PublishedAt,
+            dashboard.PublishedById,
             dashboard.ConcurrencyStamp,
             dashboard.CreatedAt,
             dashboard.CreatedById,
@@ -364,6 +376,8 @@ public sealed class DashboardDefinitionService
             settings.Visibility,
             settings.IsDefault,
             ToPublication(dashboard),
+            dashboard.PublishedAt,
+            dashboard.PublishedById,
             dashboard.ConcurrencyStamp,
             dashboard.CreatedAt,
             dashboard.CreatedById,

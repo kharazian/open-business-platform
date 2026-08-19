@@ -94,16 +94,16 @@ public static class DashboardsEndpoints
             return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.UpdateAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken)));
         });
 
-        group.MapPost("/{dashboardId:guid}/publish", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        group.MapPost("/{dashboardId:guid}/publish", async (Guid dashboardId, DashboardPublicationMutationRequest request, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
             if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
-            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.PublishAsync(dashboardId, GetCurrentUserId(httpContext), cancellationToken)));
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.PublishAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken)));
         });
 
-        group.MapPost("/{dashboardId:guid}/unpublish", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        group.MapPost("/{dashboardId:guid}/unpublish", async (Guid dashboardId, DashboardPublicationMutationRequest request, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
             if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
-            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.UnpublishAsync(dashboardId, GetCurrentUserId(httpContext), cancellationToken)));
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.UnpublishAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken)));
         });
 
         return endpoints;

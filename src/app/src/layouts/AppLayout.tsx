@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useWorkspaceBranding } from "../context/WorkspaceBrandingContext";
 import { getNotificationPreferences, getUnreadNotificationCount } from "../features/notifications/api";
 import { listDashboardNavigation } from "../features/dashboards/api";
+import { subscribeToDashboardsChanged } from "../features/dashboards/events";
 import { applyDashboardNavigation } from "../features/dashboards/navigation";
 import type { DashboardNavigationItem } from "../features/dashboards/types";
 import { applyNotificationBadge } from "../features/notifications/navigationBadge";
@@ -77,9 +78,30 @@ export function AppLayout({ theme, onThemeToggle }: AppLayoutProps) {
 
   useEffect(() => {
     let active = true;
-    if (!user?.permissions.includes("menu.dashboard")) { setDashboardNavigation([]); return; }
-    listDashboardNavigation().then((items) => { if (active) setDashboardNavigation(items); }).catch(() => { if (active) setDashboardNavigation([]); });
-    return () => { active = false; };
+
+    async function refreshDashboardNavigation() {
+      if (!user?.permissions.includes("menu.dashboard")) {
+        setDashboardNavigation([]);
+        return;
+      }
+
+      try {
+        const items = await listDashboardNavigation();
+        if (active) setDashboardNavigation(items);
+      } catch {
+        if (active) setDashboardNavigation([]);
+      }
+    }
+
+    void refreshDashboardNavigation();
+    const unsubscribe = subscribeToDashboardsChanged(() => {
+      void refreshDashboardNavigation();
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user]);
 
   async function handleSignOut() {

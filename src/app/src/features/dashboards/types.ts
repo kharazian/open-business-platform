@@ -139,6 +139,12 @@ export type DashboardPublicationSettings = {
   viewPermission: string | null;
 };
 
+export type DashboardValidationError = {
+  path: string;
+  code: string;
+  message: string;
+};
+
 export type DashboardAdapterSettingField = {
   key: string;
   label: string;
@@ -193,6 +199,8 @@ export type DashboardSummaryItem = {
   visibility: DashboardVisibility;
   isDefault: boolean;
   publication: DashboardPublicationSettings;
+  publishedAt?: string | null;
+  publishedById?: EntityId | null;
   concurrencyStamp: string;
   createdAt: string;
   createdById?: EntityId | null;
@@ -217,5 +225,9 @@ export type CreateDashboardRequest = {
 export type DashboardNavigationItem = { id: EntityId; slug: string; label: string; icon?: string | null; order: number };
 
 export type UpdateDashboardRequest = CreateDashboardRequest & {
+  concurrencyStamp: string;
+};
+
+export type DashboardPublicationMutationRequest = {
   concurrencyStamp: string;
 };
