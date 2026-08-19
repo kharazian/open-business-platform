@@ -1778,6 +1778,65 @@ Response:
 }
 ```
 
+### Discover related-record panels
+
+`GET /api/records/{recordId}/related?page=1&pageSize=10`
+
+Requires the same target-form view access and matching target-record scope as record detail. Panel discovery is separately paged; `pageSize` is clamped to `1` through `25`. A panel is returned only when the caller can view its source form and the backlink lookup field is not hidden. Counts apply source record scopes and deny policies.
+
+```json
+{
+  "totalCount": 1,
+  "items": [
+    {
+      "sourceFormId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "sourceFormName": "Invoices",
+      "sourceFieldId": "customer",
+      "sourceFieldLabel": "Customer",
+      "columns": [
+        { "fieldId": "invoice_number", "label": "Invoice number", "type": "autonumber" }
+      ],
+      "totalCount": 3
+    }
+  ]
+}
+```
+
+Panels collapse matching definitions across immutable source versions. Preview columns follow current source layout order when available, fall back to the newest applicable relationship version, omit the backlink, subtables, and hidden fields, and are capped at five.
+
+### List related-record rows
+
+`GET /api/records/{recordId}/related/{sourceFormId}/{sourceFieldId}?page=1&pageSize=10`
+
+Requires authorized access to the target record, source form, visible backlink field, and each returned source record. Unknown, inaccessible, and hidden panels all return the same non-disclosing `404` response. Row `pageSize` is clamped to `1` through `50`.
+
+```json
+{
+  "panel": {
+    "sourceFormId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "sourceFormName": "Invoices",
+    "sourceFieldId": "customer",
+    "sourceFieldLabel": "Customer",
+    "columns": [
+      { "fieldId": "invoice_number", "label": "Invoice number", "type": "autonumber" }
+    ],
+    "totalCount": 3
+  },
+  "page": 1,
+  "pageSize": 10,
+  "items": [
+    {
+      "recordId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "status": "active",
+      "createdAt": "2026-08-19T14:00:00Z",
+      "cells": { "invoice_number": "INV-000123" }
+    }
+  ]
+}
+```
+
+Rows are ordered by newest creation time and record ID. The backend unions indexed canonical `record_relationships` edges with JSONB-contained legacy values, deduplicates them, and validates the backlink against each source record's immutable form version. Archived source/target forms remain readable when access still exists. Deleted or inaccessible source records are omitted. Cells are display-only: hidden values, backlink UUIDs, unresolved lookup/file UUIDs, attachment storage metadata, and unrestricted source record JSON are never returned. These endpoints are read-only and are not a generic relationship API.
+
 ### Update record
 
 `PUT /api/records/{recordId}`

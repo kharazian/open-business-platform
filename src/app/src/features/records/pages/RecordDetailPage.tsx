@@ -24,6 +24,7 @@ import { executeRecordWorkflowTransition, getRecordWorkflow, startRecordWorkflow
 import type { RecordWorkflowState, RecordWorkflowTransition } from "../../workflows/types";
 import { createRecordEditDraft, createUpdateRecordRequest, getRecordListPath, isRecordEditMode } from "../recordEditor";
 import { getRecordDetailPrintDescription, requestBrowserPrint } from "../recordPrint";
+import { RelatedRecordsWorkspace } from "../components/RelatedRecordsWorkspace";
 
 export function RecordDetailPage() {
   const { recordId } = useParams();
@@ -53,6 +54,7 @@ export function RecordDetailPage() {
   const [printTemplateLoading, setPrintTemplateLoading] = useState(false);
   const [printTemplateDownloading, setPrintTemplateDownloading] = useState(false);
   const [printTemplateError, setPrintTemplateError] = useState<string | null>(null);
+  const [relatedRefreshKey, setRelatedRefreshKey] = useState(0);
 
   useEffect(() => {
     void refreshRecord();
@@ -136,6 +138,7 @@ export function RecordDetailPage() {
       applyWorkflowState(loadedWorkflowState);
       setValidationErrors([]);
       setEditing(editModeRequested);
+      setRelatedRefreshKey((current) => current + 1);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -464,6 +467,8 @@ export function RecordDetailPage() {
               timeline={timeline}
             />
           </div>
+
+          {!editing && !selectedPrintTemplate ? <RelatedRecordsWorkspace recordId={record.id} refreshKey={relatedRefreshKey} /> : null}
 
           <Card className="print-card" data-print-hide={selectedPrintTemplate ? "true" : undefined}>
             <CardHeader>

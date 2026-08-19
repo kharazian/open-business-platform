@@ -948,6 +948,7 @@ V10 task 002 is complete: immutable autonumber fields use bounded published form
 V10 task 003 is complete: `fileUpload` fields use bounded protected uploads, workspace-owned metadata, private PostgreSQL content behind storage/scanner interfaces, atomic record claims, safe filename display, and audited permission-checked downloads.
 V10 task 004 is complete: record lookups now materialize workspace-owned source/target edges, restrict referenced deletes including legacy JSON-only links, require published targets for new selections, and preserve unchanged selections after archival.
 V10 task 005 is complete: list reports discover and execute permission-safe one-hop dotted lookup fields with terminal typed filters, search, sort, viewer, CSV, and print behavior while preserving schema-version-1 root-field configs and adding no migration.
+V10 task 006 is complete: record detail now provides read-only reverse lookup panels through separately paged discovery/row APIs that union canonical and legacy relationships, validate immutable source schemas, enforce source and target permissions, and return display-only cells.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

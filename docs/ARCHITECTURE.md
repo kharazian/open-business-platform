@@ -75,7 +75,7 @@ Current frontend shell/theme behavior:
 - `src/app/src/config/branding.ts` reads frontend branding from `VITE_APP_NAME`, `VITE_COMPANY_NAME`, `VITE_COMPANY_LOGO_URL`, and `BRAND_LOGO_TEXT`.
 - `AuthContext` loads the signed-in user from `/api/auth/me`, stores effective permissions, and supports login/logout through cookie auth.
 - The Forms feature currently includes persisted list/create, backend-owned draft metadata/schema editing, responsive layout settings, preview, publishing, and published-form submission.
-- The Records feature currently includes form-scoped record lists, record detail, edit, soft-delete, and browser print views backed by the records API.
+- The Records feature currently includes form-scoped record lists, record detail, permission-aware reverse lookup panels, edit, soft-delete, and browser print views backed by the records API.
 - The Users feature currently includes a Users & Access workspace for users, roles, role permissions, and per-form role access.
 - The Workflows feature currently includes typed frontend workflow contracts, API helpers, draft/config helpers, and the `/workflows` management workspace for form-scoped definition list/create/edit/publish/enable/disable operations.
 
@@ -253,6 +253,16 @@ Infrastructure responsibility:
 5. Missing, inaccessible, hidden, or stale related values become empty cells; raw target IDs are never used as fallback display values.
 6. The shared report execution path applies filters, search, sort, display, CSV, and print/PDF behavior to the terminal field's typed value.
 
+## Data Flow: Related-Record Workspace
+
+1. Record detail loads the selected target record independently from its related workspace.
+2. The records module discovers historical and current source form-version lookup definitions that target the selected record's form.
+3. Backend form and hidden-field checks remove inaccessible panel definitions before metadata or counts are returned.
+4. Each panel queries indexed canonical edges plus a JSONB containment compatibility path, then validates every candidate against its immutable source schema and stored lookup value.
+5. Existing source record scopes and deny policies filter counts and rows before pagination.
+6. The row API returns at most five visible display-only cells plus the accessible source record ID, status, and creation time; unresolved lookup/file UUIDs are never fallback values.
+7. The frontend loads, retries, and paginates every panel independently and keeps related data out of edit and print output.
+
 ## Data Flow: Trigger Later
 
 1. Record is created or updated.
@@ -270,6 +280,7 @@ Infrastructure responsibility:
 - Store attachment metadata and bounded private PostgreSQL content separately from record JSON. Access content through a storage interface, inspect it through a scanner interface, and authorize every download against current record/field access.
 - Treat lookup UUIDs in immutable-version record JSON as source values and `record_relationships` as derived integrity/index metadata. Synchronize edges transactionally, restrict referenced target deletion, and never expose a generic edge mutation API.
 - Keep one-hop report traversal inside the reports module. Dotted report field keys are read-only projections over stored lookup values, not a graph API or relationship mutation mechanism.
+- Keep reverse related-record discovery inside the records module. Use separate bounded discovery/row endpoints and display-only projections; do not expand the primary record payload or expose generic graph traversal.
 - Use backend permission checks for every sensitive API.
 - Keep responsive form layout grid-based, not canvas-based.
 - Use XYFlow only for workflow visual authoring.

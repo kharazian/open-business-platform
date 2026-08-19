@@ -155,6 +155,35 @@ export type RecordTimeline = {
   items: RecordTimelineEntry[];
 };
 
+export type RelatedRecordColumn = {
+  fieldId: string;
+  label: string;
+  type: string;
+};
+
+export type RelatedRecordPanel = {
+  sourceFormId: string;
+  sourceFormName: string;
+  sourceFieldId: string;
+  sourceFieldLabel: string;
+  columns: RelatedRecordColumn[];
+  totalCount: number;
+};
+
+export type RelatedRecordRow = {
+  recordId: string;
+  status: string;
+  createdAt: string;
+  cells: Record<string, string>;
+};
+
+export type RelatedRecordRows = {
+  panel: RelatedRecordPanel;
+  page: number;
+  pageSize: number;
+  items: RelatedRecordRow[];
+};
+
 export type FileAttachment = {
   id: string;
   formId: string;
@@ -368,6 +397,36 @@ export async function getRecordTimeline(recordId: string, limit = 25, fetcher: F
 
   return requestJson<RecordTimeline>(
     `/api/records/${encodeURIComponent(recordId)}/timeline?${searchParams.toString()}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listRelatedRecordPanels(
+  recordId: string,
+  page = 1,
+  pageSize = 10,
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<PagedResult<RelatedRecordPanel>> {
+  const searchParams = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  return requestJson<PagedResult<RelatedRecordPanel>>(
+    `/api/records/${encodeURIComponent(recordId)}/related?${searchParams.toString()}`,
+    { method: "GET", credentials: "include" },
+    fetcher
+  );
+}
+
+export async function listRelatedRecordRows(
+  recordId: string,
+  sourceFormId: string,
+  sourceFieldId: string,
+  page = 1,
+  pageSize = 10,
+  fetcher: FormsFetcher = defaultFetcher
+): Promise<RelatedRecordRows> {
+  const searchParams = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  return requestJson<RelatedRecordRows>(
+    `/api/records/${encodeURIComponent(recordId)}/related/${encodeURIComponent(sourceFormId)}/${encodeURIComponent(sourceFieldId)}?${searchParams.toString()}`,
     { method: "GET", credentials: "include" },
     fetcher
   );

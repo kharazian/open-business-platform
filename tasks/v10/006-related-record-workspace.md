@@ -43,16 +43,16 @@ The exact DTO names may follow existing records-module conventions, but the endp
 
 ## Acceptance Criteria
 
-- [ ] Record detail discovers reverse one-to-many panels for lookup fields that target the selected record's form.
-- [ ] Canonical and legacy JSON-only relationships appear once, using each source record's immutable schema to validate the edge.
-- [ ] Target record access, source form access, source record scopes, workspace policies, and hidden source fields are enforced before metadata, counts, or rows are returned.
-- [ ] Hidden backlink/preview fields and inaccessible related lookup values never expose raw UUIDs or other fallback values.
-- [ ] Archived forms preserve otherwise-authorized existing relationships, while deleted, missing, or inaccessible source records do not appear.
-- [ ] Panel discovery and rows are deterministically ordered, bounded, and independently paginated.
-- [ ] The record detail UI provides responsive loading, empty, error, retry, pagination, and record-navigation states without breaking its existing value, workflow, timeline, edit, or print behavior.
-- [ ] Related panels remain read-only and add no task-007 operational actions or generic relationship API.
-- [ ] API, architecture, data-model, roadmap, and V10 documentation plus backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, and `git diff --check` pass.
+- [x] Record detail discovers reverse one-to-many panels for lookup fields that target the selected record's form.
+- [x] Canonical and legacy JSON-only relationships appear once, using each source record's immutable schema to validate the edge.
+- [x] Target record access, source form access, source record scopes, workspace policies, and hidden source fields are enforced before metadata, counts, or rows are returned.
+- [x] Hidden backlink/preview fields and inaccessible related lookup values never expose raw UUIDs or other fallback values.
+- [x] Archived forms preserve otherwise-authorized existing relationships, while deleted, missing, or inaccessible source records do not appear.
+- [x] Panel discovery and rows are deterministically ordered, bounded, and independently paginated.
+- [x] The record detail UI provides responsive loading, empty, error, retry, pagination, and record-navigation states without breaking its existing value, workflow, timeline, edit, or print behavior.
+- [x] Related panels remain read-only and add no task-007 operational actions or generic relationship API.
+- [x] API, architecture, data-model, roadmap, and V10 documentation plus backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -82,3 +82,5 @@ The exact DTO names may follow existing records-module conventions, but the endp
 - Panels are derived from versioned lookup definitions; there is no new panel-definition builder in this task.
 - Preview columns are deterministic and capped at five; configurable related views belong to a later task.
 - The workspace is read-only. V10 task 007 owns typed report and row actions.
+- Authenticated PostgreSQL/API acceptance covered canonical row discovery, JSON-only legacy fallback, canonical restoration, denied source-form access, hidden backlink suppression, scoped reauthorization, archived-source readability, and cleanup/restoration of every temporary permission/status change.
+- Headless browser automation was unavailable in the local environment because the web-app testing skill's Python Playwright dependency and a Chromium binary are not installed. Frontend API/helper/state coverage and the production TypeScript/Vite build passed instead.

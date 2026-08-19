@@ -3331,9 +3331,17 @@ AssertTrue(
         .Contains("/{recordId:guid}/timeline", StringComparison.Ordinal),
     "Records endpoints should expose a permission-checked record activity timeline route.");
 AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RecordsEndpoints.cs"))
+        .Contains("/{recordId:guid}/related/{sourceFormId:guid}/{sourceFieldId}", StringComparison.Ordinal),
+    "Records endpoints should expose separately paged related-record rows.");
+AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordLookupService>", StringComparison.Ordinal),
     "Record lookup service should be registered for endpoint injection.");
+AssertTrue(
+    File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
+        .Contains("AddScoped<RelatedRecordService>", StringComparison.Ordinal),
+    "Related record service should be registered for endpoint injection.");
 AssertTrue(
     File.ReadAllText(GetRepositoryFilePath("src", "api", "Program.cs"))
         .Contains("AddScoped<RecordTimelineService>", StringComparison.Ordinal),
@@ -3428,6 +3436,60 @@ var subTableRows = new SubTableRowsDto(
 AssertEqual("line_items", subTableRows.FieldId, "Sub-table row responses should identify the parent field.");
 AssertEqual("Item name", subTableRows.Columns[0].Label, "Sub-table row responses should expose visible child column labels.");
 AssertEqual("Laptop", subTableRows.Items[0].Values["item_name"], "Sub-table row responses should expose child record values.");
+
+var relatedTargetFormId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+var relatedTargetRecordId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+var relatedWorkspaceSchema = new FormSchemaDefinition(
+    1,
+    new[]
+    {
+        new FormFieldDefinition("parent", FormFieldTypes.RecordLookup, "Parent order", Lookup: new FormFieldLookupDefinition("form_records", relatedTargetFormId.ToString(), new[] { "number" }, new[] { "number" })),
+        new FormFieldDefinition("sixth", FormFieldTypes.Text, "Sixth"),
+        new FormFieldDefinition("name", FormFieldTypes.Text, "Name"),
+        new FormFieldDefinition("secret", FormFieldTypes.Text, "Secret"),
+        new FormFieldDefinition("amount", FormFieldTypes.Currency, "Amount"),
+        new FormFieldDefinition("document", FormFieldTypes.FileUpload, "Document"),
+        new FormFieldDefinition("customer", FormFieldTypes.RecordLookup, "Customer", Lookup: new FormFieldLookupDefinition("form_records", sampleDepartmentId.ToString(), new[] { "name" }, new[] { "name" })),
+        new FormFieldDefinition("notes", FormFieldTypes.Textarea, "Notes"),
+        new FormFieldDefinition("children", FormFieldTypes.SubTable, "Children", SubTable: new FormFieldSubTableDefinition("form_records", sampleDepartmentId.ToString(), "parent", Array.Empty<string>()))
+    },
+    new FormLayoutDefinition(new[]
+    {
+        new FormLayoutPageDefinition("page", null, null, new[]
+        {
+            new FormLayoutSectionDefinition("section", null, null, new[]
+            {
+                new FormLayoutRowDefinition("row", new[]
+                {
+                    new FormLayoutColumnDefinition("column", new ResponsiveSpanDefinition(12, 12, 12), new[] { "name", "parent", "secret", "amount", "document", "customer", "notes", "sixth", "children" })
+                })
+            })
+        })
+    }));
+var relatedValues = new Dictionary<string, object?> { ["parent"] = relatedTargetRecordId.ToString(), ["name"] = "Invoice 100" };
+AssertTrue(RelatedRecordService.IsRelationshipMatch(relatedWorkspaceSchema, relatedValues, "parent", relatedTargetFormId, relatedTargetRecordId), "Related rows should be validated against their immutable lookup definition and stored target value.");
+AssertFalse(RelatedRecordService.IsRelationshipMatch(relatedWorkspaceSchema, relatedValues, "parent", relatedTargetFormId, Guid.NewGuid()), "A different target record should not match a related panel.");
+AssertFalse(RelatedRecordService.IsRelationshipMatch(relatedWorkspaceSchema, relatedValues, "name", relatedTargetFormId, relatedTargetRecordId), "A non-lookup JSON value should not become a legacy relationship.");
+var relatedColumns = RelatedRecordService.BuildPreviewColumns(
+    relatedWorkspaceSchema,
+    "parent",
+    new HashSet<string>(new[] { "secret" }, StringComparer.Ordinal));
+AssertSequenceEqual(new[] { "name", "amount", "document", "customer", "notes" }, relatedColumns.Select(column => column.FieldId).ToArray(), "Related preview columns should preserve layout order, omit protected/backlink/subtable fields, and stop at five.");
+AssertEqual(string.Empty, RelatedRecordService.FormatCell(relatedWorkspaceSchema.Fields.Single(field => field.Id == "customer"), sampleDepartmentId.ToString(), null), "Unresolved related lookup cells should never fall back to raw UUIDs.");
+AssertEqual("Acme", RelatedRecordService.FormatCell(relatedWorkspaceSchema.Fields.Single(field => field.Id == "customer"), sampleDepartmentId.ToString(), "Acme"), "Resolved related lookup cells should expose their permission-safe label.");
+AssertEqual(string.Empty, RelatedRecordService.FormatCell(relatedWorkspaceSchema.Fields.Single(field => field.Id == "document"), Guid.NewGuid().ToString(), null), "Unresolved file cells should never expose attachment UUIDs.");
+var relatedPanelDto = new RelatedRecordPanelDto(sampleDepartmentId, "Invoices", "parent", "Parent order", relatedColumns, 1);
+var relatedRowsDto = new RelatedRecordRowsDto(
+    relatedPanelDto,
+    1,
+    10,
+    new[] { new RelatedRecordRowDto(Guid.NewGuid(), RecordStatuses.Active, sampleUpdatedAt, new Dictionary<string, string> { ["name"] = "Invoice 100" }) });
+AssertEqual("Invoices", relatedRowsDto.Panel.SourceFormName, "Related row responses should carry their authorized panel descriptor.");
+AssertEqual("Invoice 100", relatedRowsDto.Items.Single().Cells["name"], "Related rows should contain display-ready cells instead of unrestricted record values.");
+var relatedServiceSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RelatedRecordService.cs"));
+AssertTrue(relatedServiceSource.Contains("ApplyRecordAccessAsync", StringComparison.Ordinal), "Related rows should reuse backend record scopes and policy filtering.");
+AssertTrue(relatedServiceSource.Contains("GetFieldAccessAsync", StringComparison.Ordinal), "Related panel and preview metadata should enforce hidden-field rules.");
+AssertTrue(relatedServiceSource.Contains("JsonContains", StringComparison.Ordinal), "Legacy relationship compatibility should use a bounded JSONB containment query.");
 
 var recordDetail = new FormRecordDetailDto(
     recordDto.Id,

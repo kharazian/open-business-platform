@@ -669,6 +669,8 @@ Fields:
 
 Migration `20260717205617_LookupRelationshipIntegrity` materializes validated single-record lookup edges without changing record JSON. The unique `(workspace_id, source_record_id, source_field_id)` index prevents duplicate canonical edges; source/target record, form, immutable source version, and workspace foreign keys are restrictive. Record create/edit synchronizes rows in its transaction. Source deletion removes outgoing edges, while target deletion is restricted by active incoming edges and a compatibility scan for legacy JSON-only lookup values.
 
+V10 task 006 adds no table or migration. Reverse related-record reads use the existing target/source edge index plus a JSONB containment compatibility query for legacy records, deduplicate both paths, and validate every result against its stored `form_version_id` schema. Panel and row projections apply source/target permissions and return display-only cells rather than persisted relationship payloads or raw lookup/file UUID fallbacks.
+
 ## Records
 
 ### records

@@ -234,6 +234,60 @@ public static class RecordsEndpoints
             });
         });
 
+        detailGroup.MapGet("/{recordId:guid}/related", async (
+            Guid recordId,
+            int? page,
+            int? pageSize,
+            RecordQueryService recordQuery,
+            RelatedRecordService relatedRecords,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.View, cancellationToken))
+                return Results.Forbid();
+
+            return await HandleRecordRequestAsync(async () => Results.Ok(await relatedRecords.ListPanelsAsync(
+                httpContext.User,
+                recordId,
+                page ?? 1,
+                pageSize ?? 10,
+                permissionService,
+                cancellationToken)));
+        });
+
+        detailGroup.MapGet("/{recordId:guid}/related/{sourceFormId:guid}/{sourceFieldId}", async (
+            Guid recordId,
+            Guid sourceFormId,
+            string sourceFieldId,
+            int? page,
+            int? pageSize,
+            RecordQueryService recordQuery,
+            RelatedRecordService relatedRecords,
+            PermissionService permissionService,
+            HttpContext httpContext,
+            CancellationToken cancellationToken) =>
+        {
+            var formId = await recordQuery.GetRecordFormIdAsync(recordId, cancellationToken);
+            if (formId is null)
+                return Results.NotFound(new RecordErrorResponse("Record was not found."));
+            if (!await permissionService.CanAccessFormAsync(httpContext.User, formId.Value, PlatformPermissions.Form.View, cancellationToken))
+                return Results.Forbid();
+
+            return await HandleRecordRequestAsync(async () => Results.Ok(await relatedRecords.ListRowsAsync(
+                httpContext.User,
+                recordId,
+                sourceFormId,
+                sourceFieldId,
+                page ?? 1,
+                pageSize ?? 10,
+                permissionService,
+                cancellationToken)));
+        });
+
         detailGroup.MapPut("/{recordId:guid}", async (
             Guid recordId,
             UpdateRecordRequest request,
