@@ -6,6 +6,7 @@ This packet is the handoff for V10: Operational App Modeling.
 
 - V1 through V9 are complete for their current task lists.
 - V9 is accepted as the enterprise ownership, identity, policy, and administration checkpoint.
+- V10 tasks 001 through 005 are complete; the next task requires a separately reviewed related-record workspace task file.
 - Existing form schemas already support currency, percent, rating, URL, time, datetime, user/department pickers, record lookups, file placeholders, and child-record subtables.
 - The next product gap is richer operational data modeling, not another enterprise administration layer.
 

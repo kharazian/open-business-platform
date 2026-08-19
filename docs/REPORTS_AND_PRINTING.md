@@ -1,6 +1,6 @@
 # Reports and Printing
 
-Status: V1 browser print is implemented for record list/detail pages. V2 now has a saved list report definition builder with backend persistence, config validation, permission checks, automatic default "All Records" list reports when forms are published, runnable list report viewing over real record data, CSV export for all matching report rows, a real database-backed dashboard summary API, chart widget previews over permitted form/report data, saved dashboard layouts, and cleaner browser print layouts for record lists, record details, and the currently visible report viewer page.
+Status: V1 browser print is implemented for record list/detail pages. V2 provides saved list reports, execution, CSV, charts, dashboards, and browser print. V10 adds permission-safe one-hop lookup fields to the existing list-report builder and shared run/export/print path without changing schema version or adding a migration.
 
 ## Principle
 
@@ -33,6 +33,7 @@ V2 features:
 - Runnable viewer: implemented for saved list reports
 - Print: implemented for the currently visible report viewer page
 - Export CSV: implemented for all matching permitted report rows and visible report columns; runtime search, per-column filters, and runtime sort match the report viewer state
+- Nested lookup fields: implemented for exactly one permission-filtered lookup hop with dotted field keys, terminal typed filters/sorts, and shared viewer/CSV/print output
 
 ### Detail Report
 

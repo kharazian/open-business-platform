@@ -244,6 +244,15 @@ Infrastructure responsibility:
 6. Backend returns paginated records.
 7. Frontend displays table.
 
+## Data Flow: One-Hop Report Relationships
+
+1. The report builder requests the root form's permission-filtered field catalog.
+2. The report module expands visible `recordLookup` fields into canonical `{lookupFieldId}.{targetFieldId}` options for viewable target forms and visible target fields.
+3. Saved schema-version-1 report configs keep root IDs unchanged and may reference exactly one dotted lookup hop.
+4. Report execution loads permission-scoped root records, reads stored lookup UUIDs, and queries only non-deleted target records allowed by the caller's target-form and record scopes.
+5. Missing, inaccessible, hidden, or stale related values become empty cells; raw target IDs are never used as fallback display values.
+6. The shared report execution path applies filters, search, sort, display, CSV, and print/PDF behavior to the terminal field's typed value.
+
 ## Data Flow: Trigger Later
 
 1. Record is created or updated.
@@ -260,6 +269,7 @@ Infrastructure responsibility:
 - Store common query fields as relational columns.
 - Store attachment metadata and bounded private PostgreSQL content separately from record JSON. Access content through a storage interface, inspect it through a scanner interface, and authorize every download against current record/field access.
 - Treat lookup UUIDs in immutable-version record JSON as source values and `record_relationships` as derived integrity/index metadata. Synchronize edges transactionally, restrict referenced target deletion, and never expose a generic edge mutation API.
+- Keep one-hop report traversal inside the reports module. Dotted report field keys are read-only projections over stored lookup values, not a graph API or relationship mutation mechanism.
 - Use backend permission checks for every sensitive API.
 - Keep responsive form layout grid-based, not canvas-based.
 - Use XYFlow only for workflow visual authoring.

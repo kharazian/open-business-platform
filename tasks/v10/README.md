@@ -8,7 +8,7 @@ V10 is the Operational App Modeling sequence. It starts only after the accepted 
 2. `002-backend-generated-autonumber-fields.md` - complete; immutable formatted identifiers now use PostgreSQL-backed transactional allocation and read-only record values.
 3. `003-protected-file-attachments.md` - complete; file fields now use workspace metadata, storage/scanning boundaries, atomic record claims, safe filename display, and protected downloads.
 4. `004-lookup-relationship-integrity.md` - complete; validated lookups now materialize canonical edges with archive-safe selection and referenced-delete protection.
-5. `005-nested-report-relationships.md` - in progress; add permission-safe one-hop lookup columns, typed filters, and compatible dotted field keys.
+5. `005-nested-report-relationships.md` - complete; permission-safe one-hop lookup columns now support typed filters, search, sort, viewer, CSV, and print paths with compatible dotted field keys.
 6. Related-record workspace - create a task file before implementation; add permission-aware related panels to record detail.
 7. Operational report actions - create a task file before implementation; add typed report and row actions without client scripts.
 8. Processing jobs and schedules - create a task file before implementation; add bounded job definitions, claims, runs, and retry controls.

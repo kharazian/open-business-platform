@@ -3721,6 +3721,18 @@ AssertTrue(
         .Any(error => error.Code == "report.relationship.depth"),
     "Related report paths deeper than one lookup should be rejected.");
 AssertTrue(
+    relationshipReportFields.ValidatePaths(sampleDepartmentId, lookupSchema, relatedConfig with { Columns = new[] { new ListReportColumnDefinition("customer.", "Malformed") } }, relatedCatalog)
+        .Any(error => error.Code == "report.relationship.path"),
+    "Malformed related report paths should be rejected.");
+AssertTrue(
+    relationshipReportFields.ValidatePaths(sampleDepartmentId, lookupSchema, relatedConfig with { Columns = new[] { new ListReportColumnDefinition("status.credit_limit", "Not a lookup") } }, relatedCatalog)
+        .Any(error => error.Code == "report.relationship.lookup"),
+    "Related report paths should begin with a record lookup field.");
+AssertTrue(
+    relationshipReportFields.ValidatePaths(sampleDepartmentId, lookupSchema, relatedConfig with { Columns = new[] { new ListReportColumnDefinition("customer.unknown", "Unknown") } }, relatedCatalog)
+        .Any(error => error.Code == "report.relationship.unknown"),
+    "Unknown terminal related fields should be rejected.");
+AssertTrue(
     relationshipReportFields.ValidatePaths(Guid.Parse("11111111-1111-1111-1111-111111111111"), lookupSchema, relatedConfig, relatedCatalog)
         .Any(error => error.Code == "report.relationship.cycle"),
     "Self-referencing report paths should be rejected as cyclic.");
@@ -3833,6 +3845,45 @@ var relatedExecution = ListReportExecutionEngine.Execute(
 AssertEqual(1, relatedExecution.TotalCount, "Related report values should participate in typed saved filters and runtime search.");
 AssertEqual(120000m, relatedExecution.Rows.Single().Cells[relatedMetadata.Id].Value, "Related report cells should preserve terminal raw values.");
 AssertEqual("120000", relatedExecution.Rows.Single().Cells[relatedMetadata.Id].DisplayValue, "Related report cells should expose permission-safe display values.");
+var relatedRuntimeExecution = ListReportExecutionEngine.ExecuteAll(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Customer credit",
+    "Employee information",
+    relatedConfig with { Filters = Array.Empty<ListReportFilterDefinition>() },
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(
+        SortFieldId: relatedMetadata.Id,
+        SortDirection: ReportSortDirections.Desc,
+        Filters: new Dictionary<string, string?> { [relatedMetadata.Id] = "000" }),
+    fieldMetadataById: relatedCatalog.Fields,
+    resolvedValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>
+    {
+        [executionRecords[0].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(80000m, "80000") },
+        [executionRecords[1].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(120000m, "120000") },
+        [executionRecords[2].Id] = new Dictionary<string, ResolvedReportFieldValue> { [relatedMetadata.Id] = new(200000m, "200000") }
+    });
+AssertEqual(3, relatedRuntimeExecution.TotalCount, "Runtime related filters should use permission-safe related display values.");
+AssertEqual(200000m, relatedRuntimeExecution.Rows.First().Cells[relatedMetadata.Id].Value, "Runtime related sorts should preserve terminal numeric ordering.");
+var relatedCsvExport = ListReportCsvExporter.Export(relatedRuntimeExecution);
+AssertTrue(relatedCsvExport.Content.Contains("200000", StringComparison.Ordinal), "Related report display values should flow through CSV export.");
+var missingRelatedValueExecution = ListReportExecutionEngine.Execute(
+    reportSummary.Id,
+    sampleDepartmentId,
+    "Missing customer credit",
+    "Employee information",
+    relatedConfig with
+    {
+        Filters = new[] { new ListReportFilterDefinition(relatedMetadata.Id, ReportFilterOperators.IsEmpty) },
+        Sort = Array.Empty<ListReportSortDefinition>()
+    },
+    reportingSchema,
+    executionRecords,
+    new RunListReportRequest(),
+    fieldMetadataById: relatedCatalog.Fields,
+    resolvedValuesByRecordId: new Dictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>>());
+AssertEqual(3, missingRelatedValueExecution.TotalCount, "Missing or inaccessible related values should behave as empty values without exposing a reason.");
 
 var runtimeFilteredReport = ListReportExecutionEngine.Execute(
     reportSummary.Id,

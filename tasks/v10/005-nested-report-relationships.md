@@ -29,16 +29,16 @@ V10 task 004 added canonical lookup edges and explicit relationship lifecycle ru
 
 ## Acceptance Criteria
 
-- [ ] Existing list-report configs execute unchanged.
-- [ ] One-hop related columns can be discovered, saved, run, sorted, searched, printed, and exported.
-- [ ] Saved and runtime related filters use terminal field types and permission-safe values.
-- [ ] Invalid, unknown, non-lookup, cyclic, and deeper paths are rejected with field-specific validation errors.
-- [ ] Hidden root lookup or target fields never appear in the catalog, execution, print, or CSV output.
-- [ ] Target form and record scopes are enforced for every related value without leaking raw IDs.
-- [ ] Archived target forms retain readable existing relationships; deleted/missing/inaccessible targets resolve empty.
-- [ ] Builder and viewer handle related field labels and types without a separate report builder.
-- [ ] API/architecture documentation and backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, PostgreSQL/API acceptance, and `git diff --check` pass.
+- [x] Existing list-report configs execute unchanged.
+- [x] One-hop related columns can be discovered, saved, run, sorted, searched, printed, and exported.
+- [x] Saved and runtime related filters use terminal field types and permission-safe values.
+- [x] Invalid, unknown, non-lookup, cyclic, and deeper paths are rejected with field-specific validation errors.
+- [x] Hidden root lookup or target fields never appear in the catalog, execution, print, or CSV output.
+- [x] Target form and record scopes are enforced for every related value without leaking raw IDs.
+- [x] Archived target forms retain readable existing relationships; deleted/missing/inaccessible targets resolve empty.
+- [x] Builder and viewer handle related field labels and types without a separate report builder.
+- [x] API/architecture documentation and backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, PostgreSQL/API acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -62,3 +62,6 @@ V10 task 004 added canonical lookup edges and explicit relationship lifecycle ru
 
 - A key such as `parent_order.order_number` means traverse the root `parent_order` record lookup and read `order_number` from the permitted target record.
 - Reverse related-record traversal belongs to task 006.
+- No migration was added; existing schema-version-1 root-field configs remain unchanged.
+- Authenticated PostgreSQL/API acceptance covered the permitted field catalog, saved choice filtering, dotted runtime filtering/sorting, CSV export, archived target readability, hidden terminal fields, denied target-form access, department-scoped target records, and deeper-path validation.
+- Temporary acceptance permission rows were removed, and the demo target form status and original user target scope were restored after the checks.

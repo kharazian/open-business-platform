@@ -1905,6 +1905,14 @@ Response:
 }
 ```
 
+### Report field catalog
+
+`GET /api/forms/{formId}/reports/fields`
+
+Returns the permission-filtered field catalog used by the existing list-report builder. Root fields retain their existing IDs. Eligible one-hop lookup fields use `{lookupFieldId}.{targetFieldId}`, set `source` to `relationship`, preserve the terminal field type/options, and use a relationship-aware label such as `Customer › Credit limit`. Related metadata is omitted unless the root lookup is visible, the target form is viewable, and the target field is visible.
+
+Only one lookup hop is supported. Malformed, deeper, cyclic, non-lookup, and unknown paths are rejected when report configs are saved or run. No generic relationship traversal endpoint is exposed.
+
 ### Create report
 
 `POST /api/forms/{formId}/reports`
@@ -1944,7 +1952,7 @@ Request:
 }
 ```
 
-Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Filter values are validated against the selected field type before save. Supported sort directions are `asc` and `desc`. `rowOpenAction` is optional and supports `detail`, `edit`, or `none`; omitted and invalid stored values normalize to `detail`. Creating a report writes a `report_created` audit entry.
+Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. V10 additionally accepts permission-safe one-hop dotted related field keys while preserving schema-version-1 and root-field compatibility. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Filter values are validated against the selected terminal field type before save. Supported sort directions are `asc` and `desc`. `rowOpenAction` is optional and supports `detail`, `edit`, or `none`; omitted and invalid stored values normalize to `detail`. Creating a report writes a `report_created` audit entry.
 
 ### Get report
 
@@ -1992,7 +2000,9 @@ Response: `204 No Content`. Deleting a report soft-deletes the saved definition 
 
 Requires authentication plus `menu.reports`, form `view`, form `manage`, or `forms.manage_all` access, and report `view` access.
 
-Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, optional runtime per-column filters, runtime sort when a visible column is selected, saved sort fallback, and pagination before returning display-ready cells. Runtime filters use `filter.<fieldId>` query parameters and are limited to visible execution columns after hidden-field rules are applied. Lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; saved lookup equality/contains filters can match either the raw ID or resolved label. Report search, filters, sort, CSV export, and print/PDF paths use the same display-ready execution path.
+Runs a saved list report against non-deleted records for the form. The backend applies V3 record scopes, hidden field rules, saved report filters, optional runtime search, optional runtime per-column filters, runtime sort when a visible column is selected, saved sort fallback, and pagination before returning display-ready cells. Runtime filters use `filter.<fieldId>` query parameters, including dotted related keys, and are limited to visible execution columns after hidden-field rules are applied. Root lookup columns preserve the raw selected record ID in `cells[fieldId].value` and expose the resolved label in `cells[fieldId].displayValue`; saved lookup equality/contains filters can match either the raw ID or resolved label.
+
+Related values are resolved independently through the target form and record permission scopes. Hidden, deleted, missing, inaccessible, or version-missing targets resolve as empty cells without returning the target record ID or the reason. Archived target forms remain readable for existing stored relationships. Terminal lookup fields use the existing permission-aware display resolver. Search, typed saved filters, runtime filters, saved/runtime sort, CSV export, and print/PDF paths all use the same permission-safe resolved values.
 
 Response:
 

@@ -745,7 +745,7 @@ Indexes:
 - type
 - created_by_id
 
-The current V2 report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Report execution now runs saved list reports over real record data, resolves visible `recordLookup` labels into display cells while preserving raw IDs as cell values, and CSV export uses the same permission-checked report execution path. V3 report-level permission rows are implemented through `role_report_permissions`. Generated default "All Records" reports are marked in existing `extra_properties_json` with `isDefaultAllRecords`.
+The current report definition stores list report configuration in `config_json`: selected columns, column order, custom labels, filters, and sort order. Root field IDs remain unchanged. V10 one-hop relationship fields use canonical `{lookupFieldId}.{targetFieldId}` keys in the same schema-version-1 JSONB config; no migration or generic relationship query contract is added. Report execution resolves those keys from stored lookup UUIDs through current target-form, target-record, and field permissions. Missing or inaccessible targets become empty values, and CSV/print reuse the same permission-filtered execution path. V3 report-level permission rows are implemented through `role_report_permissions`. Generated default "All Records" reports are marked in existing `extra_properties_json` with `isDefaultAllRecords`.
 
 ## Dashboards
 

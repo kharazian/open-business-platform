@@ -126,7 +126,7 @@ test("reports API client maps list report requests and errors", async () => {
       };
     }
 
-    if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse" && init.method === "GET") {
+    if (input === "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.customer.name=Warehouse" && init.method === "GET") {
       return {
         ok: true,
         json: async () => ({
@@ -169,7 +169,7 @@ test("reports API client maps list report requests and errors", async () => {
       search: "Jane",
       sortFieldId: "site_name",
       sortDirection: "asc",
-      filters: { site_name: "Warehouse" }
+      filters: { "customer.name": "Warehouse" }
     },
     fetcher
   );
@@ -178,7 +178,7 @@ test("reports API client maps list report requests and errors", async () => {
     search: " Jane ",
     sortFieldId: "site_name",
     sortDirection: "asc",
-    filters: { site_name: "Warehouse" }
+    filters: { "customer.name": "Warehouse" }
   });
   let downloadedUrl = "";
   api.downloadListReportCsv(
@@ -188,7 +188,7 @@ test("reports API client maps list report requests and errors", async () => {
       search: " Jane ",
       sortFieldId: "site_name",
       sortDirection: "asc",
-      filters: { site_name: "Warehouse" }
+      filters: { "customer.name": "Warehouse" }
     },
     (url) => {
       downloadedUrl = url;
@@ -230,13 +230,13 @@ test("reports API client maps list report requests and errors", async () => {
   assert.equal(calls[4].input, "/api/forms/form-2/reports/report-1");
   assert.equal(calls[4].init.method, "DELETE");
   assert.equal(calls[4].init.credentials, "include");
-  assert.equal(calls[5].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
+  assert.equal(calls[5].input, "/api/forms/form-2/reports/report-1/run?page=2&pageSize=10&search=Jane&sortFieldId=site_name&sortDirection=asc&filter.customer.name=Warehouse");
   assert.equal(calls[5].init.method, "GET");
   assert.equal(calls[5].init.credentials, "include");
   assert.equal(calls[6].input, "/api/forms/form-2/reports/fields");
   assert.equal(calls[6].init.method, "GET");
-  assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
-  assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.site_name=Warehouse");
+  assert.equal(exportUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.customer.name=Warehouse");
+  assert.equal(downloadedUrl, "/api/forms/form-2/reports/report-1/export.csv?search=Jane&sortFieldId=site_name&sortDirection=asc&filter.customer.name=Warehouse");
 
   await assert.rejects(
     () => api.listReports("form-2", async () => ({ ok: true, json: async () => ({}) })),
