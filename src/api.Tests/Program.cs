@@ -15,6 +15,7 @@ using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Integrations;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Printing;
+using OpenBusinessPlatform.Api.Modules.Processing;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
@@ -67,6 +68,33 @@ AssertEqual(
     WorkspaceDefaults.WorkspaceId,
     HttpContextWorkspaceContext.ResolveWorkspaceId(new ClaimsPrincipal()),
     "Requests without a workspace claim should retain the compatibility workspace.");
+
+var validExportProcessingJob = new CreateProcessingJobRequest(
+    "Nightly employee export",
+    ProcessingJobKinds.RecordExport,
+    new ProcessingJobConfigDefinition(Guid.NewGuid(), "nightly-export", "form_records", "csv", MaxRows: 5000),
+    new ProcessingJobScheduleDefinition("daily", "UTC", DateTimeOffset.UtcNow.AddHours(1)),
+    new ProcessingJobRetryPolicyDefinition(true, 5, 30),
+    true);
+AssertTrue(ProcessingJobValidator.Validate(validExportProcessingJob).Valid, "A bounded scheduled export processing job should be valid.");
+AssertTrue(!ProcessingJobValidator.Validate(validExportProcessingJob with
+{
+    Config = validExportProcessingJob.Config with { MaxRows = 5001 }
+}).Valid, "Export processing jobs should reject row limits above 5000.");
+AssertTrue(!ProcessingJobValidator.Validate(validExportProcessingJob with
+{
+    Kind = ProcessingJobKinds.CsvRecordImport
+}).Valid, "CSV import processing jobs should reject export schedules and retry policy.");
+AssertTrue(!ProcessingJobValidator.ValidateManualRun(
+    ProcessingJobKinds.CsvRecordImport,
+    new CreateProcessingJobRunRequest("records.csv", new string('x', ProcessingJobValidator.MaxCsvBytes + 1))).Valid,
+    "Queued CSV inputs should enforce the private input byte limit.");
+AssertEqual(
+    DateTimeOffset.Parse("2026-08-20T00:00:00Z"),
+    RecurringScheduleCalculator.CalculateNextRun(
+        new RecurringSchedule("daily", "UTC", DateTimeOffset.Parse("2026-08-19T00:00:00Z")),
+        DateTimeOffset.Parse("2026-08-19T12:00:00Z")),
+    "The shared recurring schedule calculator should advance deterministically.");
 
 using (var appSettings = JsonDocument.Parse(File.ReadAllText(GetRepositoryFilePath("src", "api", "appsettings.json"))))
 {
@@ -185,6 +213,8 @@ AssertTable<IncomingWebhookListener>(model, "incoming_webhook_listeners");
 AssertTable<RecordImportJob>(model, "record_import_jobs");
 AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
 AssertTable<ExternalExportJob>(model, "external_export_jobs");
+AssertTable<ProcessingJobDefinition>(model, "processing_job_definitions");
+AssertTable<ProcessingJobRun>(model, "processing_job_runs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 AssertEqual(WorkspaceDefaults.WorkspaceId, dbContext.ActiveWorkspaceId, "The compatibility context should resolve the stable default workspace.");
 AssertUniqueIndex<Tenant>(model, new[] { nameof(Tenant.Slug) }, "Tenant slugs should be globally unique.");
@@ -221,6 +251,11 @@ AssertWorkspaceOwned<FormRecord>(model);
 AssertWorkspaceOwned<DashboardDefinition>(model);
 AssertWorkspaceOwned<TriggerEventOutboxMessage>(model);
 AssertWorkspaceOwned<IntegrationLogEntry>(model);
+AssertWorkspaceOwned<ProcessingJobDefinition>(model);
+AssertWorkspaceOwned<ProcessingJobRun>(model);
+AssertConcurrencyStamp<ProcessingJobDefinition>(model);
+AssertConcurrencyStamp<ProcessingJobRun>(model);
+AssertUniqueIndex<ProcessingJobRun>(model, new[] { nameof(ProcessingJobRun.DefinitionId) }, "Processing jobs should enforce one active run per definition.");
 AssertWorkspaceOwned<AuditLogEntry>(model);
 AssertJsonColumn<TriggerEventOutboxMessage>(model, nameof(TriggerEventOutboxMessage.PayloadJson));
 AssertIndex<TriggerEventOutboxMessage>(model, new[] { nameof(TriggerEventOutboxMessage.Status), nameof(TriggerEventOutboxMessage.NextAttemptAt) }, "Trigger event outbox polling should use a status/due-time index.");
@@ -294,6 +329,8 @@ AssertTypeAssignable<AuditedAggregateRoot<Guid>, IncomingWebhookListener>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, RecordImportJob>();
 AssertTypeAssignable<Entity<Guid>, RecordImportJobRow>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, ExternalExportJob>();
+AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ProcessingJobDefinition>();
+AssertTypeAssignable<AuditedAggregateRoot<Guid>, ProcessingJobRun>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -327,6 +364,8 @@ AssertGuidId<IncomingWebhookListener>(model);
 AssertGuidId<RecordImportJob>(model);
 AssertGuidId<RecordImportJobRow>(model);
 AssertGuidId<ExternalExportJob>(model);
+AssertGuidId<ProcessingJobDefinition>(model);
+AssertGuidId<ProcessingJobRun>(model);
 AssertGuidId<AuditLogEntry>(model);
 AssertGuidId<WorkspaceBranding>(model);
 AssertGuidId<WorkspaceLocalization>(model);
@@ -376,6 +415,10 @@ AssertJsonColumn<RecordImportJob>(model, nameof(RecordImportJob.MappingJson));
 AssertJsonColumn<RecordImportJobRow>(model, nameof(RecordImportJobRow.ErrorsJson));
 AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.RequestJson));
 AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactMetadataJson));
+AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.ConfigJson));
+AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.ScheduleJson));
+AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.RetryPolicyJson));
+AssertJsonColumn<ProcessingJobRun>(model, nameof(ProcessingJobRun.ResultJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.MetadataJson));

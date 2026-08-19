@@ -11,7 +11,7 @@ The platform should eventually support operational apps that combine:
 - Custom business forms and record tables.
 - Related records, lookup fields, and parent-child record structures.
 - List/detail reports with user actions.
-- Scheduled jobs and retryable processing queues.
+- Scheduled jobs and retryable processing queues (bounded CSV import/export slice implemented in V10 Task 008; partner-specific formats and remote connectors remain later work).
 - External integrations such as SFTP, file storage, webhooks, and vendor APIs.
 - File/document generation and transfer.
 - In-app and email notifications.

@@ -15,6 +15,7 @@ using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Integrations;
 using OpenBusinessPlatform.Api.Modules.Notifications;
 using OpenBusinessPlatform.Api.Modules.Printing;
+using OpenBusinessPlatform.Api.Modules.Processing;
 using OpenBusinessPlatform.Api.Modules.Records;
 using OpenBusinessPlatform.Api.Modules.Reports;
 using OpenBusinessPlatform.Api.Modules.Triggers;
@@ -35,6 +36,7 @@ builder.Services.Configure<LocalAuthenticationOptions>(builder.Configuration.Get
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.Configure<PasswordRecoveryOptions>(builder.Configuration.GetSection(PasswordRecoveryOptions.SectionName));
 builder.Services.Configure<AutomationHealthOptions>(builder.Configuration.GetSection(AutomationHealthOptions.SectionName));
+builder.Services.Configure<ProcessingJobOptions>(builder.Configuration.GetSection(ProcessingJobOptions.SectionName));
 builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));
@@ -42,6 +44,7 @@ builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 builder.Services.AddScoped(typeof(IReadOnlyRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(EfRepository<,>));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<BackgroundWorkspaceContext>();
 builder.Services.AddScoped<IWorkspaceContext, HttpContextWorkspaceContext>();
 builder.Services.AddScoped<WorkspaceContextService>();
 builder.Services.AddScoped<WorkspaceMembershipService>();
@@ -109,6 +112,9 @@ builder.Services.AddScoped<IncomingWebhookListenerService>();
 builder.Services.AddScoped<IncomingWebhookExecutionService>();
 builder.Services.AddScoped<RecordImportJobService>();
 builder.Services.AddScoped<ExternalExportJobService>();
+builder.Services.AddScoped<ProcessingJobService>();
+builder.Services.AddScoped<ProcessingJobProcessor>();
+builder.Services.AddHostedService<ProcessingJobWorker>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccessPolicyEvaluator>();
 builder.Services.AddScoped<AccessPolicyService>();

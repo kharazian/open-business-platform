@@ -46,7 +46,8 @@ public sealed record CreateExternalExportJobRequest(
     string IntegrationKey,
     Guid? FormId = null,
     Guid? ReportId = null,
-    string? Search = null);
+    string? Search = null,
+    int? MaxRows = null);
 
 public sealed record ExternalExportArtifact(
     string FileName,

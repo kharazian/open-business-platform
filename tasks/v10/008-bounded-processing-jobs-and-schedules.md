@@ -59,20 +59,20 @@ Definitions contain `name`, `kind`, typed `config`, optional export-only `schedu
 
 ## Acceptance Criteria
 
-- [ ] Workspace-owned typed job definitions and fenced run records persist through a documented migration.
-- [ ] Only CSV record-import and protected record-export definitions are accepted; unknown properties and executable/script-like metadata are rejected.
-- [ ] Existing import/export services remain authoritative and processing runs link to their results rather than duplicating them.
-- [ ] Manual CSV inputs are bounded and private, never appear in projections/logs, and are cleared after terminal completion.
-- [ ] Export definitions support manual and once/daily/weekly/monthly scheduled runs using shared neutral schedule calculation.
-- [ ] Scheduling and worker execution use atomic bounded claims, leases, non-overlap, and fenced completion updates.
-- [ ] Export runs enforce a configured 1–5,000 row maximum without silent truncation or unbounded source loading.
-- [ ] Only failed exports can retry, with bounded policy/attempts and linked retry ancestry; partial CSV imports cannot retry.
-- [ ] Current user, membership, form/report, record-scope, field, and workspace-policy authorization is rechecked at execution time.
-- [ ] Definition/run APIs are paginated, concurrency-safe, non-disclosing, permission-protected, and audited.
-- [ ] `/integrations` provides responsive definition, schedule, manual-run/upload, recent-run, retry, and artifact operations without exposing sensitive input.
-- [ ] Task 009 logging/metrics/notification concerns and unsupported processing types remain out of scope.
-- [ ] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, worker claim/recovery acceptance, and `git diff --check` pass.
+- [x] Workspace-owned typed job definitions and fenced run records persist through a documented migration.
+- [x] Only CSV record-import and protected record-export definitions are accepted; unknown properties and executable/script-like metadata are rejected.
+- [x] Existing import/export services remain authoritative and processing runs link to their results rather than duplicating them.
+- [x] Manual CSV inputs are bounded and private, never appear in projections/logs, and are cleared after terminal completion.
+- [x] Export definitions support manual and once/daily/weekly/monthly scheduled runs using shared neutral schedule calculation.
+- [x] Scheduling and worker execution use atomic bounded claims, leases, non-overlap, and fenced completion updates.
+- [x] Export runs enforce a configured 1–5,000 row maximum without silent truncation or unbounded source loading.
+- [x] Only failed exports can retry, with bounded policy/attempts and linked retry ancestry; partial CSV imports cannot retry.
+- [x] Current user, membership, form/report, record-scope, field, and workspace-policy authorization is rechecked at execution time.
+- [x] Definition/run APIs are paginated, concurrency-safe, non-disclosing, permission-protected, and audited.
+- [x] `/integrations` provides responsive definition, schedule, manual-run/upload, recent-run, retry, and artifact operations without exposing sensitive input.
+- [x] Task 009 logging/metrics/notification concerns and unsupported processing types remain out of scope.
+- [x] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, worker claim/recovery acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 

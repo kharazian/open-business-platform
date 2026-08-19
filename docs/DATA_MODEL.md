@@ -23,6 +23,7 @@ The current migrations include:
 - `incoming_webhook_listeners`
 - `record_import_jobs`, `record_import_job_rows`
 - `external_export_jobs`
+- `processing_job_definitions`, `processing_job_runs`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -408,6 +409,10 @@ Foreign keys:
 ### external_export_jobs
 
 Stores outbound export jobs for permission-filtered form record or saved list report data. Artifact content is stored with the job but is omitted from create/detail DTOs and can be retrieved only through the permission-protected, audited artifact endpoint. No public download links are created.
+
+### processing_job_definitions / processing_job_runs
+
+Definitions store a workspace-owned typed import/export config, persistent owner, optional export schedule, retry policy, next-run and schedule-claim state, audit metadata, soft deletion, and a concurrency stamp. Runs store immutable attempt/source ancestry, due/claim/lease timing, safe terminal errors, private queued CSV input metadata, and links to the authoritative import/export job. Raw CSV content is cleared on terminal completion. A partial unique index on `definition_id` for `pending`/`running` status enforces one active run per definition; polling indexes cover schedule due time and run status/due time.
 
 Fields:
 

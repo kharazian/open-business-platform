@@ -6,7 +6,7 @@ This packet is the handoff for V10: Operational App Modeling.
 
 - V1 through V9 are complete for their current task lists.
 - V9 is accepted as the enterprise ownership, identity, policy, and administration checkpoint.
-- V10 tasks 001 through 007 are complete; the V10 task 008 bounded processing jobs and schedules specification is drafted and awaiting review before implementation.
+- V10 tasks 001 through 008 are complete; Task 008 adds bounded durable CSV-import/export definitions, scheduled exports, fenced workers, and safe export retries.
 - Existing form schemas already support currency, percent, rating, URL, time, datetime, user/department pickers, record lookups, file placeholders, and child-record subtables.
 - The next product gap is richer operational data modeling, not another enterprise administration layer.
 
@@ -35,7 +35,7 @@ Recommended sequence:
 5. Nested relationship columns and filters in reports (`tasks/v10/005-nested-report-relationships.md`).
 6. Permission-aware related-record panels in record detail (`tasks/v10/006-related-record-workspace.md`; complete).
 7. Typed operational report and row actions (`tasks/v10/007-typed-operational-report-actions.md`; complete).
-8. File-processing and scheduled job definitions (`tasks/v10/008-bounded-processing-jobs-and-schedules.md`; specification awaiting review).
+8. File-processing and scheduled job definitions (`tasks/v10/008-bounded-processing-jobs-and-schedules.md`; complete).
 9. Operational logs and failure notifications.
 10. Analysis-only Creator-style export assistant.
 

@@ -128,6 +128,10 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<ExternalExportJob> ExternalExportJobs => Set<ExternalExportJob>();
 
+    public DbSet<ProcessingJobDefinition> ProcessingJobDefinitions => Set<ProcessingJobDefinition>();
+
+    public DbSet<ProcessingJobRun> ProcessingJobRuns => Set<ProcessingJobRun>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -179,6 +183,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
         ConfigureNotifications(modelBuilder);
         ConfigureNotificationPreferences(modelBuilder);
         ConfigureIntegrations(modelBuilder);
+        ConfigureProcessingJobs(modelBuilder);
         ConfigureAuditLogs(modelBuilder);
         ConfigureWorkspaceOwnership(modelBuilder);
     }
@@ -1502,6 +1507,73 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(job => job.CreatedById)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigureProcessingJobs(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ProcessingJobDefinition>(entity =>
+        {
+            ConfigureFullAuditedAggregateRoot(entity, "processing_job_definitions");
+            entity.HasIndex(job => new { job.IsEnabled, job.NextRunAt });
+            entity.HasIndex(job => job.Kind);
+            entity.HasIndex(job => job.OwnerUserId);
+            entity.HasIndex(job => job.FormId);
+            entity.HasIndex(job => job.ReportId);
+            entity.Property(job => job.Name).HasColumnName("name").HasMaxLength(160).IsRequired();
+            entity.Property(job => job.Kind).HasColumnName("kind").HasMaxLength(40).IsRequired();
+            entity.Property(job => job.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(job => job.ScheduleJson).HasColumnName("schedule_json").HasColumnType("jsonb");
+            entity.Property(job => job.RetryPolicyJson).HasColumnName("retry_policy_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(job => job.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
+            entity.Property(job => job.NextRunAt).HasColumnName("next_run_at");
+            entity.Property(job => job.ScheduleLockedAt).HasColumnName("schedule_locked_at");
+            entity.Property(job => job.ScheduleClaimId).HasColumnName("schedule_claim_id").HasColumnType("uuid");
+            entity.Property(job => job.OwnerUserId).HasColumnName("owner_user_id").HasColumnType("uuid").IsRequired();
+            entity.Property(job => job.FormId).HasColumnName("form_id").HasColumnType("uuid").IsRequired();
+            entity.Property(job => job.ReportId).HasColumnName("report_id").HasColumnType("uuid");
+            entity.Property(job => job.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(64).IsRequired();
+            entity.Property(job => job.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
+            entity.HasOne(job => job.OwnerUser).WithMany().HasForeignKey(job => job.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(job => job.Form).WithMany().HasForeignKey(job => job.FormId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(job => job.Report).WithMany().HasForeignKey(job => job.ReportId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProcessingJobRun>(entity =>
+        {
+            ConfigureAuditedAggregateRoot(entity, "processing_job_runs");
+            entity.HasIndex(run => run.DefinitionId)
+                .IsUnique()
+                .HasFilter("\"status\" IN ('pending', 'running')");
+            entity.HasIndex(run => new { run.Status, run.NextAttemptAt });
+            entity.HasIndex(run => run.CreatedAt);
+            entity.HasIndex(run => run.RetrySourceRunId);
+            entity.Property(run => run.DefinitionId).HasColumnName("definition_id").HasColumnType("uuid").IsRequired();
+            entity.Property(run => run.Source).HasColumnName("source").HasMaxLength(40).IsRequired();
+            entity.Property(run => run.Status).HasColumnName("status").HasMaxLength(40).IsRequired();
+            entity.Property(run => run.Attempt).HasColumnName("attempt").IsRequired();
+            entity.Property(run => run.MaxAttempts).HasColumnName("max_attempts").IsRequired();
+            entity.Property(run => run.NextAttemptAt).HasColumnName("next_attempt_at").IsRequired();
+            entity.Property(run => run.ClaimId).HasColumnName("claim_id").HasColumnType("uuid");
+            entity.Property(run => run.LockedAt).HasColumnName("locked_at");
+            entity.Property(run => run.StartedAt).HasColumnName("started_at");
+            entity.Property(run => run.CompletedAt).HasColumnName("completed_at");
+            entity.Property(run => run.ErrorCode).HasColumnName("error_code").HasMaxLength(120);
+            entity.Property(run => run.ErrorMessage).HasColumnName("error_message").HasMaxLength(1000);
+            entity.Property(run => run.InputFileName).HasColumnName("input_file_name").HasMaxLength(260);
+            entity.Property(run => run.InputSizeBytes).HasColumnName("input_size_bytes").HasDefaultValue(0L);
+            entity.Property(run => run.InputChecksum).HasColumnName("input_checksum").HasMaxLength(64);
+            entity.Property(run => run.InputContent).HasColumnName("input_content");
+            entity.Property(run => run.RecordImportJobId).HasColumnName("record_import_job_id").HasColumnType("uuid");
+            entity.Property(run => run.ExternalExportJobId).HasColumnName("external_export_job_id").HasColumnType("uuid");
+            entity.Property(run => run.RetrySourceRunId).HasColumnName("retry_source_run_id").HasColumnType("uuid");
+            entity.Property(run => run.ResultJson).HasColumnName("result_json").HasColumnType("jsonb");
+            entity.Property(run => run.ConcurrencyStamp).HasColumnName("concurrency_stamp").HasMaxLength(64).IsRequired();
+            entity.Property(run => run.ExtraPropertiesJson).HasColumnName("extra_properties_json").HasColumnType("jsonb");
+            entity.HasOne(run => run.Definition).WithMany(job => job.Runs).HasForeignKey(run => run.DefinitionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(run => run.RecordImportJob).WithMany().HasForeignKey(run => run.RecordImportJobId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(run => run.ExternalExportJob).WithMany().HasForeignKey(run => run.ExternalExportJobId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(run => run.RetrySourceRun).WithMany().HasForeignKey(run => run.RetrySourceRunId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 

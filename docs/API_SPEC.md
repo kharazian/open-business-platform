@@ -24,6 +24,8 @@ Permission: `integrations.manage`.
 
 The integrations operations workspace lets administrators create, revoke, and rotate integration API keys; create, enable, disable, and rotate incoming webhook listeners; create CSV import jobs; create external export jobs; view sanitized integration logs; filter logs by direction, type, status, source, and time; and request retry for eligible failed logs. Raw API key and listener secret material is displayed only from create/rotate responses and is not recoverable from stored metadata.
 
+V10 adds `/api/processing-jobs` for durable named CSV-import and record-export definitions. Definition and run list endpoints are paginated (maximum 100), mutations require `integrations.manage`, and definitions use concurrency stamps. Manual runs use `POST /api/processing-jobs/{id}/runs`; failed eligible exports use `POST /api/processing-jobs/{id}/runs/{runId}/retry`. Export schedules support once/daily/weekly/monthly recurrence and enforce a configured 1–5,000-row source bound without truncation. Run responses contain safe status, attempt, checksum, and linked import/export IDs but never queued CSV content or artifact bodies.
+
 ### Health
 
 `GET /health`

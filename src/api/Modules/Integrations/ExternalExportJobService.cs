@@ -195,6 +195,7 @@ public sealed class ExternalExportJobService
             request.ReportId.Value,
             request.Search,
             permissionService,
+            request.MaxRows,
             cancellationToken);
     }
 
@@ -238,7 +239,12 @@ public sealed class ExternalExportJobService
         var records = await recordsQuery
             .OrderByDescending(record => record.CreatedAt)
             .ThenByDescending(record => record.Id)
+            .Take(request.MaxRows is { } maxRows ? maxRows + 1 : int.MaxValue)
             .ToArrayAsync(cancellationToken);
+        if (request.MaxRows is { } configuredMaxRows && records.Length > configuredMaxRows)
+        {
+            throw new ExternalExportException(StatusCodes.Status409Conflict, "source_limit_exceeded");
+        }
         var columns = schema.Fields
             .Where(field => !fieldAccess.HiddenFieldIds.Contains(field.Id))
             .Select(field => new ListReportExecutionColumnDto(field.Id, field.Label, field.Type, "field", null))
@@ -329,6 +335,11 @@ public sealed class ExternalExportJobService
         if (!ExternalExportJobFormats.Supported.Contains(normalized.Format))
         {
             throw new ExternalExportException(StatusCodes.Status400BadRequest, "Export format is invalid.");
+        }
+
+        if (normalized.MaxRows is < 1 or > 5000)
+        {
+            throw new ExternalExportException(StatusCodes.Status400BadRequest, "Export maximum rows must be between 1 and 5000.");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.IntegrationKey))

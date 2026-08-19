@@ -230,6 +230,48 @@ export type ExternalExportJobDetailDto = ExternalExportJobSummaryDto & Concurren
   updatedById?: EntityId | null;
 };
 
+export type ProcessingJobKind = "csv_record_import" | "record_export";
+export type ProcessingScheduleKind = "once" | "daily" | "weekly" | "monthly";
+export type ProcessingJobConfig = {
+  formId: EntityId;
+  integrationKey: string;
+  sourceType?: ExternalExportJobSourceType | null;
+  format?: ExternalExportJobFormat | null;
+  reportId?: EntityId | null;
+  search?: string | null;
+  maxRows?: number;
+  mapping?: RecordImportMappingDefinition | null;
+};
+export type ProcessingJobSchedule = {
+  kind: ProcessingScheduleKind;
+  timeZone: string;
+  startAt: string;
+  interval: number;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
+};
+export type ProcessingJobRetryPolicy = { isEnabled: boolean; maxAttempts: number; delaySeconds: number };
+export type ProcessingJobSummaryDto = {
+  id: EntityId; name: string; kind: ProcessingJobKind; isEnabled: boolean; formId: EntityId;
+  reportId?: EntityId | null; nextRunAt?: string | null; concurrencyStamp: string; createdAt: string; updatedAt?: string | null;
+};
+export type ProcessingJobDetailDto = ProcessingJobSummaryDto & {
+  config: ProcessingJobConfig; schedule?: ProcessingJobSchedule | null; retryPolicy: ProcessingJobRetryPolicy; ownerUserId: EntityId;
+};
+export type ProcessingJobRunDto = {
+  id: EntityId; definitionId: EntityId; source: "manual" | "scheduled" | "retry";
+  status: "pending" | "running" | "succeeded" | "failed"; attempt: number; maxAttempts: number;
+  nextAttemptAt: string; startedAt?: string | null; completedAt?: string | null; errorCode?: string | null;
+  errorMessage?: string | null; inputFileName?: string | null; inputSizeBytes: number; inputChecksum?: string | null;
+  recordImportJobId?: EntityId | null; externalExportJobId?: EntityId | null; retrySourceRunId?: EntityId | null; createdAt: string;
+};
+export type ProcessingPage<T> = { items: T[]; page: number; pageSize: number; totalCount: number };
+export type CreateProcessingJobRequest = {
+  name: string; kind: ProcessingJobKind; config: ProcessingJobConfig; schedule?: ProcessingJobSchedule | null;
+  retryPolicy?: ProcessingJobRetryPolicy | null; isEnabled: boolean;
+};
+export type UpdateProcessingJobRequest = Omit<CreateProcessingJobRequest, "kind" | "isEnabled"> & { concurrencyStamp: string };
+
 export const integrationApiKeyScopes: IntegrationApiKeyScope[] = [
   "integrations.authenticate",
   "integrations.records.read",

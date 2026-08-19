@@ -16,7 +16,13 @@ import type {
   RevokeIntegrationApiKeyRequest,
   RotateIntegrationApiKeyRequest,
   UpsertIntegrationConnectorRequest,
-  UpsertIncomingWebhookListenerRequest
+  UpsertIncomingWebhookListenerRequest,
+  CreateProcessingJobRequest,
+  ProcessingJobDetailDto,
+  ProcessingJobRunDto,
+  ProcessingJobSummaryDto,
+  ProcessingPage,
+  UpdateProcessingJobRequest
 } from "./types";
 
 type ApiFetchResponse = {
@@ -262,6 +268,42 @@ export async function downloadExternalExportArtifact(
   }
 
   return await response.blob();
+}
+
+export function listProcessingJobs(page = 1, pageSize = 25, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingPage<ProcessingJobSummaryDto>> {
+  return requestJson(`/api/processing-jobs?page=${page}&pageSize=${pageSize}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export function createProcessingJob(request: CreateProcessingJobRequest, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobDetailDto> {
+  return requestJson("/api/processing-jobs", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) }, fetcher);
+}
+
+export function getProcessingJob(jobId: string, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobDetailDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export function updateProcessingJob(jobId: string, request: UpdateProcessingJobRequest, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobDetailDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}`, { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) }, fetcher);
+}
+
+export function setProcessingJobEnabled(job: ProcessingJobSummaryDto, enabled: boolean, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobDetailDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(job.id)}/${enabled ? "enable" : "disable"}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concurrencyStamp: job.concurrencyStamp }) }, fetcher);
+}
+
+export function deleteProcessingJob(job: ProcessingJobSummaryDto, fetcher: IntegrationsFetcher = defaultFetcher): Promise<void> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(job.id)}`, { method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concurrencyStamp: job.concurrencyStamp }) }, fetcher);
+}
+
+export function listProcessingJobRuns(jobId: string, page = 1, pageSize = 25, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingPage<ProcessingJobRunDto>> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs?page=${page}&pageSize=${pageSize}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export function queueProcessingJob(jobId: string, fileName?: string | null, csvContent?: string | null, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobRunDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName, csvContent }) }, fetcher);
+}
+
+export function retryProcessingJobRun(jobId: string, runId: string, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobRunDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs/${encodeURIComponent(runId)}/retry`, { method: "POST", credentials: "include" }, fetcher);
 }
 
 async function requestItems<T>(input: string, init: RequestInit, fetcher: IntegrationsFetcher): Promise<T[]> {

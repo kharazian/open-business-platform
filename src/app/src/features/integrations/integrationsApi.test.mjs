@@ -210,3 +210,39 @@ test("integration operations filter logs and identify retryable failures", () =>
   assert.equal(isIntegrationLogRetryEligible(logs[1]), true);
   assert.equal(isIntegrationLogRetryEligible(logs[2]), false);
 });
+
+test("processing job API client preserves bounded typed requests and run ancestry", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    if (input.startsWith("/api/processing-jobs?page=")) return { ok: true, json: async () => ({ items: [{ id: "job-1", name: "Nightly export" }], page: 1, pageSize: 25, totalCount: 1 }) };
+    if (input === "/api/processing-jobs" && init.method === "POST") return { ok: true, json: async () => ({ id: "job-1", name: "Nightly export" }) };
+    if (input.includes("/runs?page=")) return { ok: true, json: async () => ({ items: [{ id: "run-1", retrySourceRunId: null }], page: 1, pageSize: 25, totalCount: 1 }) };
+    if (input.endsWith("/runs") && init.method === "POST") return { ok: true, json: async () => ({ id: "run-2", status: "pending" }) };
+    if (input.endsWith("/retry")) return { ok: true, json: async () => ({ id: "run-3", retrySourceRunId: "run-1", attempt: 2 }) };
+    return { ok: false, json: async () => ({ message: "Unexpected call" }) };
+  };
+
+  const page = await api.listProcessingJobs(1, 25, fetcher);
+  await api.createProcessingJob({
+    name: "Nightly export", kind: "record_export", isEnabled: true,
+    config: { formId: "form-1", integrationKey: "nightly", sourceType: "form_records", format: "csv", maxRows: 5000 },
+    schedule: { kind: "daily", timeZone: "UTC", startAt: "2026-08-20T00:00:00Z", interval: 1 },
+    retryPolicy: { isEnabled: true, maxAttempts: 3, delaySeconds: 300 }
+  }, fetcher);
+  const runs = await api.listProcessingJobRuns("job-1", 1, 25, fetcher);
+  await api.queueProcessingJob("job-1", null, null, fetcher);
+  const retry = await api.retryProcessingJobRun("job-1", "run-1", fetcher);
+
+  assert.equal(page.totalCount, 1);
+  assert.equal(runs.items[0].id, "run-1");
+  assert.equal(retry.retrySourceRunId, "run-1");
+  assert.equal(JSON.parse(calls[1].init.body).config.maxRows, 5000);
+  assert.deepEqual(calls.map((call) => `${call.init.method} ${call.input}`), [
+    "GET /api/processing-jobs?page=1&pageSize=25",
+    "POST /api/processing-jobs",
+    "GET /api/processing-jobs/job-1/runs?page=1&pageSize=25",
+    "POST /api/processing-jobs/job-1/runs",
+    "POST /api/processing-jobs/job-1/runs/run-1/retry"
+  ]);
+});

@@ -50,8 +50,9 @@ import {
   type IntegrationLogFilters,
   type RecordImportJobSummaryDto
 } from "../types";
+import { ProcessingJobsPanel } from "./ProcessingJobsPanel";
 
-type TabKey = "keys" | "connectors" | "webhooks" | "imports" | "exports" | "logs";
+type TabKey = "keys" | "connectors" | "webhooks" | "imports" | "exports" | "processing" | "logs";
 
 const emptyKeyForm = {
   name: "",
@@ -500,6 +501,7 @@ export function IntegrationsPage() {
           { label: "Webhooks", value: "webhooks", content: renderWebhooks() },
           { label: "Imports", value: "imports", content: renderImports() },
           { label: "Exports", value: "exports", content: renderExports() },
+          { label: "Processing jobs", value: "processing", content: <ProcessingJobsPanel /> },
           { label: "Logs", value: "logs", content: renderLogs() }
         ]}
       />

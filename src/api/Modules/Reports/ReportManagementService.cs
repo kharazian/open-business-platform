@@ -351,6 +351,31 @@ public sealed class ReportManagementService
         ClaimsPrincipal principal,
         Guid formId,
         Guid reportId,
+        string? search,
+        PermissionService permissionService,
+        int? maxSourceRows,
+        CancellationToken cancellationToken)
+    {
+        var executionContext = await LoadReportExecutionContextAsync(
+            principal,
+            formId,
+            reportId,
+            GetRecordAccessActionForReportOperation(isCsvExport: true),
+            permissionService,
+            cancellationToken,
+            maxSourceRows);
+        return ListReportExecutionEngine.ExecuteAll(
+            executionContext.Report.Id, executionContext.Report.FormId, executionContext.Report.Name,
+            executionContext.Report.Form!.Name, executionContext.Config, executionContext.Schema,
+            executionContext.Records, new RunListReportRequest(Search: search),
+            executionContext.DisplayValuesByRecordId, executionContext.FieldsById,
+            executionContext.ResolvedValuesByRecordId);
+    }
+
+    public async Task<ListReportExecutionDto> ExportListReportDataAsync(
+        ClaimsPrincipal principal,
+        Guid formId,
+        Guid reportId,
         RunListReportRequest request,
         PermissionService permissionService,
         CancellationToken cancellationToken)
@@ -383,7 +408,8 @@ public sealed class ReportManagementService
         Guid reportId,
         string recordAction,
         PermissionService permissionService,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? maxSourceRows = null)
     {
         var report = await dbContext.Reports
             .AsNoTracking()
@@ -429,7 +455,14 @@ public sealed class ReportManagementService
             recordAction,
             cancellationToken);
         var records = await scopedRecordsQuery
+            .OrderByDescending(record => record.CreatedAt)
+            .ThenByDescending(record => record.Id)
+            .Take(maxSourceRows is { } limit ? limit + 1 : int.MaxValue)
             .ToArrayAsync(cancellationToken);
+        if (maxSourceRows is { } configuredLimit && records.Length > configuredLimit)
+        {
+            throw new ReportManagementException(StatusCodes.Status409Conflict, "source_limit_exceeded");
+        }
         var visibleSchema = RemoveHiddenFieldsFromSchema(schema, fieldAccess.HiddenFieldIds);
         var permittedCatalog = await relationshipFields.FilterPermittedAsync(
             principal, formId, schema, structuralCatalog, recordAction, permissionService, cancellationToken);
