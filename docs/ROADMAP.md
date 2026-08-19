@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
 
-Next: V10 operational app modeling continues from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. Tasks 001 through 006 are implemented; task 007 should begin with a separately reviewed plan for typed operational report and row actions.
+Next: V10 operational app modeling continues from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. Tasks 001 through 006 are implemented; the separately reviewed task 007 typed operational report and row actions specification is drafted and awaiting acceptance before implementation.
 
 The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
 
@@ -294,4 +294,4 @@ Planned sequence:
 - Bounded processing jobs, operational logs, and failure notifications.
 - An analysis-only Creator-style export assistant.
 
-Next, create and review a separate V10 task 007 specification for typed operational report and row actions before implementation. Later items also require their own task files.
+Next, review `tasks/v10/007-typed-operational-report-actions.md` before implementation. Later items also require their own task files.

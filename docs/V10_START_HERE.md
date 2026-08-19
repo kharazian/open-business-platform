@@ -6,7 +6,7 @@ This packet is the handoff for V10: Operational App Modeling.
 
 - V1 through V9 are complete for their current task lists.
 - V9 is accepted as the enterprise ownership, identity, policy, and administration checkpoint.
-- V10 tasks 001 through 006 are complete; the next task requires a separately reviewed typed operational report/row actions task file.
+- V10 tasks 001 through 006 are complete; the V10 task 007 typed operational report/row actions specification is drafted and awaiting review before implementation.
 - Existing form schemas already support currency, percent, rating, URL, time, datetime, user/department pickers, record lookups, file placeholders, and child-record subtables.
 - The next product gap is richer operational data modeling, not another enterprise administration layer.
 
@@ -34,7 +34,7 @@ Recommended sequence:
 4. Stronger lookup relationship integrity (`tasks/v10/004-lookup-relationship-integrity.md`).
 5. Nested relationship columns and filters in reports (`tasks/v10/005-nested-report-relationships.md`).
 6. Permission-aware related-record panels in record detail (`tasks/v10/006-related-record-workspace.md`; complete).
-7. Typed operational report and row actions.
+7. Typed operational report and row actions (`tasks/v10/007-typed-operational-report-actions.md`; specification awaiting review).
 8. File-processing and scheduled job definitions.
 9. Operational logs and failure notifications.
 10. Analysis-only Creator-style export assistant.

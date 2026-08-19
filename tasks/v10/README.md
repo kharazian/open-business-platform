@@ -10,7 +10,7 @@ V10 is the Operational App Modeling sequence. It starts only after the accepted 
 4. `004-lookup-relationship-integrity.md` - complete; validated lookups now materialize canonical edges with archive-safe selection and referenced-delete protection.
 5. `005-nested-report-relationships.md` - complete; permission-safe one-hop lookup columns now support typed filters, search, sort, viewer, CSV, and print paths with compatible dotted field keys.
 6. `006-related-record-workspace.md` - complete; permission-aware, read-only reverse lookup panels now provide canonical/legacy discovery, independently paged display rows, and resilient record-detail states.
-7. Operational report actions - create a task file before implementation; add typed report and row actions without client scripts.
+7. `007-typed-operational-report-actions.md` - specification drafted for review; implementation must not begin until the typed action scope and compatibility behavior are accepted.
 8. Processing jobs and schedules - create a task file before implementation; add bounded job definitions, claims, runs, and retry controls.
 9. Operational logs and notifications - create a task file before implementation; keep diagnostics separate from audit history and deduplicate failure alerts.
 10. Creator-style export analysis - create a task file before implementation; produce a redacted compatibility report without mutating platform data.
