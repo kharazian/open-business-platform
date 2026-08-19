@@ -64,18 +64,18 @@ The exact DTO names may follow existing report-module conventions. The execution
 
 ## Acceptance Criteria
 
-- [ ] Saved reports persist validated, ordered, enabled report and row action definitions without a schema migration.
-- [ ] Legacy reports receive deterministic compatibility defaults and preserve existing whole-row navigation behavior.
-- [ ] Unknown, duplicate, misplaced, excessive, or script-like action configuration is rejected by backend validation.
-- [ ] Report execution returns only enabled actions the caller is authorized to use, with per-record row availability and no denial-policy details.
-- [ ] Permission projection is bounded and avoids per-row/per-action database queries.
-- [ ] The builder edits action enablement, labels, and order from a fixed supported catalog.
-- [ ] The viewer renders the projected order, hides empty menus, supports keyboard use, confirms deletion, and refreshes pagination after deletion.
-- [ ] Every destination endpoint independently reauthorizes the operation; direct API calls cannot bypass form, report, record-scope, or workspace-policy checks.
-- [ ] Existing record deletion, CSV export, print, audit, trigger/outbox, relationship, and concurrency behavior remains authoritative and is not duplicated.
-- [ ] Action controls are absent from browser and template print output.
-- [ ] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, and `git diff --check` pass.
+- [x] Saved reports persist validated, ordered, enabled report and row action definitions without a schema migration.
+- [x] Legacy reports receive deterministic compatibility defaults and preserve existing whole-row navigation behavior.
+- [x] Unknown, duplicate, misplaced, excessive, or script-like action configuration is rejected by backend validation.
+- [x] Report execution returns only enabled actions the caller is authorized to use, with per-record row availability and no denial-policy details.
+- [x] Permission projection is bounded and avoids per-row/per-action database queries.
+- [x] The builder edits action enablement, labels, and order from a fixed supported catalog.
+- [x] The viewer renders the projected order, hides empty menus, supports keyboard use, confirms deletion, and refreshes pagination after deletion.
+- [x] Every destination endpoint independently reauthorizes the operation; direct API calls cannot bypass form, report, record-scope, or workspace-policy checks.
+- [x] Existing record deletion, CSV export, print, audit, trigger/outbox, relationship, and concurrency behavior remains authoritative and is not duplicated.
+- [x] Action controls are absent from browser and template print output.
+- [x] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -103,10 +103,12 @@ The exact DTO names may follow existing report-module conventions. The execution
 - Persisted explicit empty collections mean no actions, which is distinct from a missing legacy collection.
 - If bounded permission projection cannot be implemented using existing permission/policy services without N+1 queries, stop and review the service/query change before widening the task.
 
-## Review Decisions Proposed
+## Review Decisions Captured
 
 - This task formalizes the six safe operations already exposed by the report viewer; it does not introduce a generic action engine.
 - The backend projects effective availability while every destination endpoint remains authoritative.
 - Action routes are derived from trusted typed definitions and IDs, never stored as user-authored URLs.
 - Duplicate, import, bulk, direct row printing, workflows, retries, and integrations require separate semantics and remain later tasks.
 - Missing collections provide legacy defaults; explicit empty collections intentionally remove all actions.
+- Authenticated PostgreSQL/API acceptance verified legacy defaults, configured ordering and labels, disabled-action omission, per-row projections, unknown-property rejection, and cleanup of the temporary report fixture.
+- Headless browser automation was unavailable because the web-app testing skill's Python Playwright dependency is not installed. Frontend helper/source coverage, all Vitest tests, and the production TypeScript/Vite build passed instead.

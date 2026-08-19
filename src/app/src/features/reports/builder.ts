@@ -1,6 +1,17 @@
 import { getReportableFields, type ReportableField } from "../forms/reportableFields";
 import type { FormSchema } from "../forms/types";
-import type { ListReportConfig, ListReportFilter, ListReportSort, ReportFieldCatalogItem, ReportFilterOperator, ReportRowOpenAction, ReportSortDirection } from "./types";
+import {
+  reportActionTypes,
+  reportRowActionTypes,
+  type ListReportAction,
+  type ListReportConfig,
+  type ListReportFilter,
+  type ListReportSort,
+  type ReportFieldCatalogItem,
+  type ReportFilterOperator,
+  type ReportRowOpenAction,
+  type ReportSortDirection
+} from "./types";
 
 export type ReportFieldOption = Pick<ReportFieldCatalogItem, "id" | "label" | "type" | "source" | "options">;
 
@@ -40,6 +51,18 @@ export type ReportBuilderValidationResult = {
   sortErrorsById: Record<string, ReportSortDraftValidationErrors>;
 };
 
+export const defaultReportActions: ListReportAction[] = [
+  { id: "new", type: "create_record", label: "New record", enabled: true },
+  { id: "print", type: "print_report", label: "Print", enabled: true },
+  { id: "export", type: "export_csv", label: "Export CSV", enabled: true }
+];
+
+export const defaultReportRowActions: ListReportAction[] = [
+  { id: "view", type: "view_record", label: "View", enabled: true },
+  { id: "edit", type: "edit_record", label: "Edit", enabled: true },
+  { id: "delete", type: "delete_record", label: "Delete", enabled: true, confirmation: "Delete this record?" }
+];
+
 export function getReportFieldOptions(schema: FormSchema | null | undefined): ReportFieldOption[] {
   return getReportableFields(schema).map(toReportFieldOption);
 }
@@ -51,6 +74,8 @@ export function createListReportConfig(input: {
   filters?: ListReportFilter[];
   sort?: ListReportSort[];
   rowOpenAction?: ReportRowOpenAction;
+  reportActions?: ListReportAction[];
+  rowActions?: ListReportAction[];
 }): ListReportConfig {
   const selectedFields = input.selectedFieldIds.filter((fieldId, index, fields) => fields.indexOf(fieldId) === index);
   const fieldsById = new Map(input.fieldOptions.map((field) => [field.id, field]));
@@ -69,8 +94,39 @@ export function createListReportConfig(input: {
     columns,
     filters: input.filters ?? [],
     sort: input.sort ?? [],
-    rowOpenAction: input.rowOpenAction ?? "detail"
+    rowOpenAction: input.rowOpenAction ?? "detail",
+    reportActions: cloneReportActions(input.reportActions ?? defaultReportActions),
+    rowActions: cloneReportActions(input.rowActions ?? defaultReportRowActions)
   };
+}
+
+export function normalizeReportActions(
+  actions: ListReportAction[] | undefined,
+  location: "report" | "row"
+): ListReportAction[] {
+  const defaults = location === "report" ? defaultReportActions : defaultReportRowActions;
+  const supported = new Set<string>(location === "report" ? reportActionTypes : reportRowActionTypes);
+
+  if (!actions) {
+    return cloneReportActions(defaults);
+  }
+
+  const configured = actions
+    .filter((action, index) => supported.has(action.type) && actions.findIndex((candidate) => candidate.type === action.type) === index)
+    .map((action) => ({
+      ...action,
+      label: action.label.trim() || defaults.find((candidate) => candidate.type === action.type)?.label || action.type,
+      confirmation: action.type === "delete_record" ? action.confirmation?.trim() || "Delete this record?" : undefined
+    }));
+
+  return [
+    ...configured,
+    ...defaults.filter((candidate) => !configured.some((action) => action.type === candidate.type)).map((action) => ({ ...action, enabled: false }))
+  ];
+}
+
+function cloneReportActions(actions: ListReportAction[]): ListReportAction[] {
+  return actions.map((action) => ({ ...action }));
 }
 
 export function toListReportFilters(drafts: ReportFilterDraft[]): ListReportFilter[] {

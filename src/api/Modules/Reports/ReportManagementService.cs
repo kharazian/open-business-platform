@@ -273,7 +273,7 @@ public sealed class ReportManagementService
             permissionService,
             cancellationToken);
 
-        return ListReportExecutionEngine.Execute(
+        var execution = ListReportExecutionEngine.Execute(
             executionContext.Report.Id,
             executionContext.Report.FormId,
             executionContext.Report.Name,
@@ -285,6 +285,13 @@ public sealed class ReportManagementService
             executionContext.DisplayValuesByRecordId,
             executionContext.FieldsById,
             executionContext.ResolvedValuesByRecordId);
+
+        return await ProjectOperationalActionsAsync(
+            principal,
+            executionContext.Config,
+            execution,
+            permissionService,
+            cancellationToken);
     }
 
     public async Task<ListReportCsvExportDto> ExportListReportCsvAsync(
@@ -456,6 +463,92 @@ public sealed class ReportManagementService
         return isCsvExport ? PlatformPermissions.Form.Export : PlatformPermissions.Form.View;
     }
 
+    private async Task<ListReportExecutionDto> ProjectOperationalActionsAsync(
+        ClaimsPrincipal principal,
+        ListReportConfigDefinition config,
+        ListReportExecutionDto execution,
+        PermissionService permissionService,
+        CancellationToken cancellationToken)
+    {
+        var reportActions = new List<ListReportResolvedActionDto>();
+
+        foreach (var action in config.ReportActions!.Where(action => action.Enabled))
+        {
+            var allowed = action.Type switch
+            {
+                ListReportActionTypes.CreateRecord => await permissionService.CanAccessFormAsync(
+                    principal, execution.FormId, PlatformPermissions.Form.Submit, cancellationToken),
+                ListReportActionTypes.PrintReport => true,
+                ListReportActionTypes.ExportCsv => await permissionService.CanAccessFormAsync(
+                        principal, execution.FormId, PlatformPermissions.Form.Export, cancellationToken)
+                    && await permissionService.CanAccessReportAsync(
+                        principal, execution.ReportId, PlatformPermissions.Report.Export, cancellationToken),
+                _ => false
+            };
+
+            if (allowed)
+            {
+                reportActions.Add(ToResolvedAction(action));
+            }
+        }
+
+        var rowIds = execution.Rows.Select(row => row.RecordId).ToArray();
+        var allowedRowIdsByType = new Dictionary<string, IReadOnlySet<Guid>>(StringComparer.Ordinal)
+        {
+            [ListReportActionTypes.ViewRecord] = rowIds.ToHashSet()
+        };
+        var enabledRowTypes = config.RowActions!
+            .Where(action => action.Enabled)
+            .Select(action => action.Type)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (type, permission) in new[]
+        {
+            (ListReportActionTypes.EditRecord, PlatformPermissions.Form.Edit),
+            (ListReportActionTypes.DeleteRecord, PlatformPermissions.Form.Delete)
+        })
+        {
+            if (!enabledRowTypes.Contains(type) || rowIds.Length == 0)
+            {
+                allowedRowIdsByType[type] = new HashSet<Guid>();
+                continue;
+            }
+
+            var scopedQuery = await permissionService.ApplyRecordAccessAsync(
+                principal,
+                dbContext.Records.AsNoTracking().Where(record => rowIds.Contains(record.Id) && !record.IsDeleted),
+                execution.FormId,
+                permission,
+                cancellationToken);
+            allowedRowIdsByType[type] = (await scopedQuery.Select(record => record.Id).ToArrayAsync(cancellationToken)).ToHashSet();
+        }
+
+        return execution with
+        {
+            ReportActions = reportActions,
+            Rows = execution.Rows.Select(row => row with
+            {
+                Actions = config.RowActions!
+                    .Where(action => action.Enabled
+                        && allowedRowIdsByType.TryGetValue(action.Type, out var allowedIds)
+                        && allowedIds.Contains(row.RecordId))
+                    .Select(ToResolvedAction)
+                    .ToArray()
+            }).ToArray()
+        };
+    }
+
+    private static ListReportResolvedActionDto ToResolvedAction(ListReportActionDefinition action)
+    {
+        return new ListReportResolvedActionDto(
+            action.Id,
+            action.Type,
+            action.Label,
+            action.Type == ListReportActionTypes.DeleteRecord
+                ? action.Confirmation ?? "Delete this record?"
+                : null);
+    }
+
     private static async Task<bool> CanSeeReportInListAsync(
         ClaimsPrincipal principal,
         PermissionService permissionService,
@@ -541,7 +634,11 @@ public sealed class ReportManagementService
             (config.Sort ?? Array.Empty<ListReportSortDefinition>())
                 .Select(sort => new ListReportSortDefinition(sort.FieldId.Trim(), sort.Direction.Trim()))
                 .ToArray(),
-            NormalizeRowOpenAction(config.RowOpenAction));
+            NormalizeRowOpenAction(config.RowOpenAction))
+        {
+            ReportActions = NormalizeActions(config.ReportActions ?? DefaultReportActions),
+            RowActions = NormalizeActions(config.RowActions ?? DefaultRowActions)
+        };
     }
 
     private static ListReportConfigDefinition FilterConfigToFields(
@@ -617,6 +714,17 @@ public sealed class ReportManagementService
             : ListReportRowOpenActions.Detail;
     }
 
+    private static IReadOnlyList<ListReportActionDefinition> NormalizeActions(
+        IReadOnlyList<ListReportActionDefinition> actions)
+    {
+        return actions.Select(action => new ListReportActionDefinition(
+            action.Id.Trim(),
+            action.Type.Trim(),
+            action.Label.Trim(),
+            action.Enabled,
+            NormalizeOptionalText(action.Confirmation))).ToArray();
+    }
+
     private static void EnsureConcurrencyStamp(string currentStamp, string? requestedStamp)
     {
         if (!string.Equals(currentStamp, requestedStamp, StringComparison.Ordinal))
@@ -642,8 +750,9 @@ public sealed class ReportManagementService
 
     private static ListReportConfigDefinition DeserializeConfig(JsonDocument configJson)
     {
-        return configJson.RootElement.Deserialize<ListReportConfigDefinition>(JsonOptions)
+        var config = configJson.RootElement.Deserialize<ListReportConfigDefinition>(JsonOptions)
             ?? new ListReportConfigDefinition(1, Array.Empty<ListReportColumnDefinition>(), Array.Empty<ListReportFilterDefinition>(), Array.Empty<ListReportSortDefinition>());
+        return NormalizeConfig(config);
     }
 
     private static FormSchemaDefinition? DeserializeSchema(JsonDocument? schemaJson)
@@ -659,4 +768,18 @@ public sealed class ReportManagementService
         IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, string>> DisplayValuesByRecordId,
         IReadOnlyDictionary<string, ReportableFieldMetadata> FieldsById,
         IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, ResolvedReportFieldValue>> ResolvedValuesByRecordId);
+
+    private static readonly IReadOnlyList<ListReportActionDefinition> DefaultReportActions = new[]
+    {
+        new ListReportActionDefinition("new", ListReportActionTypes.CreateRecord, "New record"),
+        new ListReportActionDefinition("print", ListReportActionTypes.PrintReport, "Print"),
+        new ListReportActionDefinition("export", ListReportActionTypes.ExportCsv, "Export CSV")
+    };
+
+    private static readonly IReadOnlyList<ListReportActionDefinition> DefaultRowActions = new[]
+    {
+        new ListReportActionDefinition("view", ListReportActionTypes.ViewRecord, "View"),
+        new ListReportActionDefinition("edit", ListReportActionTypes.EditRecord, "Edit"),
+        new ListReportActionDefinition("delete", ListReportActionTypes.DeleteRecord, "Delete", Confirmation: "Delete this record?")
+    };
 }

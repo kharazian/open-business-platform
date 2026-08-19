@@ -24,10 +24,13 @@ import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExe
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
 import {
   createListReportConfig,
+  defaultReportActions,
+  defaultReportRowActions,
   filterOperatorRequiresValue,
   getReportFilterOperatorOptions,
   getReportFilterValueInputType,
   getReportFilterValueOptions,
+  normalizeReportActions,
   toListReportFilters,
   toListReportSorts,
   validateReportBuilderDrafts,
@@ -55,6 +58,7 @@ import { getRolePermissions, listRoles, updateRolePermissions } from "../../user
 import { reportAccessActions, type ReportAccessAction, type RoleDto, type RolePermissionsDto } from "../../users/types";
 import {
   type ListReportExecution,
+  type ListReportAction,
   type ExecuteListReportOptions,
   type ListReportDetail,
   type ListReportSummary,
@@ -63,6 +67,7 @@ import {
   type ReportFilterOperator,
   type ReportFieldCatalogItem,
   type ReportRowOpenAction,
+  type ResolvedReportAction,
   type ReportSortDirection
 } from "../types";
 
@@ -101,6 +106,8 @@ export function ReportsPage() {
   const [filterDrafts, setFilterDrafts] = useState<ReportFilterDraft[]>([]);
   const [sortDrafts, setSortDrafts] = useState<ReportSortDraft[]>([]);
   const [rowOpenAction, setRowOpenAction] = useState<ReportRowOpenAction>("detail");
+  const [reportActions, setReportActions] = useState<ListReportAction[]>(() => defaultReportActions.map((action) => ({ ...action })));
+  const [rowActions, setRowActions] = useState<ListReportAction[]>(() => defaultReportRowActions.map((action) => ({ ...action })));
   const [showReportBuilderValidation, setShowReportBuilderValidation] = useState(false);
   const [editingReportId, setEditingReportId] = useState("");
   const [editingReportConcurrencyStamp, setEditingReportConcurrencyStamp] = useState("");
@@ -311,7 +318,9 @@ export function ReportsPage() {
     columnLabels,
     filters: toListReportFilters(filterDrafts),
     sort: toListReportSorts(sortDrafts),
-    rowOpenAction
+    rowOpenAction,
+    reportActions,
+    rowActions
   });
   const reportBuilderValidation = useMemo(
     () => validateReportBuilderDrafts({ fieldOptions, filterDrafts, sortDrafts }),
@@ -453,6 +462,11 @@ export function ReportsPage() {
 
     if (!name) {
       setReportNameError("Report name is required.");
+      return;
+    }
+
+    if ([...reportActions, ...rowActions].some((action) => !action.label.trim())) {
+      setError("Every report and row action needs a label.");
       return;
     }
 
@@ -710,6 +724,8 @@ export function ReportsPage() {
     setReportNameError(undefined);
     setShowReportBuilderValidation(false);
     setRowOpenAction(getSupportedRowOpenAction(report.config.rowOpenAction));
+    setReportActions(normalizeReportActions(report.config.reportActions, "report"));
+    setRowActions(normalizeReportActions(report.config.rowActions, "row"));
     setEditingReportId(options.mode === "edit" ? report.id : "");
     setEditingReportConcurrencyStamp(options.mode === "edit" ? report.concurrencyStamp : "");
 
@@ -741,6 +757,33 @@ export function ReportsPage() {
     setFilterDrafts([]);
     setSortDrafts(createDefaultSortDrafts());
     setRowOpenAction("detail");
+    setReportActions(defaultReportActions.map((action) => ({ ...action })));
+    setRowActions(defaultReportRowActions.map((action) => ({ ...action })));
+  }
+
+  function updateOperationalAction(
+    location: "report" | "row",
+    actionId: string,
+    update: Partial<Pick<ListReportAction, "label" | "enabled">>
+  ) {
+    const setter = location === "report" ? setReportActions : setRowActions;
+    setter((current) => current.map((action) => action.id === actionId ? { ...action, ...update } : action));
+  }
+
+  function moveOperationalAction(location: "report" | "row", actionId: string, direction: -1 | 1) {
+    const setter = location === "report" ? setReportActions : setRowActions;
+    setter((current) => {
+      const index = current.findIndex((action) => action.id === actionId);
+      const target = index + direction;
+
+      if (index < 0 || target < 0 || target >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   }
 
   function getDefaultReportName(): string {
@@ -977,12 +1020,12 @@ export function ReportsPage() {
     }
   }
 
-  async function handleDeleteReportRecord(recordId: string) {
+  async function handleDeleteReportRecord(recordId: string, confirmation: string) {
     if (!selectedReportId || !reportExecution) {
       return;
     }
 
-    if (!window.confirm("Delete this record?")) {
+    if (!window.confirm(confirmation)) {
       return;
     }
 
@@ -1369,6 +1412,22 @@ export function ReportsPage() {
                     <option value="none">{rowOpenActionOptions[2].label}</option>
                   </Select>
                 </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <OperationalActionEditor
+                    actions={reportActions}
+                    description="Shown above the report when the current user is authorized."
+                    onMove={(actionId, direction) => moveOperationalAction("report", actionId, direction)}
+                    onUpdate={(actionId, update) => updateOperationalAction("report", actionId, update)}
+                    title="Report actions"
+                  />
+                  <OperationalActionEditor
+                    actions={rowActions}
+                    description="Shown in each row menu when that record permits the operation."
+                    onMove={(actionId, direction) => moveOperationalAction("row", actionId, direction)}
+                    onUpdate={(actionId, update) => updateOperationalAction("row", actionId, update)}
+                    title="Row actions"
+                  />
+                </div>
               </div>
             ) : (
               <EmptyState title="No report fields" description="Save fields on this form before creating list reports." />
@@ -1503,13 +1562,7 @@ export function ReportsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge>{reportExecution ? `${reportExecution.totalCount} rows` : "Not run"}</Badge>
-              {selectedFormId ? (
-                <ReportActionLink to={getRecordCreatePath(selectedFormId)}>
-                  <Plus className="size-4" />
-                  New record
-                </ReportActionLink>
-              ) : null}
-              {reportExecution && reportPrintTemplates.length > 0 ? (
+              {reportExecution?.reportActions.some((action) => action.type === "print_report") && reportPrintTemplates.length > 0 ? (
                 <Select
                   aria-label="Print template"
                   className="min-w-44"
@@ -1525,26 +1578,46 @@ export function ReportsPage() {
                   ))}
                 </Select>
               ) : null}
-              <Button
-                disabled={!reportExecution || runningReport || printTemplateLoading || printTemplateDownloading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
-                onClick={() => void handlePrintAction()}
-                variant="outline"
-              >
-                {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
-                {selectedServerPdfVersionId ? "Download PDF" : selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : "Print"}
-              </Button>
-              <Button
-                disabled={!reportExecution || runningReport}
-                onClick={() => {
-                  if (reportExecution) {
-                    downloadListReportCsv(reportExecution.formId, reportExecution.reportId, executedReportRuntimeOptions);
-                  }
-                }}
-                variant="outline"
-              >
-                <Download className="size-4" />
-                Export CSV
-              </Button>
+              {reportExecution?.reportActions.map((action) => {
+                if (action.type === "create_record") {
+                  return (
+                    <ReportActionLink key={action.id} to={getRecordCreatePath(reportExecution.formId)}>
+                      <Plus className="size-4" />
+                      {action.label}
+                    </ReportActionLink>
+                  );
+                }
+
+                if (action.type === "print_report") {
+                  return (
+                    <Button
+                      disabled={runningReport || printTemplateLoading || printTemplateDownloading || Boolean(selectedPrintTemplateId && !selectedPrintTemplate)}
+                      key={action.id}
+                      onClick={() => void handlePrintAction()}
+                      variant="outline"
+                    >
+                      {selectedPrintTemplate ? <FileDown className="size-4" /> : <Printer className="size-4" />}
+                      {selectedServerPdfVersionId ? "Download PDF" : selectedPrintTemplate ? getPrintTemplatePdfButtonLabel(selectedPrintTemplate.config) : action.label}
+                    </Button>
+                  );
+                }
+
+                if (action.type === "export_csv") {
+                  return (
+                    <Button
+                      disabled={runningReport}
+                      key={action.id}
+                      onClick={() => downloadListReportCsv(reportExecution.formId, reportExecution.reportId, executedReportRuntimeOptions)}
+                      variant="outline"
+                    >
+                      <Download className="size-4" />
+                      {action.label}
+                    </Button>
+                  );
+                }
+
+                return null;
+              })}
             </div>
           </div>
         </CardHeader>
@@ -1591,7 +1664,7 @@ export function ReportsPage() {
                 columnFilters={reportColumnFilters}
                 execution={reportExecution}
                 onApplyFilters={applyReportColumnFilters}
-                onDeleteRecord={(recordId) => void handleDeleteReportRecord(recordId)}
+                onDeleteRecord={(recordId, confirmation) => void handleDeleteReportRecord(recordId, confirmation)}
                 onFilterChange={updateReportColumnFilter}
                 onOpenRecord={openRecordFromReportRow}
                 onSort={toggleReportSort}
@@ -1682,7 +1755,7 @@ function ReportExecutionTable({
   deletingRecordId: string | null;
   execution: ListReportExecution;
   onApplyFilters: () => void;
-  onDeleteRecord: (recordId: string) => void;
+  onDeleteRecord: (recordId: string, confirmation: string) => void;
   onFilterChange: (fieldId: string, value: string) => void;
   onOpenRecord: (recordId: string) => void;
   onSort: (fieldId: string) => void;
@@ -1691,6 +1764,8 @@ function ReportExecutionTable({
   sortDirection: ReportSortDirection;
   sortFieldId?: string;
 }) {
+  const hasRowActions = execution.rows.some((row) => row.actions.length > 0);
+
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card/80">
       <div className="overflow-x-auto">
@@ -1713,9 +1788,11 @@ function ReportExecutionTable({
                   </button>
                 </th>
               ))}
-              <th className="px-4 py-3" data-print-hide="true">
-                Actions
-              </th>
+              {hasRowActions ? (
+                <th className="px-4 py-3" data-print-hide="true">
+                  Actions
+                </th>
+              ) : null}
             </tr>
             <tr>
               {execution.columns.map((column) => (
@@ -1736,12 +1813,13 @@ function ReportExecutionTable({
                   />
                 </th>
               ))}
-              <th className="px-4 pb-3" data-print-hide="true" />
+              {hasRowActions ? <th className="px-4 pb-3" data-print-hide="true" /> : null}
             </tr>
           </thead>
           <tbody>
             {execution.rows.map((row) => {
-              const rowCanOpen = rowOpenAction !== "none";
+              const requiredOpenAction = rowOpenAction === "edit" ? "edit_record" : "view_record";
+              const rowCanOpen = rowOpenAction !== "none" && row.actions.some((action) => action.type === requiredOpenAction);
               const rowOpenLabel = rowOpenAction === "edit" ? "Open record edit form" : "Open record detail";
 
               return (
@@ -1761,23 +1839,28 @@ function ReportExecutionTable({
                   role={rowCanOpen ? "button" : undefined}
                   tabIndex={rowCanOpen ? 0 : undefined}
                 >
-                {execution.columns.map((column) => {
-                  const value = row.cells[column.fieldId]?.displayValue?.trim();
+                  {execution.columns.map((column) => {
+                    const value = row.cells[column.fieldId]?.displayValue?.trim();
 
-                  return (
-                    <td className="px-4 py-3 text-sm text-foreground" key={column.fieldId}>
-                      {value ? value : <span className="text-muted-foreground">-</span>}
+                    return (
+                      <td className="px-4 py-3 text-sm text-foreground" key={column.fieldId}>
+                        {value ? value : <span className="text-muted-foreground">-</span>}
+                      </td>
+                    );
+                  })}
+                  {hasRowActions ? (
+                    <td className="px-4 py-3" data-print-hide="true" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                      {row.actions.length > 0 ? (
+                        <ReportRowActionMenu
+                          actions={row.actions}
+                          deleting={deletingRecordId === row.recordId}
+                          disabled={running}
+                          onDelete={(confirmation) => onDeleteRecord(row.recordId, confirmation)}
+                          recordId={row.recordId}
+                        />
+                      ) : null}
                     </td>
-                  );
-                })}
-                <td className="px-4 py-3" data-print-hide="true" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                  <ReportRowActionMenu
-                    deleting={deletingRecordId === row.recordId}
-                    disabled={running}
-                    onDelete={() => onDeleteRecord(row.recordId)}
-                    recordId={row.recordId}
-                  />
-                </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -1799,15 +1882,85 @@ function ReportActionLink({ children, to }: { children: ReactNode; to: string })
   );
 }
 
+function OperationalActionEditor({
+  actions,
+  description,
+  onMove,
+  onUpdate,
+  title
+}: {
+  actions: ListReportAction[];
+  description: string;
+  onMove: (actionId: string, direction: -1 | 1) => void;
+  onUpdate: (actionId: string, update: Partial<Pick<ListReportAction, "label" | "enabled">>) => void;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4">
+      <div>
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid gap-2">
+        {actions.map((action, index) => (
+          <div className="grid gap-3 rounded-lg border border-border bg-card/70 p-3 sm:grid-cols-[minmax(0,1fr)_auto]" key={action.id}>
+            <div className="grid gap-2">
+              <Checkbox
+                checked={action.enabled}
+                label={formatOperationalActionType(action.type)}
+                onChange={(event) => onUpdate(action.id, { enabled: event.target.checked })}
+              />
+              <Input
+                label="Action label"
+                maxLength={80}
+                onChange={(event) => onUpdate(action.id, { label: event.target.value })}
+                value={action.label}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button
+                aria-label={`Move ${action.label} up`}
+                disabled={index === 0}
+                onClick={() => onMove(action.id, -1)}
+                size="icon"
+                title="Move up"
+                variant="outline"
+              >
+                <ArrowUp className="size-4" />
+              </Button>
+              <Button
+                aria-label={`Move ${action.label} down`}
+                disabled={index === actions.length - 1}
+                onClick={() => onMove(action.id, 1)}
+                size="icon"
+                title="Move down"
+                variant="outline"
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatOperationalActionType(type: ListReportAction["type"]): string {
+  return type.split("_").map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
+}
+
 function ReportRowActionMenu({
+  actions,
   deleting,
   disabled,
   onDelete,
   recordId
 }: {
+  actions: ResolvedReportAction[];
   deleting: boolean;
   disabled: boolean;
-  onDelete: () => void;
+  onDelete: (confirmation: string) => void;
   recordId: string;
 }) {
   return (
@@ -1823,23 +1976,42 @@ function ReportRowActionMenu({
       )}
     >
       <div className="grid gap-1">
-        <ReportActionLink to={getRecordDetailPath(recordId)}>
-          <Eye className="size-4" />
-          View
-        </ReportActionLink>
-        <ReportActionLink to={getRecordEditPath(recordId)}>
-          <Edit3 className="size-4" />
-          Edit
-        </ReportActionLink>
-        <button
-          className="control-transition flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={disabled || deleting}
-          onClick={onDelete}
-          type="button"
-        >
-          <Trash2 className="size-4" />
-          {deleting ? "Deleting..." : "Delete"}
-        </button>
+        {actions.map((action) => {
+          if (action.type === "view_record") {
+            return (
+              <ReportActionLink key={action.id} to={getRecordDetailPath(recordId)}>
+                <Eye className="size-4" />
+                {action.label}
+              </ReportActionLink>
+            );
+          }
+
+          if (action.type === "edit_record") {
+            return (
+              <ReportActionLink key={action.id} to={getRecordEditPath(recordId)}>
+                <Edit3 className="size-4" />
+                {action.label}
+              </ReportActionLink>
+            );
+          }
+
+          if (action.type === "delete_record") {
+            return (
+              <button
+                className="control-transition flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled || deleting}
+                key={action.id}
+                onClick={() => onDelete(action.confirmation || "Delete this record?")}
+                type="button"
+              >
+                <Trash2 className="size-4" />
+                {deleting ? "Deleting..." : action.label}
+              </button>
+            );
+          }
+
+          return null;
+        })}
       </div>
     </Dropdown>
   );

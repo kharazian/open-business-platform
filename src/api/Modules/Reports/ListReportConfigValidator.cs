@@ -6,6 +6,10 @@ namespace OpenBusinessPlatform.Api.Modules.Reports;
 public static class ListReportConfigValidator
 {
     private const int SupportedSchemaVersion = 1;
+    private const int MaxActionsPerCollection = 8;
+    private const int MaxActionIdLength = 40;
+    private const int MaxActionLabelLength = 80;
+    private const int MaxConfirmationLength = 200;
     private static readonly IReadOnlySet<string> DefaultFilterOperators = new HashSet<string>(StringComparer.Ordinal)
     {
         ReportFilterOperators.Equal,
@@ -64,6 +68,8 @@ public static class ListReportConfigValidator
         ValidateFilters(config.Filters, validFields, errors);
         ValidateSort(config.Sort, validFields, errors);
         ValidateRowOpenAction(config.RowOpenAction, errors);
+        ValidateActions(config.ReportActions, ListReportActionTypes.Report, "config.reportActions", errors);
+        ValidateActions(config.RowActions, ListReportActionTypes.Row, "config.rowActions", errors);
 
         return new ReportValidationResult(errors);
     }
@@ -283,4 +289,96 @@ public static class ListReportConfigValidator
             errors.Add(new ReportValidationError("config.rowOpenAction", "report.row_open_action", "Row open action is not supported."));
         }
     }
+
+    private static void ValidateActions(
+        IReadOnlyList<ListReportActionDefinition>? actions,
+        IReadOnlySet<string> supportedTypes,
+        string collectionPath,
+        List<ReportValidationError> errors)
+    {
+        if (actions is null)
+        {
+            return;
+        }
+
+        if (actions.Count > MaxActionsPerCollection)
+        {
+            errors.Add(new ReportValidationError(collectionPath, "report.actions.limit", $"Choose at most {MaxActionsPerCollection} actions."));
+        }
+
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var seenTypes = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            var path = $"{collectionPath}[{index}]";
+
+            if (action is null)
+            {
+                errors.Add(new ReportValidationError(path, "report.action.required", "Action definition is required."));
+                continue;
+            }
+
+            var id = action.Id?.Trim() ?? string.Empty;
+            var type = action.Type?.Trim() ?? string.Empty;
+            var label = action.Label?.Trim() ?? string.Empty;
+            var confirmation = action.Confirmation?.Trim();
+
+            if (!IsValidActionId(id))
+            {
+                errors.Add(new ReportValidationError($"{path}.id", "report.action.id", "Action ID must start with a lowercase letter and use only lowercase letters, numbers, underscores, or hyphens."));
+            }
+            else if (!seenIds.Add(id))
+            {
+                errors.Add(new ReportValidationError($"{path}.id", "report.action.id_duplicate", "Action IDs must be unique within their collection."));
+            }
+
+            if (!supportedTypes.Contains(type))
+            {
+                errors.Add(new ReportValidationError($"{path}.type", "report.action.type", "Action type is not supported in this location."));
+            }
+            else if (!seenTypes.Add(type))
+            {
+                errors.Add(new ReportValidationError($"{path}.type", "report.action.type_duplicate", "Each action type can only be configured once."));
+            }
+
+            if (string.IsNullOrWhiteSpace(label) || label.Length > MaxActionLabelLength || ContainsControlCharacters(label))
+            {
+                errors.Add(new ReportValidationError($"{path}.label", "report.action.label", $"Action label must be plain text between 1 and {MaxActionLabelLength} characters."));
+            }
+
+            if (action.AdditionalProperties is { Count: > 0 })
+            {
+                errors.Add(new ReportValidationError(path, "report.action.properties", "Action contains unsupported properties."));
+            }
+
+            if (type == ListReportActionTypes.DeleteRecord)
+            {
+                if (confirmation is not null && (confirmation.Length > MaxConfirmationLength || ContainsControlCharacters(confirmation)))
+                {
+                    errors.Add(new ReportValidationError($"{path}.confirmation", "report.action.confirmation", $"Confirmation must be plain text with at most {MaxConfirmationLength} characters."));
+                }
+            }
+            else if (confirmation is not null)
+            {
+                errors.Add(new ReportValidationError($"{path}.confirmation", "report.action.confirmation_type", "Confirmation is supported only for delete-record actions."));
+            }
+        }
+    }
+
+    private static bool IsValidActionId(string value)
+    {
+        if (value.Length is < 1 or > MaxActionIdLength || value[0] is < 'a' or > 'z')
+        {
+            return false;
+        }
+
+        return value.All(character =>
+            character is >= 'a' and <= 'z'
+            || character is >= '0' and <= '9'
+            || character is '_' or '-');
+    }
+
+    private static bool ContainsControlCharacters(string value) => value.Any(char.IsControl);
 }

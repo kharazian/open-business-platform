@@ -32,7 +32,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/features/forms`: shared V1 form schema types, validation, forms API client, forms list page, backend-owned form builder, preview renderer, and submit form page
 - `src/app/src/features/records`: record list/detail pages, edit/delete helpers, and browser print helpers
 - `src/app/src/features/users`: users/access API client, types, and management workspace for users, roles, groups, departments, scoped form access, report access, and field rules
-- `src/app/src/features/reports`: current V2 list report definition, report execution, CSV export, and report print API/types/page
+- `src/app/src/features/reports`: list report definition, report execution, CSV export/print, one-hop relationship fields, and V10 typed permission-aware report/row action configuration and rendering
 - `src/app/src/features/dashboards`: dashboard summary/analytics clients, published dashboard directory and read-only slug viewer, permission-gated builder, dynamic navigation, and generic adapter registry/settings contract
 - `src/app/src/features/triggers`: current V4 trigger management API client, builder helpers, form-scoped trigger workspace, logs viewer, failed-log retry UI, transactional event-delivery health/dead-letter replay UI, automatic retry status display, notification/webhook action editors, retry policy controls, and schedule metadata controls
 - `src/app/src/features/workflows`: current V5 workflow management API client, builder helpers, workflow-only visual graph builder, typed definition/record execution/approval contracts, form-scoped workflow management page for definition draft/edit/publish/enable/disable operations, and current-user approval inbox page
@@ -40,7 +40,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
-- `src/api/Modules/Reports`: current V2 list report definition, execution, and CSV export endpoints, config validation, permission checks, and report audit logging
+- `src/api/Modules/Reports`: list report definition, execution, CSV export, one-hop relationship resolution, and V10 typed operational action validation/permission projection with report audit logging
 - `src/api/Infrastructure/Persistence/DemoDataSeeder.cs`: development startup seed data for demo users, roles, departments, a published sample form, permissions, and records
 - `src/api/Modules/Identity`: bootstrap-admin fallback, local user login, self-service password recovery email for persistent users, users/roles/groups/departments management endpoints, password hashing, scoped permission service, and field access service
 - `src/api/Modules/Identity`: V9 workspace-owned OIDC provider management, protected authorization-code/PKCE flow, validated callback handling, and external identity linking for existing active workspace members
@@ -104,6 +104,7 @@ V9 task 007 is complete: workspace branding persists safe app identity and bound
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
 V9 task 010 is complete: permission-gated operational posture and payload-safe audit search/export provide administrative evidence without claiming certification or duplicating authoritative control state.
+V10 tasks 001 through 007 are complete. Task 007 adds saved allowlisted create/print/export and view/edit/delete report actions, backend-projected effective availability, bounded row-scope checks, fixed-catalog builder controls, and ordered viewer rendering while existing destination endpoints remain authoritative.
 
 ## 2. Core Product Philosophy
 

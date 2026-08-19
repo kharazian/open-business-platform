@@ -152,7 +152,7 @@ Current backend module behavior:
 - `Modules/Workspaces` owns tenant/workspace constants, signed request context, ownership guards, membership lifecycle services, per-request membership validation, and authenticated context/list/switch endpoints. Workspace-specific platform role claims are refreshed at login and switch time.
 - `Modules/Forms` contains shared V1 form schema contracts and validation logic plus authenticated `GET /api/forms`, `POST /api/forms`, and `GET /api/forms/access-options` endpoints.
 - `Modules/Records` contains record submit, list, detail, edit, and soft-delete endpoints with per-form permission checks, record value validation, concurrency checks for edits, and audit logging for mutations.
-- `Modules/Reports` contains the current V2 list report definition, execution, and CSV export endpoints, config validation, report management/view permission checks, and report audit logging.
+- `Modules/Reports` contains list report definition, execution, CSV export, one-hop relationship projection, and V10 typed operational action projection with config validation, bounded record-scope checks, report management/view permission checks, and report audit logging.
 - `Modules/Triggers` contains the current V4 trigger definition, execution, retry, webhook action, and safe scheduled trigger foundation.
 - `Modules/Workflows` contains the current V5 backend workflow definition foundation, typed config validation, management endpoints, immutable version publishing, and workflow history table foundation.
 - `Configuration/DotEnv.cs` loads the nearest `.env` file without overriding existing environment variables.
@@ -252,6 +252,14 @@ Infrastructure responsibility:
 4. Report execution loads permission-scoped root records, reads stored lookup UUIDs, and queries only non-deleted target records allowed by the caller's target-form and record scopes.
 5. Missing, inaccessible, hidden, or stale related values become empty cells; raw target IDs are never used as fallback display values.
 6. The shared report execution path applies filters, search, sort, display, CSV, and print/PDF behavior to the terminal field's typed value.
+
+## Data Flow: Typed Report Actions
+
+1. A saved report stores ordered allowlisted report and row action definitions in its existing config JSONB.
+2. Report execution resolves enabled report actions against form/report permissions and row actions against the concrete page's record scopes and workspace policies.
+3. The API returns only safe IDs, types, labels, and delete confirmation text; routes, URLs, scripts, and request payloads are not persisted.
+4. The frontend renders the projected order and invokes existing trusted create, print, export, view, edit, or delete flows.
+5. Every destination endpoint reauthorizes the operation and retains its existing audit, concurrency, trigger/outbox, relationship, and soft-delete semantics.
 
 ## Data Flow: Related-Record Workspace
 

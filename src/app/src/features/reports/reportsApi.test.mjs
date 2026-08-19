@@ -4,10 +4,13 @@ import { test } from "vitest";
 import * as api from "./api.ts";
 import {
   createListReportConfig,
+  defaultReportActions,
+  defaultReportRowActions,
   getReportFieldOptions,
   getReportFilterOperatorOptions,
   getReportFilterValueInputType,
   getReportFilterValueOptions,
+  normalizeReportActions,
   toListReportFilters,
   toListReportSorts,
   validateReportBuilderDrafts
@@ -289,6 +292,7 @@ test("reports page reuses executed runtime options for CSV and report PDF output
 
 test("reports page exposes record workflow actions from report rows", () => {
   const source = readFileSync(new URL("./pages/ReportsPage.tsx", import.meta.url), "utf8");
+  const builderSource = readFileSync(new URL("./builder.ts", import.meta.url), "utf8");
   const formsModuleSource = readFileSync(new URL("../../modules/forms/module.tsx", import.meta.url), "utf8");
 
   assert.equal(source.includes("onOpenRecord"), true);
@@ -299,10 +303,13 @@ test("reports page exposes record workflow actions from report rows", () => {
   assert.equal(source.includes("Row actions"), true);
   assert.equal(source.includes("deleteRecord"), true);
   assert.equal(source.includes("handleDeleteReportRecord"), true);
+  assert.equal(source.includes("reportExecution?.reportActions.map"), true);
+  assert.equal(source.includes("actions.map((action)"), true);
+  assert.equal(source.includes("OperationalActionEditor"), true);
   assert.equal(source.includes("getRecordDetailPath"), true);
   assert.equal(source.includes("getRecordEditPath"), true);
   assert.equal(source.includes("getRecordCreatePath"), true);
-  assert.equal(source.includes("New record"), true);
+  assert.equal(builderSource.includes("New record"), true);
   assert.equal(source.includes("View"), true);
   assert.equal(source.includes("Edit"), true);
   assert.equal(source.includes("Delete"), true);
@@ -401,6 +408,23 @@ test("report builder field options use shared reportable metadata", () => {
   assert.equal(fields.find((field) => field.id === "department").options[0].label, "Human Resources");
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department", "updated_at"] }).columns[1].width, 140);
   assert.equal(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department"] }).rowOpenAction, "detail");
+  assert.deepEqual(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department"] }).reportActions, defaultReportActions);
+  assert.deepEqual(createListReportConfig({ fieldOptions: fields, selectedFieldIds: ["department"] }).rowActions, defaultReportRowActions);
+});
+
+test("report builder normalizes typed operational action editor state", () => {
+  assert.deepEqual(normalizeReportActions(undefined, "report"), defaultReportActions);
+  assert.deepEqual(normalizeReportActions([], "row"), defaultReportRowActions.map((action) => ({ ...action, enabled: false })));
+
+  const configured = normalizeReportActions([
+    { id: "remove", type: "delete_record", label: " Remove ", enabled: true, confirmation: " Remove this? " },
+    { id: "open", type: "view_record", label: "Open", enabled: true }
+  ], "row");
+
+  assert.deepEqual(configured.map((action) => action.type), ["delete_record", "view_record", "edit_record"]);
+  assert.equal(configured[0].label, "Remove");
+  assert.equal(configured[0].confirmation, "Remove this?");
+  assert.equal(configured[2].enabled, false);
 });
 
 test("report builder returns type-aware filter operators and value controls", () => {

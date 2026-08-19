@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using OpenBusinessPlatform.Api.Modules.Forms;
 
 namespace OpenBusinessPlatform.Api.Modules.Reports;
@@ -56,6 +58,30 @@ public static class ListReportRowOpenActions
     };
 }
 
+public static class ListReportActionTypes
+{
+    public const string CreateRecord = "create_record";
+    public const string PrintReport = "print_report";
+    public const string ExportCsv = "export_csv";
+    public const string ViewRecord = "view_record";
+    public const string EditRecord = "edit_record";
+    public const string DeleteRecord = "delete_record";
+
+    public static IReadOnlySet<string> Report { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        CreateRecord,
+        PrintReport,
+        ExportCsv
+    };
+
+    public static IReadOnlySet<string> Row { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ViewRecord,
+        EditRecord,
+        DeleteRecord
+    };
+}
+
 public static class ReportSystemFields
 {
     public const string Status = ReportableSystemFields.Status;
@@ -77,12 +103,28 @@ public sealed record ListReportFilterDefinition(string FieldId, string Operator,
 
 public sealed record ListReportSortDefinition(string FieldId, string Direction);
 
+public sealed record ListReportActionDefinition(
+    string Id,
+    string Type,
+    string Label,
+    bool Enabled = true,
+    string? Confirmation = null)
+{
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
+}
+
 public sealed record ListReportConfigDefinition(
     int SchemaVersion,
     IReadOnlyList<ListReportColumnDefinition> Columns,
     IReadOnlyList<ListReportFilterDefinition> Filters,
     IReadOnlyList<ListReportSortDefinition> Sort,
-    string? RowOpenAction = null);
+    string? RowOpenAction = null)
+{
+    public IReadOnlyList<ListReportActionDefinition>? ReportActions { get; init; }
+
+    public IReadOnlyList<ListReportActionDefinition>? RowActions { get; init; }
+}
 
 public sealed record CreateListReportRequest(string Name, ListReportConfigDefinition Config);
 
@@ -109,11 +151,16 @@ public sealed record ResolvedReportFieldValue(object? Value, string DisplayValue
 
 public sealed record ReportFieldCatalogDto(IReadOnlyList<ReportableFieldMetadata> Items);
 
+public sealed record ListReportResolvedActionDto(string Id, string Type, string Label, string? Confirmation = null);
+
 public sealed record ListReportExecutionRowDto(
     Guid RecordId,
     string Status,
     IReadOnlyDictionary<string, ListReportExecutionCellDto> Cells,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    public IReadOnlyList<ListReportResolvedActionDto> Actions { get; init; } = Array.Empty<ListReportResolvedActionDto>();
+}
 
 public sealed record ListReportExecutionDto(
     Guid ReportId,
@@ -124,7 +171,10 @@ public sealed record ListReportExecutionDto(
     int PageSize,
     long TotalCount,
     IReadOnlyList<ListReportExecutionColumnDto> Columns,
-    IReadOnlyList<ListReportExecutionRowDto> Rows);
+    IReadOnlyList<ListReportExecutionRowDto> Rows)
+{
+    public IReadOnlyList<ListReportResolvedActionDto> ReportActions { get; init; } = Array.Empty<ListReportResolvedActionDto>();
+}
 
 public sealed record ListReportSummaryDto(
     Guid Id,

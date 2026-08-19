@@ -3726,6 +3726,62 @@ AssertFalse(
         reportingSchema,
         listReportConfig with { RowOpenAction = "modal" }).Valid,
     "List report configs should reject unsupported row-open behavior settings.");
+var typedActionConfig = listReportConfig with
+{
+    ReportActions = new[]
+    {
+        new ListReportActionDefinition("new", ListReportActionTypes.CreateRecord, "Create request"),
+        new ListReportActionDefinition("export", ListReportActionTypes.ExportCsv, "Download CSV")
+    },
+    RowActions = new[]
+    {
+        new ListReportActionDefinition("view", ListReportActionTypes.ViewRecord, "Open"),
+        new ListReportActionDefinition("delete", ListReportActionTypes.DeleteRecord, "Remove", Confirmation: "Remove this request?")
+    }
+};
+AssertTrue(ListReportConfigValidator.Validate(reportingSchema, typedActionConfig).Valid, "Typed report and row actions should validate in their supported locations.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        typedActionConfig with
+        {
+            RowActions = new[]
+            {
+                new ListReportActionDefinition("edit", ListReportActionTypes.EditRecord, "Edit"),
+                new ListReportActionDefinition("edit-again", ListReportActionTypes.EditRecord, "Edit again")
+            }
+        }).Valid,
+    "Typed action config should reject duplicate action types.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        typedActionConfig with
+        {
+            ReportActions = new[] { new ListReportActionDefinition("delete", ListReportActionTypes.DeleteRecord, "Delete") }
+        }).Valid,
+    "Typed action config should reject row actions in the report action collection.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        typedActionConfig with
+        {
+            ReportActions = new[] { new ListReportActionDefinition("print", ListReportActionTypes.PrintReport, "Print", Confirmation: "Continue?") }
+        }).Valid,
+    "Typed action config should allow confirmation metadata only for delete-record actions.");
+var actionWithUnknownProperty = JsonSerializer.Deserialize<ListReportActionDefinition>("""
+    {"id":"view","type":"view_record","label":"View","enabled":true,"url":"https://example.invalid"}
+    """);
+AssertNotNull(actionWithUnknownProperty, "Typed action JSON should deserialize for validation.");
+AssertFalse(
+    ListReportConfigValidator.Validate(
+        reportingSchema,
+        typedActionConfig with { RowActions = new[] { actionWithUnknownProperty! } }).Valid,
+    "Typed action config should reject unknown URL, script, command, and payload properties.");
+var configWithNullAction = JsonSerializer.Deserialize<ListReportConfigDefinition>("""
+    {"schemaVersion":1,"columns":[{"fieldId":"employee_name","label":"Employee name","visible":true}],"filters":[],"sort":[],"reportActions":[null],"rowActions":[]}
+    """);
+AssertNotNull(configWithNullAction, "List report config JSON should deserialize for null-action validation.");
+AssertFalse(ListReportConfigValidator.Validate(reportingSchema, configWithNullAction).Valid, "Typed action config should reject null action entries without failing the request pipeline.");
 AssertFalse(
     ListReportConfigValidator.Validate(
         reportingSchema,
@@ -4198,6 +4254,10 @@ AssertTrue(reportsEndpointsSource.Contains("MapDelete(\"/{reportId:guid}\"", Str
 var reportManagementSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Reports", "ReportManagementService.cs"));
 AssertTrue(reportManagementSource.Contains("\"report_updated\"", StringComparison.Ordinal), "Report updates should write audit entries.");
 AssertTrue(reportManagementSource.Contains("\"report_deleted\"", StringComparison.Ordinal), "Report deletion should write audit entries.");
+AssertTrue(reportManagementSource.Contains("ProjectOperationalActionsAsync", StringComparison.Ordinal), "Report execution should project permission-aware typed operational actions.");
+AssertTrue(reportManagementSource.Contains("rowIds.Contains(record.Id)", StringComparison.Ordinal), "Report row action projection should scope permission queries to the returned page.");
+AssertTrue(reportManagementSource.Contains("ApplyRecordAccessAsync", StringComparison.Ordinal), "Report row action projection should reuse authoritative record scopes and access policies.");
+AssertFalse(reportsEndpointsSource.Contains("/actions/{actionId}", StringComparison.Ordinal), "Typed report actions should reuse authoritative destination endpoints instead of adding a generic action executor.");
 
 var chartConfig = new ChartWidgetConfigDefinition(
     ChartWidgetTypes.BarChart,

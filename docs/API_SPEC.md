@@ -1932,7 +1932,7 @@ Request:
 
 Response: `200 OK` with the refreshed record detail. The backend validates the new status, returns `409` for stale concurrency stamps, and writes a `record_status_changed` audit entry.
 
-## Reports V2/V3
+## Reports V2/V3/V10
 
 ### List reports
 
@@ -2006,12 +2006,24 @@ Request:
         "direction": "desc"
       }
     ],
-    "rowOpenAction": "detail"
+    "rowOpenAction": "detail",
+    "reportActions": [
+      { "id": "new", "type": "create_record", "label": "New record", "enabled": true },
+      { "id": "print", "type": "print_report", "label": "Print", "enabled": true },
+      { "id": "export", "type": "export_csv", "label": "Export CSV", "enabled": true }
+    ],
+    "rowActions": [
+      { "id": "view", "type": "view_record", "label": "View", "enabled": true },
+      { "id": "edit", "type": "edit_record", "label": "Edit", "enabled": true },
+      { "id": "delete", "type": "delete_record", "label": "Delete", "enabled": true, "confirmation": "Delete this record?" }
+    ]
   }
 }
 ```
 
-Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. V10 additionally accepts permission-safe one-hop dotted related field keys while preserving schema-version-1 and root-field compatibility. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Filter values are validated against the selected terminal field type before save. Supported sort directions are `asc` and `desc`. `rowOpenAction` is optional and supports `detail`, `edit`, or `none`; omitted and invalid stored values normalize to `detail`. Creating a report writes a `report_created` audit entry.
+Response: `201 Created` with the saved report detail. V2 validates report config against the form schema plus reportable system fields `status`, `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `owner_id`, and `department_id`. V10 additionally accepts permission-safe one-hop dotted related field keys while preserving schema-version-1 and root-field compatibility. Supported saved filter operators are `equals`, `contains`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, `before`, `after`, `is_empty`, and `is_not_empty`; numeric comparison operators are limited to numeric fields, `before`/`after` are limited to date, datetime, and time fields, and choice fields support equality plus empty checks. Filter values are validated against the selected terminal field type before save. Supported sort directions are `asc` and `desc`. `rowOpenAction` is optional and supports `detail`, `edit`, or `none`; omitted and invalid stored values normalize to `detail`.
+
+V10 task 007 adds ordered typed actions. Report actions support `create_record`, `print_report`, and `export_csv`; row actions support `view_record`, `edit_record`, and `delete_record`. IDs, types, labels, enablement, placement, uniqueness, bounds, and delete-only confirmation text are validated. Unknown action properties are rejected. Missing legacy collections normalize to the six compatibility defaults without rewriting stored JSON; explicit empty collections mean no actions. Action config cannot store URLs, scripts, expressions, request payloads, or commands. Creating a report writes a `report_created` audit entry.
 
 ### Get report
 
@@ -2037,7 +2049,9 @@ Request uses the same `name` and `config` shape as create, plus the current `con
     "columns": [],
     "filters": [],
     "sort": [],
-    "rowOpenAction": "detail"
+    "rowOpenAction": "detail",
+    "reportActions": [],
+    "rowActions": []
   },
   "concurrencyStamp": "stamp"
 }
@@ -2083,6 +2097,10 @@ Response:
       "width": 180
     }
   ],
+  "reportActions": [
+    { "id": "new", "type": "create_record", "label": "New record", "confirmation": null },
+    { "id": "print", "type": "print_report", "label": "Print", "confirmation": null }
+  ],
   "rows": [
     {
       "recordId": "00000000-0000-0000-0000-000000000000",
@@ -2093,11 +2111,17 @@ Response:
           "displayValue": "Jane"
         }
       },
-      "createdAt": "2026-05-22T00:00:00Z"
+      "createdAt": "2026-05-22T00:00:00Z",
+      "actions": [
+        { "id": "view", "type": "view_record", "label": "View", "confirmation": null },
+        { "id": "edit", "type": "edit_record", "label": "Edit", "confirmation": null }
+      ]
     }
   ]
 }
 ```
+
+The execution response includes enabled report actions that the caller may use and enabled row actions authorized for each concrete record. Create uses form submit access, export uses form and report export access, and row edit/delete availability reuses bounded record-scope and workspace-policy queries over the returned page. The destination endpoints independently reauthorize every operation; no generic report-action execution endpoint exists. Denial reasons and policy details are not returned.
 
 Returns `404` when the report does not exist for the form and `409` when the saved report config no longer matches the runnable form schema. Hidden fields are removed from report columns, filters, sorts, and row cells before execution results are returned.
 
