@@ -258,7 +258,7 @@ Infrastructure responsibility:
 1. Record detail loads the selected target record independently from its related workspace.
 2. The records module discovers historical and current source form-version lookup definitions that target the selected record's form.
 3. Backend form and hidden-field checks remove inaccessible panel definitions before metadata or counts are returned.
-4. Each panel queries indexed canonical edges plus a JSONB containment compatibility path, then validates every candidate against its immutable source schema and stored lookup value.
+4. Each panel queries indexed canonical edges plus a case-insensitive JSONB scalar compatibility path, then validates every candidate against its immutable source schema and stored lookup value.
 5. Existing source record scopes and deny policies filter counts and rows before pagination.
 6. The row API returns at most five visible display-only cells plus the accessible source record ID, status, and creation time; unresolved lookup/file UUIDs are never fallback values.
 7. The frontend loads, retries, and paginates every panel independently and keeps related data out of edit and print output.

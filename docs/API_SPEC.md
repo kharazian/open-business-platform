@@ -1835,7 +1835,7 @@ Requires authorized access to the target record, source form, visible backlink f
 }
 ```
 
-Rows are ordered by newest creation time and record ID. The backend unions indexed canonical `record_relationships` edges with JSONB-contained legacy values, deduplicates them, and validates the backlink against each source record's immutable form version. Archived source/target forms remain readable when access still exists. Deleted or inaccessible source records are omitted. Cells are display-only: hidden values, backlink UUIDs, unresolved lookup/file UUIDs, attachment storage metadata, and unrestricted source record JSON are never returned. These endpoints are read-only and are not a generic relationship API.
+Rows are ordered by newest creation time and record ID. The backend unions indexed canonical `record_relationships` edges with case-insensitive JSONB scalar matching for legacy lookup UUIDs, deduplicates them, and validates the backlink against each source record's immutable form version. Archived source/target forms remain readable when access still exists. Deleted or inaccessible source records are omitted. Cells are display-only: hidden values, backlink UUIDs, unresolved lookup/file UUIDs, attachment storage metadata, and unrestricted source record JSON are never returned. File labels are returned only when the exact stored attachment belongs to the visible source record and field. These endpoints are read-only and are not a generic relationship API.
 
 ### Update record
 

@@ -104,7 +104,7 @@ public sealed class RelatedRecordService(
             projectedValues,
             permissions,
             ct);
-        var attachmentNames = await ResolveAttachmentNamesAsync(pageRecords, columns, ct);
+        var attachmentNames = await ResolveAttachmentNamesAsync(pageRecords, projectedValues, columns, ct);
         var fieldsById = displaySchema.Fields.ToDictionary(field => field.Id, StringComparer.Ordinal);
         var rows = pageRecords.Select((record, index) => new RelatedRecordRowDto(
             record.Id,
@@ -263,11 +263,10 @@ public sealed class RelatedRecordService(
                 && edge.TargetFormId == target.FormId
                 && edge.TargetRecordId == target.Id))
             .ToArrayAsync(ct);
-        using var compatibilityProbe = JsonSerializer.SerializeToDocument(
-            new Dictionary<string, string>(StringComparer.Ordinal) { [definition.SourceFieldId] = target.Id.ToString() },
-            JsonOptions);
         var compatible = await scoped.Include(record => record.FormVersion)
-            .Where(record => EF.Functions.JsonContains(record.ValuesJson, compatibilityProbe))
+            .Where(record => EF.Functions.ILike(
+                record.ValuesJson.RootElement.GetProperty(definition.SourceFieldId).GetString()!,
+                target.Id.ToString()))
             .ToArrayAsync(ct);
 
         return canonical.Concat(compatible)
@@ -291,25 +290,35 @@ public sealed class RelatedRecordService(
 
     private async Task<IReadOnlyDictionary<(Guid RecordId, string FieldId), string>> ResolveAttachmentNamesAsync(
         IReadOnlyCollection<FormRecord> records,
+        IReadOnlyList<IReadOnlyDictionary<string, object?>> projectedValues,
         IReadOnlyCollection<RelatedRecordColumnDto> columns,
         CancellationToken ct)
     {
-        var recordIds = records.Select(record => record.Id).ToArray();
         var fieldIds = columns.Where(column => column.Type == FormFieldTypes.FileUpload).Select(column => column.FieldId).ToArray();
-        if (recordIds.Length == 0 || fieldIds.Length == 0)
+        var requested = records.Select((record, index) => fieldIds
+                .Where(fieldId => projectedValues[index].TryGetValue(fieldId, out var value) && TryGuid(value, out _))
+                .Select(fieldId => new AttachmentRequest(
+                    record.Id,
+                    fieldId,
+                    TryGuid(projectedValues[index][fieldId], out var attachmentId) ? attachmentId : Guid.Empty)))
+            .SelectMany(items => items)
+            .Where(item => item.AttachmentId != Guid.Empty)
+            .ToArray();
+        if (requested.Length == 0)
             return new Dictionary<(Guid RecordId, string FieldId), string>();
 
+        var attachmentIds = requested.Select(item => item.AttachmentId).Distinct().ToArray();
         var attachments = await dbContext.FileAttachments.AsNoTracking()
-            .Where(attachment => attachment.RecordId.HasValue
-                && recordIds.Contains(attachment.RecordId.Value)
-                && fieldIds.Contains(attachment.FieldId)
+            .Where(attachment => attachmentIds.Contains(attachment.Id)
                 && attachment.Status == AttachmentStatuses.Attached)
-            .OrderByDescending(attachment => attachment.CreatedAt)
-            .Select(attachment => new { RecordId = attachment.RecordId!.Value, attachment.FieldId, attachment.FileName })
+            .Select(attachment => new { attachment.Id, attachment.RecordId, attachment.FieldId, attachment.FileName })
             .ToArrayAsync(ct);
-        return attachments
-            .GroupBy(attachment => (attachment.RecordId, attachment.FieldId))
-            .ToDictionary(group => group.Key, group => group.First().FileName);
+        var attachmentsById = attachments.ToDictionary(attachment => attachment.Id);
+        return requested
+            .Where(item => attachmentsById.TryGetValue(item.AttachmentId, out var attachment)
+                && attachment.RecordId == item.RecordId
+                && string.Equals(attachment.FieldId, item.FieldId, StringComparison.Ordinal))
+            .ToDictionary(item => (item.RecordId, item.FieldId), item => attachmentsById[item.AttachmentId].FileName);
     }
 
     private static RelatedRecordPanelDto ToPanelDto(PermittedPanel panel, long totalCount) => new(
@@ -374,4 +383,6 @@ public sealed class RelatedRecordService(
     private sealed record PermittedPanel(
         RelatedPanelDefinition Definition,
         IReadOnlyList<RelatedRecordColumnDto> Columns);
+
+    private sealed record AttachmentRequest(Guid RecordId, string FieldId, Guid AttachmentId);
 }

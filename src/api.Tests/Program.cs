@@ -3489,7 +3489,8 @@ AssertEqual("Invoice 100", relatedRowsDto.Items.Single().Cells["name"], "Related
 var relatedServiceSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Records", "RelatedRecordService.cs"));
 AssertTrue(relatedServiceSource.Contains("ApplyRecordAccessAsync", StringComparison.Ordinal), "Related rows should reuse backend record scopes and policy filtering.");
 AssertTrue(relatedServiceSource.Contains("GetFieldAccessAsync", StringComparison.Ordinal), "Related panel and preview metadata should enforce hidden-field rules.");
-AssertTrue(relatedServiceSource.Contains("JsonContains", StringComparison.Ordinal), "Legacy relationship compatibility should use a bounded JSONB containment query.");
+AssertTrue(relatedServiceSource.Contains("EF.Functions.ILike", StringComparison.Ordinal), "Legacy relationship compatibility should compare JSONB lookup UUIDs case-insensitively.");
+AssertTrue(relatedServiceSource.Contains("attachment.Id, attachment.RecordId, attachment.FieldId", StringComparison.Ordinal), "Related file previews should verify the exact stored attachment belongs to the visible record and field.");
 
 var recordDetail = new FormRecordDetailDto(
     recordDto.Id,
