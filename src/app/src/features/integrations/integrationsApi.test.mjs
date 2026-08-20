@@ -259,3 +259,28 @@ test("processing job API client preserves bounded typed requests and run ancestr
     "POST /api/processing-jobs/job-1/runs/run-1/retry"
   ]);
 });
+
+test("processing operations API client sends bounded filters and recipient paging", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    if (input.startsWith("/api/processing-operations/logs?")) return { ok: true, json: async () => ({ items: [{ id: "event-1", eventCode: "run_failed" }], page: 2, pageSize: 25, totalCount: 30 }) };
+    if (input === "/api/processing-operations/summary") return { ok: true, json: async () => ({ pending: 1, running: 0, succeeded: 4, failed: 1, retryScheduled: 1, retryExhausted: 1, scheduleSkipped: 0, byKind: {} }) };
+    if (input.startsWith("/api/processing-operations/notification-recipients?")) return { ok: true, json: async () => ({ items: [{ id: "user-1", name: "Operator" }], page: 1, pageSize: 25, totalCount: 1 }) };
+    return { ok: false, json: async () => ({ message: "Unexpected call" }) };
+  };
+
+  const logs = await api.listProcessingOperationalLogs({ kind: "record_export", severity: "error", errorCode: "source_limit_exceeded" }, 2, 25, fetcher);
+  const summary = await api.getProcessingOperationsSummary(fetcher);
+  const recipients = await api.listProcessingNotificationRecipients(1, 25, "oper", fetcher);
+
+  assert.equal(logs.items[0].eventCode, "run_failed");
+  assert.equal(summary.retryExhausted, 1);
+  assert.equal(recipients.items[0].name, "Operator");
+  assert.match(calls[0].input, /page=2/);
+  assert.match(calls[0].input, /kind=record_export/);
+  assert.match(calls[0].input, /severity=error/);
+  assert.match(calls[0].input, /errorCode=source_limit_exceeded/);
+  assert.equal(calls[1].input, "/api/processing-operations/summary");
+  assert.match(calls[2].input, /search=oper/);
+});

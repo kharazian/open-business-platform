@@ -77,6 +77,22 @@ var validExportProcessingJob = new CreateProcessingJobRequest(
     new ProcessingJobRetryPolicyDefinition(true, 5, 30),
     true);
 AssertTrue(ProcessingJobValidator.Validate(validExportProcessingJob).Valid, "A bounded scheduled export processing job should be valid.");
+AssertTrue(ProcessingJobValidator.Validate(validExportProcessingJob with
+{
+    FailureNotificationPolicy = new ProcessingFailureNotificationPolicyDefinition(true, true, new[] { Guid.NewGuid() })
+}).Valid, "Processing failure notifications should accept an owner and bounded explicit recipients.");
+AssertTrue(ProcessingJobValidator.Validate(validExportProcessingJob with
+{
+    FailureNotificationPolicy = new ProcessingFailureNotificationPolicyDefinition(true, false, Array.Empty<Guid>())
+}).Errors.Any(error => error.Code == "processing.notifications.recipient_required"),
+    "Enabled processing failure notifications should require at least one recipient.");
+var duplicateNotificationRecipient = Guid.NewGuid();
+AssertTrue(ProcessingJobValidator.Validate(validExportProcessingJob with
+{
+    FailureNotificationPolicy = new ProcessingFailureNotificationPolicyDefinition(true, false, new[] { duplicateNotificationRecipient, duplicateNotificationRecipient })
+}).Errors.Any(error => error.Code == "processing.notifications.recipient_duplicate"),
+    "Processing failure notification recipients should be unique.");
+AssertTrue(ProcessingOperationalEventCodes.Supported.Contains(ProcessingOperationalEventCodes.RetryExhausted), "Processing operations should expose retry exhaustion events.");
 AssertTrue(!ProcessingJobValidator.Validate(validExportProcessingJob with
 {
     Config = validExportProcessingJob.Config with { MaxRows = 5001 }
@@ -230,6 +246,7 @@ AssertTable<RecordImportJobRow>(model, "record_import_job_rows");
 AssertTable<ExternalExportJob>(model, "external_export_jobs");
 AssertTable<ProcessingJobDefinition>(model, "processing_job_definitions");
 AssertTable<ProcessingJobRun>(model, "processing_job_runs");
+AssertTable<ProcessingOperationalLog>(model, "processing_operational_logs");
 AssertTable<AuditLogEntry>(model, "audit_logs");
 AssertEqual(WorkspaceDefaults.WorkspaceId, dbContext.ActiveWorkspaceId, "The compatibility context should resolve the stable default workspace.");
 AssertUniqueIndex<Tenant>(model, new[] { nameof(Tenant.Slug) }, "Tenant slugs should be globally unique.");
@@ -268,6 +285,7 @@ AssertWorkspaceOwned<TriggerEventOutboxMessage>(model);
 AssertWorkspaceOwned<IntegrationLogEntry>(model);
 AssertWorkspaceOwned<ProcessingJobDefinition>(model);
 AssertWorkspaceOwned<ProcessingJobRun>(model);
+AssertWorkspaceOwned<ProcessingOperationalLog>(model);
 AssertConcurrencyStamp<ProcessingJobDefinition>(model);
 AssertConcurrencyStamp<ProcessingJobRun>(model);
 AssertUniqueIndex<ProcessingJobRun>(model, new[] { nameof(ProcessingJobRun.DefinitionId) }, "Processing jobs should enforce one active run per definition.");
@@ -346,6 +364,7 @@ AssertTypeAssignable<Entity<Guid>, RecordImportJobRow>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, ExternalExportJob>();
 AssertTypeAssignable<FullAuditedAggregateRoot<Guid>, ProcessingJobDefinition>();
 AssertTypeAssignable<AuditedAggregateRoot<Guid>, ProcessingJobRun>();
+AssertTypeAssignable<WorkspaceEntity<Guid>, ProcessingOperationalLog>();
 AssertTypeAssignable<Entity<Guid>, AuditLogEntry>();
 
 AssertGuidId<User>(model);
@@ -381,6 +400,7 @@ AssertGuidId<RecordImportJobRow>(model);
 AssertGuidId<ExternalExportJob>(model);
 AssertGuidId<ProcessingJobDefinition>(model);
 AssertGuidId<ProcessingJobRun>(model);
+AssertGuidId<ProcessingOperationalLog>(model);
 AssertGuidId<AuditLogEntry>(model);
 AssertGuidId<WorkspaceBranding>(model);
 AssertGuidId<WorkspaceLocalization>(model);
@@ -433,6 +453,7 @@ AssertJsonColumn<ExternalExportJob>(model, nameof(ExternalExportJob.ArtifactMeta
 AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.ConfigJson));
 AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.ScheduleJson));
 AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.RetryPolicyJson));
+AssertJsonColumn<ProcessingJobDefinition>(model, nameof(ProcessingJobDefinition.FailureNotificationPolicyJson));
 AssertJsonColumn<ProcessingJobRun>(model, nameof(ProcessingJobRun.ResultJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.BeforeJson));
 AssertJsonColumn<AuditLogEntry>(model, nameof(AuditLogEntry.AfterJson));
@@ -662,6 +683,9 @@ AssertIndex<WorkflowApprovalTask>(model, new[] { nameof(WorkflowApprovalTask.Rec
 AssertIndex<Notification>(model, new[] { nameof(Notification.UserId) }, "Notifications should be indexed by recipient user.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.ReadAt) }, "Notifications should be indexed by read state.");
 AssertIndex<Notification>(model, new[] { nameof(Notification.CreatedAt) }, "Notifications should be indexed by creation time.");
+AssertUniqueIndex<Notification>(model, new[] { nameof(Notification.WorkspaceId), nameof(Notification.UserId), nameof(Notification.DeduplicationKey) }, "Processing notifications should enforce recipient-scoped deduplication.");
+AssertUniqueIndex<ProcessingOperationalLog>(model, new[] { nameof(ProcessingOperationalLog.WorkspaceId), nameof(ProcessingOperationalLog.EventKey) }, "Processing operational event keys should be workspace-unique.");
+AssertIndex<ProcessingOperationalLog>(model, new[] { nameof(ProcessingOperationalLog.DefinitionId), nameof(ProcessingOperationalLog.OccurredAt) }, "Processing operational logs should support definition history queries.");
 AssertUniqueIndex<NotificationPreference>(model, new[] { nameof(NotificationPreference.UserId) }, "Notification preferences should be unique per user.");
 AssertIndex<NotificationPreference>(model, new[] { nameof(NotificationPreference.UpdatedAt) }, "Notification preferences should be indexed by update date.");
 AssertIndex<RolePermission>(model, new[] { nameof(RolePermission.RoleId) }, "Role permissions should be indexed by role.");

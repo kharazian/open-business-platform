@@ -24,6 +24,7 @@ The current migrations include:
 - `record_import_jobs`, `record_import_job_rows`
 - `external_export_jobs`
 - `processing_job_definitions`, `processing_job_runs`
+- `processing_operational_logs`
 - `role_permissions`, `role_form_permissions`
 - `groups`, `user_groups`
 - `departments`, `user_departments`
@@ -412,7 +413,7 @@ Stores outbound export jobs for permission-filtered form record or saved list re
 
 ### processing_job_definitions / processing_job_runs
 
-Definitions store a workspace-owned typed import/export config, persistent owner, optional export schedule, retry policy, next-run and schedule-claim state, audit metadata, soft deletion, and a concurrency stamp. Runs store immutable attempt/source ancestry, due/claim/lease timing, safe terminal errors, private queued CSV input metadata, and links to the authoritative import/export job. Raw CSV content is cleared on terminal completion. A partial unique index on `definition_id` for `pending`/`running` status enforces one active run per definition; polling indexes cover schedule due time and run status/due time.
+Definitions store a workspace-owned typed import/export config, persistent owner, optional export schedule, retry policy, disabled-by-default typed failure-notification policy, next-run and schedule-claim state, audit metadata, soft deletion, and a concurrency stamp. Runs store immutable attempt/source ancestry, due/claim/lease timing, safe terminal errors, private queued CSV input metadata, and links to the authoritative import/export job. Raw CSV content is cleared on terminal completion. A partial unique index on `definition_id` for `pending`/`running` status enforces one active run per definition; polling indexes cover schedule due time and run status/due time.
 
 Fields:
 
@@ -453,6 +454,14 @@ Foreign keys:
 - form_id -> forms.id, set null on delete
 - report_id -> reports.id, set null on delete
 - created_by_id -> users.id, set null on delete
+
+### processing_operational_logs
+
+Migration: `20260820172637_ProcessingOperationsAndFailureNotifications`.
+
+This workspace-owned diagnostic stream stores only platform-authored processing lifecycle events. Fields include definition/run IDs, processing kind, fixed severity/event code, bounded message, deterministic internal event key, attempt/max-attempt values, stable error code, duration, safe import/export result IDs, and occurrence/creation timestamps. It has no payload or arbitrary metadata column.
+
+The unique `(workspace_id, event_key)` index makes lifecycle replay idempotent. Read indexes cover workspace/time, workspace/severity/time, definition/time, and run/event; the occurrence index supports bounded retention cleanup. Definition and run foreign keys restrict deletion so diagnostic history is not silently cascaded. Technical cleanup defaults to 90 days and deletes no more than 500 rows per daily batch.
 
 ### roles
 
@@ -1070,6 +1079,7 @@ Fields:
 - trigger_id nullable
 - trigger_log_id nullable
 - action_id nullable
+- deduplication_key nullable
 - metadata_json JSONB nullable
 - read_at nullable
 - created_at
@@ -1080,8 +1090,9 @@ Indexes:
 - read_at
 - created_at
 - source_type + source_id
+- unique workspace_id + user_id + deduplication_key where deduplication_key is not null
 
-V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. V4 task 006 uses `read_at` for current-user inbox read state, unread counts, single-notification read marking, and mark-all-read APIs. V4 task 007 filters trigger-created notifications through current-user in-app preferences. Push delivery, websockets, email fallback, and admin notification management remain future work.
+V4 task 005 adds this table for the `send_notification` trigger action. The action expands active groups to active users, deduplicates recipients, and stores trigger/action/source record metadata in each notification. V4 task 006 uses `read_at` for current-user inbox read state, unread counts, single-notification read marking, and mark-all-read APIs. V4 task 007 filters trigger-created notifications through current-user in-app preferences. V10 task 009 adds the nullable database-enforced deduplication key and trusted `ProcessingJobRun` source metadata for final processing failures; existing rows remain unchanged. Push delivery, websockets, email fallback, and admin notification management remain future work.
 
 ### notification_preferences
 

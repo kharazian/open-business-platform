@@ -6,8 +6,8 @@ This packet is the handoff for V10: Operational App Modeling.
 
 - V1 through V9 are complete for their current task lists.
 - V9 is accepted as the enterprise ownership, identity, policy, and administration checkpoint.
-- V10 tasks 001 through 008 are complete; Task 008 adds bounded durable CSV-import/export definitions, scheduled exports, fenced workers, and safe export retries.
-- Task 009 processing operations and failure notifications is specified in `tasks/v10/009-processing-operations-and-failure-notifications.md` and awaits review before implementation.
+- V10 tasks 001 through 009 are complete; Task 009 adds separate payload-safe processing diagnostics, bounded health and retention, and deduplicated terminal failure alerts.
+- The next proposed item is an analysis-only Creator-style export assistant and requires its own reviewed task before implementation.
 - Existing form schemas already support currency, percent, rating, URL, time, datetime, user/department pickers, record lookups, file placeholders, and child-record subtables.
 - The next product gap is richer operational data modeling, not another enterprise administration layer.
 
@@ -37,7 +37,7 @@ Recommended sequence:
 6. Permission-aware related-record panels in record detail (`tasks/v10/006-related-record-workspace.md`; complete).
 7. Typed operational report and row actions (`tasks/v10/007-typed-operational-report-actions.md`; complete).
 8. File-processing and scheduled job definitions (`tasks/v10/008-bounded-processing-jobs-and-schedules.md`; complete).
-9. Operational logs and failure notifications (`tasks/v10/009-processing-operations-and-failure-notifications.md`; drafted for review).
+9. Operational logs and failure notifications (`tasks/v10/009-processing-operations-and-failure-notifications.md`; complete).
 10. Analysis-only Creator-style export assistant.
 
 ## Scope Boundaries

@@ -132,6 +132,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
 
     public DbSet<ProcessingJobRun> ProcessingJobRuns => Set<ProcessingJobRun>();
 
+    public DbSet<ProcessingOperationalLog> ProcessingOperationalLogs => Set<ProcessingOperationalLog>();
+
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     public override int SaveChanges()
@@ -1093,6 +1095,9 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(notification => notification.ReadAt);
             entity.HasIndex(notification => notification.CreatedAt);
             entity.HasIndex(notification => new { notification.SourceType, notification.SourceId });
+            entity.HasIndex(notification => new { notification.WorkspaceId, notification.UserId, notification.DeduplicationKey })
+                .IsUnique()
+                .HasFilter("\"deduplication_key\" IS NOT NULL");
             entity.Property(notification => notification.Id).HasColumnName("id").HasColumnType("uuid");
             entity.Property(notification => notification.UserId).HasColumnName("user_id").HasColumnType("uuid").IsRequired();
             entity.Property(notification => notification.Title).HasColumnName("title").HasMaxLength(200).IsRequired();
@@ -1102,6 +1107,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(notification => notification.TriggerId).HasColumnName("trigger_id").HasColumnType("uuid");
             entity.Property(notification => notification.TriggerLogId).HasColumnName("trigger_log_id").HasColumnType("uuid");
             entity.Property(notification => notification.ActionId).HasColumnName("action_id").HasMaxLength(120);
+            entity.Property(notification => notification.DeduplicationKey).HasColumnName("deduplication_key").HasMaxLength(64);
             entity.Property(notification => notification.MetadataJson).HasColumnName("metadata_json").HasColumnType("jsonb");
             entity.Property(notification => notification.ReadAt).HasColumnName("read_at");
             entity.Property(notification => notification.CreatedAt).HasColumnName("created_at").IsRequired();
@@ -1525,6 +1531,8 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(job => job.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
             entity.Property(job => job.ScheduleJson).HasColumnName("schedule_json").HasColumnType("jsonb");
             entity.Property(job => job.RetryPolicyJson).HasColumnName("retry_policy_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(job => job.FailureNotificationPolicyJson).HasColumnName("failure_notification_policy_json").HasColumnType("jsonb")
+                .HasDefaultValueSql("'{\"isEnabled\":false,\"includeOwner\":false,\"recipientUserIds\":[]}'::jsonb").IsRequired();
             entity.Property(job => job.IsEnabled).HasColumnName("is_enabled").HasDefaultValue(false);
             entity.Property(job => job.NextRunAt).HasColumnName("next_run_at");
             entity.Property(job => job.ScheduleLockedAt).HasColumnName("schedule_locked_at");
@@ -1574,6 +1582,38 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasOne(run => run.RecordImportJob).WithMany().HasForeignKey(run => run.RecordImportJobId).OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(run => run.ExternalExportJob).WithMany().HasForeignKey(run => run.ExternalExportJobId).OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(run => run.RetrySourceRun).WithMany().HasForeignKey(run => run.RetrySourceRunId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProcessingOperationalLog>(entity =>
+        {
+            entity.ToTable("processing_operational_logs");
+            entity.HasKey(log => log.Id);
+            entity.HasIndex(log => new { log.WorkspaceId, log.EventKey }).IsUnique();
+            entity.HasIndex(log => new { log.WorkspaceId, log.OccurredAt });
+            entity.HasIndex(log => new { log.WorkspaceId, log.Severity, log.OccurredAt });
+            entity.HasIndex(log => new { log.DefinitionId, log.OccurredAt });
+            entity.HasIndex(log => new { log.RunId, log.EventCode });
+            entity.Property(log => log.Id).HasColumnName("id").HasColumnType("uuid");
+            entity.Property(log => log.WorkspaceId).HasColumnName("workspace_id").HasColumnType("uuid").IsRequired();
+            entity.Property(log => log.DefinitionId).HasColumnName("definition_id").HasColumnType("uuid").IsRequired();
+            entity.Property(log => log.RunId).HasColumnName("run_id").HasColumnType("uuid");
+            entity.Property(log => log.Kind).HasColumnName("kind").HasMaxLength(40).IsRequired();
+            entity.Property(log => log.Severity).HasColumnName("severity").HasMaxLength(20).IsRequired();
+            entity.Property(log => log.EventCode).HasColumnName("event_code").HasMaxLength(80).IsRequired();
+            entity.Property(log => log.EventKey).HasColumnName("event_key").HasMaxLength(160).IsRequired();
+            entity.Property(log => log.Message).HasColumnName("message").HasMaxLength(500).IsRequired();
+            entity.Property(log => log.Attempt).HasColumnName("attempt");
+            entity.Property(log => log.MaxAttempts).HasColumnName("max_attempts");
+            entity.Property(log => log.ErrorCode).HasColumnName("error_code").HasMaxLength(120);
+            entity.Property(log => log.DurationMilliseconds).HasColumnName("duration_milliseconds");
+            entity.Property(log => log.RecordImportJobId).HasColumnName("record_import_job_id").HasColumnType("uuid");
+            entity.Property(log => log.ExternalExportJobId).HasColumnName("external_export_job_id").HasColumnType("uuid");
+            entity.Property(log => log.OccurredAt).HasColumnName("occurred_at").IsRequired();
+            entity.Property(log => log.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.HasOne(log => log.Definition).WithMany(job => job.OperationalLogs).HasForeignKey(log => log.DefinitionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(log => log.Run).WithMany().HasForeignKey(log => log.RunId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<RecordImportJob>().WithMany().HasForeignKey(log => log.RecordImportJobId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne<ExternalExportJob>().WithMany().HasForeignKey(log => log.ExternalExportJobId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 

@@ -251,12 +251,14 @@ export type ProcessingJobSchedule = {
   dayOfMonth?: number | null;
 };
 export type ProcessingJobRetryPolicy = { isEnabled: boolean; maxAttempts: number; delaySeconds: number };
+export type ProcessingFailureNotificationPolicy = { isEnabled: boolean; includeOwner: boolean; recipientUserIds: EntityId[] };
 export type ProcessingJobSummaryDto = {
   id: EntityId; name: string; kind: ProcessingJobKind; isEnabled: boolean; formId: EntityId;
   reportId?: EntityId | null; nextRunAt?: string | null; concurrencyStamp: string; createdAt: string; updatedAt?: string | null;
 };
 export type ProcessingJobDetailDto = ProcessingJobSummaryDto & {
-  config: ProcessingJobConfig; schedule?: ProcessingJobSchedule | null; retryPolicy: ProcessingJobRetryPolicy; ownerUserId: EntityId;
+  config: ProcessingJobConfig; schedule?: ProcessingJobSchedule | null; retryPolicy: ProcessingJobRetryPolicy;
+  failureNotificationPolicy: ProcessingFailureNotificationPolicy; ownerUserId: EntityId;
 };
 export type ProcessingJobRunDto = {
   id: EntityId; definitionId: EntityId; source: "manual" | "scheduled" | "retry";
@@ -268,9 +270,25 @@ export type ProcessingJobRunDto = {
 export type ProcessingPage<T> = { items: T[]; page: number; pageSize: number; totalCount: number };
 export type CreateProcessingJobRequest = {
   name: string; kind: ProcessingJobKind; config: ProcessingJobConfig; schedule?: ProcessingJobSchedule | null;
-  retryPolicy?: ProcessingJobRetryPolicy | null; isEnabled: boolean;
+  retryPolicy?: ProcessingJobRetryPolicy | null; isEnabled: boolean; failureNotificationPolicy?: ProcessingFailureNotificationPolicy | null;
 };
 export type UpdateProcessingJobRequest = Omit<CreateProcessingJobRequest, "kind" | "isEnabled"> & { concurrencyStamp: string };
+export type ProcessingOperationalLogSeverity = "info" | "warning" | "error";
+export type ProcessingOperationalLogDto = {
+  id: EntityId; definitionId: EntityId; definitionName: string; runId?: EntityId | null; kind: ProcessingJobKind;
+  severity: ProcessingOperationalLogSeverity; eventCode: string; message: string; attempt?: number | null;
+  maxAttempts?: number | null; errorCode?: string | null; durationMilliseconds?: number | null;
+  recordImportJobId?: EntityId | null; externalExportJobId?: EntityId | null; occurredAt: string;
+};
+export type ProcessingOperationsSummaryDto = {
+  from: string; to: string; pending: number; running: number; succeeded: number; failed: number;
+  retryScheduled: number; retryExhausted: number; scheduleSkipped: number; byKind: Record<string, number>;
+};
+export type ProcessingNotificationRecipientDto = { id: EntityId; name: string };
+export type ProcessingOperationalLogFilters = {
+  definitionId?: string; runId?: string; kind?: ProcessingJobKind | ""; severity?: ProcessingOperationalLogSeverity | "";
+  eventCode?: string; errorCode?: string; from?: string; to?: string;
+};
 
 export const integrationApiKeyScopes: IntegrationApiKeyScope[] = [
   "integrations.authenticate",

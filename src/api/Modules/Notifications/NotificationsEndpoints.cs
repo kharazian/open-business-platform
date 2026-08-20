@@ -9,6 +9,8 @@ public static class NotificationsEndpoints
         var group = endpoints.MapGroup("/api/notifications").WithTags("Notifications").RequireAuthorization();
 
         group.MapGet("", async (
+            int? page,
+            int? pageSize,
             NotificationQueryService notifications,
             HttpContext httpContext,
             CancellationToken cancellationToken) =>
@@ -17,11 +19,10 @@ public static class NotificationsEndpoints
 
             if (userId is null)
             {
-                return Results.Ok(new { items = Array.Empty<NotificationDto>() });
+                return Results.Ok(new NotificationPageDto(Array.Empty<NotificationDto>(), page ?? 1, Math.Clamp(pageSize ?? 25, 1, 100), 0));
             }
 
-            var items = await notifications.ListForUserAsync(userId.Value, cancellationToken);
-            return Results.Ok(new { items });
+            return Results.Ok(await notifications.ListForUserAsync(userId.Value, page ?? 1, pageSize ?? 25, cancellationToken));
         });
 
         group.MapGet("/unread-count", async (

@@ -10,7 +10,7 @@ using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Processing;
 
-public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext)
+public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext, ProcessingOperationsService operations)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -35,6 +35,7 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         ThrowIfInvalid(ProcessingJobValidator.Validate(normalized));
         await EnsurePersistentActorAsync(actorId, ct);
         await EnsureSourcesAsync(normalized.Config, ct);
+        await EnsureNotificationRecipientsAsync(normalized.FailureNotificationPolicy, ct);
         var now = DateTimeOffset.UtcNow;
         var entity = new ProcessingJobDefinition
         {
@@ -42,6 +43,7 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
             ConfigJson = JsonSerializer.SerializeToDocument(normalized.Config, JsonOptions),
             ScheduleJson = normalized.Schedule is null ? null : JsonSerializer.SerializeToDocument(normalized.Schedule, JsonOptions),
             RetryPolicyJson = JsonSerializer.SerializeToDocument(normalized.RetryPolicy ?? new ProcessingJobRetryPolicyDefinition(), JsonOptions),
+            FailureNotificationPolicyJson = JsonSerializer.SerializeToDocument(normalized.FailureNotificationPolicy ?? new ProcessingFailureNotificationPolicyDefinition(), JsonOptions),
             IsEnabled = normalized.IsEnabled, OwnerUserId = actorId, FormId = normalized.Config.FormId,
             ReportId = normalized.Config.ReportId,
             NextRunAt = normalized.IsEnabled ? Next(normalized.Schedule, now) : null,
@@ -63,15 +65,17 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
             throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Request contains unsupported properties.");
         var entity = await FindAsync(id, ct);
         EnsureStamp(entity, request.ConcurrencyStamp);
-        var candidate = Normalize(new CreateProcessingJobRequest(request.Name, entity.Kind, request.Config, request.Schedule, request.RetryPolicy, entity.IsEnabled));
+        var candidate = Normalize(new CreateProcessingJobRequest(request.Name, entity.Kind, request.Config, request.Schedule, request.RetryPolicy, entity.IsEnabled, request.FailureNotificationPolicy));
         ThrowIfInvalid(ProcessingJobValidator.Validate(candidate));
         await EnsureSourcesAsync(candidate.Config, ct);
+        await EnsureNotificationRecipientsAsync(candidate.FailureNotificationPolicy, ct);
         if (entity.IsEnabled && candidate.Schedule is null)
             throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Enabled processing jobs require a schedule.");
         entity.Name = candidate.Name;
         entity.ConfigJson = JsonSerializer.SerializeToDocument(candidate.Config, JsonOptions);
         entity.ScheduleJson = candidate.Schedule is null ? null : JsonSerializer.SerializeToDocument(candidate.Schedule, JsonOptions);
         entity.RetryPolicyJson = JsonSerializer.SerializeToDocument(candidate.RetryPolicy ?? new ProcessingJobRetryPolicyDefinition(), JsonOptions);
+        entity.FailureNotificationPolicyJson = JsonSerializer.SerializeToDocument(candidate.FailureNotificationPolicy ?? new ProcessingFailureNotificationPolicyDefinition(), JsonOptions);
         entity.FormId = candidate.Config.FormId;
         entity.ReportId = candidate.Config.ReportId;
         entity.NextRunAt = entity.IsEnabled ? Next(candidate.Schedule, DateTimeOffset.UtcNow) : null;
@@ -127,6 +131,7 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         dbContext.ProcessingJobRuns.Add(run);
         Audit(id, "processing_job_manual_run_requested", actorId, new { runId = run.Id, run.Source });
         await SaveQueueAsync(ct);
+        await operations.RecordQueuedAsync(definition, run, ct);
         return ToRun(run);
     }
 
@@ -150,6 +155,8 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         dbContext.ProcessingJobRuns.Add(run);
         Audit(definitionId, "processing_job_retry_requested", actorId, new { runId = run.Id, retrySourceRunId = run.RetrySourceRunId, run.Attempt });
         await SaveQueueAsync(ct);
+        await operations.RecordQueuedAsync(definition, run, ct);
+        await operations.RecordRetryScheduledAsync(definition, run, ct);
         return ToRun(run);
     }
 
@@ -185,6 +192,17 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
             throw new ProcessingJobException(StatusCodes.Status404NotFound, "Source form was not found.");
         if (config.ReportId is { } reportId && !await dbContext.Reports.AsNoTracking().AnyAsync(x => x.Id == reportId && x.FormId == config.FormId && !x.IsDeleted, ct))
             throw new ProcessingJobException(StatusCodes.Status404NotFound, "Source report was not found.");
+    }
+
+    private async Task EnsureNotificationRecipientsAsync(ProcessingFailureNotificationPolicyDefinition? policy, CancellationToken ct)
+    {
+        var ids = policy?.RecipientUserIds?.Distinct().ToArray() ?? Array.Empty<Guid>();
+        if (ids.Length == 0) return;
+        var count = await dbContext.WorkspaceMemberships.AsNoTracking()
+            .Where(x => ids.Contains(x.UserId) && x.Status == WorkspaceMembershipStatuses.Active && x.User != null && x.User.IsActive)
+            .Select(x => x.UserId).Distinct().CountAsync(ct);
+        if (count != ids.Length)
+            throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Failure notification recipients must be active users in the current workspace.");
     }
 
     private async Task<ProcessingJobDefinition> FindAsync(Guid id, CancellationToken ct) =>
@@ -226,12 +244,16 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
                 Kind = r.Schedule.Kind?.Trim().ToLowerInvariant() ?? string.Empty,
                 TimeZone = r.Schedule.TimeZone?.Trim() ?? string.Empty
             },
-            RetryPolicy = r.RetryPolicy ?? new()
+            RetryPolicy = r.RetryPolicy ?? new(),
+            FailureNotificationPolicy = r.FailureNotificationPolicy is null ? new() : r.FailureNotificationPolicy with
+            {
+                RecipientUserIds = r.FailureNotificationPolicy.RecipientUserIds?.ToArray() ?? Array.Empty<Guid>()
+            }
         };
     }
     private void Audit(Guid id, string action, Guid? actor, object metadata) => dbContext.AuditLogs.Add(new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "ProcessingJobDefinition", EntityId = id, Action = action, UserId = actor, MetadataJson = JsonSerializer.SerializeToDocument(metadata, JsonOptions) });
 
     internal static ProcessingJobSummaryDto ToSummary(ProcessingJobDefinition x) => new(x.Id, x.Name, x.Kind, x.IsEnabled, x.FormId, x.ReportId, x.NextRunAt, x.ConcurrencyStamp, x.CreatedAt, x.UpdatedAt);
-    internal static ProcessingJobDetailDto ToDetail(ProcessingJobDefinition x) => new(x.Id, x.Name, x.Kind, Deserialize<ProcessingJobConfigDefinition>(x.ConfigJson)!, Deserialize<ProcessingJobScheduleDefinition>(x.ScheduleJson), Deserialize<ProcessingJobRetryPolicyDefinition>(x.RetryPolicyJson) ?? new(), x.IsEnabled, x.OwnerUserId, x.NextRunAt, x.ConcurrencyStamp, x.CreatedAt, x.CreatedById, x.UpdatedAt, x.UpdatedById);
+    internal static ProcessingJobDetailDto ToDetail(ProcessingJobDefinition x) => new(x.Id, x.Name, x.Kind, Deserialize<ProcessingJobConfigDefinition>(x.ConfigJson)!, Deserialize<ProcessingJobScheduleDefinition>(x.ScheduleJson), Deserialize<ProcessingJobRetryPolicyDefinition>(x.RetryPolicyJson) ?? new(), Deserialize<ProcessingFailureNotificationPolicyDefinition>(x.FailureNotificationPolicyJson) ?? new(), x.IsEnabled, x.OwnerUserId, x.NextRunAt, x.ConcurrencyStamp, x.CreatedAt, x.CreatedById, x.UpdatedAt, x.UpdatedById);
     internal static ProcessingJobRunDto ToRun(ProcessingJobRun x) => new(x.Id, x.DefinitionId, x.Source, x.Status, x.Attempt, x.MaxAttempts, x.NextAttemptAt, x.StartedAt, x.CompletedAt, x.ErrorCode, x.ErrorMessage, x.InputFileName, x.InputSizeBytes, x.InputChecksum, x.RecordImportJobId, x.ExternalExportJobId, x.RetrySourceRunId, x.CreatedAt, x.CreatedById);
 }

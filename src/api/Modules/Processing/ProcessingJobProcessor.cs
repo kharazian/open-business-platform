@@ -16,7 +16,9 @@ namespace OpenBusinessPlatform.Api.Modules.Processing;
 public sealed class ProcessingJobProcessor(
     OpenBusinessPlatformDbContext dbContext,
     RecordImportJobService imports,
-    ExternalExportJobService exports)
+    ExternalExportJobService exports,
+    ProcessingOperationsService operations,
+    ILogger<ProcessingJobProcessor> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     public static TimeSpan ClaimLease { get; } = TimeSpan.FromMinutes(5);
@@ -38,6 +40,7 @@ public sealed class ProcessingJobProcessor(
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ScheduleClaimId, claimId).SetProperty(x => x.ScheduleLockedAt, lockedAt), ct);
             if (claimed == 0) continue;
             var definition = await dbContext.ProcessingJobDefinitions.AsNoTracking().SingleAsync(x => x.Id == id, ct);
+            var dueAt = definition.NextRunAt!.Value;
             var schedule = Read<ProcessingJobScheduleDefinition>(definition.ScheduleJson);
             var next = schedule is null ? null : RecurringScheduleCalculator.CalculateNextRun(
                 new(schedule.Kind, schedule.TimeZone, schedule.StartAt, schedule.Interval, schedule.DayOfWeek, schedule.DayOfMonth), lockedAt);
@@ -48,12 +51,18 @@ public sealed class ProcessingJobProcessor(
                 var run = NewRun(definition, ProcessingJobRunSources.Scheduled, 1, policy.IsEnabled ? policy.MaxAttempts : 1, definition.OwnerUserId, lockedAt);
                 dbContext.ProcessingJobRuns.Add(run);
                 AddAudit(id, "processing_job_scheduled_enqueued", definition.OwnerUserId, new { runId = run.Id });
-                try { await dbContext.SaveChangesAsync(ct); }
+                try
+                {
+                    await dbContext.SaveChangesAsync(ct);
+                    await TryOperationAsync(() => operations.RecordQueuedAsync(definition, run, ct), definition.Id, run.Id);
+                }
                 catch (DbUpdateException exception) when (IsUniqueViolation(exception)) { dbContext.ChangeTracker.Clear(); }
             }
-            await dbContext.ProcessingJobDefinitions.Where(x => x.Id == id && x.ScheduleClaimId == claimId && x.ScheduleLockedAt == lockedAt)
+            var advanced = await dbContext.ProcessingJobDefinitions.Where(x => x.Id == id && x.ScheduleClaimId == claimId && x.ScheduleLockedAt == lockedAt)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.NextRunAt, next).SetProperty(x => x.IsEnabled, next != null)
                     .SetProperty(x => x.ScheduleClaimId, (Guid?)null).SetProperty(x => x.ScheduleLockedAt, (DateTimeOffset?)null), ct);
+            if (active && advanced == 1)
+                await TryOperationAsync(() => operations.RecordScheduleSkippedAsync(definition, dueAt, ct), definition.Id, null);
             count++;
         }
         return count;
@@ -104,6 +113,9 @@ public sealed class ProcessingJobProcessor(
                     AddAudit(candidate.DefinitionId, "processing_job_run_failed", candidate.OwnerUserId,
                         new { runId = candidate.Id, errorCode = "import_recovery_unsafe" });
                     await dbContext.SaveChangesAsync(ct);
+                    var terminal = await dbContext.ProcessingJobRuns.AsNoTracking().SingleAsync(x => x.Id == candidate.Id, ct);
+                    var definition = await dbContext.ProcessingJobDefinitions.AsNoTracking().SingleAsync(x => x.Id == candidate.DefinitionId, ct);
+                    await TryOperationAsync(() => operations.RecordTerminalAsync(definition, terminal, ct), definition.Id, terminal.Id);
                     count++;
                 }
                 continue;
@@ -130,6 +142,7 @@ public sealed class ProcessingJobProcessor(
         try
         {
             if (definition is null) throw new ProcessingRunFailure("definition_unavailable", "Processing job is no longer available.");
+            await TryOperationAsync(() => operations.RecordStartedAsync(definition, run, ct), definition.Id, run.Id);
             await EnsureActorAsync(definition.OwnerUserId, ct);
             var principal = Principal(definition.OwnerUserId, dbContext.ActiveWorkspaceId);
             var config = Read<ProcessingJobConfigDefinition>(definition.ConfigJson)
@@ -169,6 +182,8 @@ public sealed class ProcessingJobProcessor(
                     definition.OwnerUserId,
                     new { runId, errorCode = terminalErrorCode });
                 await dbContext.SaveChangesAsync(ct);
+                var terminal = await dbContext.ProcessingJobRuns.AsNoTracking().SingleAsync(x => x.Id == runId, ct);
+                await TryOperationAsync(() => operations.RecordTerminalAsync(definition, terminal, ct), definition.Id, terminal.Id);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -185,6 +200,8 @@ public sealed class ProcessingJobProcessor(
             AddAudit(run.DefinitionId, "processing_job_run_failed", definition.OwnerUserId, new { runId, errorCode = code });
             await dbContext.SaveChangesAsync(ct);
             await QueueAutomaticRetryAsync(definition, run, completedAt, ct);
+            var terminal = await dbContext.ProcessingJobRuns.AsNoTracking().SingleAsync(x => x.Id == runId, ct);
+            await TryOperationAsync(() => operations.RecordTerminalAsync(definition, terminal, ct), definition.Id, terminal.Id);
         }
     }
 
@@ -195,7 +212,12 @@ public sealed class ProcessingJobProcessor(
         var retry = NewRun(definition, ProcessingJobRunSources.Retry, failed.Attempt + 1, policy.MaxAttempts, definition.OwnerUserId, now.AddSeconds(policy.DelaySeconds));
         retry.RetrySourceRunId = failed.RetrySourceRunId ?? failed.Id;
         dbContext.ProcessingJobRuns.Add(retry);
-        try { await dbContext.SaveChangesAsync(ct); }
+        try
+        {
+            await dbContext.SaveChangesAsync(ct);
+            await TryOperationAsync(() => operations.RecordQueuedAsync(definition, retry, ct), definition.Id, retry.Id);
+            await TryOperationAsync(() => operations.RecordRetryScheduledAsync(definition, retry, ct), definition.Id, retry.Id);
+        }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception)) { dbContext.ChangeTracker.Clear(); }
     }
 
@@ -225,6 +247,14 @@ public sealed class ProcessingJobProcessor(
     private static string Limit(string value) => value.Length <= 1000 ? value : value[..1000];
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+    private async Task TryOperationAsync(Func<Task> action, Guid definitionId, Guid? runId)
+    {
+        try { await action(); }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Processing operational event persistence failed for definition {DefinitionId} and run {RunId}.", definitionId, runId);
+        }
+    }
     private sealed class ProcessingRunFailure(string code, string message) : Exception(message) { public string Code { get; } = code; }
 }
 
@@ -233,6 +263,8 @@ public sealed class ProcessingJobWorker(
     ILogger<ProcessingJobWorker> logger,
     IOptions<ProcessingJobOptions> options) : BackgroundService
 {
+    private DateTimeOffset nextCleanupAt = DateTimeOffset.MinValue;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Clamp(options.Value.PollingIntervalSeconds, 5, 300)));
@@ -261,7 +293,12 @@ public sealed class ProcessingJobWorker(
                 var processor = scope.ServiceProvider.GetRequiredService<ProcessingJobProcessor>();
                 await processor.EnqueueDueSchedulesAsync(ct);
                 await processor.ProcessRunsAsync(ct);
+                var operations = scope.ServiceProvider.GetRequiredService<ProcessingOperationsService>();
+                await operations.ReconcileTerminalAsync(50, ct);
+                if (DateTimeOffset.UtcNow >= nextCleanupAt)
+                    await operations.CleanupAsync(options.Value.OperationalLogRetentionDays, options.Value.OperationalLogCleanupBatchSize, ct);
             }
+            if (DateTimeOffset.UtcNow >= nextCleanupAt) nextCleanupAt = DateTimeOffset.UtcNow.AddDays(1);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex) { logger.LogError(ex, "Processing job worker pass failed."); }

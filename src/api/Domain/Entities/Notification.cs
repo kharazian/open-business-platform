@@ -23,6 +23,8 @@ public sealed class Notification : WorkspaceEntity<Guid>, IHasCreationTime
 
     public string? ActionId { get; set; }
 
+    public string? DeduplicationKey { get; set; }
+
     public JsonDocument? MetadataJson { get; set; }
 
     public DateTimeOffset? ReadAt { get; set; }

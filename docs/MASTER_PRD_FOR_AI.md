@@ -36,7 +36,7 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/app/src/features/dashboards`: dashboard summary/analytics clients, published dashboard directory and read-only slug viewer, permission-gated builder, dynamic navigation, and generic adapter registry/settings contract
 - `src/app/src/features/triggers`: current V4 trigger management API client, builder helpers, form-scoped trigger workspace, logs viewer, failed-log retry UI, transactional event-delivery health/dead-letter replay UI, automatic retry status display, notification/webhook action editors, retry policy controls, and schedule metadata controls
 - `src/app/src/features/workflows`: current V5 workflow management API client, builder helpers, workflow-only visual graph builder, typed definition/record execution/approval contracts, form-scoped workflow management page for definition draft/edit/publish/enable/disable operations, and current-user approval inbox page
-- `src/app/src/features/notifications`: current V4 notification inbox API client/types/page for current-user notifications, read state, unread badges, and preferences
+- `src/app/src/features/notifications`: paginated current-user notification inbox API client/types/page for read state, unread badges, preferences, and trusted processing-run links
 - `src/app/src/context/AuthContext.tsx`: cookie-auth session state and effective frontend permissions
 - `src/api/Modules/Forms`: shared V1 form schema contracts, backend validation, forms list/create/draft/publish endpoints, submit-safe published form endpoint, and form access options for role permission setup
 - `src/api/Modules/Records`: record submission, list/detail, edit, soft-delete, backend value validation, permission checks, and audit logging
@@ -51,7 +51,8 @@ The repository currently contains a finalized V1 foundation, not the full produc
 - `src/api/Modules/Dashboard`: current database-backed dashboard summary API, V2 chart widget preview module, and V7 dashboard analytics execution API
 - `src/api/Modules/Dashboards`: saved dashboard definition, publication/navigation, unique slug, permission-filtered viewer/navigation APIs, generic adapter config validation, and audit logging
 - `src/api/Modules/Integrations`: current V8 API key management, secret-safe connector configuration metadata, integration log, public record API, incoming webhook listener, record import, and external export module with hashed keys/secrets, conservative scopes, backend permission checks, audit logging, API-key authentication plumbing, sanitized integration log metadata, explicit retry request metadata, versioned API-key-authenticated record list/read/create endpoints, typed webhook payload mapping into records, CSV import jobs with row-level results, and permission-filtered CSV/JSON export jobs with protected artifact downloads
-- `src/app/src/features/integrations`: current V8 integrations operations UI for API key lifecycle actions, connector configuration metadata, webhook listener operations, CSV import jobs, export jobs, sanitized integration log review, client-side log filters, and explicit retry requests
+- `src/api/Modules/Processing`: V10 bounded processing definitions/runs, schedules, fenced execution, fixed-catalog operational diagnostics, technical retention, and deduplicated final-failure notification delivery
+- `src/app/src/features/integrations`: integrations operations UI for API key lifecycle actions, connector configuration metadata, webhook listener operations, imports/exports, sanitized integration logs, bounded processing jobs, failure policies, processing health, and operational logs
 - `src/api/Infrastructure/Persistence`: EF Core/Npgsql DbContext and migrations for users, password reset tokens, roles, groups, departments, role permissions, scoped form permissions, report permissions, field permissions, forms, form versions, records, audit logs, current V2 report definitions, saved dashboard definitions, V4 trigger definitions, trigger logs, automatic trigger retry metadata, V4 trigger schedule/retry policy metadata, V5 workflow definitions/versions/history, V6 print templates, notifications, notification preferences, integration API keys, integration connectors, integration logs, incoming webhook listeners, record import jobs, and external export jobs
 - `src/api/Modules/Workspaces`: V9 tenant/workspace constants, default scoped context, ownership write guard, and authenticated current-context endpoint
 - `src/app/src/context/AppThemeContext.tsx`: real app appearance settings saved in browser `localStorage`
@@ -104,7 +105,7 @@ V9 task 007 is complete: workspace branding persists safe app identity and bound
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
 V9 task 010 is complete: permission-gated operational posture and payload-safe audit search/export provide administrative evidence without claiming certification or duplicating authoritative control state.
-V10 tasks 001 through 008 are complete. Task 008 adds workspace-owned bounded CSV-import/export definitions and runs, scheduled exports, fenced workers, private input cleanup, and safe export retry chains. Task 009 processing operations and failure notifications is drafted for review.
+V10 tasks 001 through 009 are complete. Task 009 adds separate payload-safe processing operational logs, bounded health queries and retention, paginated notification listing, typed failure policies, and database-deduplicated terminal failure alerts.
 
 ## 2. Core Product Philosophy
 
@@ -950,6 +951,9 @@ V10 task 003 is complete: `fileUpload` fields use bounded protected uploads, wor
 V10 task 004 is complete: record lookups now materialize workspace-owned source/target edges, restrict referenced deletes including legacy JSON-only links, require published targets for new selections, and preserve unchanged selections after archival.
 V10 task 005 is complete: list reports discover and execute permission-safe one-hop dotted lookup fields with terminal typed filters, search, sort, viewer, CSV, and print behavior while preserving schema-version-1 root-field configs and adding no migration.
 V10 task 006 is complete: record detail now provides read-only reverse lookup panels through separately paged discovery/row APIs that union canonical and legacy relationships, validate immutable source schemas, enforce source and target permissions, and return display-only cells.
+V10 task 007 is complete: report and row actions are saved as typed allowlisted definitions and projected through current permissions.
+V10 task 008 is complete: bounded CSV-import/export definitions and durable runs support fenced schedules, safe retry ancestry, and fail-closed import recovery.
+V10 task 009 is complete: processing lifecycle diagnostics remain separate from audit/integration history, health and retention are bounded, and final-failure inbox alerts are preference-aware and database-deduplicated.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

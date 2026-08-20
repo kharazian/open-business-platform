@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Copy, Download, KeyRound, Plug, RefreshCw, RotateCcw, ShieldOff, Upload, Webhook } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -122,7 +123,9 @@ const emptyExportForm = {
 };
 
 export function IntegrationsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("keys");
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<TabKey>(requestedTab === "processing" ? "processing" : "keys");
   const [apiKeys, setApiKeys] = useState<IntegrationApiKeyDto[]>([]);
   const [connectors, setConnectors] = useState<IntegrationConnectorDto[]>([]);
   const [logs, setLogs] = useState<IntegrationLogDto[]>([]);
@@ -152,6 +155,8 @@ export function IntegrationsPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => { if (requestedTab === "processing") setActiveTab("processing"); }, [requestedTab]);
 
   const filteredLogs = useMemo(() => filterIntegrationLogs(logs, filters), [logs, filters]);
 
@@ -501,7 +506,7 @@ export function IntegrationsPage() {
           { label: "Webhooks", value: "webhooks", content: renderWebhooks() },
           { label: "Imports", value: "imports", content: renderImports() },
           { label: "Exports", value: "exports", content: renderExports() },
-          { label: "Processing jobs", value: "processing", content: <ProcessingJobsPanel /> },
+          { label: "Processing jobs", value: "processing", content: <ProcessingJobsPanel initialJobId={searchParams.get("jobId")} initialRunId={searchParams.get("runId")} /> },
           { label: "Logs", value: "logs", content: renderLogs() }
         ]}
       />

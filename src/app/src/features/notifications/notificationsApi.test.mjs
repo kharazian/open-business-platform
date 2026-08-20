@@ -120,3 +120,15 @@ test("notification API client maps inbox and read-state endpoints", async () => 
     }
   );
 });
+
+test("notification API client supports bounded inbox pages", async () => {
+  const fetcher = async (input, init = {}) => {
+    assert.equal(input, "/api/notifications?page=2&pageSize=25");
+    assert.equal(init.method, "GET");
+    return { ok: true, json: async () => ({ items: [{ id: "notification-26" }], page: 2, pageSize: 25, totalCount: 26 }) };
+  };
+  const page = await api.listNotificationsPage(2, 25, fetcher);
+  assert.equal(page.page, 2);
+  assert.equal(page.totalCount, 26);
+  assert.equal(page.items[0].id, "notification-26");
+});

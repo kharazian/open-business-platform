@@ -114,6 +114,7 @@ builder.Services.AddScoped<RecordImportJobService>();
 builder.Services.AddScoped<ExternalExportJobService>();
 builder.Services.AddScoped<ProcessingJobService>();
 builder.Services.AddScoped<ProcessingJobProcessor>();
+builder.Services.AddScoped<ProcessingOperationsService>();
 builder.Services.AddHostedService<ProcessingJobWorker>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<AccessPolicyEvaluator>();

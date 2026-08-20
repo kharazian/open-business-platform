@@ -19,6 +19,7 @@ public static class ProcessingJobValidator
         ValidateConfig(kind, request.Config, errors);
         ValidateSchedule(kind, request.Schedule, errors);
         ValidateRetry(kind, request.RetryPolicy, errors);
+        ValidateFailureNotifications(request.FailureNotificationPolicy, errors);
         return new ProcessingJobValidationResult(errors);
     }
 
@@ -87,6 +88,17 @@ public static class ProcessingJobValidator
         if (kind != ProcessingJobKinds.RecordExport && retry.IsEnabled) errors.Add(Error("retryPolicy.isEnabled", "processing.retry.kind", "Only record exports can be retried."));
         if (retry.MaxAttempts is < 1 or > 5) errors.Add(Error("retryPolicy.maxAttempts", "processing.retry.max_attempts", "Maximum attempts must be between 1 and 5."));
         if (retry.DelaySeconds is < 30 or > 86400) errors.Add(Error("retryPolicy.delaySeconds", "processing.retry.delay", "Retry delay must be between 30 seconds and 24 hours."));
+    }
+
+    private static void ValidateFailureNotifications(ProcessingFailureNotificationPolicyDefinition? policy, List<ProcessingJobValidationError> errors)
+    {
+        if (policy is null) return;
+        if (policy.AdditionalProperties is { Count: > 0 }) errors.Add(Error("failureNotificationPolicy", "processing.notifications.properties", "Failure notification policy contains unsupported properties."));
+        var recipients = policy.RecipientUserIds ?? Array.Empty<Guid>();
+        if (recipients.Count > 25) errors.Add(Error("failureNotificationPolicy.recipientUserIds", "processing.notifications.recipient_limit", "At most 25 explicit recipients are allowed."));
+        if (recipients.Any(id => id == Guid.Empty)) errors.Add(Error("failureNotificationPolicy.recipientUserIds", "processing.notifications.recipient_invalid", "Recipient IDs must be valid."));
+        if (recipients.Distinct().Count() != recipients.Count) errors.Add(Error("failureNotificationPolicy.recipientUserIds", "processing.notifications.recipient_duplicate", "Recipient IDs must be unique."));
+        if (policy.IsEnabled && !policy.IncludeOwner && recipients.Count == 0) errors.Add(Error("failureNotificationPolicy", "processing.notifications.recipient_required", "Enabled failure notifications require the owner or an explicit recipient."));
     }
 
     private static ProcessingJobValidationError Error(string path, string code, string message) => new(path, code, message);

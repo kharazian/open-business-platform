@@ -143,7 +143,7 @@ Needed support:
 - Named job definitions for pull, process inbound, process outbound, fulfillment, invoicing, cleanup, and retry.
 - Bounded queue processing to avoid unbounded automation runs.
 - Job locks so the same scheduled job does not run concurrently.
-- Per-job logs and summary metrics.
+- Per-job logs and summary metrics are implemented for bounded CSV import/export processing with a fixed payload-safe event catalog and 24-hour health view.
 - Manual run/retry controls with permissions and audit logs.
 
 Implementation direction:
@@ -189,7 +189,7 @@ Needed support:
 Implementation direction:
 
 - Keep audit logs for security/business history.
-- Keep operational logs for processing diagnostics.
+- Keep operational logs for processing diagnostics. V10 Task 009 implements this boundary separately from audit and integration history, with bounded retention and deduplicated in-app final-failure alerts.
 - Sanitize payloads before storing logs.
 
 ### 10. Notifications and Error Handling

@@ -15,16 +15,22 @@ public sealed class NotificationQueryService
         this.dbContext = dbContext;
     }
 
-    public async Task<IReadOnlyCollection<NotificationDto>> ListForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<NotificationPageDto> ListForUserAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken)
     {
-        var notifications = await dbContext.Notifications
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = dbContext.Notifications
             .AsNoTracking()
-            .Where(notification => notification.UserId == userId)
+            .Where(notification => notification.UserId == userId);
+        var total = await query.LongCountAsync(cancellationToken);
+        var notifications = await query
             .OrderByDescending(notification => notification.CreatedAt)
             .ThenByDescending(notification => notification.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
 
-        return notifications.Select(ToDto).ToArray();
+        return new NotificationPageDto(notifications.Select(ToDto).ToArray(), page, pageSize, total);
     }
 
     public async Task<NotificationUnreadCountDto> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken)
@@ -99,21 +105,9 @@ public sealed class NotificationQueryService
 
     public async Task<NotificationUnreadCountDto> MarkAllReadAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var unreadNotifications = await dbContext.Notifications
+        await dbContext.Notifications
             .Where(notification => notification.UserId == userId && notification.ReadAt == null)
-            .ToArrayAsync(cancellationToken);
-
-        if (unreadNotifications.Length > 0)
-        {
-            var now = DateTimeOffset.UtcNow;
-
-            foreach (var notification in unreadNotifications)
-            {
-                notification.ReadAt = now;
-            }
-
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
+            .ExecuteUpdateAsync(update => update.SetProperty(notification => notification.ReadAt, DateTimeOffset.UtcNow), cancellationToken);
 
         return await GetUnreadCountAsync(userId, cancellationToken);
     }

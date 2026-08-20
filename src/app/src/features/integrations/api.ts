@@ -21,6 +21,10 @@ import type {
   ProcessingJobDetailDto,
   ProcessingJobRunDto,
   ProcessingJobSummaryDto,
+  ProcessingNotificationRecipientDto,
+  ProcessingOperationalLogDto,
+  ProcessingOperationalLogFilters,
+  ProcessingOperationsSummaryDto,
   ProcessingPage,
   UpdateProcessingJobRequest
 } from "./types";
@@ -298,12 +302,37 @@ export function listProcessingJobRuns(jobId: string, page = 1, pageSize = 25, fe
   return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs?page=${page}&pageSize=${pageSize}`, { method: "GET", credentials: "include" }, fetcher);
 }
 
+export function getProcessingJobRun(jobId: string, runId: string, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobRunDto> {
+  return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs/${encodeURIComponent(runId)}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
 export function queueProcessingJob(jobId: string, fileName?: string | null, csvContent?: string | null, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobRunDto> {
   return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fileName, csvContent }) }, fetcher);
 }
 
 export function retryProcessingJobRun(jobId: string, runId: string, fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingJobRunDto> {
   return requestJson(`/api/processing-jobs/${encodeURIComponent(jobId)}/runs/${encodeURIComponent(runId)}/retry`, { method: "POST", credentials: "include" }, fetcher);
+}
+
+export function listProcessingOperationalLogs(
+  filters: ProcessingOperationalLogFilters = {}, page = 1, pageSize = 25,
+  fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<ProcessingPage<ProcessingOperationalLogDto>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+  return requestJson(`/api/processing-operations/logs?${params.toString()}`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export function getProcessingOperationsSummary(fetcher: IntegrationsFetcher = defaultFetcher): Promise<ProcessingOperationsSummaryDto> {
+  return requestJson("/api/processing-operations/summary", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export function listProcessingNotificationRecipients(
+  page = 1, pageSize = 25, search = "", fetcher: IntegrationsFetcher = defaultFetcher
+): Promise<ProcessingPage<ProcessingNotificationRecipientDto>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (search.trim()) params.set("search", search.trim());
+  return requestJson(`/api/processing-operations/notification-recipients?${params.toString()}`, { method: "GET", credentials: "include" }, fetcher);
 }
 
 async function requestItems<T>(input: string, init: RequestInit, fetcher: IntegrationsFetcher): Promise<T[]> {

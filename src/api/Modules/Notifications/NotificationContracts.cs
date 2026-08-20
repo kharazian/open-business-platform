@@ -15,6 +15,8 @@ public sealed record NotificationDto(
 
 public sealed record NotificationUnreadCountDto(int UnreadCount);
 
+public sealed record NotificationPageDto(IReadOnlyList<NotificationDto> Items, int Page, int PageSize, long TotalCount);
+
 public sealed record NotificationPreferencesDto(bool InAppEnabled, bool ShowUnreadBadge, DateTimeOffset? UpdatedAt);
 
 public sealed record UpdateNotificationPreferencesRequest(bool InAppEnabled, bool ShowUnreadBadge);

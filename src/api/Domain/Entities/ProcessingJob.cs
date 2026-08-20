@@ -10,6 +10,7 @@ public sealed class ProcessingJobDefinition : WorkspaceFullAuditedAggregateRoot<
     public JsonDocument ConfigJson { get; set; } = JsonSerializer.SerializeToDocument(new { });
     public JsonDocument? ScheduleJson { get; set; }
     public JsonDocument RetryPolicyJson { get; set; } = JsonSerializer.SerializeToDocument(new { });
+    public JsonDocument FailureNotificationPolicyJson { get; set; } = JsonSerializer.SerializeToDocument(new { isEnabled = false, includeOwner = false, recipientUserIds = Array.Empty<Guid>() });
     public bool IsEnabled { get; set; }
     public DateTimeOffset? NextRunAt { get; set; }
     public DateTimeOffset? ScheduleLockedAt { get; set; }
@@ -23,6 +24,28 @@ public sealed class ProcessingJobDefinition : WorkspaceFullAuditedAggregateRoot<
     public string ConcurrencyStamp { get; set; } = Guid.NewGuid().ToString("N");
     public JsonDocument? ExtraPropertiesJson { get; set; }
     public ICollection<ProcessingJobRun> Runs { get; } = new List<ProcessingJobRun>();
+    public ICollection<ProcessingOperationalLog> OperationalLogs { get; } = new List<ProcessingOperationalLog>();
+}
+
+public sealed class ProcessingOperationalLog : WorkspaceEntity<Guid>, IHasCreationTime
+{
+    public Guid DefinitionId { get; set; }
+    public ProcessingJobDefinition? Definition { get; set; }
+    public Guid? RunId { get; set; }
+    public ProcessingJobRun? Run { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public string Severity { get; set; } = string.Empty;
+    public string EventCode { get; set; } = string.Empty;
+    public string EventKey { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public int? Attempt { get; set; }
+    public int? MaxAttempts { get; set; }
+    public string? ErrorCode { get; set; }
+    public long? DurationMilliseconds { get; set; }
+    public Guid? RecordImportJobId { get; set; }
+    public Guid? ExternalExportJobId { get; set; }
+    public DateTimeOffset OccurredAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public sealed class ProcessingJobRun : WorkspaceAuditedAggregateRoot<Guid>, IHasConcurrencyStamp, IHasExtraProperties

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Check, CheckCheck, RefreshCw } from "lucide-react";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -10,7 +10,7 @@ import { Switch } from "../../../components/ui/Switch";
 import {
   getNotificationPreferences,
   getUnreadNotificationCount,
-  listNotifications,
+  listNotificationsPage,
   markAllNotificationsRead,
   markNotificationRead,
   updateNotificationPreferences
@@ -26,6 +26,8 @@ const defaultNotificationPreferences: NotificationPreferences = {
 
 export function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -40,19 +42,23 @@ export function NotificationsPage() {
     void loadInbox();
   }, []);
 
-  const unreadNotifications = useMemo(() => notifications.filter((notification) => !notification.readAt), [notifications]);
-
-  async function loadInbox() {
+  async function loadInbox(targetPage = page) {
     setLoading(true);
     setError(null);
 
     try {
-      const [items, count, loadedPreferences] = await Promise.all([
-        listNotifications(),
+      const [result, count, loadedPreferences] = await Promise.all([
+        listNotificationsPage(targetPage),
         getUnreadNotificationCount(),
         getNotificationPreferences()
       ]);
-      setNotifications(items);
+      if (result.items.length === 0 && result.totalCount > 0 && targetPage > 1) {
+        await loadInbox(targetPage - 1);
+        return;
+      }
+      setNotifications(result.items);
+      setPage(result.page);
+      setTotalCount(result.totalCount);
       setUnreadCount(count.unreadCount);
       setPreferences(loadedPreferences);
     } catch (caught) {
@@ -64,7 +70,7 @@ export function NotificationsPage() {
 
   async function handleRefresh() {
     setNotice(null);
-    await loadInbox();
+    await loadInbox(page);
     dispatchNotificationsChanged();
   }
 
@@ -145,7 +151,7 @@ export function NotificationsPage() {
             <Button variant="outline" size="icon" onClick={handleRefresh} disabled={loading} aria-label="Refresh notifications" title="Refresh">
               <RefreshCw className="size-4" />
             </Button>
-            <Button variant="secondary" onClick={handleMarkAllRead} disabled={markingAll || unreadNotifications.length === 0}>
+            <Button variant="secondary" onClick={handleMarkAllRead} disabled={markingAll || unreadCount === 0}>
               <CheckCheck className="size-4" />
               {markingAll ? "Saving..." : "Mark all read"}
             </Button>
@@ -217,6 +223,11 @@ export function NotificationsPage() {
               onMarkRead={handleMarkRead}
             />
           ))}
+          {totalCount > 25 ? <div className="flex items-center justify-between">
+            <Button variant="outline" size="sm" disabled={loading || page === 1} onClick={() => void loadInbox(page - 1)}>Previous</Button>
+            <span className="text-xs font-semibold text-muted-foreground">Page {page} of {Math.ceil(totalCount / 25)}</span>
+            <Button variant="outline" size="sm" disabled={loading || page * 25 >= totalCount} onClick={() => void loadInbox(page + 1)}>Next</Button>
+          </div> : null}
         </div>
       )}
     </div>
@@ -255,6 +266,7 @@ function NotificationRow({
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+            {processingRunLink(notification) ? <a className="control-transition inline-flex min-h-8 items-center justify-center rounded-xl border border-border bg-card/90 px-3 text-sm font-bold text-foreground hover:bg-muted" href={processingRunLink(notification)!}>Open run</a> : null}
             {unread ? (
               <Button variant="outline" size="sm" onClick={() => onMarkRead(notification.id)} disabled={marking}>
                 <Check className="size-4" />
@@ -268,6 +280,13 @@ function NotificationRow({
       </CardContent>
     </Card>
   );
+}
+
+function processingRunLink(notification: AppNotification) {
+  if (notification.sourceType !== "ProcessingJobRun" || !notification.metadata || typeof notification.metadata !== "object") return null;
+  const metadata = notification.metadata as Record<string, unknown>;
+  if (typeof metadata.definitionId !== "string" || typeof metadata.runId !== "string") return null;
+  return `/integrations?tab=processing&jobId=${encodeURIComponent(metadata.definitionId)}&runId=${encodeURIComponent(metadata.runId)}`;
 }
 
 function formatDate(value: string) {

@@ -26,6 +26,14 @@ The integrations operations workspace lets administrators create, revoke, and ro
 
 V10 adds `/api/processing-jobs` for durable named CSV-import and record-export definitions. Definition and run list endpoints are paginated (maximum 100), mutations require `integrations.manage`, and definitions use concurrency stamps. Manual runs use `POST /api/processing-jobs/{id}/runs`; failed eligible exports use `POST /api/processing-jobs/{id}/runs/{runId}/retry`. Export schedules support once/daily/weekly/monthly recurrence and enforce a configured 1–5,000-row source bound without truncation. Run responses contain safe status, attempt, checksum, and linked import/export IDs but never queued CSV content or artifact bodies. Interrupted CSV imports fail closed with `import_recovery_unsafe` after the claim lease instead of replaying a potentially partial import; raw queued input is cleared, and row-level import failures remain linked to the authoritative import job.
 
+V10 Task 009 adds a disabled-by-default `failureNotificationPolicy` to processing definitions and these `integrations.manage` operations endpoints:
+
+- `GET /api/processing-operations/logs` accepts bounded `page`, `pageSize`, `definitionId`, `runId`, `kind`, `severity`, `eventCode`, `errorCode`, `from`, and `to` filters. Results are newest-first, capped at 100 rows per page, and date ranges cannot exceed 31 days.
+- `GET /api/processing-operations/summary` returns bounded run and event counts for the requested range, defaulting to the last 24 hours.
+- `GET /api/processing-operations/notification-recipients` returns paginated active current-workspace administration recipients with optional bounded search.
+
+Operational events use a fixed platform-authored catalog and expose safe IDs, attempt/error/result references, duration, and timestamps only. They never include CSV content, record values, artifacts, credentials, stack traces, exception text, or policy details. Terminal failure alerts use the existing notification inbox, honor `inAppEnabled`, recheck active membership and `integrations.manage`, and are database-deduplicated per definition, retry-chain root, and recipient. Trusted inbox links use `ProcessingJobRun` IDs and re-enter the same Task 008 administration boundary; deleted or inaccessible targets return `404` without source details. Operational-log retention defaults to 90 days and runs daily in batches of at most 500 without deleting run, integration, audit, or notification history.
+
 ### Health
 
 `GET /health`
@@ -2235,9 +2243,9 @@ Notification inbox APIs require authentication and always use the authenticated 
 
 ### List current-user notifications
 
-`GET /api/notifications`
+`GET /api/notifications?page=1&pageSize=25`
 
-Response: `200 OK` with `{ "items": [...] }`, ordered newest first.
+Response: `200 OK` with `{ "items": [...], "page": 1, "pageSize": 25, "totalCount": 1 }`, ordered newest first. Pages are capped at 100. The `items` property is preserved for existing clients.
 
 Notification item shape:
 

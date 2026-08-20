@@ -1,5 +1,6 @@
 import type {
   AppNotification,
+  NotificationPage,
   NotificationPreferences,
   NotificationUnreadCount,
   UpdateNotificationPreferencesRequest
@@ -24,6 +25,14 @@ const defaultFetcher: NotificationsFetcher = (input, init) => fetch(input, init)
 
 export async function listNotifications(fetcher: NotificationsFetcher = defaultFetcher): Promise<AppNotification[]> {
   return requestItems<AppNotification>("/api/notifications", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function listNotificationsPage(
+  page = 1,
+  pageSize = 25,
+  fetcher: NotificationsFetcher = defaultFetcher
+): Promise<NotificationPage> {
+  return requestJson<NotificationPage>(`/api/notifications?page=${page}&pageSize=${pageSize}`, { method: "GET", credentials: "include" }, fetcher);
 }
 
 export async function getUnreadNotificationCount(fetcher: NotificationsFetcher = defaultFetcher): Promise<NotificationUnreadCount> {

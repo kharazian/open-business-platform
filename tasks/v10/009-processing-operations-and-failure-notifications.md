@@ -82,21 +82,21 @@ The exact DTO names may follow existing processing-module conventions. Unknown f
 
 ## Acceptance Criteria
 
-- [ ] Workspace-owned processing operational logs persist separately from audit, integration, trigger, and run history through a documented migration.
-- [ ] A fixed, severity-typed event catalog records only successful lifecycle transitions and safe bounded metadata.
-- [ ] Worker races, expired claims, and replay cannot duplicate terminal logs, retry-exhausted events, or notifications.
-- [ ] Workspace log search is permission-aware, source-aware, bounded by date/page limits, deterministically ordered, and non-disclosing.
-- [ ] Aggregate processing health uses the same authorized scope and bounded time range without unbounded in-memory loading.
-- [ ] Definition notification policies validate enabled state, owner inclusion, unique recipient limits, persistent users, workspace membership, and unknown properties.
-- [ ] The policy editor can query only bounded, safe, eligible current-workspace recipient options.
-- [ ] Only terminal non-retrying failures alert; intermediate automatic-retry failures do not.
-- [ ] Failure notifications are deduplicated per recipient and retry chain by a database constraint, including after a later manual retry.
-- [ ] Existing notification preferences, current-user ownership, read state, and unread badges remain authoritative, and notification listing is paginated.
-- [ ] Notification bodies and metadata contain only safe platform-authored details and trusted processing IDs; no raw inputs, values, artifacts, stack traces, or policy details are stored.
-- [ ] `/integrations` provides failure-policy editing, bounded health summaries, searchable operational logs, and safe links to authorized run details.
-- [ ] Operational-log retention is configurable and cleaned in bounded batches without deleting audit, integration, run, or notification history.
-- [ ] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, concurrent deduplication acceptance, cleanup acceptance, and `git diff --check` pass.
+- [x] Workspace-owned processing operational logs persist separately from audit, integration, trigger, and run history through a documented migration.
+- [x] A fixed, severity-typed event catalog records only successful lifecycle transitions and safe bounded metadata.
+- [x] Worker races, expired claims, and replay cannot duplicate terminal logs, retry-exhausted events, or notifications.
+- [x] Workspace log search is permission-aware, source-aware, bounded by date/page limits, deterministically ordered, and non-disclosing.
+- [x] Aggregate processing health uses the same authorized scope and bounded time range without unbounded in-memory loading.
+- [x] Definition notification policies validate enabled state, owner inclusion, unique recipient limits, persistent users, workspace membership, and unknown properties.
+- [x] The policy editor can query only bounded, safe, eligible current-workspace recipient options.
+- [x] Only terminal non-retrying failures alert; intermediate automatic-retry failures do not.
+- [x] Failure notifications are deduplicated per recipient and retry chain by a database constraint, including after a later manual retry.
+- [x] Existing notification preferences, current-user ownership, read state, and unread badges remain authoritative, and notification listing is paginated.
+- [x] Notification bodies and metadata contain only safe platform-authored details and trusted processing IDs; no raw inputs, values, artifacts, stack traces, or policy details are stored.
+- [x] `/integrations` provides failure-policy editing, bounded health summaries, searchable operational logs, and safe links to authorized run details.
+- [x] Operational-log retention is configurable and cleaned in bounded batches without deleting audit, integration, run, or notification history.
+- [x] API, architecture, data-model, permission, roadmap, and V10 documentation plus backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, concurrent deduplication acceptance, cleanup acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
@@ -129,7 +129,7 @@ The exact DTO names may follow existing processing-module conventions. Unknown f
 - Add a unique workspace/event-key constraint so retrying the same persistence step is idempotent. Recommended read indexes cover workspace/occurred time, workspace/severity/occurred time, definition/occurred time, run/event code, and retention scans.
 - Define delete behavior explicitly: deleting a definition remains soft-delete; operational logs/runs remain query-filtered workspace history. Do not cascade-delete diagnostic history through the definition API.
 
-## Review Decisions Proposed
+## Review Decisions
 
 - Task 009 is limited to processing-job operations. It does not pretend that audit, trigger, workflow, and integration logs share one diagnostic schema.
 - Alerts fire only when no automatic retry remains, which avoids noisy intermediate-failure notifications.

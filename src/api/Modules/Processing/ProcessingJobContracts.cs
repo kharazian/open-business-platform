@@ -27,6 +27,31 @@ public static class ProcessingJobRunSources
     public const string Retry = "retry";
 }
 
+public static class ProcessingOperationalLogSeverities
+{
+    public const string Info = "info";
+    public const string Warning = "warning";
+    public const string Error = "error";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Info, Warning, Error };
+}
+
+public static class ProcessingOperationalEventCodes
+{
+    public const string RunQueued = "run_queued";
+    public const string RunStarted = "run_started";
+    public const string RunSucceeded = "run_succeeded";
+    public const string RunFailed = "run_failed";
+    public const string RetryScheduled = "retry_scheduled";
+    public const string RetryExhausted = "retry_exhausted";
+    public const string ImportRecoveryUnsafe = "import_recovery_unsafe";
+    public const string ScheduleSkippedActiveRun = "schedule_skipped_active_run";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        RunQueued, RunStarted, RunSucceeded, RunFailed, RetryScheduled, RetryExhausted,
+        ImportRecoveryUnsafe, ScheduleSkippedActiveRun
+    };
+}
+
 public static class ProcessingScheduleKinds
 {
     public const string Once = "once";
@@ -68,13 +93,23 @@ public sealed record ProcessingJobRetryPolicyDefinition(bool IsEnabled = false, 
     public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
 }
 
+public sealed record ProcessingFailureNotificationPolicyDefinition(
+    bool IsEnabled = false,
+    bool IncludeOwner = false,
+    IReadOnlyList<Guid>? RecipientUserIds = null)
+{
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
+}
+
 public sealed record CreateProcessingJobRequest(
     string Name,
     string Kind,
     ProcessingJobConfigDefinition Config,
     ProcessingJobScheduleDefinition? Schedule = null,
     ProcessingJobRetryPolicyDefinition? RetryPolicy = null,
-    bool IsEnabled = false)
+    bool IsEnabled = false,
+    ProcessingFailureNotificationPolicyDefinition? FailureNotificationPolicy = null)
 {
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
@@ -85,7 +120,8 @@ public sealed record UpdateProcessingJobRequest(
     ProcessingJobConfigDefinition Config,
     ProcessingJobScheduleDefinition? Schedule,
     ProcessingJobRetryPolicyDefinition? RetryPolicy,
-    string ConcurrencyStamp)
+    string ConcurrencyStamp,
+    ProcessingFailureNotificationPolicyDefinition? FailureNotificationPolicy = null)
 {
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
@@ -117,6 +153,7 @@ public sealed record ProcessingJobDetailDto(
     ProcessingJobConfigDefinition Config,
     ProcessingJobScheduleDefinition? Schedule,
     ProcessingJobRetryPolicyDefinition RetryPolicy,
+    ProcessingFailureNotificationPolicyDefinition FailureNotificationPolicy,
     bool IsEnabled,
     Guid OwnerUserId,
     DateTimeOffset? NextRunAt,
@@ -148,6 +185,34 @@ public sealed record ProcessingJobRunDto(
     Guid? CreatedById);
 
 public sealed record ProcessingJobPageDto<T>(IReadOnlyList<T> Items, int Page, int PageSize, long TotalCount);
+public sealed record ProcessingOperationalLogDto(
+    Guid Id,
+    Guid DefinitionId,
+    string DefinitionName,
+    Guid? RunId,
+    string Kind,
+    string Severity,
+    string EventCode,
+    string Message,
+    int? Attempt,
+    int? MaxAttempts,
+    string? ErrorCode,
+    long? DurationMilliseconds,
+    Guid? RecordImportJobId,
+    Guid? ExternalExportJobId,
+    DateTimeOffset OccurredAt);
+public sealed record ProcessingOperationsSummaryDto(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    long Pending,
+    long Running,
+    long Succeeded,
+    long Failed,
+    long RetryScheduled,
+    long RetryExhausted,
+    long ScheduleSkipped,
+    IReadOnlyDictionary<string, long> ByKind);
+public sealed record ProcessingNotificationRecipientDto(Guid Id, string Name);
 public sealed record ProcessingJobValidationError(string Path, string Code, string Message);
 public sealed record ProcessingJobValidationResult(IReadOnlyList<ProcessingJobValidationError> Errors) { public bool Valid => Errors.Count == 0; }
 public sealed record ProcessingJobErrorResponse(string Message, IReadOnlyList<ProcessingJobValidationError>? Errors = null);

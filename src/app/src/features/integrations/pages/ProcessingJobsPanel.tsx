@@ -11,12 +11,15 @@ import { Select } from "../../../components/ui/Select";
 import { Table } from "../../../components/ui/Table";
 import { Textarea } from "../../../components/ui/Textarea";
 import {
-  createProcessingJob, deleteProcessingJob, downloadExternalExportArtifact, getProcessingJob, listProcessingJobRuns,
-  listProcessingJobs, queueProcessingJob, retryProcessingJobRun, setProcessingJobEnabled, updateProcessingJob
+  createProcessingJob, deleteProcessingJob, downloadExternalExportArtifact, getProcessingJob, getProcessingJobRun, listProcessingJobRuns,
+  listProcessingJobs, listProcessingNotificationRecipients, queueProcessingJob, retryProcessingJobRun,
+  setProcessingJobEnabled, updateProcessingJob
 } from "../api";
 import type {
-  ProcessingJobDetailDto, ProcessingJobKind, ProcessingJobRunDto, ProcessingScheduleKind, ProcessingJobSummaryDto
+  ProcessingJobDetailDto, ProcessingJobKind, ProcessingJobRunDto, ProcessingNotificationRecipientDto,
+  ProcessingScheduleKind, ProcessingJobSummaryDto
 } from "../types";
+import { ProcessingOperationsPanel } from "./ProcessingOperationsPanel";
 
 const initial = {
   name: "", kind: "record_export" as ProcessingJobKind, formId: "", reportId: "", integrationKey: "",
@@ -24,10 +27,11 @@ const initial = {
   maxRows: 1000, scheduled: false, scheduleKind: "daily" as ProcessingScheduleKind,
   startAt: new Date(Date.now() + 3_600_000).toISOString().slice(0, 16), interval: 1,
   retryEnabled: false, maxAttempts: 3, delaySeconds: 300,
+  notifyFailures: false, includeOwner: true, recipientUserIds: [] as string[],
   mappingJson: JSON.stringify({ fieldMappings: [{ csvHeader: "email", targetFieldId: "email" }] }, null, 2)
 };
 
-export function ProcessingJobsPanel() {
+export function ProcessingJobsPanel({ initialJobId, initialRunId }: { initialJobId?: string | null; initialRunId?: string | null }) {
   const [jobs, setJobs] = useState<ProcessingJobSummaryDto[]>([]);
   const [jobPage, setJobPage] = useState(1);
   const [jobTotal, setJobTotal] = useState(0);
@@ -37,6 +41,7 @@ export function ProcessingJobsPanel() {
   const [runPage, setRunPage] = useState(1);
   const [runTotal, setRunTotal] = useState(0);
   const [loadingRuns, setLoadingRuns] = useState(false);
+  const [recipients, setRecipients] = useState<ProcessingNotificationRecipientDto[]>([]);
   const [form, setForm] = useState(initial);
   const [editing, setEditing] = useState<ProcessingJobDetailDto | null>(null);
   const [csv, setCsv] = useState("");
@@ -45,7 +50,27 @@ export function ProcessingJobsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => { void loadJobs(); }, []);
+  useEffect(() => { void initialize(); }, [initialJobId, initialRunId]);
+
+  async function initialize() {
+    await loadJobs(1);
+    try {
+      const recipientPage = await listProcessingNotificationRecipients(1, 100);
+      setRecipients(recipientPage.items);
+      if (initialJobId) {
+        const detail = await getProcessingJob(initialJobId);
+        setSelected(detail);
+        await loadRuns(detail.id, 1);
+        if (initialRunId) {
+          const linkedRun = await getProcessingJobRun(detail.id, initialRunId);
+          setRuns((current) => current.some((run) => run.id === linkedRun.id)
+            ? current
+            : [linkedRun, ...current].slice(0, 25));
+          setNotice(`Opened linked processing run ${initialRunId.slice(0, 8)}.`);
+        }
+      }
+    } catch (caught) { setError(message(caught)); }
+  }
 
   async function loadJobs(targetPage = jobPage) {
     setLoadingJobs(true);
@@ -95,10 +120,11 @@ export function ProcessingJobsPanel() {
           search: !isImport && form.search.trim() ? form.search : null, maxRows: form.maxRows, mapping
         },
         schedule, retryPolicy: { isEnabled: !isImport && form.retryEnabled, maxAttempts: isImport ? 1 : form.maxAttempts, delaySeconds: form.delaySeconds },
-        isEnabled: Boolean(schedule)
+        isEnabled: Boolean(schedule),
+        failureNotificationPolicy: { isEnabled: form.notifyFailures, includeOwner: form.includeOwner, recipientUserIds: form.recipientUserIds }
       };
       const saved = editing
-        ? await updateProcessingJob(editing.id, { name: request.name, config: request.config, schedule: request.schedule, retryPolicy: request.retryPolicy, concurrencyStamp: editing.concurrencyStamp })
+        ? await updateProcessingJob(editing.id, { name: request.name, config: request.config, schedule: request.schedule, retryPolicy: request.retryPolicy, failureNotificationPolicy: request.failureNotificationPolicy, concurrencyStamp: editing.concurrencyStamp })
         : await createProcessingJob(request);
       setForm(initial); setEditing(null); setNotice(editing ? "Processing job updated." : "Processing job created."); await loadJobs(1);
       setSelected(saved); await loadRuns(saved.id, 1);
@@ -126,6 +152,9 @@ export function ProcessingJobsPanel() {
         startAt: detail.schedule ? new Date(detail.schedule.startAt).toISOString().slice(0, 16) : initial.startAt,
         interval: detail.schedule?.interval ?? 1, retryEnabled: detail.retryPolicy.isEnabled,
         maxAttempts: detail.retryPolicy.maxAttempts, delaySeconds: detail.retryPolicy.delaySeconds,
+        notifyFailures: detail.failureNotificationPolicy.isEnabled,
+        includeOwner: detail.failureNotificationPolicy.includeOwner,
+        recipientUserIds: detail.failureNotificationPolicy.recipientUserIds,
         mappingJson: detail.config.mapping ? JSON.stringify(detail.config.mapping, null, 2) : initial.mappingJson
       });
     } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
@@ -185,6 +214,17 @@ export function ProcessingJobsPanel() {
             <Checkbox checked={form.retryEnabled} label="Retry failed exports" onChange={(e) => setForm({ ...form, retryEnabled: e.target.checked })} />
             {form.retryEnabled ? <><Input label="Maximum attempts" type="number" min={1} max={5} value={form.maxAttempts} onChange={(e) => setForm({ ...form, maxAttempts: Number(e.target.value) })} /><Input label="Retry delay (seconds)" type="number" min={30} max={86400} value={form.delaySeconds} onChange={(e) => setForm({ ...form, delaySeconds: Number(e.target.value) })} /></> : null}
           </>}
+          <div className="space-y-2 rounded-xl border border-border p-3">
+            <Checkbox checked={form.notifyFailures} label="Notify after final failure" onChange={(e) => setForm({ ...form, notifyFailures: e.target.checked })} />
+            {form.notifyFailures ? <>
+              <Checkbox checked={form.includeOwner} label="Include job owner" onChange={(e) => setForm({ ...form, includeOwner: e.target.checked })} />
+              <p className="text-xs font-semibold text-muted-foreground">Additional eligible recipients</p>
+              <div className="max-h-36 space-y-1 overflow-auto">
+                {recipients.map((recipient) => <Checkbox key={recipient.id} checked={form.recipientUserIds.includes(recipient.id)} label={recipient.name} onChange={(e) => setForm({ ...form, recipientUserIds: e.target.checked ? [...form.recipientUserIds, recipient.id] : form.recipientUserIds.filter((id) => id !== recipient.id) })} />)}
+                {recipients.length === 0 ? <p className="text-xs text-muted-foreground">No additional eligible recipients.</p> : null}
+              </div>
+            </> : null}
+          </div>
           <div className="flex gap-2"><Button disabled={busy || !form.name.trim() || !form.formId || !form.integrationKey.trim()} onClick={() => void create()}><Plus className="size-4" />{editing ? "Save changes" : "Create job"}</Button>{editing ? <Button variant="ghost" onClick={() => { setEditing(null); setForm(initial); }}>Cancel</Button> : null}</div>
         </CardContent></Card>
       <div className="space-y-3">
@@ -211,6 +251,7 @@ export function ProcessingJobsPanel() {
       ]} /> : null}
       {runTotal > 25 ? <div className="flex items-center justify-between"><Button disabled={loadingRuns || runPage === 1} size="sm" variant="outline" onClick={() => void loadRuns(selected.id, runPage - 1)}>Previous</Button><span className="text-xs text-muted-foreground">Page {runPage} of {Math.ceil(runTotal / 25)}</span><Button disabled={loadingRuns || runPage * 25 >= runTotal} size="sm" variant="outline" onClick={() => void loadRuns(selected.id, runPage + 1)}>Next</Button></div> : null}
     </CardContent></Card> : null}
+    <ProcessingOperationsPanel jobs={jobs} />
   </div>;
 }
 

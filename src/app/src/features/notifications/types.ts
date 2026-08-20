@@ -18,6 +18,8 @@ export type NotificationUnreadCount = {
   unreadCount: number;
 };
 
+export type NotificationPage = { items: AppNotification[]; page: number; pageSize: number; totalCount: number };
+
 export type NotificationPreferences = {
   inAppEnabled: boolean;
   showUnreadBadge: boolean;
