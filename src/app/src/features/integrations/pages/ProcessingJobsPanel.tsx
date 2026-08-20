@@ -29,8 +29,14 @@ const initial = {
 
 export function ProcessingJobsPanel() {
   const [jobs, setJobs] = useState<ProcessingJobSummaryDto[]>([]);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobTotal, setJobTotal] = useState(0);
+  const [loadingJobs, setLoadingJobs] = useState(true);
   const [selected, setSelected] = useState<ProcessingJobSummaryDto | null>(null);
   const [runs, setRuns] = useState<ProcessingJobRunDto[]>([]);
+  const [runPage, setRunPage] = useState(1);
+  const [runTotal, setRunTotal] = useState(0);
+  const [loadingRuns, setLoadingRuns] = useState(false);
   const [form, setForm] = useState(initial);
   const [editing, setEditing] = useState<ProcessingJobDetailDto | null>(null);
   const [csv, setCsv] = useState("");
@@ -41,21 +47,34 @@ export function ProcessingJobsPanel() {
 
   useEffect(() => { void loadJobs(); }, []);
 
-  async function loadJobs() {
+  async function loadJobs(targetPage = jobPage) {
+    setLoadingJobs(true);
     setError(null);
     try {
-      const result = await listProcessingJobs();
+      const result = await listProcessingJobs(targetPage);
+      if (result.items.length === 0 && result.totalCount > 0 && targetPage > 1) {
+        await loadJobs(targetPage - 1);
+        return;
+      }
+      setJobPage(result.page);
+      setJobTotal(result.totalCount);
       setJobs(result.items);
       const current = selected ? result.items.find((item) => item.id === selected.id) ?? null : result.items[0] ?? null;
       setSelected(current);
-      if (current) await loadRuns(current.id);
-      else setRuns([]);
+      if (current) await loadRuns(current.id, 1);
+      else { setRuns([]); setRunTotal(0); }
     } catch (caught) { setError(message(caught)); }
+    finally { setLoadingJobs(false); }
   }
 
-  async function loadRuns(id: string) {
-    try { setRuns((await listProcessingJobRuns(id)).items); }
+  async function loadRuns(id: string, targetPage = runPage) {
+    setLoadingRuns(true);
+    try {
+      const result = await listProcessingJobRuns(id, targetPage);
+      setRunPage(result.page); setRunTotal(result.totalCount); setRuns(result.items);
+    }
     catch (caught) { setError(message(caught)); }
+    finally { setLoadingRuns(false); }
   }
 
   async function create() {
@@ -81,15 +100,15 @@ export function ProcessingJobsPanel() {
       const saved = editing
         ? await updateProcessingJob(editing.id, { name: request.name, config: request.config, schedule: request.schedule, retryPolicy: request.retryPolicy, concurrencyStamp: editing.concurrencyStamp })
         : await createProcessingJob(request);
-      setForm(initial); setEditing(null); setNotice(editing ? "Processing job updated." : "Processing job created."); await loadJobs();
-      setSelected(saved); await loadRuns(saved.id);
+      setForm(initial); setEditing(null); setNotice(editing ? "Processing job updated." : "Processing job created."); await loadJobs(1);
+      setSelected(saved); await loadRuns(saved.id, 1);
     } catch (caught) { setError(message(caught)); }
     finally { setBusy(false); }
   }
 
   async function toggle(job: ProcessingJobSummaryDto) {
     setBusy(true); setError(null);
-    try { await setProcessingJobEnabled(job, !job.isEnabled); setNotice(job.isEnabled ? "Schedule disabled." : "Schedule enabled."); await loadJobs(); }
+    try { await setProcessingJobEnabled(job, !job.isEnabled); setNotice(job.isEnabled ? "Schedule disabled." : "Schedule enabled."); await loadJobs(jobPage); }
     catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
 
@@ -115,7 +134,7 @@ export function ProcessingJobsPanel() {
   async function remove(job: ProcessingJobSummaryDto) {
     if (!window.confirm(`Delete ${job.name}?`)) return;
     setBusy(true); setError(null);
-    try { await deleteProcessingJob(job); setSelected(null); setNotice("Processing job deleted."); await loadJobs(); }
+    try { await deleteProcessingJob(job); setSelected(null); setNotice("Processing job deleted."); await loadJobs(jobPage); }
     catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
 
@@ -123,14 +142,14 @@ export function ProcessingJobsPanel() {
     setBusy(true); setError(null);
     try {
       await queueProcessingJob(job.id, job.kind === "csv_record_import" ? fileName : null, job.kind === "csv_record_import" ? csv : null);
-      setCsv(""); setNotice("Run queued."); await loadRuns(job.id);
+      setCsv(""); setNotice("Run queued."); await loadRuns(job.id, 1);
     } catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
 
   async function retry(run: ProcessingJobRunDto) {
     if (!selected) return;
     setBusy(true); setError(null);
-    try { await retryProcessingJobRun(selected.id, run.id); setNotice("Retry queued."); await loadRuns(selected.id); }
+    try { await retryProcessingJobRun(selected.id, run.id); setNotice("Retry queued."); await loadRuns(selected.id, 1); }
     catch (caught) { setError(message(caught)); } finally { setBusy(false); }
   }
 
@@ -169,24 +188,28 @@ export function ProcessingJobsPanel() {
           <div className="flex gap-2"><Button disabled={busy || !form.name.trim() || !form.formId || !form.integrationKey.trim()} onClick={() => void create()}><Plus className="size-4" />{editing ? "Save changes" : "Create job"}</Button>{editing ? <Button variant="ghost" onClick={() => { setEditing(null); setForm(initial); }}>Cancel</Button> : null}</div>
         </CardContent></Card>
       <div className="space-y-3">
-        <div className="flex justify-end"><Button variant="outline" onClick={() => void loadJobs()}><RefreshCw className="size-4" />Refresh</Button></div>
-        {jobs.length === 0 ? <EmptyState title="No processing jobs" description="Create a bounded import or export job." /> : <Table data={jobs} columns={[
-          { header: "Name", render: (job) => <button className="font-bold text-primary" onClick={() => { setSelected(job); void loadRuns(job.id); }}>{job.name}</button> },
+        <div className="flex justify-end"><Button variant="outline" onClick={() => void loadJobs(jobPage)}><RefreshCw className="size-4" />Refresh</Button></div>
+        {loadingJobs ? <p className="text-sm font-semibold text-muted-foreground">Loading processing jobs...</p> : null}
+        {!loadingJobs && jobs.length === 0 ? <EmptyState title="No processing jobs" description="Create a bounded import or export job." /> : jobs.length > 0 ? <Table data={jobs} columns={[
+          { header: "Name", render: (job) => <button className="font-bold text-primary" onClick={() => { setSelected(job); void loadRuns(job.id, 1); }}>{job.name}</button> },
           { header: "Type", accessor: "kind" }, { header: "Status", render: (job) => job.isEnabled ? <Badge variant="success">Scheduled</Badge> : <Badge>Manual</Badge> },
           { header: "Next run", render: (job) => job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : "-" },
           { header: "Actions", render: (job) => <div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => void edit(job)}>Edit</Button><Button size="sm" variant="outline" disabled={busy || job.kind === "csv_record_import"} onClick={() => void toggle(job)}>{job.isEnabled ? "Disable" : "Enable"}</Button><Button size="sm" variant="danger" disabled={busy} onClick={() => void remove(job)}><Trash2 className="size-4" /></Button></div> }
-        ]} />}
+        ]} /> : null}
+        {jobTotal > 25 ? <div className="flex items-center justify-between"><Button disabled={loadingJobs || jobPage === 1} size="sm" variant="outline" onClick={() => void loadJobs(jobPage - 1)}>Previous</Button><span className="text-xs text-muted-foreground">Page {jobPage} of {Math.ceil(jobTotal / 25)}</span><Button disabled={loadingJobs || jobPage * 25 >= jobTotal} size="sm" variant="outline" onClick={() => void loadJobs(jobPage + 1)}>Next</Button></div> : null}
       </div>
     </div>
     {selected ? <Card><CardHeader><CardTitle>{selected.name} runs</CardTitle><CardDescription>Raw CSV input is never shown and is cleared after processing.</CardDescription></CardHeader><CardContent className="space-y-4">
       {selected.kind === "csv_record_import" ? <div className="grid gap-3 md:grid-cols-2"><Input label="File name" value={fileName} onChange={(e) => setFileName(e.target.value)} /><Textarea label="CSV content (maximum 1 MB)" value={csv} onChange={(e) => setCsv(e.target.value)} rows={5} /></div> : null}
       <Button disabled={busy || (selected.kind === "csv_record_import" && !csv.trim())} onClick={() => void run(selected)}><Play className="size-4" />Queue manual run</Button>
-      {runs.length === 0 ? <EmptyState title="No runs" description="Queue a manual run or wait for the schedule." /> : <Table data={runs} columns={[
+      {loadingRuns ? <p className="text-sm font-semibold text-muted-foreground">Loading runs...</p> : null}
+      {!loadingRuns && runs.length === 0 ? <EmptyState title="No runs" description="Queue a manual run or wait for the schedule." /> : runs.length > 0 ? <Table data={runs} columns={[
         { header: "Created", render: (run) => new Date(run.createdAt).toLocaleString() }, { header: "Source", accessor: "source" },
         { header: "Status", render: (run) => <Badge variant={run.status === "succeeded" ? "success" : run.status === "failed" ? "danger" : "warning"}>{run.status}</Badge> },
         { header: "Attempt", render: (run) => `${run.attempt}/${run.maxAttempts}` }, { header: "Error", render: (run) => run.errorCode ? `${run.errorCode}: ${run.errorMessage ?? ""}` : "-" },
         { header: "Result", render: (run) => <div className="flex gap-2">{run.externalExportJobId && run.status === "succeeded" ? <Button size="sm" variant="outline" onClick={() => void download(run)}><Download className="size-4" />Artifact</Button> : null}{run.status === "failed" && selected.kind === "record_export" && run.attempt < run.maxAttempts ? <Button size="sm" variant="outline" onClick={() => void retry(run)}><RotateCcw className="size-4" />Retry</Button> : null}{run.recordImportJobId ? <span className="text-xs">Import {run.recordImportJobId}</span> : null}</div> }
-      ]} />}
+      ]} /> : null}
+      {runTotal > 25 ? <div className="flex items-center justify-between"><Button disabled={loadingRuns || runPage === 1} size="sm" variant="outline" onClick={() => void loadRuns(selected.id, runPage - 1)}>Previous</Button><span className="text-xs text-muted-foreground">Page {runPage} of {Math.ceil(runTotal / 25)}</span><Button disabled={loadingRuns || runPage * 25 >= runTotal} size="sm" variant="outline" onClick={() => void loadRuns(selected.id, runPage + 1)}>Next</Button></div> : null}
     </CardContent></Card> : null}
   </div>;
 }

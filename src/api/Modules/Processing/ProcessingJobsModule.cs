@@ -21,7 +21,7 @@ public sealed class ProcessingJobsModule : IPlatformApiModule
         group.MapPost("", async (CreateProcessingJobRequest request, ProcessingJobService service, PermissionService permissions, HttpContext context, CancellationToken ct) =>
             !await Allowed(permissions, context, ct) ? Results.Forbid() : await Handle(async () =>
             {
-                var created = await service.CreateAsync(request, Actor(context), ct);
+                var created = await service.CreateAsync(request, PersistentActor(context), ct);
                 return Results.Created($"/api/processing-jobs/{created.Id}", created);
             }));
         group.MapPut("/{id:guid}", async (Guid id, UpdateProcessingJobRequest request, ProcessingJobService service, PermissionService permissions, HttpContext context, CancellationToken ct) =>
@@ -37,14 +37,16 @@ public sealed class ProcessingJobsModule : IPlatformApiModule
         group.MapGet("/{id:guid}/runs/{runId:guid}", async (Guid id, Guid runId, ProcessingJobService service, PermissionService permissions, HttpContext context, CancellationToken ct) =>
             !await Allowed(permissions, context, ct) ? Results.Forbid() : await Found(service.GetRunAsync(id, runId, ct)));
         group.MapPost("/{id:guid}/runs", async (Guid id, CreateProcessingJobRunRequest request, ProcessingJobService service, PermissionService permissions, HttpContext context, CancellationToken ct) =>
-            !await Allowed(permissions, context, ct) ? Results.Forbid() : await Handle(async () => Results.Accepted($"/api/processing-jobs/{id}/runs", await service.QueueManualAsync(id, request, Actor(context), ct))));
+            !await Allowed(permissions, context, ct) ? Results.Forbid() : await Handle(async () => Results.Accepted($"/api/processing-jobs/{id}/runs", await service.QueueManualAsync(id, request, PersistentActor(context), ct))));
         group.MapPost("/{id:guid}/runs/{runId:guid}/retry", async (Guid id, Guid runId, ProcessingJobService service, PermissionService permissions, HttpContext context, CancellationToken ct) =>
-            !await Allowed(permissions, context, ct) ? Results.Forbid() : await Handle(async () => Results.Accepted($"/api/processing-jobs/{id}/runs", await service.RetryAsync(id, runId, Actor(context), ct))));
+            !await Allowed(permissions, context, ct) ? Results.Forbid() : await Handle(async () => Results.Accepted($"/api/processing-jobs/{id}/runs", await service.RetryAsync(id, runId, PersistentActor(context), ct))));
     }
 
     private static async Task<bool> Allowed(PermissionService permissions, HttpContext context, CancellationToken ct) =>
         await permissions.CanAsync(context.User, PlatformPermissions.Integrations.Manage, ct);
-    private static Guid Actor(HttpContext context) => WorkspaceMembershipService.GetUserId(context.User) ?? Guid.Empty;
+    private static Guid? Actor(HttpContext context) => WorkspaceMembershipService.GetUserId(context.User);
+    private static Guid PersistentActor(HttpContext context) => Actor(context)
+        ?? throw new ProcessingJobException(StatusCodes.Status403Forbidden, "An active persistent workspace user is required.");
     private static async Task<IResult> Found<T>(Task<T?> task) where T : class => await task is { } value ? Results.Ok(value) : Results.NotFound();
     private static async Task<IResult> Handle(Func<Task<IResult>> action)
     {

@@ -247,14 +247,22 @@ public sealed class RecordImportJobService
 
     private static CreateRecordImportJobRequest Normalize(CreateRecordImportJobRequest request)
     {
+        if (request.Mapping?.FieldMappings is null)
+        {
+            throw new RecordImportException(StatusCodes.Status400BadRequest, "Record import mapping is required.");
+        }
+
         return request with
         {
-            IntegrationKey = request.IntegrationKey.Trim().ToLowerInvariant(),
-            Mapping = new RecordImportMappingDefinition(request.Mapping.FieldMappings.Select(mapping => mapping with
+            IntegrationKey = request.IntegrationKey?.Trim().ToLowerInvariant() ?? string.Empty,
+            Mapping = request.Mapping with
             {
-                CsvHeader = mapping.CsvHeader.Trim(),
-                TargetFieldId = mapping.TargetFieldId.Trim()
-            }).ToArray())
+                FieldMappings = request.Mapping.FieldMappings.Select(mapping => mapping with
+                {
+                    CsvHeader = mapping.CsvHeader?.Trim() ?? string.Empty,
+                    TargetFieldId = mapping.TargetFieldId?.Trim() ?? string.Empty
+                }).ToArray()
+            }
         };
     }
 

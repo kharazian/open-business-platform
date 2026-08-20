@@ -49,6 +49,9 @@ public static class ProcessingJobValidator
         if (kind == ProcessingJobKinds.CsvRecordImport)
         {
             if (config.Mapping?.FieldMappings is not { Count: > 0 }) errors.Add(Error("config.mapping", "processing.config.mapping", "CSV import mapping is required."));
+            if (config.Mapping?.AdditionalProperties is { Count: > 0 }
+                || config.Mapping?.FieldMappings.Any(mapping => mapping.AdditionalProperties is { Count: > 0 }) == true)
+                errors.Add(Error("config.mapping", "processing.config.mapping_properties", "CSV import mapping contains unsupported properties."));
             if (config.ReportId is not null || config.SourceType is not null || config.Format is not null || config.Search is not null) errors.Add(Error("config", "processing.config.import_properties", "CSV import config contains export-only properties."));
         }
         else if (kind == ProcessingJobKinds.RecordExport)

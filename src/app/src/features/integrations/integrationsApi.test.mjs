@@ -217,6 +217,8 @@ test("processing job API client preserves bounded typed requests and run ancestr
     calls.push({ input, init });
     if (input.startsWith("/api/processing-jobs?page=")) return { ok: true, json: async () => ({ items: [{ id: "job-1", name: "Nightly export" }], page: 1, pageSize: 25, totalCount: 1 }) };
     if (input === "/api/processing-jobs" && init.method === "POST") return { ok: true, json: async () => ({ id: "job-1", name: "Nightly export" }) };
+    if (input === "/api/processing-jobs/job-1" && init.method === "GET") return { ok: true, json: async () => ({ id: "job-1", name: "Nightly export", concurrencyStamp: "stamp-1" }) };
+    if (input === "/api/processing-jobs/job-1" && init.method === "PUT") return { ok: true, json: async () => ({ id: "job-1", name: "Updated export", concurrencyStamp: "stamp-2" }) };
     if (input.includes("/runs?page=")) return { ok: true, json: async () => ({ items: [{ id: "run-1", retrySourceRunId: null }], page: 1, pageSize: 25, totalCount: 1 }) };
     if (input.endsWith("/runs") && init.method === "POST") return { ok: true, json: async () => ({ id: "run-2", status: "pending" }) };
     if (input.endsWith("/retry")) return { ok: true, json: async () => ({ id: "run-3", retrySourceRunId: "run-1", attempt: 2 }) };
@@ -230,17 +232,28 @@ test("processing job API client preserves bounded typed requests and run ancestr
     schedule: { kind: "daily", timeZone: "UTC", startAt: "2026-08-20T00:00:00Z", interval: 1 },
     retryPolicy: { isEnabled: true, maxAttempts: 3, delaySeconds: 300 }
   }, fetcher);
+  const detail = await api.getProcessingJob("job-1", fetcher);
+  const updated = await api.updateProcessingJob("job-1", {
+    name: "Updated export",
+    config: { formId: "form-1", integrationKey: "nightly", sourceType: "form_records", format: "csv", maxRows: 5000 },
+    schedule: null,
+    retryPolicy: { isEnabled: false, maxAttempts: 1, delaySeconds: 300 },
+    concurrencyStamp: detail.concurrencyStamp
+  }, fetcher);
   const runs = await api.listProcessingJobRuns("job-1", 1, 25, fetcher);
   await api.queueProcessingJob("job-1", null, null, fetcher);
   const retry = await api.retryProcessingJobRun("job-1", "run-1", fetcher);
 
   assert.equal(page.totalCount, 1);
+  assert.equal(updated.name, "Updated export");
   assert.equal(runs.items[0].id, "run-1");
   assert.equal(retry.retrySourceRunId, "run-1");
   assert.equal(JSON.parse(calls[1].init.body).config.maxRows, 5000);
   assert.deepEqual(calls.map((call) => `${call.init.method} ${call.input}`), [
     "GET /api/processing-jobs?page=1&pageSize=25",
     "POST /api/processing-jobs",
+    "GET /api/processing-jobs/job-1",
+    "PUT /api/processing-jobs/job-1",
     "GET /api/processing-jobs/job-1/runs?page=1&pageSize=25",
     "POST /api/processing-jobs/job-1/runs",
     "POST /api/processing-jobs/job-1/runs/run-1/retry"

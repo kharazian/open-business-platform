@@ -24,6 +24,11 @@ public static class RecordImportJobValidator
             errors.Add(new FormValidationError("csvContent", "record_import.csv_headers_required", "CSV headers are required."));
         }
 
+        if (request.Mapping.AdditionalProperties is { Count: > 0 })
+        {
+            errors.Add(new FormValidationError("mapping", "record_import.mapping_properties", "Import mapping contains unsupported properties."));
+        }
+
         if (request.Mapping.FieldMappings.Count == 0)
         {
             errors.Add(new FormValidationError("mapping.fieldMappings", "record_import.mapping_required", "At least one field mapping is required."));
@@ -31,6 +36,10 @@ public static class RecordImportJobValidator
 
         foreach (var mapping in request.Mapping.FieldMappings)
         {
+            if (mapping.AdditionalProperties is { Count: > 0 })
+            {
+                errors.Add(new FormValidationError("mapping.fieldMappings", "record_import.field_mapping_properties", "Field mapping contains unsupported properties."));
+            }
             if (string.IsNullOrWhiteSpace(mapping.CsvHeader) || !headers.Contains(mapping.CsvHeader))
             {
                 errors.Add(new FormValidationError("mapping.csvHeader", "record_import.header_missing", "Mapped CSV header does not exist."));

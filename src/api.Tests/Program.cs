@@ -89,6 +89,21 @@ AssertTrue(!ProcessingJobValidator.ValidateManualRun(
     ProcessingJobKinds.CsvRecordImport,
     new CreateProcessingJobRunRequest("records.csv", new string('x', ProcessingJobValidator.MaxCsvBytes + 1))).Valid,
     "Queued CSV inputs should enforce the private input byte limit.");
+var strictImportMapping = new RecordImportMappingDefinition(
+    new[] { new RecordImportFieldMappingDefinition("email", "email") })
+{
+    AdditionalProperties = new Dictionary<string, JsonElement>
+    {
+        ["script"] = JsonSerializer.SerializeToElement("not allowed")
+    }
+};
+var strictImportValidation = ProcessingJobValidator.Validate(new CreateProcessingJobRequest(
+    "Strict import",
+    ProcessingJobKinds.CsvRecordImport,
+    new ProcessingJobConfigDefinition(Guid.NewGuid(), "strict-import", Mapping: strictImportMapping)));
+AssertTrue(
+    strictImportValidation.Errors.Any(error => error.Code == "processing.config.mapping_properties"),
+    "Processing import mappings should reject unknown nested properties.");
 AssertEqual(
     DateTimeOffset.Parse("2026-08-20T00:00:00Z"),
     RecurringScheduleCalculator.CalculateNextRun(
@@ -889,6 +904,12 @@ AssertEqual("sam@example.test", importRows.Rows[1].Values["Email Address"], "Rec
 AssertTrue(
     RecordImportJobValidator.Validate(validImportRequest, webhookTargetSchema, importRows).Valid,
     "Record import validation should accept explicit CSV header to target field mappings.");
+AssertTrue(
+    RecordImportJobValidator.Validate(
+        validImportRequest with { Mapping = strictImportMapping },
+        webhookTargetSchema,
+        importRows).Errors.Any(error => error.Code == "record_import.mapping_properties"),
+    "Direct record imports should reject unknown nested mapping properties.");
 AssertFalse(
     RecordImportJobValidator.Validate(
         validImportRequest with { Mapping = new RecordImportMappingDefinition(new[] { new RecordImportFieldMappingDefinition("Missing", "email") }) },

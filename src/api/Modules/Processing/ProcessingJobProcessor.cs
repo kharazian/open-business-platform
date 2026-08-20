@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -47,7 +48,8 @@ public sealed class ProcessingJobProcessor(
                 var run = NewRun(definition, ProcessingJobRunSources.Scheduled, 1, policy.IsEnabled ? policy.MaxAttempts : 1, definition.OwnerUserId, lockedAt);
                 dbContext.ProcessingJobRuns.Add(run);
                 AddAudit(id, "processing_job_scheduled_enqueued", definition.OwnerUserId, new { runId = run.Id });
-                try { await dbContext.SaveChangesAsync(ct); } catch (DbUpdateException) { dbContext.ChangeTracker.Clear(); }
+                try { await dbContext.SaveChangesAsync(ct); }
+                catch (DbUpdateException exception) when (IsUniqueViolation(exception)) { dbContext.ChangeTracker.Clear(); }
             }
             await dbContext.ProcessingJobDefinitions.Where(x => x.Id == id && x.ScheduleClaimId == claimId && x.ScheduleLockedAt == lockedAt)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.NextRunAt, next).SetProperty(x => x.IsEnabled, next != null)
@@ -60,23 +62,62 @@ public sealed class ProcessingJobProcessor(
     public async Task<int> ProcessRunsAsync(CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
-        var ids = await dbContext.ProcessingJobRuns.AsNoTracking()
+        var candidates = await dbContext.ProcessingJobRuns.AsNoTracking()
             .Where(x => x.NextAttemptAt <= now && (x.Status == ProcessingJobStatuses.Pending
                 || x.Status == ProcessingJobStatuses.Running && x.LockedAt < now - ClaimLease))
-            .OrderBy(x => x.NextAttemptAt).ThenBy(x => x.CreatedAt).Select(x => x.Id).Take(5).ToArrayAsync(ct);
+            .OrderBy(x => x.NextAttemptAt).ThenBy(x => x.CreatedAt)
+            .Select(x => new
+            {
+                x.Id,
+                x.DefinitionId,
+                x.Status,
+                x.ClaimId,
+                x.LockedAt,
+                Kind = x.Definition!.Kind,
+                OwnerUserId = x.Definition.OwnerUserId
+            })
+            .Take(5)
+            .ToArrayAsync(ct);
         var count = 0;
-        foreach (var id in ids)
+        foreach (var candidate in candidates)
         {
             ct.ThrowIfCancellationRequested();
+            if (candidate.Status == ProcessingJobStatuses.Running
+                && candidate.Kind == ProcessingJobKinds.CsvRecordImport)
+            {
+                var completedAt = DateTimeOffset.UtcNow;
+                var failed = await dbContext.ProcessingJobRuns
+                    .Where(x => x.Id == candidate.Id
+                        && x.Status == ProcessingJobStatuses.Running
+                        && x.ClaimId == candidate.ClaimId
+                        && x.LockedAt == candidate.LockedAt)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.Status, ProcessingJobStatuses.Failed)
+                        .SetProperty(x => x.CompletedAt, completedAt)
+                        .SetProperty(x => x.LockedAt, (DateTimeOffset?)null)
+                        .SetProperty(x => x.ClaimId, (Guid?)null)
+                        .SetProperty(x => x.InputContent, (string?)null)
+                        .SetProperty(x => x.ErrorCode, "import_recovery_unsafe")
+                        .SetProperty(x => x.ErrorMessage, "An interrupted CSV import cannot be replayed safely."), ct);
+                if (failed > 0)
+                {
+                    AddAudit(candidate.DefinitionId, "processing_job_run_failed", candidate.OwnerUserId,
+                        new { runId = candidate.Id, errorCode = "import_recovery_unsafe" });
+                    await dbContext.SaveChangesAsync(ct);
+                    count++;
+                }
+                continue;
+            }
+
             var claimId = Guid.NewGuid();
             var claimedAt = DateTimeOffset.UtcNow;
-            var claimed = await dbContext.ProcessingJobRuns.Where(x => x.Id == id && x.NextAttemptAt <= claimedAt
+            var claimed = await dbContext.ProcessingJobRuns.Where(x => x.Id == candidate.Id && x.NextAttemptAt <= claimedAt
                     && (x.Status == ProcessingJobStatuses.Pending || x.Status == ProcessingJobStatuses.Running && x.LockedAt < claimedAt - ClaimLease))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ProcessingJobStatuses.Running)
                     .SetProperty(x => x.ClaimId, claimId).SetProperty(x => x.LockedAt, claimedAt)
                     .SetProperty(x => x.StartedAt, x => x.StartedAt ?? claimedAt), ct);
             if (claimed == 0) continue;
-            await ExecuteAsync(id, claimId, ct);
+            await ExecuteAsync(candidate.Id, claimId, ct);
             count++;
         }
         return count;
@@ -94,11 +135,19 @@ public sealed class ProcessingJobProcessor(
             var config = Read<ProcessingJobConfigDefinition>(definition.ConfigJson)
                 ?? throw new ProcessingRunFailure("config_invalid", "Processing job configuration is invalid.");
             Guid? importId = null, exportId = null;
+            string? terminalErrorCode = null, terminalErrorMessage = null;
             if (definition.Kind == ProcessingJobKinds.CsvRecordImport)
             {
                 if (string.IsNullOrEmpty(run.InputContent) || config.Mapping is null) throw new ProcessingRunFailure("input_unavailable", "Queued CSV input is unavailable.");
                 var result = await imports.CreateAsync(principal, new(config.FormId, config.IntegrationKey, run.InputFileName, run.InputContent, config.Mapping), definition.OwnerUserId, ct);
                 importId = result.Id;
+                if (result.Status != RecordImportJobStatuses.Succeeded)
+                {
+                    terminalErrorCode = result.Status == RecordImportJobStatuses.CompletedWithErrors
+                        ? "import_completed_with_errors"
+                        : "import_failed";
+                    terminalErrorMessage = "The CSV import completed with row errors. Review the linked import job.";
+                }
             }
             else
             {
@@ -106,12 +155,21 @@ public sealed class ProcessingJobProcessor(
                 exportId = result.Id;
             }
             var completedAt = DateTimeOffset.UtcNow;
+            var terminalStatus = terminalErrorCode is null ? ProcessingJobStatuses.Succeeded : ProcessingJobStatuses.Failed;
             var updated = await dbContext.ProcessingJobRuns.Where(x => x.Id == runId && x.ClaimId == claimId)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ProcessingJobStatuses.Succeeded)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, terminalStatus)
                     .SetProperty(x => x.CompletedAt, completedAt).SetProperty(x => x.LockedAt, (DateTimeOffset?)null)
                     .SetProperty(x => x.ClaimId, (Guid?)null).SetProperty(x => x.InputContent, (string?)null)
-                    .SetProperty(x => x.RecordImportJobId, importId).SetProperty(x => x.ExternalExportJobId, exportId), ct);
-            if (updated > 0) { AddAudit(run.DefinitionId, "processing_job_run_succeeded", definition.OwnerUserId, new { runId }); await dbContext.SaveChangesAsync(ct); }
+                    .SetProperty(x => x.RecordImportJobId, importId).SetProperty(x => x.ExternalExportJobId, exportId)
+                    .SetProperty(x => x.ErrorCode, terminalErrorCode).SetProperty(x => x.ErrorMessage, terminalErrorMessage), ct);
+            if (updated > 0)
+            {
+                AddAudit(run.DefinitionId,
+                    terminalStatus == ProcessingJobStatuses.Succeeded ? "processing_job_run_succeeded" : "processing_job_run_failed",
+                    definition.OwnerUserId,
+                    new { runId, errorCode = terminalErrorCode });
+                await dbContext.SaveChangesAsync(ct);
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
@@ -137,7 +195,8 @@ public sealed class ProcessingJobProcessor(
         var retry = NewRun(definition, ProcessingJobRunSources.Retry, failed.Attempt + 1, policy.MaxAttempts, definition.OwnerUserId, now.AddSeconds(policy.DelaySeconds));
         retry.RetrySourceRunId = failed.RetrySourceRunId ?? failed.Id;
         dbContext.ProcessingJobRuns.Add(retry);
-        try { await dbContext.SaveChangesAsync(ct); } catch (DbUpdateException) { dbContext.ChangeTracker.Clear(); }
+        try { await dbContext.SaveChangesAsync(ct); }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception)) { dbContext.ChangeTracker.Clear(); }
     }
 
     private async Task EnsureActorAsync(Guid userId, CancellationToken ct)
@@ -164,6 +223,8 @@ public sealed class ProcessingJobProcessor(
         _ => ("processing_failed", "Processing failed. Review the source configuration and permissions.")
     };
     private static string Limit(string value) => value.Length <= 1000 ? value : value[..1000];
+    private static bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
     private sealed class ProcessingRunFailure(string code, string message) : Exception(message) { public string Code { get; } = code; }
 }
 

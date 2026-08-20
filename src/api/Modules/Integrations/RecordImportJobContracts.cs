@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using OpenBusinessPlatform.Api.Modules.Forms;
 
 namespace OpenBusinessPlatform.Api.Modules.Integrations;
@@ -34,10 +36,18 @@ public static class RecordImportJobRowStatuses
 
 public sealed record RecordImportFieldMappingDefinition(
     string CsvHeader,
-    string TargetFieldId);
+    string TargetFieldId)
+{
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
+}
 
 public sealed record RecordImportMappingDefinition(
-    IReadOnlyList<RecordImportFieldMappingDefinition> FieldMappings);
+    IReadOnlyList<RecordImportFieldMappingDefinition> FieldMappings)
+{
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
+}
 
 public sealed record CreateRecordImportJobRequest(
     Guid FormId,

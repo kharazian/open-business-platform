@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using OpenBusinessPlatform.Api.Application.Common;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
@@ -48,13 +49,15 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         };
         if (entity.IsEnabled && normalized.Schedule is null)
             throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Enabled processing jobs require a schedule.");
+        if (entity.IsEnabled && entity.NextRunAt is null)
+            throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Enabled processing jobs require a future schedule occurrence.");
         dbContext.ProcessingJobDefinitions.Add(entity);
         Audit(entity.Id, "processing_job_created", actorId, new { entity.Name, entity.Kind });
         await dbContext.SaveChangesAsync(ct);
         return ToDetail(entity);
     }
 
-    public async Task<ProcessingJobDetailDto> UpdateAsync(Guid id, UpdateProcessingJobRequest request, Guid actorId, CancellationToken ct)
+    public async Task<ProcessingJobDetailDto> UpdateAsync(Guid id, UpdateProcessingJobRequest request, Guid? actorId, CancellationToken ct)
     {
         if (request.AdditionalProperties is { Count: > 0 })
             throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Request contains unsupported properties.");
@@ -72,13 +75,15 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         entity.FormId = candidate.Config.FormId;
         entity.ReportId = candidate.Config.ReportId;
         entity.NextRunAt = entity.IsEnabled ? Next(candidate.Schedule, DateTimeOffset.UtcNow) : null;
+        if (entity.IsEnabled && entity.NextRunAt is null)
+            throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Enabled processing jobs require a future schedule occurrence.");
         entity.UpdatedById = actorId;
         Audit(id, "processing_job_updated", actorId, new { entity.Name, entity.Kind });
         await dbContext.SaveChangesAsync(ct);
         return ToDetail(entity);
     }
 
-    public async Task DeleteAsync(Guid id, ProcessingJobStateRequest request, Guid actorId, CancellationToken ct)
+    public async Task DeleteAsync(Guid id, ProcessingJobStateRequest request, Guid? actorId, CancellationToken ct)
     {
         var entity = await FindAsync(id, ct);
         EnsureStamp(entity, request.ConcurrencyStamp);
@@ -89,7 +94,7 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         await dbContext.SaveChangesAsync(ct);
     }
 
-    public async Task<ProcessingJobDetailDto> SetEnabledAsync(Guid id, ProcessingJobStateRequest request, bool enabled, Guid actorId, CancellationToken ct)
+    public async Task<ProcessingJobDetailDto> SetEnabledAsync(Guid id, ProcessingJobStateRequest request, bool enabled, Guid? actorId, CancellationToken ct)
     {
         var entity = await FindAsync(id, ct);
         EnsureStamp(entity, request.ConcurrencyStamp);
@@ -97,6 +102,8 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         if (enabled && schedule is null) throw new ProcessingJobException(StatusCodes.Status409Conflict, "A schedule is required before enabling this job.");
         entity.IsEnabled = enabled;
         entity.NextRunAt = enabled ? Next(schedule, DateTimeOffset.UtcNow) : null;
+        if (enabled && entity.NextRunAt is null)
+            throw new ProcessingJobException(StatusCodes.Status409Conflict, "The schedule has no future occurrence.");
         entity.ScheduleClaimId = null; entity.ScheduleLockedAt = null; entity.UpdatedById = actorId;
         Audit(id, enabled ? "processing_job_enabled" : "processing_job_disabled", actorId, new { entity.Name });
         await dbContext.SaveChangesAsync(ct);
@@ -132,8 +139,14 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
         var policy = Deserialize<ProcessingJobRetryPolicyDefinition>(definition.RetryPolicyJson) ?? new();
         if (definition.Kind != ProcessingJobKinds.RecordExport || previous.Status != ProcessingJobStatuses.Failed || !policy.IsEnabled || previous.Attempt >= policy.MaxAttempts)
             throw new ProcessingJobException(StatusCodes.Status409Conflict, "This run is not eligible for retry.");
-        var run = NewRun(definition, ProcessingJobRunSources.Retry, previous.Attempt + 1, policy.MaxAttempts, actorId);
-        run.RetrySourceRunId = previous.RetrySourceRunId ?? previous.Id;
+        var retryRootId = previous.RetrySourceRunId ?? previous.Id;
+        var latestAttempt = await dbContext.ProcessingJobRuns.AsNoTracking()
+            .Where(x => x.Id == retryRootId || x.RetrySourceRunId == retryRootId)
+            .MaxAsync(x => x.Attempt, ct);
+        if (latestAttempt >= policy.MaxAttempts)
+            throw new ProcessingJobException(StatusCodes.Status409Conflict, "This retry chain has exhausted its configured attempts.");
+        var run = NewRun(definition, ProcessingJobRunSources.Retry, latestAttempt + 1, policy.MaxAttempts, actorId);
+        run.RetrySourceRunId = retryRootId;
         dbContext.ProcessingJobRuns.Add(run);
         Audit(definitionId, "processing_job_retry_requested", actorId, new { runId = run.Id, retrySourceRunId = run.RetrySourceRunId, run.Attempt });
         await SaveQueueAsync(ct);
@@ -180,7 +193,14 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
 
     private async Task<bool> HasActiveRunAsync(Guid id, CancellationToken ct) => await dbContext.ProcessingJobRuns.AnyAsync(x => x.DefinitionId == id && ProcessingJobStatuses.Active.Contains(x.Status), ct);
     private static ProcessingJobException Conflict() => new(StatusCodes.Status409Conflict, "This processing job already has an active run.");
-    private async Task SaveQueueAsync(CancellationToken ct) { try { await dbContext.SaveChangesAsync(ct); } catch (DbUpdateException) { throw Conflict(); } }
+    private async Task SaveQueueAsync(CancellationToken ct)
+    {
+        try { await dbContext.SaveChangesAsync(ct); }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            throw Conflict();
+        }
+    }
     private static void ThrowIfInvalid(ProcessingJobValidationResult result) { if (!result.Valid) throw new ProcessingJobException(StatusCodes.Status400BadRequest, "Processing job is invalid.", result.Errors); }
     private static void EnsureStamp(ProcessingJobDefinition x, string stamp) { if (string.IsNullOrWhiteSpace(stamp) || x.ConcurrencyStamp != stamp.Trim()) throw new ProcessingJobException(StatusCodes.Status409Conflict, "Processing job changed. Refresh and try again."); }
     private static (int, int) Page(int page, int size) => (Math.Max(1, page), Math.Clamp(size, 1, 100));
@@ -209,7 +229,7 @@ public sealed class ProcessingJobService(OpenBusinessPlatformDbContext dbContext
             RetryPolicy = r.RetryPolicy ?? new()
         };
     }
-    private void Audit(Guid id, string action, Guid actor, object metadata) => dbContext.AuditLogs.Add(new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "ProcessingJobDefinition", EntityId = id, Action = action, UserId = actor, MetadataJson = JsonSerializer.SerializeToDocument(metadata, JsonOptions) });
+    private void Audit(Guid id, string action, Guid? actor, object metadata) => dbContext.AuditLogs.Add(new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "ProcessingJobDefinition", EntityId = id, Action = action, UserId = actor, MetadataJson = JsonSerializer.SerializeToDocument(metadata, JsonOptions) });
 
     internal static ProcessingJobSummaryDto ToSummary(ProcessingJobDefinition x) => new(x.Id, x.Name, x.Kind, x.IsEnabled, x.FormId, x.ReportId, x.NextRunAt, x.ConcurrencyStamp, x.CreatedAt, x.UpdatedAt);
     internal static ProcessingJobDetailDto ToDetail(ProcessingJobDefinition x) => new(x.Id, x.Name, x.Kind, Deserialize<ProcessingJobConfigDefinition>(x.ConfigJson)!, Deserialize<ProcessingJobScheduleDefinition>(x.ScheduleJson), Deserialize<ProcessingJobRetryPolicyDefinition>(x.RetryPolicyJson) ?? new(), x.IsEnabled, x.OwnerUserId, x.NextRunAt, x.ConcurrencyStamp, x.CreatedAt, x.CreatedById, x.UpdatedAt, x.UpdatedById);
