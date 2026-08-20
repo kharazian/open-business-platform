@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
 
-Next: V10 operational app modeling continues from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. Tasks 001 through 007 are implemented; the separately reviewed task 008 bounded processing jobs and schedules specification is drafted and awaiting acceptance before implementation.
+Next: V10 operational app modeling continues from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. Tasks 001 through 008 are implemented; task 009 processing operations and failure notifications is drafted and awaiting review before implementation.
 
 The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
 
@@ -291,7 +291,8 @@ Planned sequence:
 - Nested report relationship data.
 - Permission-aware related-record workspaces implemented in V10 task 006 with bounded reverse lookup panels, canonical/legacy compatibility, immutable-schema validation, and display-only row projections.
 - Typed operational report and row actions implemented in V10 task 007 with saved allowlisted definitions, backend-projected availability, fixed-catalog builder controls, and authoritative destination reauthorization.
-- Bounded processing jobs, operational logs, and failure notifications.
+- Bounded processing jobs implemented in V10 task 008 with durable definitions/runs, bounded imports/exports, fenced scheduling, and safe export retry chains.
+- Processing operational logs and deduplicated failure notifications specified in V10 task 009 and awaiting review before implementation.
 - An analysis-only Creator-style export assistant.
 
-Next, review `tasks/v10/008-bounded-processing-jobs-and-schedules.md` before implementation. Later items also require their own task files.
+Next, review `tasks/v10/009-processing-operations-and-failure-notifications.md` before implementation. Later items also require their own task files.

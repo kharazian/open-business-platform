@@ -104,7 +104,7 @@ V9 task 007 is complete: workspace branding persists safe app identity and bound
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
 V9 task 010 is complete: permission-gated operational posture and payload-safe audit search/export provide administrative evidence without claiming certification or duplicating authoritative control state.
-V10 tasks 001 through 007 are complete. Task 007 adds saved allowlisted create/print/export and view/edit/delete report actions, backend-projected effective availability, bounded row-scope checks, fixed-catalog builder controls, and ordered viewer rendering while existing destination endpoints remain authoritative.
+V10 tasks 001 through 008 are complete. Task 008 adds workspace-owned bounded CSV-import/export definitions and runs, scheduled exports, fenced workers, private input cleanup, and safe export retry chains. Task 009 processing operations and failure notifications is drafted for review.
 
 ## 2. Core Product Philosophy
 

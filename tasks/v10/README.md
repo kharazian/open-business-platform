@@ -12,7 +12,7 @@ V10 is the Operational App Modeling sequence. It starts only after the accepted 
 6. `006-related-record-workspace.md` - complete; permission-aware, read-only reverse lookup panels now provide canonical/legacy discovery, independently paged display rows, and resilient record-detail states.
 7. `007-typed-operational-report-actions.md` - complete; saved typed report/row actions now have backend validation, permission-projected availability, fixed-catalog builder controls, and ordered viewer rendering without a generic action executor.
 8. `008-bounded-processing-jobs-and-schedules.md` - complete; adds bounded workspace processing definitions/runs, manual CSV imports, scheduled protected exports, fenced claims, and safe export retries.
-9. Operational logs and notifications - create a task file before implementation; keep diagnostics separate from audit history and deduplicate failure alerts.
+9. `009-processing-operations-and-failure-notifications.md` - drafted for review; keeps processing diagnostics separate from audit history and deduplicates terminal failure alerts.
 10. Creator-style export analysis - create a task file before implementation; produce a redacted compatibility report without mutating platform data.
 
 ## Scope Rules
