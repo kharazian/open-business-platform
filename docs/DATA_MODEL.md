@@ -1254,6 +1254,12 @@ This matches the current shared frontend/backend V1 schema shape.
 }
 ```
 
+## Dashboard Template Instances
+
+Template definitions are code-owned catalog entries, not database rows. Instantiation stores only the generated saved dashboard definition in the existing `dashboards.config_json` and `dashboards.layout_json` JSONB columns. Optional `templateProvenance` in config JSON records the catalog ID, version, and instantiation time for support purposes. It is non-authoritative and missing provenance is normal legacy data.
+
+This work adds no database table, column, index, or migration.
+
 ## Current Schema Version 1 Validation Rules
 
 The current frontend and backend validators enforce:

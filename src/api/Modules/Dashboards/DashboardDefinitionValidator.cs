@@ -37,12 +37,33 @@ public static class DashboardDefinitionValidator
             errors.Add(new DashboardValidationError("layout.schemaVersion", "dashboard.layout.schema_version", "Dashboard layout schema version is not supported."));
         }
 
+        if (config.TemplateProvenance is { } provenance
+            && (string.IsNullOrWhiteSpace(provenance.TemplateId)
+                || provenance.TemplateId.Length > 100
+                || provenance.TemplateVersion < 1
+                || provenance.InstantiatedAt == default))
+        {
+            errors.Add(new DashboardValidationError("config.templateProvenance", "dashboard.template.provenance_invalid", "Template provenance is invalid."));
+        }
+
         var widgets = config.Widgets ?? Array.Empty<SavedDashboardWidgetDefinition>();
         var layouts = layout.Widgets ?? Array.Empty<SavedDashboardWidgetLayoutDefinition>();
         var widgetIds = widgets.Select(widget => Normalize(widget.Id)).ToArray();
         var layoutIds = layouts.Select(item => Normalize(item.Id)).ToArray();
         var sections = config.Sections ?? Array.Empty<SavedDashboardSectionDefinition>();
         var sectionIds = sections.Select(section => Normalize(section.Id)).ToArray();
+        var filters = config.Filters ?? Array.Empty<SavedDashboardFilterDefinition>();
+        if (filters.Count > 8) errors.Add(new("config.filters", "dashboard.filters.limit", "A dashboard supports at most 8 shared filters."));
+        foreach (var filter in filters)
+        {
+            var source = sources.SingleOrDefault(candidate => candidate.FormId == filter.SourceFormId);
+            var fields = source is null ? null : OpenBusinessPlatform.Api.Modules.Forms.FormReportableFieldMetadata.GetReportableFieldsById(source.Schema);
+            if (string.IsNullOrWhiteSpace(filter.Id) || string.IsNullOrWhiteSpace(filter.Label) || filter.Label.Length > 100) errors.Add(new("config.filters", "dashboard.filter.invalid", "Each filter needs a bounded id and label."));
+            if (filter.Type is not ("date_range" or "single_select" or "multi_select" or "record_status")) errors.Add(new("config.filters.type", "dashboard.filter.type_invalid", "Dashboard filter type is not supported."));
+            if (fields is null || !fields.TryGetValue(filter.FieldId, out var field) || !field.Filterable) errors.Add(new("config.filters.fieldId", "dashboard.filter.field_invalid", "Dashboard filter field must be reportable and filterable."));
+            if ((filter.Options?.Count ?? 0) > 20 || (filter.Options?.Any(value => value.Length > 100) ?? false)) errors.Add(new("config.filters.options", "dashboard.filter.options_invalid", "Dashboard filter options are too large."));
+            if ((filter.ApplyToWidgetIds ?? Array.Empty<string>()).Any(id => !widgetIds.Contains(id, StringComparer.Ordinal))) errors.Add(new("config.filters.applyToWidgetIds", "dashboard.filter.widget_missing", "Dashboard filter targets an unknown widget."));
+        }
 
         foreach (var duplicate in sectionIds.Where(id => id.Length > 0).GroupBy(id => id, StringComparer.Ordinal).Where(group => group.Count() > 1))
         {

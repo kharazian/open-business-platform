@@ -2782,6 +2782,26 @@ The V5 visual workflow builder does not introduce a new backend endpoint, databa
 - Hidden fields must not be returned to unauthorized users.
 - Mutating APIs should write audit logs.
 
+## Dashboard Templates and Provenance
+
+Dashboard templates do not add a special execution or persistence endpoint. The browser binds a registered template to permitted source IDs and submits the resulting independent definition through the existing `POST /api/dashboards` contract. Every generated widget subsequently uses `POST /api/dashboard/analytics/run`.
+
+Saved dashboard config schema version 1 now accepts optional informational metadata:
+
+```json
+{
+  "templateProvenance": {
+    "templateId": "business-performance-sample",
+    "templateVersion": 1,
+    "instantiatedAt": "2026-08-21T00:00:00Z"
+  }
+}
+```
+
+The backend bounds and validates this metadata. It does not use it for authorization, source resolution, execution, or automatic upgrades. Legacy configs without provenance remain valid.
+
+Saved configs may also include up to eight bounded shared filter definitions. Runtime analytics requests accept `filters` entries with a reportable `fieldId`, up to 20 select `values`, and/or date `start` and `end`. Date ranges use inclusive start and exclusive end. The analytics endpoint validates types and bounds, rejects hidden fields, and applies filters only after normal form/report permissions and record scopes.
+
 ## Workspace Branding
 
 - `GET /api/branding/public?tenant={tenantSlug}&workspace={workspaceSlug}` is anonymous and returns only app name, logo text/data, primary color, and login message for an active tenant/workspace.

@@ -41,8 +41,24 @@ public static class DashboardAnalyticsRequestValidator
 
         ValidateMetricField(request, fieldsById, errors);
         ValidateWidgetFields(request, fieldsById, errors);
+        ValidateFilters(request.Filters, fieldsById, errors);
 
         return new DashboardAnalyticsValidationResult(errors);
+    }
+
+    private static void ValidateFilters(IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<DashboardAnalyticsValidationError> errors)
+    {
+        if ((filters?.Count ?? 0) > 8) errors.Add(new("filters", "dashboard.analytics.filters.limit", "A dashboard request supports at most 8 filters."));
+        foreach (var item in (filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Select((filter, index) => (filter, index)))
+        {
+            var path = $"filters[{item.index}]";
+            var fieldId = NormalizeOptional(item.filter.FieldId);
+            if (fieldId is null || !fieldsById.TryGetValue(fieldId, out var field) || !field.Filterable) { errors.Add(new($"{path}.fieldId", "dashboard.analytics.filter.field_invalid", "Filter field must be reportable and filterable.")); continue; }
+            var values = item.filter.Values ?? Array.Empty<string>();
+            if (values.Count > 20 || values.Any(value => value.Length > 100)) errors.Add(new($"{path}.values", "dashboard.analytics.filter.values_invalid", "Filter values are limited to 20 values of 100 characters each."));
+            if ((!string.IsNullOrWhiteSpace(item.filter.Start) || !string.IsNullOrWhiteSpace(item.filter.End)) && field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime)) errors.Add(new(path, "dashboard.analytics.filter.date_field_invalid", "Date bounds require a date or datetime field."));
+            if ((!string.IsNullOrWhiteSpace(item.filter.Start) && !DateTimeOffset.TryParse(item.filter.Start, out _)) || (!string.IsNullOrWhiteSpace(item.filter.End) && !DateTimeOffset.TryParse(item.filter.End, out _))) errors.Add(new(path, "dashboard.analytics.filter.date_invalid", "Date filter bounds must be valid dates."));
+        }
     }
 
     private static void ValidateMetricField(

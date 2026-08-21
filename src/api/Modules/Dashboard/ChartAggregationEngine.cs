@@ -17,7 +17,8 @@ public static class ChartAggregationEngine
         FormSchemaDefinition schema,
         IReadOnlyCollection<FormRecord> records,
         ListReportConfigDefinition? sourceReportConfig = null,
-        IReadOnlySet<string>? hiddenFieldIds = null)
+        IReadOnlySet<string>? hiddenFieldIds = null,
+        IReadOnlyList<DashboardAnalyticsFilterDefinition>? dashboardFilters = null)
     {
         var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema)
             .Where(pair => hiddenFieldIds is null || !hiddenFieldIds.Contains(pair.Key))
@@ -25,6 +26,7 @@ public static class ChartAggregationEngine
         var preparedRecords = records
             .Select(record => new PreparedChartRecord(record, DeserializeValues(record.ValuesJson)))
             .Where(record => MatchesSourceReportFilters(record, sourceReportConfig))
+            .Where(record => MatchesDashboardFilters(record, dashboardFilters))
             .ToArray();
         var normalizedConfig = NormalizeConfig(config);
 
@@ -36,6 +38,22 @@ public static class ChartAggregationEngine
             ChartWidgetTypes.Table => ToTablePreview(formId, formName, normalizedConfig, preparedRecords, fieldsById),
             _ => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, Array.Empty<ChartSeriesPointDto>())
         };
+    }
+
+    private static bool MatchesDashboardFilters(PreparedChartRecord record, IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters)
+    {
+        return filters is null || filters.All(filter =>
+        {
+            var value = GetFieldValue(record, filter.FieldId);
+            var text = ToSearchText(value);
+            if ((filter.Values?.Count ?? 0) > 0 && !filter.Values!.Any(candidate => string.Equals(candidate, text, StringComparison.OrdinalIgnoreCase))) return false;
+            var hasDateBounds = !string.IsNullOrWhiteSpace(filter.Start) || !string.IsNullOrWhiteSpace(filter.End);
+            var actual = default(DateTime);
+            if (hasDateBounds && !TryConvertDateTime(value, out actual)) return false;
+            if (!string.IsNullOrWhiteSpace(filter.Start) && DateTimeOffset.TryParse(filter.Start, out var start) && actual < start.Date) return false;
+            if (!string.IsNullOrWhiteSpace(filter.End) && DateTimeOffset.TryParse(filter.End, out var end) && actual >= end.Date) return false;
+            return true;
+        });
     }
 
     private static ChartWidgetConfigDefinition NormalizeConfig(ChartWidgetConfigDefinition config)

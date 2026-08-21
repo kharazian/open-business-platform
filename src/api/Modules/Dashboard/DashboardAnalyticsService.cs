@@ -82,7 +82,8 @@ public sealed class DashboardAnalyticsService
             schema,
             records,
             sourceReportConfig,
-            fieldAccess.HiddenFieldIds);
+            fieldAccess.HiddenFieldIds,
+            sanitizedRequest.Filters);
 
         return new DashboardAnalyticsResponse(
             chartResult.FormId,
@@ -169,8 +170,9 @@ public sealed class DashboardAnalyticsService
         var hiddenGroup = sanitized.GroupByFieldId is not null && hiddenFieldIds.Contains(sanitized.GroupByFieldId);
         var hiddenDate = sanitized.DateFieldId is not null && hiddenFieldIds.Contains(sanitized.DateFieldId);
         var hiddenColumn = (sanitized.Columns ?? Array.Empty<string>()).Any(hiddenFieldIds.Contains);
+        var hiddenFilter = (sanitized.Filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Any(filter => hiddenFieldIds.Contains(filter.FieldId));
 
-        if (hiddenMetric || hiddenGroup || hiddenDate || hiddenColumn)
+        if (hiddenMetric || hiddenGroup || hiddenDate || hiddenColumn || hiddenFilter)
         {
             throw new DashboardAnalyticsException(StatusCodes.Status403Forbidden, "Dashboard analytics request references a hidden field.");
         }
@@ -191,7 +193,14 @@ public sealed class DashboardAnalyticsService
                 .Where(column => column.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray(),
-            Limit = request.Limit ?? 10
+            Limit = request.Limit ?? 10,
+            Filters = (request.Filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Select(filter => filter with
+            {
+                FieldId = filter.FieldId.Trim(),
+                Values = (filter.Values ?? Array.Empty<string>()).Select(value => value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                Start = NormalizeOptional(filter.Start),
+                End = NormalizeOptional(filter.End)
+            }).ToArray()
         };
     }
 

@@ -34,10 +34,19 @@ public sealed record DashboardAdapterWidgetDefinition(
 
 public sealed record SavedDashboardSectionDefinition(string Id, string Title, int Order);
 
+public sealed record DashboardTemplateProvenanceDefinition(
+    string TemplateId,
+    int TemplateVersion,
+    DateTimeOffset InstantiatedAt);
+
+public sealed record SavedDashboardFilterDefinition(string Id, string Label, string Type, Guid SourceFormId, string FieldId, IReadOnlyList<string>? Options = null, IReadOnlyList<string>? ApplyToWidgetIds = null);
+
 public sealed record SavedDashboardConfigDefinition(
     int SchemaVersion,
     IReadOnlyList<SavedDashboardWidgetDefinition> Widgets,
-    IReadOnlyList<SavedDashboardSectionDefinition>? Sections = null);
+    IReadOnlyList<SavedDashboardSectionDefinition>? Sections = null,
+    DashboardTemplateProvenanceDefinition? TemplateProvenance = null,
+    IReadOnlyList<SavedDashboardFilterDefinition>? Filters = null);
 
 public sealed record SavedDashboardWidgetLayoutDefinition(
     string Id,

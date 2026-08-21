@@ -4,6 +4,8 @@ using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Workspaces;
+using OpenBusinessPlatform.Api.Modules.Dashboard;
+using OpenBusinessPlatform.Api.Modules.Dashboards;
 
 namespace OpenBusinessPlatform.Api.Infrastructure.Persistence;
 
@@ -13,6 +15,9 @@ public static class DemoDataSeeder
 
     public static readonly Guid EmployeeInformationFormId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     public static readonly Guid EmployeeInformationFormVersionId = Guid.Parse("10000000-0000-0000-0000-000000000002");
+    public static readonly Guid BusinessPerformanceFormId = Guid.Parse("11000000-0000-0000-0000-000000000001");
+    public static readonly Guid BusinessPerformanceFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000002");
+    public static readonly Guid BusinessPerformanceDashboardId = Guid.Parse("11000000-0000-0000-0000-000000000003");
 
     public static readonly IReadOnlyList<DemoDepartmentDefinition> DemoDepartments = new[]
     {
@@ -86,8 +91,12 @@ public static class DemoDataSeeder
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var formVersion = await EnsureEmployeeInformationFormAsync(dbContext, cancellationToken);
+        var businessFormVersion = await EnsureBusinessPerformanceFormAsync(dbContext, cancellationToken);
         await EnsureFormPermissionsAsync(dbContext, roles, formVersion.FormId, cancellationToken);
+        await EnsureFormPermissionsAsync(dbContext, roles, businessFormVersion.FormId, cancellationToken);
         await EnsureEmployeeRecordsAsync(dbContext, formVersion, users, departments, cancellationToken);
+        await EnsureBusinessPerformanceRecordsAsync(dbContext, businessFormVersion, users, departments, cancellationToken);
+        await EnsureBusinessPerformanceDashboardAsync(dbContext, businessFormVersion, users, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -159,6 +168,37 @@ public static class DemoDataSeeder
                     })
             }));
     }
+
+    public static FormSchemaDefinition CreateBusinessPerformanceSchema()
+    {
+        var fields = new[]
+        {
+            new FormFieldDefinition("title", FormFieldTypes.Text, "Title", Required: true),
+            Choice("category", "Category", "Product", "Service", "Subscription"),
+            Choice("region", "Region", "North", "South", "East", "West"),
+            Choice("priority", "Priority", "Low", "Medium", "High"),
+            new FormFieldDefinition("amount", FormFieldTypes.Currency, "Amount", Required: true),
+            new FormFieldDefinition("event_date", FormFieldTypes.Date, "Event date", Required: true),
+            new FormFieldDefinition("owner_name", FormFieldTypes.Text, "Owner name")
+        };
+        return new FormSchemaDefinition(1, fields, new FormLayoutDefinition(new[]
+        {
+            new FormLayoutPageDefinition("page_business", "Business performance", "Deterministic development analytics data.", new[]
+            {
+                new FormLayoutSectionDefinition("section_details", "Details", null, new[]
+                {
+                    CreateTwoColumnRow("row_title_category", "title", "category"),
+                    CreateTwoColumnRow("row_region_priority", "region", "priority"),
+                    CreateTwoColumnRow("row_amount_date", "amount", "event_date"),
+                    new FormLayoutRowDefinition("row_owner", new[] { new FormLayoutColumnDefinition("row_owner_full", new ResponsiveSpanDefinition(12, 12, 12), new[] { "owner_name" }) })
+                })
+            })
+        }));
+    }
+
+    private static FormFieldDefinition Choice(string id, string label, params string[] values) =>
+        new(id, FormFieldTypes.Select, label, Required: true,
+            Options: values.Select(value => new FormFieldOptionDefinition($"{id}_{NormalizeOptionId(value)}", value, value)).ToArray());
 
     private static async Task<Dictionary<string, Role>> EnsureRolesAsync(
         OpenBusinessPlatformDbContext dbContext,
@@ -420,6 +460,43 @@ public static class DemoDataSeeder
         return formVersion;
     }
 
+    private static async Task<FormVersion> EnsureBusinessPerformanceFormAsync(OpenBusinessPlatformDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var form = await dbContext.Forms.Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == BusinessPerformanceFormId || candidate.Name == "Business Performance Sample Data", cancellationToken);
+        if (form?.CurrentVersion is not null) return form.CurrentVersion;
+        var schema = CreateBusinessPerformanceSchema();
+        if (form is null)
+        {
+            form = new FormDefinition
+            {
+                Id = BusinessPerformanceFormId,
+                Name = "Business Performance Sample Data",
+                Description = "Development-only deterministic records for the comprehensive dashboard sample.",
+                Status = FormStatuses.Draft,
+                DraftSchemaJson = SerializeToDocument(schema)
+            };
+            dbContext.Forms.Add(form);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        var versionNumber = await dbContext.FormVersions.Where(version => version.FormId == form.Id)
+            .Select(version => (int?)version.VersionNumber).MaxAsync(cancellationToken) ?? 0;
+        var version = new FormVersion
+        {
+            Id = form.Id == BusinessPerformanceFormId ? BusinessPerformanceFormVersionId : Guid.NewGuid(),
+            FormId = form.Id,
+            VersionNumber = versionNumber + 1,
+            SchemaJson = SerializeToDocument(schema),
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.FormVersions.Add(version);
+        form.CurrentVersionId = version.Id;
+        form.Status = FormStatuses.Published;
+        form.DraftSchemaJson ??= SerializeToDocument(schema);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return version;
+    }
+
     private static async Task EnsureFormPermissionsAsync(
         OpenBusinessPlatformDbContext dbContext,
         IReadOnlyDictionary<string, Role> roles,
@@ -500,6 +577,118 @@ public static class DemoDataSeeder
                 CreatedById = creatorId
             });
         }
+    }
+
+    private static async Task EnsureBusinessPerformanceRecordsAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        FormVersion formVersion,
+        IReadOnlyDictionary<string, User> users,
+        IReadOnlyDictionary<string, Department> departments,
+        CancellationToken cancellationToken)
+    {
+        var creatorId = users["builder.demo@company.test"].Id;
+        var owners = new[] { "Alex Morgan", "Jordan Lee", "Sam Patel", "Taylor Chen" };
+        var categories = new[] { "Product", "Service", "Subscription" };
+        var regions = new[] { "North", "South", "East", "West" };
+        var priorities = new[] { "Low", "Medium", "High" };
+        var statuses = new[] { "active", "pending", "approved", "closed" };
+        var existingIds = (await dbContext.Records.Where(record => record.FormId == formVersion.FormId).Select(record => record.Id).ToArrayAsync(cancellationToken)).ToHashSet();
+        for (var index = 0; index < 48; index++)
+        {
+            var id = Guid.Parse($"12000000-0000-0000-0000-{index + 1:000000000000}");
+            if (existingIds.Contains(id)) continue;
+            // The current generic trend engine groups exact dates. A shared monthly date keeps this
+            // deterministic fixture at twelve meaningful points without sample-only analytics logic.
+            var eventDate = new DateTimeOffset(2025, index / 4 + 1, 15, 12, 0, 0, TimeSpan.Zero);
+            var amount = 1000m + index * 125m + (index % 4) * 250m;
+            dbContext.Records.Add(new FormRecord
+            {
+                Id = id,
+                FormId = formVersion.FormId,
+                FormVersionId = formVersion.Id,
+                Status = statuses[index % statuses.Length],
+                OwnerId = creatorId,
+                DepartmentId = departments[DemoDepartments[index % DemoDepartments.Count].Name].Id,
+                CreatedAt = eventDate.AddDays(index % 4),
+                CreatedById = creatorId,
+                ValuesJson = SerializeToDocument(new Dictionary<string, object?>
+                {
+                    ["title"] = $"Business item {index + 1:00}",
+                    ["category"] = categories[index % categories.Length],
+                    ["region"] = regions[index % regions.Length],
+                    ["priority"] = priorities[index % priorities.Length],
+                    ["amount"] = amount,
+                    ["event_date"] = eventDate.ToString("yyyy-MM-dd"),
+                    ["owner_name"] = owners[index % owners.Length]
+                })
+            });
+        }
+    }
+
+    private static async Task EnsureBusinessPerformanceDashboardAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        FormVersion sourceVersion,
+        IReadOnlyDictionary<string, User> users,
+        CancellationToken cancellationToken)
+    {
+        if (await dbContext.Dashboards.AnyAsync(item => item.Id == BusinessPerformanceDashboardId, cancellationToken)) return;
+        var sourceSchema = sourceVersion.SchemaJson.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions);
+        var requiredFields = new[] { "title", "category", "region", "priority", "amount", "event_date", "status", "created_at" };
+        if (sourceSchema is null || !requiredFields.All(FormReportableFieldMetadata.GetReportableFieldsById(sourceSchema).ContainsKey)) return;
+        var sourceFormId = sourceVersion.FormId;
+        var sections = new[]
+        {
+            new SavedDashboardSectionDefinition("sample-executive", "Executive overview", 0),
+            new SavedDashboardSectionDefinition("sample-trends", "Trends", 1),
+            new SavedDashboardSectionDefinition("sample-segments", "Segments", 2),
+            new SavedDashboardSectionDefinition("sample-records", "Records", 3)
+        };
+        var widgetSpecs = new[]
+        {
+            ("total-records", "Total records", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Count, (string?)null, (string?)null, (string?)null, Array.Empty<string>()),
+            ("total-amount", "Total amount", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "amount", null, null, Array.Empty<string>()),
+            ("average-amount", "Average amount", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Average, "amount", null, null, Array.Empty<string>()),
+            ("records-by-status", "Records by status", "sample-executive", DashboardWidgetWidths.Medium, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "status", null, Array.Empty<string>()),
+            ("records-over-time", "Records over time", "sample-trends", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Count, null, null, "event_date", Array.Empty<string>()),
+            ("amount-over-time", "Amount over time", "sample-trends", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "amount", null, "event_date", Array.Empty<string>()),
+            ("amount-by-category", "Amount by category", "sample-segments", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "amount", "category", null, Array.Empty<string>()),
+            ("records-by-region", "Records by region", "sample-segments", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "region", null, Array.Empty<string>()),
+            ("records-by-priority", "Records by priority", "sample-segments", DashboardWidgetWidths.Medium, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "priority", null, Array.Empty<string>()),
+            ("recent-records", "Recent records", "sample-records", DashboardWidgetWidths.Full, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "title", "category", "region", "priority", "amount", "status", "created_at" })
+        };
+        var widgets = widgetSpecs.Select(spec => new SavedDashboardWidgetDefinition(
+            $"sample-{spec.Item1}", spec.Item2, sourceFormId,
+            new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null),
+            spec.Item3)).ToArray();
+        var filters = new[]
+        {
+            new SavedDashboardFilterDefinition("sample-filter-date", "Date range", "date_range", sourceFormId, "event_date"),
+            new SavedDashboardFilterDefinition("sample-filter-status", "Status", "record_status", sourceFormId, "status", new[] { "active", "pending", "approved", "closed" }),
+            new SavedDashboardFilterDefinition("sample-filter-category", "Category", "single_select", sourceFormId, "category", new[] { "Product", "Service", "Subscription" }),
+            new SavedDashboardFilterDefinition("sample-filter-region", "Region", "single_select", sourceFormId, "region", new[] { "North", "South", "East", "West" })
+        };
+        var config = new SavedDashboardConfigDefinition(1, widgets, sections,
+            new DashboardTemplateProvenanceDefinition("business-performance-sample", 1, new DateTimeOffset(2026, 8, 21, 0, 0, 0, TimeSpan.Zero)), filters);
+        var layout = new SavedDashboardLayoutDefinition(1, widgetSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"sample-{spec.Item1}", spec.Item4, index)).ToArray());
+        var creatorId = users["builder.demo@company.test"].Id;
+        dbContext.Dashboards.Add(new DashboardDefinition
+        {
+            Id = BusinessPerformanceDashboardId,
+            Name = "Business Performance Sample",
+            Description = "A comprehensive reference dashboard using the standard permission-filtered analytics engine.",
+            Status = DashboardPublicationStatuses.Published,
+            Slug = "business-performance-sample",
+            ShowInNavigation = false,
+            PublishedAt = new DateTimeOffset(2026, 8, 21, 0, 0, 0, TimeSpan.Zero),
+            PublishedById = creatorId,
+            CreatedById = creatorId,
+            ConfigJson = SerializeToDocument(config),
+            LayoutJson = SerializeToDocument(layout),
+            ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(new DashboardSettingsDefinition(DashboardVisibilityModes.Workspace, false))
+        });
+        dbContext.AuditLogs.AddRange(
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "Dashboard", EntityId = BusinessPerformanceDashboardId, Action = "dashboard_created", UserId = creatorId },
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "Dashboard", EntityId = BusinessPerformanceDashboardId, Action = "dashboard_published", UserId = creatorId });
     }
 
     private static FormLayoutRowDefinition CreateTwoColumnRow(string id, string leftFieldId, string rightFieldId)

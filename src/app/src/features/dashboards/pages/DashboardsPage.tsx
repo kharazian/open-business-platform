@@ -29,10 +29,13 @@ import {
 } from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
+import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import { dispatchDashboardsChanged } from "../events";
 import { assignWidgetsToDashboardSections, createDashboardSectionId, defaultDashboardSection, normalizeDashboardSections } from "../sections";
+import { instantiateDashboardTemplate } from "../templateEngine";
+import { dashboardTemplateCatalog, validateTemplateFieldCapabilities } from "../templates/catalog";
 import {
   dashboardWidgetWidths,
   type ChartMetricType,
@@ -115,6 +118,8 @@ export function DashboardsPage() {
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<DashboardValidationError[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   useEffect(() => {
     void loadInitialData();
@@ -168,6 +173,10 @@ export function DashboardsPage() {
   };
   const selectedAdapter = adapterWidget ? adapters.find((item) => item.id === adapterWidget.adapterId) : undefined;
   const canAddWidget = Boolean(widgetTitle.trim()) && (widgetSourceType === "adapter" ? isDashboardAdapterWidgetConfigured(selectedAdapter, adapterWidget) : Boolean(selectedFormId) && hasRequiredDashboardAnalyticsConfig(builderConfig));
+  const selectedTemplate = dashboardTemplateCatalog.find((template) => template.id === selectedTemplateId) ?? null;
+  const templateCapabilityErrors = selectedTemplate && formDetail?.id === selectedFormId
+    ? validateTemplateFieldCapabilities(selectedTemplate, new Set(fieldOptions.map((field) => field.id)))
+    : selectedTemplate && selectedFormId ? [{ path: "source", code: "template.source.loading", message: "Checking reportable fields…" }] : [];
 
   useEffect(() => {
     if (numericFields.length > 0 && !numericFields.some((field) => field.id === metricFieldId)) {
@@ -368,16 +377,7 @@ export function DashboardsPage() {
     setValidationErrors([]);
     setNotice(null);
 
-    const normalizedSections = normalizeDashboardSections(sections);
-    const normalizedWidgets = assignWidgetsToDashboardSections(widgets, normalizedSections);
-    const request = {
-      name: dashboardName,
-      description: dashboardDescription || null,
-      config: { schemaVersion: 1 as const, sections: normalizedSections, widgets: normalizedWidgets },
-      layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
-      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault }),
-      publication: { status: dashboardDetail?.publication.status ?? "draft", slug: slug || null, showInNavigation, menuLabel: menuLabel || null, menuIcon: menuIcon || null, menuOrder, viewPermission: viewPermission || null }
-    };
+    const request = buildSaveRequest();
 
     try {
       const saved = dashboardDetail
@@ -420,6 +420,32 @@ export function DashboardsPage() {
     setNotice("New dashboard draft started.");
   }
 
+  async function handleCreateFromTemplate() {
+    if (!selectedTemplate || !selectedFormId || templateCapabilityErrors.length > 0) return;
+    const instantiated = instantiateDashboardTemplate(selectedTemplate, {
+      sources: { primary: { formId: selectedFormId, reportId: selectedReportId || null } }
+    });
+    if (!instantiated.ok) {
+      setError(instantiated.errors.map((item) => item.message).join(" "));
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const saved = await createDashboard(instantiated.dashboard);
+      setTemplateGalleryOpen(false);
+      setSelectedDashboardId(saved.id);
+      setDashboards(await listDashboards());
+      navigate(`/dashboard-builder/${saved.id}`);
+      setNotice(`${selectedTemplate.name} created as an independent draft.`);
+      dispatchDashboardsChanged();
+    } catch (caught) {
+      setRequestError(caught);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleSelectDashboard(dashboardId: string) {
     if (!dashboardId) {
       handleNewDashboard();
@@ -434,13 +460,32 @@ export function DashboardsPage() {
     if (!dashboardDetail) return;
     setSaving(true); setError(null); setValidationErrors([]);
     try {
-      const saved = dashboardDetail.publication.status === "published"
-        ? await unpublishDashboard(dashboardDetail.id, dashboardDetail.concurrencyStamp)
-        : await publishDashboard(dashboardDetail.id, dashboardDetail.concurrencyStamp);
+      const nextSlug = slug || createDashboardSlug(dashboardName);
+      const pending = await updateDashboard(dashboardDetail.id, {
+        ...buildSaveRequest(nextSlug),
+        concurrencyStamp: dashboardDetail.concurrencyStamp
+      });
+      const saved = pending.publication.status === "published"
+        ? await unpublishDashboard(pending.id, pending.concurrencyStamp)
+        : await publishDashboard(pending.id, pending.concurrencyStamp);
+      setSlug(saved.publication.slug ?? nextSlug);
       setDashboardDetail(saved); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Dashboard published." : "Dashboard returned to draft.");
       setDashboards(await listDashboards());
       dispatchDashboardsChanged();
     } catch (caught) { setRequestError(caught); } finally { setSaving(false); }
+  }
+
+  function buildSaveRequest(slugOverride = slug) {
+    const normalizedSections = normalizeDashboardSections(sections);
+    const normalizedWidgets = assignWidgetsToDashboardSections(widgets, normalizedSections);
+    return {
+      name: dashboardName,
+      description: dashboardDescription || null,
+      config: { schemaVersion: 1 as const, sections: normalizedSections, widgets: normalizedWidgets, templateProvenance: dashboardDetail?.config.templateProvenance ?? null, filters: dashboardDetail?.config.filters ?? null },
+      layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
+      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault }),
+      publication: { status: dashboardDetail?.publication.status ?? "draft", slug: slugOverride || null, showInNavigation, menuLabel: showInNavigation ? (menuLabel.trim() || dashboardName.trim()) : null, menuIcon: menuIcon || null, menuOrder, viewPermission: viewPermission || null }
+    };
   }
 
   function setRequestError(caught: unknown) {
@@ -467,7 +512,7 @@ export function DashboardsPage() {
               <RefreshCw className="size-4" />
               Refresh
             </Button>
-            <Button onClick={handleNewDashboard} variant="outline">
+            <Button onClick={() => { setSelectedTemplateId(""); setTemplateGalleryOpen(true); }} variant="outline">
               <Plus className="size-4" />
               New
             </Button>
@@ -519,19 +564,20 @@ export function DashboardsPage() {
               <Badge tone={dashboardVisibility === "workspace" ? "info" : "warning"}>{getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
               {dashboardIsDefault ? <Badge tone="success">Default</Badge> : null}
             </div>
+            {dashboardDetail?.config.templateProvenance ? <p className="text-xs font-semibold text-muted-foreground">Created from {dashboardTemplateCatalog.find((item) => item.id === dashboardDetail.config.templateProvenance?.templateId)?.name ?? dashboardDetail.config.templateProvenance.templateId} v{dashboardDetail.config.templateProvenance.templateVersion}. This dashboard is independently editable.</p> : null}
             <div className="grid gap-3 border-t border-border pt-4">
               <div><p className="text-sm font-bold text-foreground">Publishing and navigation</p><p className="text-xs text-muted-foreground">Status: {dashboardDetail?.publication.status ?? "draft"}{dashboardDetail?.publishedAt ? ` · Published ${new Date(dashboardDetail.publishedAt).toLocaleString()}` : ""}</p></div>
               <Input label="URL slug" onChange={(event) => setSlug(event.target.value.toLowerCase())} value={slug} />
               {slugError || getValidationError("publication.slug") ? <p className="text-xs font-semibold text-danger">{slugError ?? getValidationError("publication.slug")}</p> : dashboardDetail?.publication.slug && dashboardDetail.publication.slug !== slug ? <p className="text-xs font-semibold text-warning">Changing the slug will break existing dashboard links.</p> : null}
               <Checkbox checked={showInNavigation} label="Show in navigation" onChange={(event) => setShowInNavigation(event.target.checked)} />
-              {showInNavigation ? <><Input label="Menu label" onChange={(event) => setMenuLabel(event.target.value)} value={menuLabel} />{!menuLabel.trim() || getValidationError("publication.menuLabel") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuLabel") ?? "Menu label is required when navigation is enabled."}</p> : null}<Select label="Menu icon" onChange={(event) => setMenuIcon(event.target.value)} options={[{label:"Dashboard",value:"layout-dashboard"},{label:"Factory",value:"factory"},{label:"Landmark",value:"landmark"},{label:"Bar chart",value:"chart-column"},{label:"Trend",value:"chart-line"},{label:"Activity",value:"activity"},{label:"Business",value:"briefcase-business"}]} value={menuIcon} />{getValidationError("publication.menuIcon") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuIcon")}</p> : null}<Input label="Menu order" onChange={(event) => setMenuOrder(Number(event.target.value))} type="number" value={menuOrder} /></> : null}
+              {showInNavigation ? <><Input label="Menu label" onChange={(event) => setMenuLabel(event.target.value)} value={menuLabel} />{getValidationError("publication.menuLabel") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuLabel")}</p> : !menuLabel.trim() ? <p className="text-xs font-semibold text-muted-foreground">Defaults to the dashboard name.</p> : null}<Select label="Menu icon" onChange={(event) => setMenuIcon(event.target.value)} options={[{label:"Dashboard",value:"layout-dashboard"},{label:"Factory",value:"factory"},{label:"Landmark",value:"landmark"},{label:"Bar chart",value:"chart-column"},{label:"Trend",value:"chart-line"},{label:"Activity",value:"activity"},{label:"Business",value:"briefcase-business"}]} value={menuIcon} />{getValidationError("publication.menuIcon") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuIcon")}</p> : null}<Input label="Menu order" onChange={(event) => setMenuOrder(Number(event.target.value))} type="number" value={menuOrder} /></> : null}
               <Input label="Required view permission" onChange={(event) => setViewPermission(event.target.value)} value={viewPermission} />
               <div className="flex flex-wrap gap-2">
                 {dashboardDetail?.publication.slug ? <Button onClick={() => window.open(`/dashboards/${dashboardDetail.publication.slug}`, "_blank")} variant="outline"><ExternalLink className="size-4" />Open dashboard</Button> : null}
                 {dashboardDetail?.publication.slug ? <Button onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/dashboards/${dashboardDetail.publication.slug}`)} variant="outline"><Copy className="size-4" />Copy link</Button> : null}
-                <Button disabled={!dashboardDetail || saving || Boolean(slugError) || publicationDirty} onClick={() => void handlePublicationAction()} variant={dashboardDetail?.publication.status === "published" ? "danger" : "primary"}>{dashboardDetail?.publication.status === "published" ? "Unpublish" : "Publish"}</Button>
+                <Button disabled={!dashboardDetail || saving || Boolean(slugError)} onClick={() => void handlePublicationAction()} variant={dashboardDetail?.publication.status === "published" ? "danger" : "primary"}>{dashboardDetail?.publication.status === "published" ? "Unpublish" : "Publish dashboard"}</Button>
               </div>
-              {publicationDirty ? <p className="text-xs font-semibold text-warning">Save publishing changes before publishing or unpublishing.</p> : null}
+              {publicationDirty ? <p className="text-xs font-semibold text-warning">Pending publishing settings will be saved with the publish action.</p> : null}
             </div>
           </CardContent>
         </Card>
@@ -709,6 +755,23 @@ export function DashboardsPage() {
           })
         )}
       </section>
+      <DashboardTemplateGallery
+        capabilityErrors={templateCapabilityErrors}
+        creating={saving}
+        forms={forms}
+        onClose={() => setTemplateGalleryOpen(false)}
+        onCreate={() => void handleCreateFromTemplate()}
+        onSelectForm={setSelectedFormId}
+        onSelectReport={setSelectedReportId}
+        onSelectTemplate={setSelectedTemplateId}
+        onStartBlank={() => { setTemplateGalleryOpen(false); handleNewDashboard(); }}
+        open={templateGalleryOpen}
+        reports={reports}
+        selectedFormId={selectedFormId}
+        selectedReportId={selectedReportId}
+        selectedTemplateId={selectedTemplateId}
+        templates={dashboardTemplateCatalog}
+      />
     </div>
   );
 
@@ -840,4 +903,9 @@ function getPreviewErrorTitle(message: string): string {
   }
 
   return "Preview failed";
+}
+
+function createDashboardSlug(value: string): string {
+  const slug = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100).replace(/-+$/g, "");
+  return slug.length >= 2 && !["new", "builder", "settings"].includes(slug) ? slug : `dashboard-${Date.now()}`;
 }

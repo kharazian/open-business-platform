@@ -318,3 +318,17 @@ Infrastructure responsibility:
 - Keep `/theme` as a playground, not as the owner of reusable UI.
 - Store workspace branding as backend-owned workspace configuration. The real app and slug-selected login page consume a safe display projection; per-user appearance settings remain local and `/theme` remains an independent playground.
 - Resolve localization in three layers: per-user override, workspace default, then platform fallback. Frontend modules consume shared `Intl` helpers instead of embedding locale/timezone decisions in individual components.
+- Keep dashboard templates as dependency-free frontend definitions registered through the dashboard template catalog. Templates own source-slot references, sections, widget recipes, and default layout; they never own environment-specific form/report IDs.
+- Template instantiation validates and binds permitted sources, generates fresh section/widget IDs, and creates a normal saved draft through `/api/dashboards`. Saved dashboards remain independent snapshots and the normal backend analytics/publishing paths remain the only execution and persistence boundaries.
+- Treat optional dashboard template provenance as informational JSONB metadata. It never grants source access and never causes an automatic template upgrade.
+
+## Data Flow: Dashboard Template Creation
+
+1. The builder shows Blank dashboard plus registered templates.
+2. The user explicitly selects permitted form/report bindings for each template source slot.
+3. The frontend validates template structure, GUID syntax, and reportable field capabilities.
+4. Instantiation deep-copies recipes, generates runtime IDs, and records non-authoritative template provenance.
+5. The existing saved-dashboard API validates the complete definition against current forms/reports and saves it as a draft.
+6. Analytics requests independently recheck form/report access, record scopes, and hidden fields.
+
+Viewer filter selections are temporary runtime state. `Apply` sends bounded field/value or date-bound filters with each compatible widget request; `Reset all` clears them. Saved definitions retain only safe labels, field IDs, options, source IDs, and optional widget targets. The backend remains authoritative for field visibility and applies inclusive-start/exclusive-end date semantics.

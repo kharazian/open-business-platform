@@ -102,6 +102,20 @@ export type DashboardAnalyticsRequest = {
   dateFieldId?: string | null;
   columns?: string[] | null;
   limit?: number | null;
+  filters?: DashboardAnalyticsFilterValue[];
+};
+
+export type DashboardAnalyticsFilterValue = { fieldId: string; values?: string[]; start?: string | null; end?: string | null };
+export type DashboardFilterType = "date_range" | "single_select" | "multi_select" | "record_status";
+export type DashboardFilterDefinition = {
+  id: string;
+  label: string;
+  type: DashboardFilterType;
+  sourceFormId: EntityId;
+  fieldId: string;
+  options?: string[];
+  defaultValue?: DashboardAnalyticsFilterValue | null;
+  applyToWidgetIds?: string[] | null;
 };
 
 export type DashboardAnalyticsResponse = {
@@ -165,6 +179,12 @@ export type DashboardAdapterRegistration = {
 
 export type SavedDashboardSection = { id: string; title: string; order: number };
 
+export type DashboardTemplateProvenance = {
+  templateId: string;
+  templateVersion: number;
+  instantiatedAt: string;
+};
+
 export type SavedDashboardWidget = {
   id: string;
   title: string;
@@ -178,6 +198,8 @@ export type SavedDashboardConfig = {
   schemaVersion: 1;
   widgets: SavedDashboardWidget[];
   sections?: SavedDashboardSection[] | null;
+  templateProvenance?: DashboardTemplateProvenance | null;
+  filters?: DashboardFilterDefinition[] | null;
 };
 
 export type SavedDashboardWidgetLayout = {

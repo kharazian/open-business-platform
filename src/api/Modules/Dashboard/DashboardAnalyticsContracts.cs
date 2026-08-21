@@ -34,6 +34,8 @@ public sealed record DashboardAnalyticsSourceDefinition(Guid FormId, Guid? Repor
 
 public sealed record DashboardAnalyticsMetricDefinition(string Type, string? FieldId = null);
 
+public sealed record DashboardAnalyticsFilterDefinition(string FieldId, IReadOnlyList<string>? Values = null, string? Start = null, string? End = null);
+
 public sealed record DashboardAnalyticsRequest(
     string WidgetType,
     DashboardAnalyticsSourceDefinition Source,
@@ -41,7 +43,8 @@ public sealed record DashboardAnalyticsRequest(
     string? GroupByFieldId = null,
     string? DateFieldId = null,
     IReadOnlyList<string>? Columns = null,
-    int? Limit = null);
+    int? Limit = null,
+    IReadOnlyList<DashboardAnalyticsFilterDefinition>? Filters = null);
 
 public sealed record DashboardAnalyticsResponse(
     Guid FormId,

@@ -3,6 +3,7 @@ import type {
   ChartWidgetConfig,
   ChartWidgetType,
   DashboardAnalyticsRequest,
+  DashboardAnalyticsFilterValue,
   DashboardAnalyticsResponse,
   DashboardAnalyticsWidgetType,
   DashboardSettings,
@@ -43,7 +44,7 @@ export function buildChartConfigFromDashboardAnalytics(config: DashboardAnalytic
   };
 }
 
-export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWidgetConfig): DashboardAnalyticsRequest {
+export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWidgetConfig, filters: DashboardAnalyticsFilterValue[] = []): DashboardAnalyticsRequest {
   return {
     widgetType: toDashboardAnalyticsWidgetType(chart.widgetType),
     source: {
@@ -54,7 +55,8 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     groupByFieldId: chart.groupByFieldId ?? null,
     dateFieldId: chart.dateFieldId ?? null,
     columns: normalizeColumns(chart.columns),
-    limit: chart.limit ?? 10
+    limit: chart.limit ?? 10,
+    filters
   };
 }
 

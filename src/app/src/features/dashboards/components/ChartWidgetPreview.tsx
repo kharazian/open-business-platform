@@ -1,10 +1,12 @@
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
+import { useLocalization } from "../../../context/LocalizationContext";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse } from "../types";
 
 type WidgetPreviewData = ChartWidgetPreviewData | DashboardAnalyticsResponse;
 
 export function ChartWidgetPreview({ preview }: { preview: WidgetPreviewData }) {
+  const { formatNumber } = useLocalization();
   if (preview.widgetType === "table") {
     return <ChartTable preview={preview} />;
   }
@@ -20,10 +22,10 @@ export function ChartWidgetPreview({ preview }: { preview: WidgetPreviewData }) 
     );
   }
 
-  return <SeriesBars points={preview.series} />;
+  return <SeriesBars formatNumber={formatNumber} points={preview.series} />;
 }
 
-function SeriesBars({ points }: { points: WidgetPreviewData["series"] }) {
+function SeriesBars({ points, formatNumber }: { points: WidgetPreviewData["series"]; formatNumber: (value: number) => string }) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
 
   if (points.length === 0) {
@@ -67,8 +69,4 @@ function ChartTable({ preview }: { preview: WidgetPreviewData }) {
   ) : (
     <EmptyState title="No table rows" description="The selected source did not return records for this table widget." />
   );
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
 }

@@ -4615,6 +4615,58 @@ var dashboardSources = new[]
         })
 };
 AssertTrue(DashboardDefinitionValidator.Validate(dashboardConfig, dashboardLayout, dashboardSources).Valid, "Dashboard configs should validate known chart widgets and layout ids.");
+var sampleDashboardSchema = DemoDataSeeder.CreateBusinessPerformanceSchema();
+var sampleFieldIds = FormReportableFieldMetadata.GetReportableFields(sampleDashboardSchema).Select(field => field.Id).ToHashSet(StringComparer.Ordinal);
+AssertTrue(new[] { "title", "category", "region", "priority", "amount", "event_date", "status", "created_at" }.All(sampleFieldIds.Contains), "Business Performance sample data should expose every reportable field used by its dashboard.");
+var sampleAnalyticsRecords = Enumerable.Range(0, 48).Select(index => new FormRecord
+{
+    Id = Guid.Parse($"12000000-0000-0000-0000-{index + 1:000000000000}"),
+    FormId = DemoDataSeeder.BusinessPerformanceFormId,
+    FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId,
+    Status = new[] { "active", "pending", "approved", "closed" }[index % 4],
+    CreatedAt = new DateTimeOffset(2025, index / 4 + 1, 15 + index % 4, 12, 0, 0, TimeSpan.Zero),
+    ValuesJson = SerializeHarnessJson(new Dictionary<string, object?>
+    {
+        ["title"] = $"Business item {index + 1:00}",
+        ["category"] = new[] { "Product", "Service", "Subscription" }[index % 3],
+        ["region"] = new[] { "North", "South", "East", "West" }[index % 4],
+        ["priority"] = new[] { "Low", "Medium", "High" }[index % 3],
+        ["amount"] = 1000m + index * 125m + (index % 4) * 250m,
+        ["event_date"] = new DateTimeOffset(2025, index / 4 + 1, 15, 12, 0, 0, TimeSpan.Zero).ToString("yyyy-MM-dd"),
+        ["owner_name"] = "Demo owner"
+    })
+}).ToArray();
+var sampleCount = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Count), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleSum = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleAverage = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Average, "amount"), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleStatus = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.ChoiceBreakdown, new ChartMetricDefinition(ChartMetricTypes.Count), GroupByFieldId: "status", Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleTrend = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+AssertEqual(48m, sampleCount.Series.Single().Value, "Business Performance sample record count should remain deterministic.");
+AssertEqual(207000m, sampleSum.Series.Single().Value, "Business Performance sample total amount should remain deterministic.");
+AssertEqual(4312.5m, sampleAverage.Series.Single().Value, "Business Performance sample average amount should remain deterministic.");
+AssertTrue(sampleStatus.Series.All(point => point.Value == 12m), "Business Performance sample should contain twelve records per status.");
+AssertEqual(12, sampleTrend.Series.Count, "Business Performance sample should produce twelve monthly trend points in the exact-date trend engine.");
+AssertEqual(6250m, sampleTrend.Series.First().Value, "Business Performance sample January amount should remain deterministic.");
+AssertEqual(28250m, sampleTrend.Series.Last().Value, "Business Performance sample December amount should remain deterministic.");
+var filteredSample = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Count), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords,
+    dashboardFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }), new DashboardAnalyticsFilterDefinition("event_date", Start: "2025-01-01", End: "2025-07-01") });
+AssertEqual(6m, filteredSample.Series.Single().Value, "Shared dashboard filters should combine select values and inclusive-start/exclusive-end date bounds.");
+AssertFalse(DashboardAnalyticsRequestValidator.Validate(sampleDashboardSchema, new DashboardAnalyticsRequest(
+    DashboardAnalyticsWidgetTypes.Summary, new DashboardAnalyticsSourceDefinition(DemoDataSeeder.BusinessPerformanceFormId), new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Count),
+    Filters: new[] { new DashboardAnalyticsFilterDefinition("owner_name", Start: "2025-01-01") })).Valid, "Date bounds should be rejected for non-date fields.");
+var dashboardWithProvenance = dashboardConfig with
+{
+    TemplateProvenance = new DashboardTemplateProvenanceDefinition("business-performance-sample", 1, DateTimeOffset.Parse("2026-08-21T00:00:00Z"))
+};
+dashboardWithProvenance = dashboardWithProvenance with { Filters = new[] { new SavedDashboardFilterDefinition("region", "Region", "single_select", sampleDepartmentId, "department", new[] { "HR" }) } };
+AssertTrue(DashboardDefinitionValidator.Validate(dashboardWithProvenance, dashboardLayout, dashboardSources).Valid, "Dashboard template provenance should remain valid informational metadata.");
+AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig with { TemplateProvenance = new DashboardTemplateProvenanceDefinition("", 0, default) }, dashboardLayout, dashboardSources).Valid, "Invalid template provenance should be rejected without affecting legacy dashboards that omit it.");
 
 var invalidDashboardConfig = dashboardConfig with
 {
