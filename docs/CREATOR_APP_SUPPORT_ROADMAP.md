@@ -243,7 +243,7 @@ Implementation direction:
 - Start with an analysis-only importer before creating records/forms.
 - Never import credentials from exported source files.
 - Require explicit user confirmation before creating forms/reports from imported definitions.
-- V10 Task 010 specifies the first bounded slice: memory-only `.ds`/text inspection, credential-category counts without values, conservative typed compatibility findings, and `canImport: false`. It deliberately has no apply/import endpoint.
+- V10 Task 010 implements the first bounded slice: memory-only `.ds`/text inspection, credential-category counts without values, conservative typed compatibility findings, and `canImport: false`. It deliberately has no apply/import endpoint.
 
 ## Suggested Roadmap Placement
 

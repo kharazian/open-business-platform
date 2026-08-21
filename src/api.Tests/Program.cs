@@ -11,6 +11,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Dashboard;
 using OpenBusinessPlatform.Api.Modules.Dashboards;
+using OpenBusinessPlatform.Api.Modules.CreatorAnalysis;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Integrations;
 using OpenBusinessPlatform.Api.Modules.Notifications;
@@ -68,6 +69,85 @@ AssertEqual(
     WorkspaceDefaults.WorkspaceId,
     HttpContextWorkspaceContext.ResolveWorkspaceId(new ClaimsPrincipal()),
     "Requests without a workspace claim should retain the compatibility workspace.");
+
+var creatorAnalyzer = new CreatorExportAnalyzer();
+const string creatorSecretSentinel = "TASK010_SECRET_7tK9vQ2mN8xR4pL6";
+const string creatorCustomerSentinel = "TASK010_CUSTOMER_AcmeSensitiveName";
+var creatorSource = $$"""
+    application OrderBridge {
+      form Orders {
+        field Order_Number autonumber
+        Customer
+        (
+          type = lookup
+        )
+      }
+      report Orders_List list {
+      }
+      workflow Fulfillment {
+      }
+      function Push_Order {
+        api_key = "{{creatorSecretSentinel}}"
+      }
+      connection ERP password = "{{creatorSecretSentinel}}"
+      record {{creatorCustomerSentinel}}
+      page Custom_Dashboard {
+      }
+    }
+    """;
+var creatorReport = creatorAnalyzer.Analyze(creatorSource, System.Text.Encoding.UTF8.GetByteCount(creatorSource));
+var creatorReportJson = JsonSerializer.Serialize(creatorReport);
+AssertFalse(creatorReport.CanImport, "Creator analysis must never enable import.");
+AssertTrue(creatorReport.Constructs.Any(item => item.Type == "form" && item.Status == CreatorAnalysisStatuses.Supported), "Creator analysis should identify form candidates.");
+AssertTrue(creatorReport.Constructs.Any(item => item.Type == "field" && item.ProposedType == "autonumber"), "Creator analysis should map direct field candidates.");
+AssertTrue(creatorReport.Constructs.Any(item => item.Type == "field" && item.Status == CreatorAnalysisStatuses.ManualReview), "Creator lookups should require manual target mapping.");
+AssertTrue(creatorReport.Constructs.Any(item => item.Type == "function" && item.Status == CreatorAnalysisStatuses.Unsafe), "Creator functions should remain unsafe and non-executable.");
+AssertTrue(creatorReport.CredentialSignals.Any(item => item.Category == "api_key"), "Creator analysis should count credential categories.");
+AssertFalse(creatorReportJson.Contains(creatorSecretSentinel, StringComparison.Ordinal), "Creator reports must never include detected secret values.");
+AssertFalse(creatorReportJson.Contains(creatorCustomerSentinel, StringComparison.Ordinal), "Creator reports must never include source record values.");
+AssertFalse(creatorReportJson.Contains("password =", StringComparison.OrdinalIgnoreCase), "Creator reports must never include credential source snippets.");
+AssertEqual(creatorReportJson, JsonSerializer.Serialize(creatorAnalyzer.Analyze(creatorSource, System.Text.Encoding.UTF8.GetByteCount(creatorSource))), "Creator analysis should be deterministic.");
+var unsafeCreatorNameReport = creatorAnalyzer.Analyze("form <script>alert(1)</script>", 31);
+AssertEqual("[redacted]", unsafeCreatorNameReport.Constructs.Single().DisplayName, "Creator analysis should redact markup-bearing source names.");
+var credentialCatalogSource = """
+    connection ERP {
+      private_key = "TASK010_PRIVATE_KEY_VALUE"
+      authorization = "Bearer TASK010_AUTH_VALUE"
+      client_secret = "TASK010_CLIENT_SECRET_VALUE"
+      connection_string = "Host=internal;Password=TASK010_CONNECTION_VALUE"
+    }
+    """;
+var credentialCatalogReport = creatorAnalyzer.Analyze(credentialCatalogSource, System.Text.Encoding.UTF8.GetByteCount(credentialCatalogSource));
+var credentialCatalogJson = JsonSerializer.Serialize(credentialCatalogReport);
+foreach (var category in new[] { "private_key", "authorization", "secret", "connection_credential", "password" })
+    AssertTrue(credentialCatalogReport.CredentialSignals.Any(item => item.Category == category), $"Creator analysis should detect the {category} credential category.");
+foreach (var value in new[] { "TASK010_PRIVATE_KEY_VALUE", "TASK010_AUTH_VALUE", "TASK010_CLIENT_SECRET_VALUE", "TASK010_CONNECTION_VALUE", "Host=internal" })
+    AssertFalse(credentialCatalogJson.Contains(value, StringComparison.Ordinal), "Creator analysis should suppress every credential value and connection detail.");
+var quotedCreatorReport = creatorAnalyzer.Analyze("// form Ignored\nvalue = \"function Hidden\"\nform Visible", 48);
+AssertEqual(1, quotedCreatorReport.Constructs.Count, "Creator scanning should ignore construct keywords in comments and quoted values.");
+var unknownCreatorReport = creatorAnalyzer.Analyze("future_widget Experimental {\n}", 31);
+AssertTrue(unknownCreatorReport.Constructs.Any(item => item.Status == CreatorAnalysisStatuses.Unknown), "Creator analysis should retain unknown source sections.");
+var malformedCreatorReport = creatorAnalyzer.Analyze("form Broken {\nfield Name text", 29);
+AssertFalse(malformedCreatorReport.Complete, "Malformed Creator sources should produce an explicitly incomplete report.");
+var boundedCreatorSource = string.Join('\n', Enumerable.Range(1, 600).Select(index => $"page Page_{index} {{ }}"));
+var boundedCreatorReport = creatorAnalyzer.Analyze(boundedCreatorSource, System.Text.Encoding.UTF8.GetByteCount(boundedCreatorSource));
+AssertTrue(boundedCreatorReport.Truncated, "Creator analysis should report construct truncation.");
+AssertEqual(CreatorAnalysisLimits.MaxConstructs, boundedCreatorReport.Constructs.Count, "Creator analysis should cap returned constructs.");
+AssertTrue(boundedCreatorReport.Summary.ConstructCount > boundedCreatorReport.Constructs.Count, "Creator summaries should retain the observed count after result truncation.");
+var findingBoundSource = string.Join('\n', Enumerable.Range(1, 1_200).SelectMany(index => new[] { $"future_{index} {{", "}" }));
+var findingBoundReport = creatorAnalyzer.Analyze(findingBoundSource, System.Text.Encoding.UTF8.GetByteCount(findingBoundSource));
+AssertEqual(CreatorAnalysisLimits.MaxFindings, findingBoundReport.Findings.Count, "Creator analysis should cap returned findings.");
+AssertTrue(findingBoundReport.Summary.FindingCount > findingBoundReport.Findings.Count, "Creator summaries should retain observed finding counts after truncation.");
+CreatorAnalysisInputValidator.ValidateMetadata("source.ds", "text/plain; charset=utf-8", CreatorAnalysisLimits.MaxSourceBytes);
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.ValidateMetadata("source.zip", "text/plain", 10), "Creator analysis should reject archive extensions.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.ValidateMetadata("source.ds", "application/octet-stream", 10), "Creator analysis should reject non-text content types.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.ValidateMetadata("source.ds", "text/plain", CreatorAnalysisLimits.MaxSourceBytes + 1L), "Creator analysis should reject oversized metadata.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.ValidateMetadata("source.ds", "text/plain", 0), "Creator analysis should reject empty files.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.DecodeAndValidate(System.Text.Encoding.UTF8.GetBytes("  \r\n\t")), "Creator analysis should reject whitespace-only input.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.DecodeAndValidate([0xff, 0xfe]), "Creator analysis should reject malformed UTF-8.");
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.DecodeAndValidate([0x66, 0x00, 0x6f]), "Creator analysis should reject binary control bytes.");
+var excessiveCreatorLines = System.Text.Encoding.UTF8.GetBytes(string.Join('\r', Enumerable.Repeat("form X", CreatorAnalysisLimits.MaxLines + 1)));
+AssertThrows<CreatorAnalysisException>(() => CreatorAnalysisInputValidator.DecodeAndValidate(excessiveCreatorLines), "Creator analysis should bound CR-only line input.");
 
 var validExportProcessingJob = new CreateProcessingJobRequest(
     "Nightly employee export",

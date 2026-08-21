@@ -52,8 +52,9 @@ import {
   type RecordImportJobSummaryDto
 } from "../types";
 import { ProcessingJobsPanel } from "./ProcessingJobsPanel";
+import { CreatorAnalysisPanel } from "../../creator-analysis/CreatorAnalysisPanel";
 
-type TabKey = "keys" | "connectors" | "webhooks" | "imports" | "exports" | "processing" | "logs";
+type TabKey = "keys" | "connectors" | "webhooks" | "imports" | "exports" | "processing" | "creator-analysis" | "logs";
 
 const emptyKeyForm = {
   name: "",
@@ -125,7 +126,7 @@ const emptyExportForm = {
 export function IntegrationsPage() {
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<TabKey>(requestedTab === "processing" ? "processing" : "keys");
+  const [activeTab, setActiveTab] = useState<TabKey>(requestedTab === "processing" || requestedTab === "creator-analysis" ? requestedTab : "keys");
   const [apiKeys, setApiKeys] = useState<IntegrationApiKeyDto[]>([]);
   const [connectors, setConnectors] = useState<IntegrationConnectorDto[]>([]);
   const [logs, setLogs] = useState<IntegrationLogDto[]>([]);
@@ -156,7 +157,7 @@ export function IntegrationsPage() {
     void load();
   }, []);
 
-  useEffect(() => { if (requestedTab === "processing") setActiveTab("processing"); }, [requestedTab]);
+  useEffect(() => { if (requestedTab === "processing" || requestedTab === "creator-analysis") setActiveTab(requestedTab); }, [requestedTab]);
 
   const filteredLogs = useMemo(() => filterIntegrationLogs(logs, filters), [logs, filters]);
 
@@ -507,6 +508,7 @@ export function IntegrationsPage() {
           { label: "Imports", value: "imports", content: renderImports() },
           { label: "Exports", value: "exports", content: renderExports() },
           { label: "Processing jobs", value: "processing", content: <ProcessingJobsPanel initialJobId={searchParams.get("jobId")} initialRunId={searchParams.get("runId")} /> },
+          { label: "Creator analysis", value: "creator-analysis", content: <CreatorAnalysisPanel /> },
           { label: "Logs", value: "logs", content: renderLogs() }
         ]}
       />

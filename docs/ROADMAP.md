@@ -43,7 +43,7 @@
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
 - `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
 
-Next: V10 operational app modeling continues from `docs/V10_START_HERE.md` and `tasks/v10/README.md`. Tasks 001 through 009 are implemented; Task 010 analysis-only Creator export assistance is drafted for review before implementation.
+V10 operational app modeling is complete through Task 010. The final slice adds bounded, memory-only Creator export analysis with secret-safe typed findings and no import/apply path; any subsequent V10 work requires a separately reviewed task.
 
 The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
 
@@ -293,6 +293,6 @@ Planned sequence:
 - Typed operational report and row actions implemented in V10 task 007 with saved allowlisted definitions, backend-projected availability, fixed-catalog builder controls, and authoritative destination reauthorization.
 - Bounded processing jobs implemented in V10 task 008 with durable definitions/runs, bounded imports/exports, fenced scheduling, and safe export retry chains.
 - Processing operational logs and deduplicated failure notifications implemented in V10 task 009 with bounded health/retention, typed policies, paginated inbox access, and safe trusted run links.
-- An analysis-only Creator-style export assistant specified in V10 Task 010 with bounded memory-only input, secret-safe typed findings, and no import/apply path.
+- An analysis-only Creator-style export assistant implemented in V10 Task 010 with bounded memory-only input, secret-safe typed findings, and no import/apply path.
 
-Next, review `tasks/v10/010-analysis-only-creator-export-assistant.md` before implementation.
+V10 is complete through Task 010. Specify and review a separate task before adding an apply/import phase or expanding the analyzer grammar.

@@ -105,8 +105,7 @@ V9 task 007 is complete: workspace branding persists safe app identity and bound
 V9 task 008 is complete: workspace locale/timezone/week defaults and per-user overrides resolve through a shared frontend formatting/message context with authorized audited administration.
 V9 task 009 is complete: normalized custom hostnames require DNS TXT proof before activation, resolve anonymous workspace context, and fail closed against conflicting signed workspace claims.
 V9 task 010 is complete: permission-gated operational posture and payload-safe audit search/export provide administrative evidence without claiming certification or duplicating authoritative control state.
-V10 tasks 001 through 009 are complete. Task 009 adds separate payload-safe processing operational logs, bounded health queries and retention, paginated notification listing, typed failure policies, and database-deduplicated terminal failure alerts.
-V10 task 010 is drafted for review: a bounded analysis-only Creator export assistant will inspect one memory-only untrusted text source, emit a secret-safe typed compatibility report, and expose no import/apply path.
+V10 tasks 001 through 010 are complete. Task 009 adds separate payload-safe processing operational logs, bounded health queries and retention, paginated notification listing, typed failure policies, and database-deduplicated terminal failure alerts. Task 010 adds a bounded analysis-only Creator export assistant that inspects one memory-only untrusted text source, emits a secret-safe typed compatibility report, and exposes no import/apply path.
 
 ## 2. Core Product Philosophy
 
@@ -955,7 +954,7 @@ V10 task 006 is complete: record detail now provides read-only reverse lookup pa
 V10 task 007 is complete: report and row actions are saved as typed allowlisted definitions and projected through current permissions.
 V10 task 008 is complete: bounded CSV-import/export definitions and durable runs support fenced schedules, safe retry ancestry, and fail-closed import recovery.
 V10 task 009 is complete: processing lifecycle diagnostics remain separate from audit/integration history, health and retention are bounded, and final-failure inbox alerts are preference-aware and database-deduplicated.
-V10 task 010 is drafted for review: the next bounded slice analyzes one memory-only Creator-style text export into secret-safe typed findings and cannot import or apply changes.
+V10 task 010 is complete: the bounded analyzer accepts one memory-only Creator-style text export, returns secret-safe typed findings with `canImport: false`, and cannot import or apply changes.
 
 Everything else should be designed in a way that does not block future versions, but should not be fully implemented yet.
 

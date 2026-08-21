@@ -101,20 +101,20 @@ Exact DTO names may follow repository conventions. Unknown multipart fields are 
 
 ## Acceptance Criteria
 
-- [ ] A dedicated, versioned analyzer accepts one bounded UTF-8 `.ds`/`.txt` source and rejects empty, binary, oversized, excessive-line, batch, archive, URL, and unknown multipart inputs.
-- [ ] Analysis requires active-workspace authentication plus `forms.manage_all` and `integrations.manage` and has no anonymous or API-key route.
-- [ ] Source content is request-scoped and never persisted, logged, cached, audited, rendered, executed, or sent externally.
-- [ ] Credential detection occurs before report construction and returns categories/counts only; values, snippets, URLs, headers, connection strings, and filenames never leave the analyzer.
-- [ ] The analyzer uses bounded deterministic scanning and typed catalogs without claiming complete vendor grammar coverage.
-- [ ] Supported, manual-review, unsupported, unsafe, and unknown constructs receive fixed reason codes and platform-authored guidance with safe names/locations only.
-- [ ] Field/report/relationship candidates align with current platform contracts while lookups, multi-selects, subforms, permissions, workflows, functions, pages, schedules, connections, and data receive conservative treatment.
-- [ ] The report is capped at 500 constructs and 1,000 findings and explicitly reports truncation/incompleteness.
-- [ ] Every response has `canImport: false`; no endpoint/UI action can create or mutate forms, records, reports, permissions, triggers, workflows, connections, processing jobs, or attachments.
-- [ ] A completed analysis writes exactly one payload-free audit event with aggregate counts, version, flags, and source fingerprint only.
-- [ ] The frontend provides local-file, validation, analysis, filtering, safe report, JSON-download, reset, error, and stale-authorization states without source preview or browser persistence.
-- [ ] No migration or server-side artifact is added unless separately justified during implementation review.
-- [ ] API, architecture, security, permission, roadmap, Creator-support, and V10 documentation plus backend/frontend tests are complete.
-- [ ] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, payload-leak scans, bounded adversarial input tests, browser acceptance, and `git diff --check` pass.
+- [x] A dedicated, versioned analyzer accepts one bounded UTF-8 `.ds`/`.txt` source and rejects empty, binary, oversized, excessive-line, batch, archive, URL, and unknown multipart inputs.
+- [x] Analysis requires active-workspace authentication plus `forms.manage_all` and `integrations.manage` and has no anonymous or API-key route.
+- [x] Source content is request-scoped and never persisted, logged, cached, audited, rendered, executed, or sent externally.
+- [x] Credential detection occurs before report construction and returns categories/counts only; values, snippets, URLs, headers, connection strings, and filenames never leave the analyzer.
+- [x] The analyzer uses bounded deterministic scanning and typed catalogs without claiming complete vendor grammar coverage.
+- [x] Supported, manual-review, unsupported, unsafe, and unknown constructs receive fixed reason codes and platform-authored guidance with safe names/locations only.
+- [x] Field/report/relationship candidates align with current platform contracts while lookups, multi-selects, subforms, permissions, workflows, functions, pages, schedules, connections, and data receive conservative treatment.
+- [x] The report is capped at 500 constructs and 1,000 findings and explicitly reports truncation/incompleteness.
+- [x] Every response has `canImport: false`; no endpoint/UI action can create or mutate forms, records, reports, permissions, triggers, workflows, connections, processing jobs, or attachments.
+- [x] A completed analysis writes exactly one payload-free audit event with aggregate counts, version, flags, and source fingerprint only.
+- [x] The frontend provides local-file, validation, analysis, filtering, safe report, JSON-download, reset, error, and stale-authorization states without source preview or browser persistence.
+- [x] No migration or server-side artifact is added unless separately justified during implementation review.
+- [x] API, architecture, security, permission, roadmap, Creator-support, and V10 documentation plus backend/frontend tests are complete.
+- [x] Backend harness/build, frontend tests/build, authenticated PostgreSQL/API acceptance, payload-leak scans, bounded adversarial input tests, browser acceptance, and `git diff --check` pass.
 
 ## Out of Scope
 
