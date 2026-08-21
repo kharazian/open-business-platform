@@ -18,7 +18,7 @@ export type DashboardTemplateSourceSlot = {
 
 export type DashboardTemplateSourceBinding = { formId: string; reportId?: string | null };
 export type DashboardTemplateBindings = { sources: Record<string, DashboardTemplateSourceBinding> };
-export type DashboardTemplateSection = { key: string; title: string };
+export type DashboardTemplateSection = { key: string; title: string; icon?: string };
 
 export type DashboardTemplateAnalyticsWidget = {
   kind: "analytics";
@@ -31,6 +31,7 @@ export type DashboardTemplateAdapterWidget = { kind: "adapter"; adapter: Dashboa
 export type DashboardTemplateWidget = {
   key: string;
   title: string;
+  subtitle?: string;
   sectionKey: string;
   width: DashboardWidgetWidth;
   source: DashboardTemplateAnalyticsWidget | DashboardTemplateAdapterWidget;
@@ -59,6 +60,7 @@ export type DashboardTemplateInstantiationOptions = {
   idGenerator?: () => string;
   now?: () => string;
   name?: string;
+  availableAdapterIds?: ReadonlySet<string>;
 };
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -100,6 +102,12 @@ export function instantiateDashboardTemplate(
   const errors = validateDashboardTemplate(template);
   const slots = new Map(template.sourceSlots.map((slot) => [slot.key, slot]));
 
+  for (const adapterId of template.requiredAdapterIds ?? []) {
+    if (options.availableAdapterIds && !options.availableAdapterIds.has(adapterId)) {
+      add(errors, "requiredAdapterIds", "template.adapter.unavailable", `Required adapter '${adapterId}' is not installed.`);
+    }
+  }
+
   for (const key of Object.keys(bindings.sources)) {
     if (!slots.has(key)) add(errors, `bindings.sources.${key}`, "template.binding.unknown", `Source binding '${key}' is not defined by this template.`);
   }
@@ -139,12 +147,13 @@ export function instantiateDashboardTemplate(
           options: [...(filter.options ?? [])],
           applyToWidgetIds: filter.applyToWidgetKeys?.map((key) => widgetIds.get(key)!) ?? null
         })),
-        sections: template.sections.map((section, order) => ({ id: sectionIds.get(section.key)!, title: section.title, order })),
+        sections: template.sections.map((section, order) => ({ id: sectionIds.get(section.key)!, title: section.title, order, icon: section.icon ?? null })),
         widgets: template.widgets.map((widget) => {
           const analyticsBinding = widget.source.kind === "analytics" ? bindings.sources[widget.source.sourceSlot] : null;
           return {
             id: widgetIds.get(widget.key)!,
             title: widget.title,
+            subtitle: widget.subtitle ?? null,
             sectionId: sectionIds.get(widget.sectionKey)!,
             sourceFormId: analyticsBinding?.formId ?? null,
             chart: widget.source.kind === "analytics" ? { ...cloneChart(widget.source.chart), reportId: analyticsBinding?.reportId ?? null } : null,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, GripVertical, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -30,11 +30,12 @@ import {
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
+import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
-import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
+import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "../layout";
 import { dispatchDashboardsChanged } from "../events";
-import { assignWidgetsToDashboardSections, createDashboardSectionId, defaultDashboardSection, normalizeDashboardSections } from "../sections";
-import { instantiateDashboardTemplate } from "../templateEngine";
+import { assignWidgetsToDashboardSections, createDashboardSectionId, defaultDashboardSection, moveDashboardSection, normalizeDashboardSections } from "../sections";
+import { instantiateDashboardTemplate, type DashboardTemplateSourceBinding } from "../templateEngine";
 import { dashboardTemplateCatalog, validateTemplateFieldCapabilities } from "../templates/catalog";
 import {
   dashboardWidgetWidths,
@@ -67,6 +68,7 @@ const metricOptions: Array<{ label: string; value: ChartMetricType }> = [
 ];
 
 const widthOptions = dashboardWidgetWidths.map((width) => ({ label: width, value: width }));
+const sectionIconOptions = ["activity", "badge-dollar-sign", "chart-column", "clipboard-list", "factory", "gauge", "heart-pulse", "package-check", "shield-check", "trending-up", "wrench"].map((icon) => ({ label: icon.replaceAll("-", " "), value: icon }));
 const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = [
   { label: "Workspace", value: "workspace" },
   { label: "Private", value: "private" }
@@ -120,6 +122,14 @@ export function DashboardsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateBindings, setTemplateBindings] = useState<Record<string, DashboardTemplateSourceBinding | undefined>>({});
+  const [templateFieldIdsBySlot, setTemplateFieldIdsBySlot] = useState<Record<string, ReadonlySet<string> | undefined>>({});
+  const [templateReportsBySlot, setTemplateReportsBySlot] = useState<Record<string, ListReportSummary[] | undefined>>({});
+  const [templateLoadingSlots, setTemplateLoadingSlots] = useState<ReadonlySet<string>>(new Set());
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
 
   useEffect(() => {
     void loadInitialData();
@@ -174,9 +184,11 @@ export function DashboardsPage() {
   const selectedAdapter = adapterWidget ? adapters.find((item) => item.id === adapterWidget.adapterId) : undefined;
   const canAddWidget = Boolean(widgetTitle.trim()) && (widgetSourceType === "adapter" ? isDashboardAdapterWidgetConfigured(selectedAdapter, adapterWidget) : Boolean(selectedFormId) && hasRequiredDashboardAnalyticsConfig(builderConfig));
   const selectedTemplate = dashboardTemplateCatalog.find((template) => template.id === selectedTemplateId) ?? null;
-  const templateCapabilityErrors = selectedTemplate && formDetail?.id === selectedFormId
-    ? validateTemplateFieldCapabilities(selectedTemplate, new Set(fieldOptions.map((field) => field.id)))
-    : selectedTemplate && selectedFormId ? [{ path: "source", code: "template.source.loading", message: "Checking reportable fields…" }] : [];
+  const templateCapabilityErrors = selectedTemplate ? [
+    ...validateTemplateFieldCapabilities(selectedTemplate, templateFieldIdsBySlot),
+    ...selectedTemplate.sourceSlots.filter((slot) => templateLoadingSlots.has(slot.key)).map((slot) => ({ path: `sources.${slot.key}`, code: "template.source.loading", message: `Checking ${slot.label} reportable fields…` })),
+    ...(selectedTemplate.requiredAdapterIds ?? []).filter((id) => !adapters.some((adapter) => adapter.id === id)).map((id) => ({ path: "requiredAdapterIds", code: "template.adapter.unavailable", message: `Required adapter '${id}' is not installed.` }))
+  ] : [];
 
   useEffect(() => {
     if (numericFields.length > 0 && !numericFields.some((field) => field.id === metricFieldId)) {
@@ -338,6 +350,26 @@ export function DashboardsPage() {
     });
   }
 
+  function handleDuplicateWidget(widgetId: string) {
+    const widget = widgets.find((item) => item.id === widgetId);
+    const layout = layoutWidgets.find((item) => item.id === widgetId);
+    if (!widget || !layout || widgets.length >= 48) return;
+    const id = `widget-${Date.now()}`;
+    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])] } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
+    setLayoutWidgets((current) => [...current, { id, width: layout.width, order: current.length + 1 }]);
+    if (previewStates[widgetId]) setPreviewStates((current) => ({ ...current, [id]: current[widgetId] }));
+    setNotice("Widget duplicated. Save the dashboard to persist it.");
+  }
+
+  function handleApplyWidgetProperties(nextWidget: SavedDashboardWidget, width: DashboardWidgetWidth, preview?: DashboardAnalyticsResponse) {
+    setWidgets((current) => current.map((widget) => widget.id === nextWidget.id ? nextWidget : widget));
+    setLayoutWidgets((current) => current.map((layout) => layout.id === nextWidget.id ? { ...layout, width } : layout));
+    if (preview) setPreviewStates((current) => ({ ...current, [nextWidget.id]: { status: "ready", preview } }));
+    else if (nextWidget.adapter) setPreviewStates((current) => ({ ...current, [nextWidget.id]: undefined }));
+    setEditingWidgetId(null);
+    setNotice("Widget properties applied. Save the dashboard to persist them.");
+  }
+
   function handleAddSection() {
     const title = newSectionTitle.trim();
     if (!title) return;
@@ -351,6 +383,10 @@ export function DashboardsPage() {
     setSections((current) => current.map((section) => section.id === sectionId ? { ...section, title } : section));
   }
 
+  function handleSectionIcon(sectionId: string, icon: string) {
+    setSections((current) => current.map((section) => section.id === sectionId ? { ...section, icon: icon || null } : section));
+  }
+
   function handleMoveSection(sectionId: string, direction: -1 | 1) {
     setSections((current) => {
       const index = current.findIndex((section) => section.id === sectionId);
@@ -360,6 +396,23 @@ export function DashboardsPage() {
       [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
       return next.map((section, order) => ({ ...section, order }));
     });
+  }
+
+  function handleDropSection(targetSectionId: string, sourceSectionId = draggedSectionId) {
+    if (!sourceSectionId) return;
+    setSections((current) => moveDashboardSection(current, sourceSectionId, targetSectionId));
+    setDraggedSectionId(null);
+    setDropTargetId(null);
+    setNotice("Section order changed. Save the dashboard to persist it.");
+  }
+
+  function handleDropWidget(sectionId: string, targetWidgetId: string | null, sourceWidgetId = draggedWidgetId) {
+    if (!sourceWidgetId) return;
+    setWidgets((current) => current.map((widget) => widget.id === sourceWidgetId ? { ...widget, sectionId } : widget));
+    setLayoutWidgets((current) => moveDashboardLayoutWidget(current, sourceWidgetId, targetWidgetId));
+    setDraggedWidgetId(null);
+    setDropTargetId(null);
+    setNotice("Widget position changed. Save the dashboard to persist it.");
   }
 
   function handleRemoveSection(sectionId: string) {
@@ -421,10 +474,11 @@ export function DashboardsPage() {
   }
 
   async function handleCreateFromTemplate() {
-    if (!selectedTemplate || !selectedFormId || templateCapabilityErrors.length > 0) return;
+    if (!selectedTemplate || templateCapabilityErrors.length > 0) return;
+    const sources = Object.fromEntries(Object.entries(templateBindings).filter((entry): entry is [string, DashboardTemplateSourceBinding] => Boolean(entry[1])));
     const instantiated = instantiateDashboardTemplate(selectedTemplate, {
-      sources: { primary: { formId: selectedFormId, reportId: selectedReportId || null } }
-    });
+      sources
+    }, { availableAdapterIds: new Set(adapters.map((adapter) => adapter.id)) });
     if (!instantiated.ok) {
       setError(instantiated.errors.map((item) => item.message).join(" "));
       return;
@@ -444,6 +498,43 @@ export function DashboardsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSelectTemplateSource(slotKey: string, formId: string) {
+    setTemplateBindings((current) => ({ ...current, [slotKey]: formId ? { formId, reportId: null } : undefined }));
+    setTemplateFieldIdsBySlot((current) => ({ ...current, [slotKey]: undefined }));
+    setTemplateReportsBySlot((current) => ({ ...current, [slotKey]: undefined }));
+    if (!formId) return;
+
+    setTemplateLoadingSlots((current) => new Set([...current, slotKey]));
+    try {
+      const [form, reportItems] = await Promise.all([getForm(formId), listReports(formId)]);
+      setTemplateFieldIdsBySlot((current) => ({ ...current, [slotKey]: new Set(getReportableFields(form.draftSchema).map((field) => field.id)) }));
+      setTemplateReportsBySlot((current) => ({ ...current, [slotKey]: reportItems }));
+    } catch (caught) {
+      setRequestError(caught);
+    } finally {
+      setTemplateLoadingSlots((current) => {
+        const next = new Set(current);
+        next.delete(slotKey);
+        return next;
+      });
+    }
+  }
+
+  function handleSelectTemplateReport(slotKey: string, reportId: string) {
+    setTemplateBindings((current) => {
+      const binding = current[slotKey];
+      return binding ? { ...current, [slotKey]: { ...binding, reportId: reportId || null } } : current;
+    });
+  }
+
+  function handleSelectTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    setTemplateBindings({});
+    setTemplateFieldIdsBySlot({});
+    setTemplateReportsBySlot({});
+    setTemplateLoadingSlots(new Set());
   }
 
   function handleSelectDashboard(dashboardId: string) {
@@ -512,7 +603,7 @@ export function DashboardsPage() {
               <RefreshCw className="size-4" />
               Refresh
             </Button>
-            <Button onClick={() => { setSelectedTemplateId(""); setTemplateGalleryOpen(true); }} variant="outline">
+            <Button onClick={() => { handleSelectTemplate(""); setTemplateGalleryOpen(true); }} variant="outline">
               <Plus className="size-4" />
               New
             </Button>
@@ -594,18 +685,25 @@ export function DashboardsPage() {
                 <p className="text-xs text-muted-foreground">Organize widgets into tabs in the published dashboard.</p>
               </div>
               {sections.map((section, index) => (
-                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]" key={section.id}>
+                <div
+                  className={`grid gap-2 rounded-lg border p-2 transition sm:grid-cols-[auto_minmax(0,1fr)_12rem_auto] ${dropTargetId === `section-${section.id}` ? "border-primary bg-primary/5" : "border-transparent"}`}
+                  key={section.id}
+                  onDragOver={(event) => { if (!draggedSectionId) return; event.preventDefault(); setDropTargetId(`section-${section.id}`); }}
+                  onDrop={(event) => { event.preventDefault(); handleDropSection(section.id, event.dataTransfer.getData("application/x-dashboard-section") || draggedSectionId); }}
+                >
+                  <button aria-label={`Drag ${section.title} section`} className="flex cursor-grab items-center justify-center rounded-md px-2 text-muted-foreground hover:bg-muted active:cursor-grabbing" draggable onDragEnd={() => { setDraggedSectionId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.setData("application/x-dashboard-section", section.id); setDraggedSectionId(section.id); }} type="button"><GripVertical className="size-5" /></button>
                   <Input
                     aria-label={`Section ${index + 1} title`}
                     onChange={(event) => handleRenameSection(section.id, event.target.value)}
                     value={section.title}
                   />
+                  <Select aria-label={`${section.title} icon`} onChange={(event) => handleSectionIcon(section.id, event.target.value)} value={section.icon ?? ""}><option value="">No icon</option>{sectionIconOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
                   <div className="flex gap-2">
                     <Button aria-label={`Move ${section.title} up`} disabled={index === 0} onClick={() => handleMoveSection(section.id, -1)} size="icon" variant="outline"><ArrowUp className="size-4" /></Button>
                     <Button aria-label={`Move ${section.title} down`} disabled={index === sections.length - 1} onClick={() => handleMoveSection(section.id, 1)} size="icon" variant="outline"><ArrowDown className="size-4" /></Button>
                     <Button aria-label={`Remove ${section.title}`} disabled={sections.length === 1} onClick={() => handleRemoveSection(section.id)} size="icon" variant="outline"><Trash2 className="size-4" /></Button>
                   </div>
-                  {!section.title.trim() ? <p className="text-xs font-semibold text-danger sm:col-span-2">Section title is required.</p> : null}
+                  {!section.title.trim() ? <p className="text-xs font-semibold text-danger sm:col-span-4">Section title is required.</p> : null}
                 </div>
               ))}
               {getValidationError("config.sections") ? <p className="text-xs font-semibold text-danger">{getValidationError("config.sections")}</p> : null}
@@ -693,12 +791,27 @@ export function DashboardsPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-12">
+        <div className="md:col-span-12 flex flex-wrap items-end justify-between gap-3">
+          <div><p className="text-lg font-bold text-foreground">Layout canvas</p><p className="mt-1 text-sm text-muted-foreground">Drag widget handles to reorder cards or move them between section drop zones. Arrow controls remain available for keyboard-friendly ordering.</p></div>
+          <Badge tone="info">Drag-and-drop enabled</Badge>
+        </div>
         {orderedLayout.length === 0 ? (
           <div className="md:col-span-12">
             <EmptyState title="No dashboard widgets" description="Add a widget and save the dashboard." action={<Button disabled={!canAddWidget} onClick={() => void handleAddWidget()} variant="outline">Add widget</Button>} />
           </div>
         ) : (
-          orderedLayout.map((layout) => {
+          sections.flatMap((section) => [
+            <div
+              aria-label={`Move widget to ${section.title}`}
+              className={`md:col-span-12 flex min-h-16 items-center justify-between rounded-xl border-2 border-dashed px-4 py-3 transition ${dropTargetId === `widget-section-${section.id}` ? "border-primary bg-primary/10" : "border-border bg-muted/20"}`}
+              key={`canvas-${section.id}`}
+              onDragOver={(event) => { if (!draggedWidgetId) return; event.preventDefault(); setDropTargetId(`widget-section-${section.id}`); }}
+              onDrop={(event) => { event.preventDefault(); handleDropWidget(section.id, null, event.dataTransfer.getData("application/x-dashboard-widget") || draggedWidgetId); }}
+            >
+              <div><p className="text-sm font-bold text-foreground">{section.title}</p><p className="text-xs text-muted-foreground">Drop a widget here to move it into this section.</p></div>
+              <Badge>{widgets.filter((widget) => widget.sectionId === section.id).length} widgets</Badge>
+            </div>,
+            ...orderedLayout.filter((layout) => widgets.find((widget) => widget.id === layout.id)?.sectionId === section.id).map((layout) => {
             const widget = widgets.find((candidate) => candidate.id === layout.id);
             const previewState = previewStates[layout.id];
 
@@ -708,14 +821,22 @@ export function DashboardsPage() {
             const statusTone = getPreviewStatusTone(previewState);
 
             return (
-              <Card className={getDashboardWidgetGridClass(layout.width)} key={layout.id}>
+              <Card
+                className={`${getDashboardWidgetGridClass(layout.width)} min-w-0 transition ${dropTargetId === `widget-${layout.id}` ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                key={layout.id}
+                onDragOver={(event) => { if (!draggedWidgetId) return; event.preventDefault(); event.stopPropagation(); setDropTargetId(`widget-${layout.id}`); }}
+                onDrop={(event) => { event.preventDefault(); event.stopPropagation(); handleDropWidget(section.id, layout.id, event.dataTransfer.getData("application/x-dashboard-widget") || draggedWidgetId); }}
+              >
                 <CardHeader>
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <button aria-label={`Drag ${widget.title} widget`} className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing" draggable onDragEnd={() => { setDraggedWidgetId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-dashboard-widget", layout.id); setDraggedWidgetId(layout.id); }} type="button"><GripVertical className="size-5" /></button>
+                      <div className="min-w-0">
                       <CardTitle className="break-words text-base">{widget.title}</CardTitle>
                       <CardDescription className="break-words">
                         {analyticsWidgetType && widget.chart ? `${getDashboardAnalyticsWidgetLabel(analyticsWidgetType)} · ${getMetricLabel(widget.chart.metric.type)}` : `Adapter · ${widget.adapter?.adapterId ?? "Unavailable"}`}
                       </CardDescription>
+                      </div>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                       <Badge tone={widget.adapter ? (getDashboardAdapter(widget.adapter.adapterId) ? "success" : "danger") : statusTone}>{widget.adapter ? (getDashboardAdapter(widget.adapter.adapterId) ? "Adapter ready" : "Adapter unavailable") : getPreviewStatusLabel(previewState)}</Badge>
@@ -735,6 +856,8 @@ export function DashboardsPage() {
                       <Button aria-label="Move widget down" onClick={() => handleMoveWidget(layout.id, 1)} size="icon" variant="outline">
                         <ArrowDown className="size-4" />
                       </Button>
+                      <Button aria-label="Duplicate widget" disabled={widgets.length >= 48} onClick={() => handleDuplicateWidget(layout.id)} size="icon" variant="outline"><Copy className="size-4" /></Button>
+                      <Button aria-label={`Edit ${widget.title} properties`} onClick={() => setEditingWidgetId(layout.id)} size="icon" variant="outline"><Pencil className="size-4" /></Button>
                       <Button aria-label="Remove widget" onClick={() => handleRemoveWidget(layout.id)} size="icon" variant="outline">
                         <Trash2 className="size-4" />
                       </Button>
@@ -748,11 +871,12 @@ export function DashboardsPage() {
                     options={sections.map((section) => ({ label: section.title, value: section.id }))}
                     value={widget.sectionId ?? sections[0].id}
                   />
+                  <Select label="Width" onChange={(event) => setLayoutWidgets((current) => current.map((item) => item.id === layout.id ? { ...item, width: event.target.value as DashboardWidgetWidth } : item))} options={widthOptions} value={layout.width} />
                   {widget.adapter && getDashboardAdapter(widget.adapter.adapterId) ? (() => { const Renderer = getDashboardAdapter(widget.adapter!.adapterId)!.render; return <Renderer widget={widget} />; })() : <DashboardWidgetPreviewStateView state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />}
                 </CardContent>
               </Card>
             );
-          })
+          })])
         )}
       </section>
       <DashboardTemplateGallery
@@ -761,16 +885,25 @@ export function DashboardsPage() {
         forms={forms}
         onClose={() => setTemplateGalleryOpen(false)}
         onCreate={() => void handleCreateFromTemplate()}
-        onSelectForm={setSelectedFormId}
-        onSelectReport={setSelectedReportId}
-        onSelectTemplate={setSelectedTemplateId}
+        onSelectSource={(slotKey, formId) => void handleSelectTemplateSource(slotKey, formId)}
+        onSelectReport={handleSelectTemplateReport}
+        onSelectTemplate={handleSelectTemplate}
         onStartBlank={() => { setTemplateGalleryOpen(false); handleNewDashboard(); }}
         open={templateGalleryOpen}
-        reports={reports}
-        selectedFormId={selectedFormId}
-        selectedReportId={selectedReportId}
+        sourceBindings={templateBindings}
+        sourceReports={templateReportsBySlot}
         selectedTemplateId={selectedTemplateId}
         templates={dashboardTemplateCatalog}
+      />
+      <DashboardWidgetPropertiesDrawer
+        adapters={adapters}
+        forms={forms}
+        layout={layoutWidgets.find((layout) => layout.id === editingWidgetId) ?? null}
+        onApply={handleApplyWidgetProperties}
+        onClose={() => setEditingWidgetId(null)}
+        open={Boolean(editingWidgetId)}
+        sections={sections}
+        widget={widgets.find((widget) => widget.id === editingWidgetId) ?? null}
       />
     </div>
   );

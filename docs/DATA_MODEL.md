@@ -1258,6 +1258,8 @@ This matches the current shared frontend/backend V1 schema shape.
 
 Template definitions are code-owned catalog entries, not database rows. Instantiation stores only the generated saved dashboard definition in the existing `dashboards.config_json` and `dashboards.layout_json` JSONB columns. Optional `templateProvenance` in config JSON records the catalog ID, version, and instantiation time for support purposes. It is non-authoritative and missing provenance is normal legacy data.
 
+The comprehensive sample template binds three independent form sources (Business, Operations, HSE) at instantiation time. Concrete source IDs are stored only on the resulting filters and analytics widgets. Sections may include an allowlisted icon and widgets may include a subtitle. These are additive JSONB contract fields and require no relational migration. The validator bounds definitions to 16 sections, 48 widgets, 16 widgets per section, and eight filters.
+
 This work adds no database table, column, index, or migration.
 
 ## Current Schema Version 1 Validation Rules

@@ -60,7 +60,9 @@ Development seeding also creates:
 - Published `Business Performance Sample Data` form with title, category, region, priority, amount, event date, and owner name fields.
 - 48 deterministic records across all 12 months of 2025, three categories, four regions, three priorities, and four operational statuses.
 - Expected analytics fixtures: 48 records, total amount `207000`, average amount `4312.5`, 12 records per status, 12 records per region, January amount `6250`, and December amount `28250`.
-- Published workspace-visible `Business Performance Sample` saved dashboard with four sections and ten normal analytics widgets; slug `business-performance-sample`; not shown in navigation and not the workspace default.
+- Published `Business Performance Sample Data` (48 records), `Operational Performance Sample Data` (72 records), and `HSE Incident Sample Data` (36 records) forms with deterministic, permissioned dashboard facts.
+- Published workspace-visible `Business Performance Sample` saved dashboard with 11 sections, standard analytics widgets, bounded sample-adapter visualizations, eight filters, and template provenance version 2; slug `business-performance-sample`; not shown in navigation and not the workspace default.
+- Seeding is additive and idempotent. Existing forms, records, and the fixed dashboard identifier are never overwritten; an existing version-1 dashboard remains, while users can instantiate version 2 from the gallery.
 
 All IDs are deterministic. Each entity is created only when its deterministic ID does not exist. Restarts do not duplicate records, overwrite edits, republish an unpublished dashboard, or re-enable navigation. `DemoDataSeeder.SeedDevelopmentAsync` is invoked only by the Development startup path. No production data or credentials are used.
 

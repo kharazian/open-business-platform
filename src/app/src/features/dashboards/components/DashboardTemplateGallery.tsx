@@ -7,21 +7,20 @@ import { Modal } from "../../../components/ui/Modal";
 import { Select } from "../../../components/ui/Select";
 import type { FormSummary } from "../../forms/drafts";
 import type { ListReportSummary } from "../../reports/types";
-import type { DashboardTemplateDefinition, DashboardTemplateError } from "../templateEngine";
+import type { DashboardTemplateDefinition, DashboardTemplateError, DashboardTemplateSourceBinding } from "../templateEngine";
 
 export function DashboardTemplateGallery({
   open,
   templates,
   selectedTemplateId,
   forms,
-  selectedFormId,
-  reports,
-  selectedReportId,
+  sourceBindings,
+  sourceReports,
   capabilityErrors,
   creating,
   onClose,
   onSelectTemplate,
-  onSelectForm,
+  onSelectSource,
   onSelectReport,
   onStartBlank,
   onCreate
@@ -30,23 +29,23 @@ export function DashboardTemplateGallery({
   templates: DashboardTemplateDefinition[];
   selectedTemplateId: string;
   forms: FormSummary[];
-  selectedFormId: string;
-  reports: ListReportSummary[];
-  selectedReportId: string;
+  sourceBindings: Record<string, DashboardTemplateSourceBinding | undefined>;
+  sourceReports: Record<string, ListReportSummary[] | undefined>;
   capabilityErrors: DashboardTemplateError[];
   creating: boolean;
   onClose: () => void;
   onSelectTemplate: (id: string) => void;
-  onSelectForm: (id: string) => void;
-  onSelectReport: (id: string) => void;
+  onSelectSource: (slotKey: string, formId: string) => void;
+  onSelectReport: (slotKey: string, reportId: string) => void;
   onStartBlank: () => void;
   onCreate: () => void;
 }) {
   const selected = templates.find((template) => template.id === selectedTemplateId) ?? null;
+  const missingRequiredBinding = selected?.sourceSlots.some((slot) => slot.required && !sourceBindings[slot.key]?.formId) ?? false;
   return (
     <Modal
       description="Start with an empty editor or generate an independent draft from a reusable template."
-      footer={<><Button disabled={creating} onClick={onClose} variant="outline">Cancel</Button>{selected ? <Button disabled={creating || !selectedFormId || capabilityErrors.length > 0} onClick={onCreate}>{creating ? "Creating…" : "Create dashboard"}</Button> : <Button disabled={creating} onClick={onStartBlank}>Start blank</Button>}</>}
+      footer={<><Button disabled={creating} onClick={onClose} variant="outline">Cancel</Button>{selected ? <Button disabled={creating || missingRequiredBinding || capabilityErrors.length > 0} onClick={onCreate}>{creating ? "Creating…" : "Create dashboard"}</Button> : <Button disabled={creating} onClick={onStartBlank}>Start blank</Button>}</>}
       onClose={onClose}
       open={open}
       panelClassName="max-w-4xl"
@@ -63,20 +62,14 @@ export function DashboardTemplateGallery({
               <p className="text-sm font-bold text-foreground">Bind permitted data</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">The template stores no form IDs. Choose a form you can access; the API will revalidate form, report, and field permissions when saving and running widgets.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Select label={selected.sourceSlots[0]?.label ?? "Source form"} onChange={(event) => onSelectForm(event.target.value)} value={selectedFormId}>
-                <option value="">Choose a form</option>
-                {forms.map((form) => <option key={form.id} value={form.id}>{form.name}</option>)}
-              </Select>
-              <Select disabled={!selectedFormId} label="Saved report filter (optional)" onChange={(event) => onSelectReport(event.target.value)} value={selectedReportId}>
-                <option value="">All permitted form records</option>
-                {reports.map((report) => <option key={report.id} value={report.id}>{report.name}</option>)}
-              </Select>
-            </div>
+            <div className="grid gap-4">{selected.sourceSlots.map((slot) => {
+              const binding = sourceBindings[slot.key];
+              return <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-2" key={slot.key}><div className="md:col-span-2"><p className="text-sm font-bold">{slot.label}{slot.required ? " *" : ""}</p>{slot.description ? <p className="mt-1 text-xs text-muted-foreground">{slot.description}</p> : null}</div><Select label="Permitted form" onChange={(event) => onSelectSource(slot.key, event.target.value)} value={binding?.formId ?? ""}><option value="">Choose a form</option>{forms.map((form) => <option key={form.id} value={form.id}>{form.name}</option>)}</Select>{slot.allowReport ? <Select disabled={!binding?.formId} label="Saved report filter (optional)" onChange={(event) => onSelectReport(slot.key, event.target.value)} value={binding?.reportId ?? ""}><option value="">All permitted form records</option>{(sourceReports[slot.key] ?? []).map((report) => <option key={report.id} value={report.id}>{report.name}</option>)}</Select> : null}</div>;
+            })}</div>
             {capabilityErrors.length > 0 ? <div className="rounded-lg border border-warning/40 bg-warning/10 p-3"><p className="text-sm font-bold text-warning">This form cannot create every sample widget</p><ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">{capabilityErrors.slice(0, 8).map((error, index) => <li key={`${error.path}-${index}`}>{error.message}</li>)}</ul></div> : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sections</p><ol className="mt-2 space-y-1 text-sm text-foreground">{selected.sections.map((section, index) => <li key={section.key}>{index + 1}. {section.title}</li>)}</ol></div>
-              <div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Generated content</p><p className="mt-2 text-sm text-foreground">{selected.widgets.length} widgets · {selected.widgets.filter((widget) => widget.source.kind === "analytics").length} analytics · Draft</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Creating does not publish or modify the template. You can edit the saved dashboard independently.</p></div>
+              <div><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Generated content</p><p className="mt-2 text-sm text-foreground">{selected.widgets.length} widgets · {selected.widgets.filter((widget) => widget.source.kind === "analytics").length} analytics · {selected.widgets.filter((widget) => widget.source.kind === "adapter").length} adapter · Draft</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{selected.requiredAdapterIds?.length ? `Requires ${selected.requiredAdapterIds.join(", ")}. ` : ""}Creating does not publish or modify the template.</p></div>
             </div>
           </div>
         ) : null}

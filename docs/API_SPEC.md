@@ -2792,7 +2792,7 @@ Saved dashboard config schema version 1 now accepts optional informational metad
 {
   "templateProvenance": {
     "templateId": "business-performance-sample",
-    "templateVersion": 1,
+    "templateVersion": 2,
     "instantiatedAt": "2026-08-21T00:00:00Z"
   }
 }
@@ -2801,6 +2801,8 @@ Saved dashboard config schema version 1 now accepts optional informational metad
 The backend bounds and validates this metadata. It does not use it for authorization, source resolution, execution, or automatic upgrades. Legacy configs without provenance remain valid.
 
 Saved configs may also include up to eight bounded shared filter definitions. Runtime analytics requests accept `filters` entries with a reportable `fieldId`, up to 20 select `values`, and/or date `start` and `end`. Date ranges use inclusive start and exclusive end. The analytics endpoint validates types and bounds, rejects hidden fields, and applies filters only after normal form/report permissions and record scopes.
+
+Saved config schema version 1 supports at most 16 ordered sections, 48 widgets, and 16 widgets in one section. Sections may store an allowlisted `icon`; widgets may store a bounded optional `subtitle`. Adapter widgets remain mutually exclusive with analytics config and accept bounded scalar settings only.
 
 ## Workspace Branding
 

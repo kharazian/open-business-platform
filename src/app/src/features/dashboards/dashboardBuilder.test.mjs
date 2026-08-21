@@ -10,7 +10,8 @@ import {
   normalizeDashboardSettings,
   hasRequiredDashboardAnalyticsConfig
 } from "./analytics.ts";
-import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "./layout.ts";
+import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
+import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -150,6 +151,21 @@ test("dashboard layout helpers sort widgets and map widths", () => {
   assert.equal(getDashboardWidgetGridClass("medium"), "md:col-span-6");
   assert.equal(getDashboardWidgetGridClass("wide"), "md:col-span-9");
   assert.equal(getDashboardWidgetGridClass("full"), "md:col-span-12");
+  assert.deepEqual(moveDashboardLayoutWidget(ordered, "b", "a").map((widget) => widget.id), ["b", "a"]);
+  assert.deepEqual(moveDashboardLayoutWidget(ordered, "a", null).map((widget) => widget.id), ["b", "a"]);
+});
+
+test("widget property drafts clone nested config and validate permitted fields", () => {
+  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10 } };
+  const draft = cloneDashboardWidgetForEditing(widget);
+  draft.chart.metric.fieldId = "other";
+  assert.equal(widget.chart.metric.fieldId, "amount");
+  const fields = [
+    { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
+    { id: "status", label: "Status", type: "status", source: "system", options: [], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true }
+  ];
+  assert.equal(isDashboardAnalyticsWidgetDraftValid(widget, fields), true);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
 });
 
 test("dashboard analytics helpers preserve saved chart compatibility", () => {

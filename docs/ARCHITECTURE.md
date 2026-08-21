@@ -321,6 +321,8 @@ Infrastructure responsibility:
 - Keep dashboard templates as dependency-free frontend definitions registered through the dashboard template catalog. Templates own source-slot references, sections, widget recipes, and default layout; they never own environment-specific form/report IDs.
 - Template instantiation validates and binds permitted sources, generates fresh section/widget IDs, and creates a normal saved draft through `/api/dashboards`. Saved dashboards remain independent snapshots and the normal backend analytics/publishing paths remain the only execution and persistence boundaries.
 - Treat optional dashboard template provenance as informational JSONB metadata. It never grants source access and never causes an automatic template upgrade.
+- Keep specialized dashboard visuals behind a frontend adapter registry with bounded scalar settings. Adapters do not execute SQL, join form sources, or imply that missing Operations, Finance, or HSE domain modules exist.
+- Bound saved dashboards to 16 sections, 48 widgets, 16 widgets per section, and eight filters. Section icons come from a shared allowlist.
 
 ## Data Flow: Dashboard Template Creation
 

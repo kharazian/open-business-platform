@@ -4618,6 +4618,10 @@ AssertTrue(DashboardDefinitionValidator.Validate(dashboardConfig, dashboardLayou
 var sampleDashboardSchema = DemoDataSeeder.CreateBusinessPerformanceSchema();
 var sampleFieldIds = FormReportableFieldMetadata.GetReportableFields(sampleDashboardSchema).Select(field => field.Id).ToHashSet(StringComparer.Ordinal);
 AssertTrue(new[] { "title", "category", "region", "priority", "amount", "event_date", "status", "created_at" }.All(sampleFieldIds.Contains), "Business Performance sample data should expose every reportable field used by its dashboard.");
+var operationalFieldIds = FormReportableFieldMetadata.GetReportableFields(DemoDataSeeder.CreateOperationalPerformanceSchema()).Select(field => field.Id).ToHashSet(StringComparer.Ordinal);
+AssertTrue(new[] { "module", "metric_key", "fiscal_year", "period_type", "period_label", "period_date", "product", "equipment", "actual_value", "target_value", "budget_value", "unit", "status" }.All(operationalFieldIds.Contains), "Operational sample data should expose every reportable field used by the comprehensive dashboard.");
+var incidentFieldIds = FormReportableFieldMetadata.GetReportableFields(DemoDataSeeder.CreateHseIncidentSchema()).Select(field => field.Id).ToHashSet(StringComparer.Ordinal);
+AssertTrue(new[] { "incident_date", "location", "lost_hours", "incident_cost", "status" }.All(incidentFieldIds.Contains), "HSE sample data should expose every reportable field used by the comprehensive dashboard.");
 var sampleAnalyticsRecords = Enumerable.Range(0, 48).Select(index => new FormRecord
 {
     Id = Guid.Parse($"12000000-0000-0000-0000-{index + 1:000000000000}"),
@@ -4667,6 +4671,10 @@ var dashboardWithProvenance = dashboardConfig with
 dashboardWithProvenance = dashboardWithProvenance with { Filters = new[] { new SavedDashboardFilterDefinition("region", "Region", "single_select", sampleDepartmentId, "department", new[] { "HR" }) } };
 AssertTrue(DashboardDefinitionValidator.Validate(dashboardWithProvenance, dashboardLayout, dashboardSources).Valid, "Dashboard template provenance should remain valid informational metadata.");
 AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig with { TemplateProvenance = new DashboardTemplateProvenanceDefinition("", 0, default) }, dashboardLayout, dashboardSources).Valid, "Invalid template provenance should be rejected without affecting legacy dashboards that omit it.");
+var tooManySections = dashboardConfig with { Sections = Enumerable.Range(0, 17).Select(index => new SavedDashboardSectionDefinition($"section-{index}", $"Section {index}", index)).ToArray() };
+AssertTrue(DashboardDefinitionValidator.Validate(tooManySections, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.sections.limit"), "Dashboard validation should bound section counts.");
+var invalidSectionIcon = dashboardConfig with { Sections = new[] { new SavedDashboardSectionDefinition("section-1", "Section", 0, "unknown-icon") }, Widgets = new[] { dashboardConfig.Widgets.Single() with { SectionId = "section-1" } } };
+AssertTrue(DashboardDefinitionValidator.Validate(invalidSectionIcon, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.section.icon_invalid"), "Dashboard validation should reject unregistered section icons.");
 
 var invalidDashboardConfig = dashboardConfig with
 {

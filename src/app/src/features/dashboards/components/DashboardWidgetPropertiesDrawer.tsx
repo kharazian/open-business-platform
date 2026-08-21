@@ -1,0 +1,111 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Eye, LoaderCircle, Save, X } from "lucide-react";
+import { Alert } from "../../../components/ui/Alert";
+import { Badge } from "../../../components/ui/Badge";
+import { Button } from "../../../components/ui/Button";
+import { Checkbox } from "../../../components/ui/Checkbox";
+import { Input } from "../../../components/ui/Input";
+import { Select } from "../../../components/ui/Select";
+import { getForm } from "../../forms/api";
+import type { FormSummary } from "../../forms/drafts";
+import { getReportableFields, type ReportableField } from "../../forms/reportableFields";
+import { listReports } from "../../reports/api";
+import type { ListReportSummary } from "../../reports/types";
+import { runDashboardAnalytics } from "../api";
+import { buildDashboardAnalyticsRequest, toDashboardAnalyticsWidgetType } from "../analytics";
+import { createDashboardAdapterWidget, isDashboardAdapterWidgetConfigured } from "../adapters";
+import type { DashboardAdapterRegistration, DashboardAnalyticsResponse, DashboardAnalyticsWidgetType, DashboardWidgetWidth, SavedDashboardSection, SavedDashboardWidget, SavedDashboardWidgetLayout } from "../types";
+import { ChartWidgetPreview } from "./ChartWidgetPreview";
+import { DashboardAdapterSettingsEditor } from "./DashboardAdapterSettingsEditor";
+
+const widgetTypes: Array<{ label: string; value: DashboardAnalyticsWidgetType }> = [
+  { label: "KPI / summary", value: "summary" }, { label: "Category breakdown", value: "breakdown" },
+  { label: "Time trend", value: "trend" }, { label: "Record table", value: "table" }
+];
+const metricTypes = [{ label: "Count records", value: "count" }, { label: "Sum a numeric field", value: "sum" }, { label: "Average a numeric field", value: "average" }];
+const widths: Array<{ label: string; value: DashboardWidgetWidth }> = [
+  { label: "Small · ¼ row", value: "small" }, { label: "Medium · ½ row", value: "medium" },
+  { label: "Wide · ¾ row", value: "wide" }, { label: "Full row", value: "full" }
+];
+
+export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApply, onClose, open, sections, widget }: {
+  adapters: DashboardAdapterRegistration[]; forms: FormSummary[]; layout: SavedDashboardWidgetLayout | null;
+  onApply: (widget: SavedDashboardWidget, width: DashboardWidgetWidth, preview?: DashboardAnalyticsResponse) => void;
+  onClose: () => void; open: boolean; sections: SavedDashboardSection[]; widget: SavedDashboardWidget | null;
+}) {
+  const [draft, setDraft] = useState<SavedDashboardWidget | null>(null);
+  const [width, setWidth] = useState<DashboardWidgetWidth>("medium");
+  const [fields, setFields] = useState<ReportableField[]>([]);
+  const [reports, setReports] = useState<ListReportSummary[]>([]);
+  const [loadingSource, setLoadingSource] = useState(false);
+  const [preview, setPreview] = useState<DashboardAnalyticsResponse | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const previewSequence = useRef(0);
+
+  useEffect(() => { if (open && widget) { setDraft(cloneDashboardWidgetForEditing(widget)); setWidth(layout?.width ?? "medium"); setPreview(null); setPreviewError(null); } }, [layout?.width, open, widget]);
+  useEffect(() => {
+    if (!open || !draft?.chart || !draft.sourceFormId) { setFields([]); setReports([]); return; }
+    let active = true; setLoadingSource(true); setFields([]); setReports([]);
+    Promise.all([getForm(draft.sourceFormId), listReports(draft.sourceFormId)]).then(([form, items]) => {
+      if (!active) return; setFields(getReportableFields(form.draftSchema)); setReports(items);
+    }).catch((error: unknown) => { if (active) setPreviewError(error instanceof Error ? error.message : "Could not load source fields."); }).finally(() => { if (active) setLoadingSource(false); });
+    return () => { active = false; };
+  }, [draft?.sourceFormId, open]);
+
+  const dirty = Boolean(widget && draft && (JSON.stringify(widget) !== JSON.stringify(draft) || layout?.width !== width));
+  const numericFields = fields.filter((field) => field.supportsAggregation);
+  const groupFields = fields.filter((field) => field.supportsChoiceGrouping);
+  const dateFields = fields.filter((field) => field.type === "date" || field.type === "datetime");
+  const adapter = draft?.adapter ? adapters.find((item) => item.id === draft.adapter?.adapterId) : undefined;
+  const valid = Boolean(draft?.title.trim() && draft.sectionId && (draft.chart ? draft.sourceFormId && !loadingSource && isDashboardAnalyticsWidgetDraftValid(draft, fields) : isDashboardAdapterWidgetConfigured(adapter, draft?.adapter ?? null)));
+
+  useEffect(() => {
+    if (!open || !draft?.chart || !draft.sourceFormId || !valid) { setPreview(null); return; }
+    const sequence = ++previewSequence.current;
+    const timer = window.setTimeout(() => {
+      setPreviewing(true); setPreviewError(null);
+      runDashboardAnalytics(buildDashboardAnalyticsRequest(draft.sourceFormId!, draft.chart!)).then((result) => {
+        if (previewSequence.current === sequence) setPreview(result);
+      }).catch((error: unknown) => { if (previewSequence.current === sequence) setPreviewError(error instanceof Error ? error.message : "Preview failed."); })
+        .finally(() => { if (previewSequence.current === sequence) setPreviewing(false); });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [draft, open, valid]);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") requestClose(); };
+    window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close);
+  });
+
+  const analyticsType = useMemo(() => draft?.chart ? toDashboardAnalyticsWidgetType(draft.chart.widgetType) : null, [draft?.chart]);
+  if (!open || !draft || !widget) return null;
+  const activeDraft = draft;
+
+  function requestClose() { if (!dirty || window.confirm("Discard unsaved widget property changes?")) onClose(); }
+  function update(next: Partial<SavedDashboardWidget>) { setDraft((current) => current ? { ...current, ...next } : current); }
+  function updateChart(next: Partial<NonNullable<SavedDashboardWidget["chart"]>>) { setDraft((current) => current?.chart ? { ...current, chart: { ...current.chart, ...next } } : current); }
+  function changeType(next: DashboardAnalyticsWidgetType) {
+    if (!activeDraft.chart) return;
+    updateChart({ widgetType: next === "summary" ? "number_card" : next === "breakdown" ? "choice_breakdown" : next === "trend" ? "date_trend" : "table", groupByFieldId: next === "breakdown" ? (activeDraft.chart.groupByFieldId || groupFields[0]?.id || null) : null, dateFieldId: next === "trend" ? (activeDraft.chart.dateFieldId || dateFields[0]?.id || null) : null, columns: next === "table" ? (activeDraft.chart.columns?.length ? activeDraft.chart.columns : fields.slice(0, 5).map((field) => field.id)) : [] });
+  }
+  function changeAdapterVisualization(visualizationId: string) { if (!adapter) return; const next = createDashboardAdapterWidget(adapter, visualizationId); if (next) update({ adapter: next }); }
+  function toggleColumn(fieldId: string, selected: boolean) { const current = activeDraft.chart?.columns ?? []; updateChart({ columns: selected ? [...new Set([...current, fieldId])] : current.filter((id) => id !== fieldId) }); }
+
+  return <div className="fixed inset-0 z-50 bg-foreground/30 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}>
+    <aside aria-describedby="widget-properties-description" aria-label="Widget properties" aria-modal="true" className="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col border-l border-border bg-background shadow-2xl" role="dialog">
+      <header className="flex items-start justify-between gap-4 border-b border-border p-5"><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold">Widget properties</h2><Badge tone={draft.chart ? "info" : "success"}>{draft.chart ? "Analytics" : "Adapter"}</Badge></div><p className="mt-1 text-sm text-muted-foreground" id="widget-properties-description">Edit the selected widget and review the preview before applying.</p></div><Button aria-label="Close widget properties" onClick={requestClose} size="icon" variant="ghost"><X className="size-5" /></Button></header>
+      <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto p-5">
+        {dirty ? <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning">Unsaved property changes</div> : null}
+        <section className="grid gap-4"><h3 className="font-bold">Content and layout</h3><div className="grid gap-4 sm:grid-cols-2"><Input label="Widget title" maxLength={160} onChange={(event) => update({ title: event.target.value })} value={draft.title} /><Input label="Subtitle (optional)" maxLength={300} onChange={(event) => update({ subtitle: event.target.value || null })} value={draft.subtitle ?? ""} /><Select label="Section" onChange={(event) => update({ sectionId: event.target.value })} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={draft.sectionId ?? ""} /><Select label="Card width" onChange={(event) => setWidth(event.target.value as DashboardWidgetWidth)} options={widths} value={width} /></div></section>
+        {draft.chart ? <section className="grid gap-4 border-t border-border pt-5"><h3 className="font-bold">Data and chart</h3><div className="grid gap-4 sm:grid-cols-2"><Select disabled={loadingSource} label="Source form" onChange={(event) => update({ sourceFormId: event.target.value, chart: { ...draft.chart!, reportId: null } })} value={draft.sourceFormId ?? ""}>{forms.map((form) => <option key={form.id} value={form.id}>{form.name}</option>)}</Select><Select disabled={loadingSource} label="Saved report filter" onChange={(event) => updateChart({ reportId: event.target.value || null })} value={draft.chart.reportId ?? ""}><option value="">All permitted records</option>{reports.map((report) => <option key={report.id} value={report.id}>{report.name}</option>)}</Select><Select label="Visualization" onChange={(event) => changeType(event.target.value as DashboardAnalyticsWidgetType)} options={widgetTypes} value={analyticsType ?? "summary"} /><Select label="Aggregation" onChange={(event) => updateChart({ metric: { ...draft.chart!.metric, type: event.target.value as "count" | "sum" | "average", fieldId: event.target.value === "count" ? null : (draft.chart!.metric.fieldId || numericFields[0]?.id || null) } })} options={metricTypes} value={draft.chart.metric.type} />{draft.chart.metric.type !== "count" ? <Select disabled={loadingSource || numericFields.length === 0} label="Numeric field" onChange={(event) => updateChart({ metric: { ...draft.chart!.metric, fieldId: event.target.value } })} value={draft.chart.metric.fieldId ?? ""}>{numericFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}</Select> : null}{analyticsType === "breakdown" ? <Select disabled={loadingSource || groupFields.length === 0} label="Group by" onChange={(event) => updateChart({ groupByFieldId: event.target.value })} value={draft.chart.groupByFieldId ?? ""}>{groupFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}</Select> : null}{analyticsType === "trend" ? <Select disabled={loadingSource || dateFields.length === 0} label="Date axis" onChange={(event) => updateChart({ dateFieldId: event.target.value })} value={draft.chart.dateFieldId ?? ""}>{dateFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}</Select> : null}<Input label="Result limit" max={100} min={1} onChange={(event) => updateChart({ limit: Math.max(1, Math.min(100, Number(event.target.value) || 1)) })} type="number" value={draft.chart.limit ?? 10} /></div>{analyticsType === "table" ? <div className="grid gap-2"><p className="text-sm font-bold">Table columns</p><div className="grid gap-2 sm:grid-cols-2">{fields.map((field) => <Checkbox checked={(draft.chart?.columns ?? []).includes(field.id)} key={field.id} label={field.label} onChange={(event) => toggleColumn(field.id, event.target.checked)} />)}</div></div> : null}</section> : adapter ? <section className="grid gap-4 border-t border-border pt-5"><h3 className="font-bold">Visualization properties</h3><Select label="Visualization" onChange={(event) => changeAdapterVisualization(event.target.value)} options={adapter.visualizations.map((item) => ({ label: item.name, value: item.id }))} value={draft.adapter!.visualizationId} /><DashboardAdapterSettingsEditor adapter={adapter} onChange={(next) => update({ adapter: next })} value={draft.adapter!} /></section> : <Alert title="Adapter unavailable">This widget's adapter is not installed.</Alert>}
+        <section className="grid gap-3 border-t border-border pt-5"><div className="flex items-center justify-between"><h3 className="flex items-center gap-2 font-bold"><Eye className="size-4" />Live preview</h3>{previewing ? <Badge><LoaderCircle className="size-3 animate-spin" />Refreshing</Badge> : null}</div>{previewError ? <Alert title="Preview unavailable">{previewError}</Alert> : draft.chart ? (preview ? <ChartWidgetPreview preview={preview} /> : <p className="text-sm text-muted-foreground">Complete the required properties to generate a preview.</p>) : adapter ? <adapter.render widget={draft} /> : null}</section>
+      </div>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card p-4"><p className="text-xs text-muted-foreground">Changes update the canvas first. Use Save to persist the dashboard.</p><div className="flex gap-2"><Button onClick={requestClose} variant="outline">Cancel</Button><Button disabled={!dirty || !valid || previewing} onClick={() => onApply(draft, width, preview ?? undefined)}><Save className="size-4" />Apply changes</Button></div></footer>
+    </aside>
+  </div>;
+}
+
+export function cloneDashboardWidgetForEditing(widget: SavedDashboardWidget): SavedDashboardWidget { return { ...widget, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])] } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }; }
+export function isDashboardAnalyticsWidgetDraftValid(widget: SavedDashboardWidget, fields: ReportableField[]) { const chart = widget.chart; if (!chart || fields.length === 0) return false; const ids = new Set(fields.map((field) => field.id)); const type = toDashboardAnalyticsWidgetType(chart.widgetType); return (chart.metric.type === "count" || Boolean(chart.metric.fieldId && ids.has(chart.metric.fieldId))) && (type !== "breakdown" || Boolean(chart.groupByFieldId && ids.has(chart.groupByFieldId))) && (type !== "trend" || Boolean(chart.dateFieldId && ids.has(chart.dateFieldId))) && (type !== "table" || Boolean(chart.columns?.length && chart.columns.every((id) => ids.has(id)))); }

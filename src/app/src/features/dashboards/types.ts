@@ -177,7 +177,7 @@ export type DashboardAdapterRegistration = {
   render: ComponentType<DashboardAdapterRendererProps>;
 };
 
-export type SavedDashboardSection = { id: string; title: string; order: number };
+export type SavedDashboardSection = { id: string; title: string; order: number; icon?: string | null };
 
 export type DashboardTemplateProvenance = {
   templateId: string;
@@ -188,6 +188,7 @@ export type DashboardTemplateProvenance = {
 export type SavedDashboardWidget = {
   id: string;
   title: string;
+  subtitle?: string | null;
   sourceFormId: EntityId | null;
   chart?: ChartWidgetConfig | null;
   sectionId?: string | null;

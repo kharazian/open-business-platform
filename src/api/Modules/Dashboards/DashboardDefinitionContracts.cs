@@ -25,14 +25,15 @@ public sealed record SavedDashboardWidgetDefinition(
     Guid? SourceFormId,
     ChartWidgetConfigDefinition? Chart,
     string? SectionId = null,
-    DashboardAdapterWidgetDefinition? Adapter = null);
+    DashboardAdapterWidgetDefinition? Adapter = null,
+    string? Subtitle = null);
 
 public sealed record DashboardAdapterWidgetDefinition(
     string AdapterId,
     string VisualizationId,
     IReadOnlyDictionary<string, object?> Settings);
 
-public sealed record SavedDashboardSectionDefinition(string Id, string Title, int Order);
+public sealed record SavedDashboardSectionDefinition(string Id, string Title, int Order, string? Icon = null);
 
 public sealed record DashboardTemplateProvenanceDefinition(
     string TemplateId,

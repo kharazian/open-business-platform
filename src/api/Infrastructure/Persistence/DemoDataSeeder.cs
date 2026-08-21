@@ -18,6 +18,10 @@ public static class DemoDataSeeder
     public static readonly Guid BusinessPerformanceFormId = Guid.Parse("11000000-0000-0000-0000-000000000001");
     public static readonly Guid BusinessPerformanceFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000002");
     public static readonly Guid BusinessPerformanceDashboardId = Guid.Parse("11000000-0000-0000-0000-000000000003");
+    public static readonly Guid OperationalPerformanceFormId = Guid.Parse("11000000-0000-0000-0000-000000000011");
+    public static readonly Guid OperationalPerformanceFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000012");
+    public static readonly Guid HseIncidentFormId = Guid.Parse("11000000-0000-0000-0000-000000000021");
+    public static readonly Guid HseIncidentFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000022");
 
     public static readonly IReadOnlyList<DemoDepartmentDefinition> DemoDepartments = new[]
     {
@@ -92,11 +96,17 @@ public static class DemoDataSeeder
 
         var formVersion = await EnsureEmployeeInformationFormAsync(dbContext, cancellationToken);
         var businessFormVersion = await EnsureBusinessPerformanceFormAsync(dbContext, cancellationToken);
+        var operationsFormVersion = await EnsureSampleFormAsync(dbContext, OperationalPerformanceFormId, OperationalPerformanceFormVersionId, "Operational Performance Sample Data", "Development-only deterministic operational facts for dashboard examples.", CreateOperationalPerformanceSchema(), cancellationToken);
+        var incidentFormVersion = await EnsureSampleFormAsync(dbContext, HseIncidentFormId, HseIncidentFormVersionId, "HSE Incident Sample Data", "Development-only deterministic safety and incident facts for dashboard examples.", CreateHseIncidentSchema(), cancellationToken);
         await EnsureFormPermissionsAsync(dbContext, roles, formVersion.FormId, cancellationToken);
         await EnsureFormPermissionsAsync(dbContext, roles, businessFormVersion.FormId, cancellationToken);
+        await EnsureFormPermissionsAsync(dbContext, roles, operationsFormVersion.FormId, cancellationToken);
+        await EnsureFormPermissionsAsync(dbContext, roles, incidentFormVersion.FormId, cancellationToken);
         await EnsureEmployeeRecordsAsync(dbContext, formVersion, users, departments, cancellationToken);
         await EnsureBusinessPerformanceRecordsAsync(dbContext, businessFormVersion, users, departments, cancellationToken);
-        await EnsureBusinessPerformanceDashboardAsync(dbContext, businessFormVersion, users, cancellationToken);
+        await EnsureOperationalPerformanceRecordsAsync(dbContext, operationsFormVersion, users, departments, cancellationToken);
+        await EnsureHseIncidentRecordsAsync(dbContext, incidentFormVersion, users, departments, cancellationToken);
+        await EnsureBusinessPerformanceDashboardAsync(dbContext, businessFormVersion, operationsFormVersion, incidentFormVersion, users, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -194,6 +204,56 @@ public static class DemoDataSeeder
                 })
             })
         }));
+    }
+
+    public static FormSchemaDefinition CreateOperationalPerformanceSchema()
+    {
+        var fields = new[]
+        {
+            new FormFieldDefinition("title", FormFieldTypes.Text, "Title", Required: true),
+            Choice("module", "Module", "Loss", "Production", "Engineering", "Supply Chain", "QAQC"),
+            Choice("metric_key", "Metric", "Total Loss", "Manufacturing Loss", "OEE", "Utilities", "Inventory Accuracy", "First-Time Release"),
+            Choice("fiscal_year", "Fiscal year", "2025", "2026"),
+            Choice("period_type", "Period type", "Week", "Month", "Quarter"),
+            new FormFieldDefinition("period_label", FormFieldTypes.Text, "Period label", Required: true),
+            new FormFieldDefinition("period_number", FormFieldTypes.Number, "Period number", Required: true),
+            new FormFieldDefinition("period_date", FormFieldTypes.Date, "Period date", Required: true),
+            Choice("product", "Product / recipe", "Classic", "Premium", "Light", "Specialty"),
+            Choice("equipment", "Equipment", "Line 1", "Line 2", "Dryer", "Packaging"),
+            new FormFieldDefinition("actual_value", FormFieldTypes.Number, "Actual value", Required: true),
+            new FormFieldDefinition("target_value", FormFieldTypes.Number, "Target value", Required: true),
+            new FormFieldDefinition("budget_value", FormFieldTypes.Number, "Budget value", Required: true),
+            new FormFieldDefinition("numerator", FormFieldTypes.Number, "Numerator"),
+            new FormFieldDefinition("denominator", FormFieldTypes.Number, "Denominator"),
+            new FormFieldDefinition("unit", FormFieldTypes.Text, "Unit", Required: true)
+        };
+        return CreateSingleSectionSchema("page_operations", "Operational performance", "Deterministic period and target facts.", "section_operations", fields);
+    }
+
+    public static FormSchemaDefinition CreateHseIncidentSchema()
+    {
+        var fields = new[]
+        {
+            new FormFieldDefinition("title", FormFieldTypes.Text, "Title", Required: true),
+            new FormFieldDefinition("incident_date", FormFieldTypes.Date, "Incident date", Required: true),
+            Choice("incident_type", "Incident type", "Near miss", "First aid", "Medical treatment", "Lost time"),
+            Choice("severity", "Severity", "Low", "Medium", "High", "Critical"),
+            Choice("location", "Location", "Receiving", "Processing", "Packaging", "Warehouse"),
+            Choice("body_part", "Body part", "Hand", "Back", "Eye", "Foot", "None"),
+            new FormFieldDefinition("lost_hours", FormFieldTypes.Number, "Lost hours", Required: true),
+            new FormFieldDefinition("lost_shifts", FormFieldTypes.Number, "Lost shifts", Required: true),
+            new FormFieldDefinition("incident_cost", FormFieldTypes.Currency, "Incident cost", Required: true),
+            new FormFieldDefinition("training_team", FormFieldTypes.Text, "Training team", Required: true),
+            new FormFieldDefinition("training_assigned", FormFieldTypes.Number, "Training assigned", Required: true),
+            new FormFieldDefinition("training_completed", FormFieldTypes.Number, "Training completed", Required: true)
+        };
+        return CreateSingleSectionSchema("page_hse", "HSE incidents", "Deterministic safety and training facts.", "section_hse", fields);
+    }
+
+    private static FormSchemaDefinition CreateSingleSectionSchema(string pageId, string title, string description, string sectionId, IReadOnlyList<FormFieldDefinition> fields)
+    {
+        var rows = fields.Chunk(2).Select((pair, index) => new FormLayoutRowDefinition($"row_{index + 1}", pair.Select((field, column) => new FormLayoutColumnDefinition($"row_{index + 1}_{column + 1}", new ResponsiveSpanDefinition(12, 6, 6), new[] { field.Id })).ToArray())).ToArray();
+        return new FormSchemaDefinition(1, fields, new FormLayoutDefinition(new[] { new FormLayoutPageDefinition(pageId, title, description, new[] { new FormLayoutSectionDefinition(sectionId, title, null, rows) }) }));
     }
 
     private static FormFieldDefinition Choice(string id, string label, params string[] values) =>
@@ -497,6 +557,41 @@ public static class DemoDataSeeder
         return version;
     }
 
+    private static async Task<FormVersion> EnsureSampleFormAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        Guid formId,
+        Guid versionId,
+        string name,
+        string description,
+        FormSchemaDefinition schema,
+        CancellationToken cancellationToken)
+    {
+        var form = await dbContext.Forms.Include(candidate => candidate.CurrentVersion)
+            .FirstOrDefaultAsync(candidate => candidate.Id == formId || candidate.Name == name, cancellationToken);
+        if (form?.CurrentVersion is not null) return form.CurrentVersion;
+        if (form is null)
+        {
+            form = new FormDefinition { Id = formId, Name = name, Description = description, Status = FormStatuses.Draft, DraftSchemaJson = SerializeToDocument(schema) };
+            dbContext.Forms.Add(form);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        var versionNumber = await dbContext.FormVersions.Where(version => version.FormId == form.Id).Select(version => (int?)version.VersionNumber).MaxAsync(cancellationToken) ?? 0;
+        var version = new FormVersion
+        {
+            Id = form.Id == formId ? versionId : Guid.NewGuid(),
+            FormId = form.Id,
+            VersionNumber = versionNumber + 1,
+            SchemaJson = SerializeToDocument(schema),
+            PublishedAt = DateTimeOffset.UtcNow
+        };
+        dbContext.FormVersions.Add(version);
+        form.CurrentVersionId = version.Id;
+        form.Status = FormStatuses.Published;
+        form.DraftSchemaJson ??= SerializeToDocument(schema);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return version;
+    }
+
     private static async Task EnsureFormPermissionsAsync(
         OpenBusinessPlatformDbContext dbContext,
         IReadOnlyDictionary<string, Role> roles,
@@ -625,9 +720,86 @@ public static class DemoDataSeeder
         }
     }
 
+    private static async Task EnsureOperationalPerformanceRecordsAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        FormVersion formVersion,
+        IReadOnlyDictionary<string, User> users,
+        IReadOnlyDictionary<string, Department> departments,
+        CancellationToken cancellationToken)
+    {
+        var creatorId = users["builder.demo@company.test"].Id;
+        var modules = new[] { "Loss", "Production", "Engineering", "Supply Chain", "QAQC" };
+        var metrics = new[] { "Total Loss", "Manufacturing Loss", "OEE", "Utilities", "Inventory Accuracy", "First-Time Release" };
+        var products = new[] { "Classic", "Premium", "Light", "Specialty" };
+        var equipment = new[] { "Line 1", "Line 2", "Dryer", "Packaging" };
+        var periodTypes = new[] { "Month", "Week", "Quarter" };
+        var statuses = new[] { "active", "approved", "pending", "closed" };
+        var existingIds = (await dbContext.Records.Where(record => record.FormId == formVersion.FormId).Select(record => record.Id).ToArrayAsync(cancellationToken)).ToHashSet();
+        for (var index = 0; index < 72; index++)
+        {
+            var id = Guid.Parse($"13000000-0000-0000-0000-{index + 1:000000000000}");
+            if (existingIds.Contains(id)) continue;
+            var period = index % 12 + 1;
+            var year = index < 36 ? 2025 : 2026;
+            var date = new DateTimeOffset(year, period, 15, 12, 0, 0, TimeSpan.Zero);
+            var target = 75m + (index % 8) * 5m;
+            var actual = target + (index % 5 - 2) * 3m;
+            dbContext.Records.Add(new FormRecord
+            {
+                Id = id, FormId = formVersion.FormId, FormVersionId = formVersion.Id, Status = statuses[index % statuses.Length],
+                OwnerId = creatorId, DepartmentId = departments["Operations"].Id, CreatedAt = date, CreatedById = creatorId,
+                ValuesJson = SerializeToDocument(new Dictionary<string, object?>
+                {
+                    ["title"] = $"Operational fact {index + 1:00}", ["module"] = modules[index % modules.Length], ["metric_key"] = metrics[index % metrics.Length],
+                    ["fiscal_year"] = year.ToString(), ["period_type"] = periodTypes[index % periodTypes.Length], ["period_label"] = $"{year}-{period:00}",
+                    ["period_number"] = period, ["period_date"] = date.ToString("yyyy-MM-dd"), ["product"] = products[index % products.Length],
+                    ["equipment"] = equipment[index % equipment.Length], ["actual_value"] = actual, ["target_value"] = target, ["budget_value"] = target + 4m,
+                    ["numerator"] = actual * 10m, ["denominator"] = target * 10m, ["unit"] = index % 3 == 0 ? "%" : "t"
+                })
+            });
+        }
+    }
+
+    private static async Task EnsureHseIncidentRecordsAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        FormVersion formVersion,
+        IReadOnlyDictionary<string, User> users,
+        IReadOnlyDictionary<string, Department> departments,
+        CancellationToken cancellationToken)
+    {
+        var creatorId = users["builder.demo@company.test"].Id;
+        var types = new[] { "Near miss", "First aid", "Medical treatment", "Lost time" };
+        var severities = new[] { "Low", "Medium", "High", "Critical" };
+        var locations = new[] { "Receiving", "Processing", "Packaging", "Warehouse" };
+        var bodyParts = new[] { "None", "Hand", "Back", "Eye", "Foot" };
+        var statuses = new[] { "active", "pending", "approved", "closed" };
+        var existingIds = (await dbContext.Records.Where(record => record.FormId == formVersion.FormId).Select(record => record.Id).ToArrayAsync(cancellationToken)).ToHashSet();
+        for (var index = 0; index < 36; index++)
+        {
+            var id = Guid.Parse($"14000000-0000-0000-0000-{index + 1:000000000000}");
+            if (existingIds.Contains(id)) continue;
+            var date = new DateTimeOffset(2026, index % 12 + 1, index % 20 + 1, 12, 0, 0, TimeSpan.Zero);
+            var lostHours = index % 4 == 3 ? (index % 6 + 1) * 4 : 0;
+            dbContext.Records.Add(new FormRecord
+            {
+                Id = id, FormId = formVersion.FormId, FormVersionId = formVersion.Id, Status = statuses[index % statuses.Length],
+                OwnerId = creatorId, DepartmentId = departments["Operations"].Id, CreatedAt = date, CreatedById = creatorId,
+                ValuesJson = SerializeToDocument(new Dictionary<string, object?>
+                {
+                    ["title"] = $"HSE incident {index + 1:00}", ["incident_date"] = date.ToString("yyyy-MM-dd"), ["incident_type"] = types[index % types.Length],
+                    ["severity"] = severities[index % severities.Length], ["location"] = locations[index % locations.Length], ["body_part"] = bodyParts[index % bodyParts.Length],
+                    ["lost_hours"] = lostHours, ["lost_shifts"] = lostHours / 8, ["incident_cost"] = 250m + index * 125m,
+                    ["training_team"] = $"Team {index % 4 + 1}", ["training_assigned"] = 12 + index % 7, ["training_completed"] = 10 + index % 6
+                })
+            });
+        }
+    }
+
     private static async Task EnsureBusinessPerformanceDashboardAsync(
         OpenBusinessPlatformDbContext dbContext,
         FormVersion sourceVersion,
+        FormVersion operationsVersion,
+        FormVersion incidentVersion,
         IReadOnlyDictionary<string, User> users,
         CancellationToken cancellationToken)
     {
@@ -636,40 +808,88 @@ public static class DemoDataSeeder
         var requiredFields = new[] { "title", "category", "region", "priority", "amount", "event_date", "status", "created_at" };
         if (sourceSchema is null || !requiredFields.All(FormReportableFieldMetadata.GetReportableFieldsById(sourceSchema).ContainsKey)) return;
         var sourceFormId = sourceVersion.FormId;
+        var operationsFormId = operationsVersion.FormId;
+        var incidentFormId = incidentVersion.FormId;
         var sections = new[]
         {
-            new SavedDashboardSectionDefinition("sample-executive", "Executive overview", 0),
-            new SavedDashboardSectionDefinition("sample-trends", "Trends", 1),
-            new SavedDashboardSectionDefinition("sample-segments", "Segments", 2),
-            new SavedDashboardSectionDefinition("sample-records", "Records", 3)
+            new SavedDashboardSectionDefinition("sample-executive", "Executive Overview", 0, "gauge"),
+            new SavedDashboardSectionDefinition("sample-financial", "Financial Performance", 1, "badge-dollar-sign"),
+            new SavedDashboardSectionDefinition("sample-loss", "Loss", 2, "trending-up"),
+            new SavedDashboardSectionDefinition("sample-production", "Production", 3, "factory"),
+            new SavedDashboardSectionDefinition("sample-engineering", "Engineering", 4, "wrench"),
+            new SavedDashboardSectionDefinition("sample-supply", "Supply Chain", 5, "package-check"),
+            new SavedDashboardSectionDefinition("sample-qaqc", "QAQC", 6, "shield-check"),
+            new SavedDashboardSectionDefinition("sample-hse", "HSE", 7, "heart-pulse"),
+            new SavedDashboardSectionDefinition("sample-trends", "Trends & Targets", 8, "chart-column"),
+            new SavedDashboardSectionDefinition("sample-records", "Records & Drill-down", 9, "clipboard-list"),
+            new SavedDashboardSectionDefinition("sample-health", "Data Health", 10, "activity")
         };
         var widgetSpecs = new[]
         {
-            ("total-records", "Total records", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Count, (string?)null, (string?)null, (string?)null, Array.Empty<string>()),
-            ("total-amount", "Total amount", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "amount", null, null, Array.Empty<string>()),
-            ("average-amount", "Average amount", "sample-executive", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Average, "amount", null, null, Array.Empty<string>()),
-            ("records-by-status", "Records by status", "sample-executive", DashboardWidgetWidths.Medium, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "status", null, Array.Empty<string>()),
-            ("records-over-time", "Records over time", "sample-trends", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Count, null, null, "event_date", Array.Empty<string>()),
-            ("amount-over-time", "Amount over time", "sample-trends", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "amount", null, "event_date", Array.Empty<string>()),
-            ("amount-by-category", "Amount by category", "sample-segments", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "amount", "category", null, Array.Empty<string>()),
-            ("records-by-region", "Records by region", "sample-segments", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "region", null, Array.Empty<string>()),
-            ("records-by-priority", "Records by priority", "sample-segments", DashboardWidgetWidths.Medium, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "priority", null, Array.Empty<string>()),
-            ("recent-records", "Recent records", "sample-records", DashboardWidgetWidths.Full, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "title", "category", "region", "priority", "amount", "status", "created_at" })
+            ("total-records", "Total records", "sample-executive", DashboardWidgetWidths.Small, sourceFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Count, (string?)null, (string?)null, (string?)null, Array.Empty<string>()),
+            ("total-amount", "Total amount", "sample-executive", DashboardWidgetWidths.Small, sourceFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "amount", null, null, Array.Empty<string>()),
+            ("average-amount", "Average amount", "sample-executive", DashboardWidgetWidths.Small, sourceFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Average, "amount", null, null, Array.Empty<string>()),
+            ("records-by-status", "Records by status", "sample-executive", DashboardWidgetWidths.Medium, sourceFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "status", null, Array.Empty<string>()),
+            ("amount-category", "Amount by category", "sample-financial", DashboardWidgetWidths.Wide, sourceFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "amount", "category", null, Array.Empty<string>()),
+            ("amount-time", "Amount over time", "sample-financial", DashboardWidgetWidths.Wide, sourceFormId, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "amount", null, "event_date", Array.Empty<string>()),
+            ("loss-actual", "Total loss actual", "sample-loss", DashboardWidgetWidths.Small, operationsFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, null, Array.Empty<string>()),
+            ("loss-metric", "Loss by metric", "sample-loss", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "metric_key", null, Array.Empty<string>()),
+            ("production-product", "Production by product", "sample-production", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "product", null, Array.Empty<string>()),
+            ("production-trend", "Production trend", "sample-production", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("engineering-equipment", "Engineering performance", "sample-engineering", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "equipment", null, Array.Empty<string>()),
+            ("engineering-trend", "Utilities and reliability trend", "sample-engineering", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Average, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("supply-product", "Inventory by product", "sample-supply", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "product", null, Array.Empty<string>()),
+            ("supply-metric", "Supply-chain KPI families", "sample-supply", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "metric_key", null, Array.Empty<string>()),
+            ("qaqc-rate", "QAQC first-time release", "sample-qaqc", DashboardWidgetWidths.Small, operationsFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Average, "actual_value", null, null, Array.Empty<string>()),
+            ("qaqc-detail", "Quality detail", "sample-qaqc", DashboardWidgetWidths.Full, operationsFormId, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "period_label", "metric_key", "product", "actual_value", "target_value", "unit", "status" }),
+            ("incident-count", "YTD incidents", "sample-hse", DashboardWidgetWidths.Small, incidentFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Count, null, null, null, Array.Empty<string>()),
+            ("incident-cost", "Incident cost", "sample-hse", DashboardWidgetWidths.Small, incidentFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "incident_cost", null, null, Array.Empty<string>()),
+            ("lost-hours", "Lost hours", "sample-hse", DashboardWidgetWidths.Small, incidentFormId, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "lost_hours", null, null, Array.Empty<string>()),
+            ("incidents-location", "Incidents by location", "sample-hse", DashboardWidgetWidths.Wide, incidentFormId, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Count, null, "location", null, Array.Empty<string>()),
+            ("operations-time", "Operational actual over time", "sample-trends", DashboardWidgetWidths.Wide, operationsFormId, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("business-time", "Business records over time", "sample-trends", DashboardWidgetWidths.Wide, sourceFormId, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Count, null, null, "event_date", Array.Empty<string>()),
+            ("recent-business", "Recent business records", "sample-records", DashboardWidgetWidths.Full, sourceFormId, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "title", "category", "region", "priority", "amount", "status", "created_at" }),
+            ("recent-operations", "Operational detail", "sample-records", DashboardWidgetWidths.Full, operationsFormId, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "module", "metric_key", "period_label", "product", "actual_value", "target_value", "unit" })
         };
         var widgets = widgetSpecs.Select(spec => new SavedDashboardWidgetDefinition(
-            $"sample-{spec.Item1}", spec.Item2, sourceFormId,
-            new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null),
+            $"sample-{spec.Item1}", spec.Item2, spec.Item5,
+            new ChartWidgetConfigDefinition(spec.Item6, new ChartMetricDefinition(spec.Item7, spec.Item8), spec.Item9, spec.Item10, spec.Item11, spec.Item6 == ChartWidgetTypes.Table ? 20 : 12, null),
             spec.Item3)).ToArray();
+        var adapterSpecs = new[]
+        {
+            ("executive-target", "Actual versus target", "sample-executive", DashboardWidgetWidths.Wide, "target_attainment"),
+            ("finance-delta", "Net performance versus budget", "sample-financial", DashboardWidgetWidths.Small, "kpi_delta"),
+            ("finance-waterfall", "Profitability waterfall", "sample-financial", DashboardWidgetWidths.Wide, "waterfall"),
+            ("finance-heatmap", "Channel and product heatmap", "sample-financial", DashboardWidgetWidths.Wide, "heatmap"),
+            ("loss-target", "Loss actual and standard", "sample-loss", DashboardWidgetWidths.Wide, "combo"),
+            ("production-stack", "Product composition", "sample-production", DashboardWidgetWidths.Wide, "stacked_bar"),
+            ("engineering-target", "Actual versus engineering standard", "sample-engineering", DashboardWidgetWidths.Wide, "target_line"),
+            ("supply-attainment", "Service-level attainment", "sample-supply", DashboardWidgetWidths.Medium, "target_attainment"),
+            ("incident-donut", "Incident location mix", "sample-hse", DashboardWidgetWidths.Medium, "donut"),
+            ("actual-budget", "Actual and budget comparison", "sample-trends", DashboardWidgetWidths.Wide, "combo"),
+            ("period-diagnostic", "Actual-through period coverage", "sample-trends", DashboardWidgetWidths.Medium, "status_panel"),
+            ("detail-popup", "Period detail preview", "sample-records", DashboardWidgetWidths.Wide, "detail_popup"),
+            ("source-health", "Source health", "sample-health", DashboardWidgetWidths.Wide, "data_health"),
+            ("schema-health", "Schema and permissions", "sample-health", DashboardWidgetWidths.Wide, "status_panel")
+        };
+        var adapterSettings = new Dictionary<string, object?> { ["actual"] = 92, ["target"] = 100, ["labels"] = "Jan|Feb|Mar|Apr", ["values"] = "31|35|39|42", ["primary"] = "31|35|39|42", ["secondary"] = "30|34|38|43", ["unit"] = "%", ["status"] = "success", ["title"] = "Sample data ready", ["detail"] = "Three permitted deterministic sources validated.", ["sourceLabel"] = "Development sample sources" };
+        widgets = widgets.Concat(adapterSpecs.Select(spec => new SavedDashboardWidgetDefinition($"sample-{spec.Item1}", spec.Item2, null, null, spec.Item3, new DashboardAdapterWidgetDefinition("sample-dashboard", spec.Item5, adapterSettings)))).ToArray();
         var filters = new[]
         {
             new SavedDashboardFilterDefinition("sample-filter-date", "Date range", "date_range", sourceFormId, "event_date"),
             new SavedDashboardFilterDefinition("sample-filter-status", "Status", "record_status", sourceFormId, "status", new[] { "active", "pending", "approved", "closed" }),
             new SavedDashboardFilterDefinition("sample-filter-category", "Category", "single_select", sourceFormId, "category", new[] { "Product", "Service", "Subscription" }),
             new SavedDashboardFilterDefinition("sample-filter-region", "Region", "single_select", sourceFormId, "region", new[] { "North", "South", "East", "West" })
+            ,new SavedDashboardFilterDefinition("sample-filter-year", "Fiscal year", "single_select", operationsFormId, "fiscal_year", new[] { "2025", "2026" })
+            ,new SavedDashboardFilterDefinition("sample-filter-period", "Period", "single_select", operationsFormId, "period_type", new[] { "Week", "Month", "Quarter" })
+            ,new SavedDashboardFilterDefinition("sample-filter-product", "Product / recipe", "multi_select", operationsFormId, "product", new[] { "Classic", "Premium", "Light", "Specialty" })
+            ,new SavedDashboardFilterDefinition("sample-filter-location", "HSE location", "single_select", incidentFormId, "location", new[] { "Receiving", "Processing", "Packaging", "Warehouse" })
         };
         var config = new SavedDashboardConfigDefinition(1, widgets, sections,
-            new DashboardTemplateProvenanceDefinition("business-performance-sample", 1, new DateTimeOffset(2026, 8, 21, 0, 0, 0, TimeSpan.Zero)), filters);
-        var layout = new SavedDashboardLayoutDefinition(1, widgetSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"sample-{spec.Item1}", spec.Item4, index)).ToArray());
+            new DashboardTemplateProvenanceDefinition("business-performance-sample", 2, new DateTimeOffset(2026, 8, 21, 0, 0, 0, TimeSpan.Zero)), filters);
+        var layoutItems = widgetSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"sample-{spec.Item1}", spec.Item4, index))
+            .Concat(adapterSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"sample-{spec.Item1}", spec.Item4, widgetSpecs.Length + index))).ToArray();
+        var layout = new SavedDashboardLayoutDefinition(1, layoutItems);
         var creatorId = users["builder.demo@company.test"].Id;
         dbContext.Dashboards.Add(new DashboardDefinition
         {

@@ -53,6 +53,8 @@ public static class DashboardDefinitionValidator
         var sections = config.Sections ?? Array.Empty<SavedDashboardSectionDefinition>();
         var sectionIds = sections.Select(section => Normalize(section.Id)).ToArray();
         var filters = config.Filters ?? Array.Empty<SavedDashboardFilterDefinition>();
+        if (sections.Count > 16) errors.Add(new("config.sections", "dashboard.sections.limit", "A dashboard supports at most 16 sections."));
+        if (widgets.Count > 48) errors.Add(new("config.widgets", "dashboard.widgets.limit", "A dashboard supports at most 48 widgets."));
         if (filters.Count > 8) errors.Add(new("config.filters", "dashboard.filters.limit", "A dashboard supports at most 8 shared filters."));
         foreach (var filter in filters)
         {
@@ -72,10 +74,19 @@ public static class DashboardDefinitionValidator
 
         foreach (var section in sections)
         {
-            if (string.IsNullOrWhiteSpace(section.Id) || string.IsNullOrWhiteSpace(section.Title))
+            if (string.IsNullOrWhiteSpace(section.Id) || section.Id.Length > 100 || string.IsNullOrWhiteSpace(section.Title) || section.Title.Length > 100)
             {
                 errors.Add(new DashboardValidationError("config.sections", "dashboard.section.invalid", "Each dashboard section needs an id and title."));
             }
+            if (section.Icon is not null && !DashboardSectionIcons.Supported.Contains(Normalize(section.Icon)))
+            {
+                errors.Add(new DashboardValidationError("config.sections.icon", "dashboard.section.icon_invalid", "Dashboard section icon is not supported."));
+            }
+        }
+
+        foreach (var group in widgets.Where(widget => !string.IsNullOrWhiteSpace(widget.SectionId)).GroupBy(widget => Normalize(widget.SectionId)))
+        {
+            if (group.Count() > 16) errors.Add(new("config.widgets", "dashboard.section.widget_limit", $"Section '{group.Key}' supports at most 16 widgets."));
         }
 
         if (widgets.Count == 0)
@@ -135,6 +146,11 @@ public static class DashboardDefinitionValidator
             errors.Add(new DashboardValidationError("config.widgets.title", "dashboard.widget.title_required", "Widget title is required."));
         }
 
+        if ((widget.Title?.Length ?? 0) > 160 || (widget.Subtitle?.Length ?? 0) > 300)
+        {
+            errors.Add(new DashboardValidationError("config.widgets.title", "dashboard.widget.text_too_long", "Widget title or subtitle is too long."));
+        }
+
         if (!string.IsNullOrWhiteSpace(widget.SectionId) && !sectionIds.Contains(Normalize(widget.SectionId), StringComparer.Ordinal))
         {
             errors.Add(new DashboardValidationError("config.widgets.sectionId", "dashboard.widget.section_missing", "Widget section was not found."));
@@ -182,6 +198,15 @@ public static class DashboardDefinitionValidator
         {
             errors.Add(new DashboardValidationError($"config.widgets.chart.{error.Path}", error.Code, error.Message));
         }
+    }
+
+    private static class DashboardSectionIcons
+    {
+        public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "activity", "badge-dollar-sign", "chart-column", "clipboard-list", "factory", "gauge",
+            "heart-pulse", "package-check", "shield-check", "trending-up", "wrench"
+        };
     }
 
     private static void ValidateAdapter(DashboardAdapterWidgetDefinition adapter, ICollection<DashboardValidationError> errors)

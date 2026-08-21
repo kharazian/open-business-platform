@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { assignWidgetsToDashboardSections, createDashboardSectionId, normalizeDashboardSections } from "./sections.ts";
+import { assignWidgetsToDashboardSections, createDashboardSectionId, moveDashboardSection, normalizeDashboardSections } from "./sections.ts";
 
 test("dashboard sections preserve stable order and normalize positions", () => {
   const sections = normalizeDashboardSections([
@@ -37,4 +37,14 @@ test("dashboard section ids are readable and unique", () => {
   const sections = [{ id: "team-plan", title: "Team plan", order: 0 }];
   assert.equal(createDashboardSectionId("Team plan", sections), "team-plan-2");
   assert.equal(createDashboardSectionId("!!!", sections), "section");
+});
+
+test("dashboard sections can be reordered by stable ids", () => {
+  const moved = moveDashboardSection([
+    { id: "one", title: "One", order: 0 },
+    { id: "two", title: "Two", order: 1 },
+    { id: "three", title: "Three", order: 2 }
+  ], "three", "one");
+  assert.deepEqual(moved.map((section) => section.id), ["three", "one", "two"]);
+  assert.deepEqual(moved.map((section) => section.order), [0, 1, 2]);
 });

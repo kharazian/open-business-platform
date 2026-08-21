@@ -48,3 +48,14 @@ export function createDashboardSectionId(title: string, sections: SavedDashboard
 
   return candidate;
 }
+
+export function moveDashboardSection(sections: SavedDashboardSection[], sourceId: string, targetId: string): SavedDashboardSection[] {
+  const ordered = normalizeDashboardSections(sections);
+  if (sourceId === targetId) return ordered;
+  const source = ordered.find((section) => section.id === sourceId);
+  const targetIndex = ordered.findIndex((section) => section.id === targetId);
+  if (!source || targetIndex < 0) return ordered;
+  const remaining = ordered.filter((section) => section.id !== sourceId);
+  remaining.splice(targetIndex, 0, source);
+  return remaining.map((section, order) => ({ ...section, order }));
+}
