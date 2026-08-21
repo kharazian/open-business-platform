@@ -34,6 +34,23 @@ public static class ChartMetricTypes
 
 public sealed record ChartMetricDefinition(string Type, string? FieldId = null);
 
+public static class DashboardSeriesDisplayTypes
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "bar", "line", "area" };
+}
+
+public static class DashboardSeriesAxes
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "left", "right" };
+}
+
+public static class DashboardSeriesColors
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "primary", "info", "success", "warning", "danger", "violet" };
+}
+
+public sealed record DashboardChartSeriesDefinition(string Id, string Label, ChartMetricDefinition Metric, string DisplayType = "bar", string Color = "primary", string Axis = "left");
+
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,
     ChartMetricDefinition Metric,
@@ -41,7 +58,8 @@ public sealed record ChartWidgetConfigDefinition(
     string? DateFieldId = null,
     IReadOnlyList<string>? Columns = null,
     int? Limit = null,
-    Guid? ReportId = null);
+    Guid? ReportId = null,
+    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null);
 
 public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
 

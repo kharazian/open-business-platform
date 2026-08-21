@@ -21,7 +21,7 @@ export function validateTemplateFieldCapabilities(
     if (widget.source.kind !== "analytics") continue;
     const fieldIds = fieldIdsBySourceSlot[widget.source.sourceSlot];
     if (!fieldIds) continue;
-    const requiredIds = [widget.source.chart.metric.fieldId, widget.source.chart.groupByFieldId, widget.source.chart.dateFieldId, ...(widget.source.chart.columns ?? [])];
+    const requiredIds = [widget.source.chart.metric.fieldId, widget.source.chart.groupByFieldId, widget.source.chart.dateFieldId, ...(widget.source.chart.columns ?? []), ...(widget.source.chart.series ?? []).map((series) => series.metric.fieldId)];
     for (const fieldId of requiredIds) {
       if (fieldId && !fieldIds.has(fieldId)) errors.push({ path: `widgets.${widget.key}`, code: "template.field.missing", message: `${widget.title} requires the reportable field '${fieldId}'.` });
     }

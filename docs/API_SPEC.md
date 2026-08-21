@@ -853,6 +853,16 @@ Request:
     "type": "count",
     "fieldId": null
   },
+  "series": [
+    {
+      "id": "records",
+      "label": "Records",
+      "metric": { "type": "count", "fieldId": null },
+      "displayType": "line",
+      "color": "info",
+      "axis": "right"
+    }
+  ],
   "groupByFieldId": "status",
   "dateFieldId": null,
   "columns": [],
@@ -860,7 +870,7 @@ Request:
 }
 ```
 
-Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field.
+Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field. Non-table requests may include one to four `series` definitions. Each definition has a unique bounded ID and label, its own metric, `bar`/`line`/`area` display type, semantic color, and `left`/`right` axis. Omitting `series` preserves the legacy single-metric behavior. Table requests accept at most one series.
 
 Response:
 
@@ -874,13 +884,24 @@ Response:
   "series": [
     { "key": "active", "label": "Active", "value": 10 }
   ],
+  "dataSeries": [
+    {
+      "id": "records",
+      "label": "Records",
+      "displayType": "line",
+      "color": "info",
+      "axis": "right",
+      "metric": { "type": "count", "fieldId": null },
+      "points": [{ "key": "active", "label": "Active", "value": 10 }]
+    }
+  ],
   "columns": [],
   "rows": [],
   "totalCount": 10
 }
 ```
 
-Table analytics return `columns` and `rows` with display-ready cells instead of `series`. Returns `400` for invalid analytics requests, `403` for failed menu/form/report/hidden-field checks, `404` when the source form or source report is missing, and `409` when the form or saved report schema cannot be used for analytics.
+For compatibility, `series` remains the primary metric result. `dataSeries` contains every requested metric result and metadata. All series run independently over the same permission- and filter-scoped record set; the endpoint does not evaluate formulas, arbitrary SQL, or cross-form joins. Table analytics return `columns` and `rows` with display-ready cells. Returns `400` for invalid analytics requests, `403` for failed menu/form/report/hidden-field checks—including any series metric field—`404` when the source form or source report is missing, and `409` when the form or saved report schema cannot be used for analytics.
 
 ### Export list report CSV
 

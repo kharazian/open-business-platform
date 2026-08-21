@@ -172,7 +172,7 @@ export function instantiateDashboardTemplate(
 }
 
 function cloneChart(chart: Omit<ChartWidgetConfig, "reportId">): Omit<ChartWidgetConfig, "reportId"> {
-  return { ...chart, metric: { ...chart.metric }, columns: [...(chart.columns ?? [])] };
+  return { ...chart, metric: { ...chart.metric }, columns: [...(chart.columns ?? [])], series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null };
 }
 
 function cloneAdapter(adapter: DashboardAdapterWidget): DashboardAdapterWidget {

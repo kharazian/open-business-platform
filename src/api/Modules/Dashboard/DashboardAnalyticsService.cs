@@ -84,6 +84,16 @@ public sealed class DashboardAnalyticsService
             sourceReportConfig,
             fieldAccess.HiddenFieldIds,
             sanitizedRequest.Filters);
+        var seriesDefinitions = GetEffectiveSeries(sanitizedRequest);
+        var dataSeries = seriesDefinitions.Select(series =>
+        {
+            var result = ChartAggregationEngine.Execute(
+                form.Id, form.Name, ToChartConfig(sanitizedRequest, series.Metric), schema, records,
+                sourceReportConfig, fieldAccess.HiddenFieldIds, sanitizedRequest.Filters);
+            return new DashboardAnalyticsDataSeries(
+                series.Id, series.Label, series.DisplayType, series.Color, series.Axis,
+                new DashboardAnalyticsMetricDefinition(series.Metric.Type, series.Metric.FieldId), result.Series);
+        }).ToArray();
 
         return new DashboardAnalyticsResponse(
             chartResult.FormId,
@@ -94,7 +104,8 @@ public sealed class DashboardAnalyticsService
             chartResult.Series,
             chartResult.Columns,
             chartResult.Rows,
-            chartResult.TotalCount);
+            chartResult.TotalCount,
+            dataSeries);
     }
 
     private async Task<ListReportConfigDefinition?> GetSourceReportConfigAsync(
@@ -167,12 +178,13 @@ public sealed class DashboardAnalyticsService
         }
 
         var hiddenMetric = sanitized.Metric.FieldId is not null && hiddenFieldIds.Contains(sanitized.Metric.FieldId);
+        var hiddenSeriesMetric = (sanitized.Series ?? Array.Empty<DashboardChartSeriesDefinition>()).Any(series => series.Metric.FieldId is not null && hiddenFieldIds.Contains(series.Metric.FieldId));
         var hiddenGroup = sanitized.GroupByFieldId is not null && hiddenFieldIds.Contains(sanitized.GroupByFieldId);
         var hiddenDate = sanitized.DateFieldId is not null && hiddenFieldIds.Contains(sanitized.DateFieldId);
         var hiddenColumn = (sanitized.Columns ?? Array.Empty<string>()).Any(hiddenFieldIds.Contains);
         var hiddenFilter = (sanitized.Filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Any(filter => hiddenFieldIds.Contains(filter.FieldId));
 
-        if (hiddenMetric || hiddenGroup || hiddenDate || hiddenColumn || hiddenFilter)
+        if (hiddenMetric || hiddenSeriesMetric || hiddenGroup || hiddenDate || hiddenColumn || hiddenFilter)
         {
             throw new DashboardAnalyticsException(StatusCodes.Status403Forbidden, "Dashboard analytics request references a hidden field.");
         }
@@ -182,6 +194,15 @@ public sealed class DashboardAnalyticsService
 
     private static DashboardAnalyticsRequest NormalizeRequest(DashboardAnalyticsRequest request)
     {
+        var normalizedSeries = (request.Series ?? Array.Empty<DashboardChartSeriesDefinition>()).Select(series => series with
+        {
+            Id = series.Id.Trim(),
+            Label = series.Label.Trim(),
+            Metric = new ChartMetricDefinition(series.Metric.Type.Trim(), NormalizeOptional(series.Metric.FieldId)),
+            DisplayType = series.DisplayType.Trim(),
+            Color = series.Color.Trim(),
+            Axis = series.Axis.Trim()
+        }).ToArray();
         return request with
         {
             WidgetType = request.WidgetType.Trim(),
@@ -200,20 +221,30 @@ public sealed class DashboardAnalyticsService
                 Values = (filter.Values ?? Array.Empty<string>()).Select(value => value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                 Start = NormalizeOptional(filter.Start),
                 End = NormalizeOptional(filter.End)
-            }).ToArray()
+            }).ToArray(),
+            Series = normalizedSeries
         };
     }
 
-    private static ChartWidgetConfigDefinition ToChartConfig(DashboardAnalyticsRequest request)
+    private static IReadOnlyList<DashboardChartSeriesDefinition> GetEffectiveSeries(DashboardAnalyticsRequest request)
+    {
+        return request.Series is { Count: > 0 } ? request.Series : new[]
+        {
+            new DashboardChartSeriesDefinition("primary", "Primary", new ChartMetricDefinition(request.Metric.Type, request.Metric.FieldId))
+        };
+    }
+
+    private static ChartWidgetConfigDefinition ToChartConfig(DashboardAnalyticsRequest request, ChartMetricDefinition? metric = null)
     {
         return new ChartWidgetConfigDefinition(
             ToChartWidgetType(request.WidgetType),
-            new ChartMetricDefinition(request.Metric.Type, request.Metric.FieldId),
+            metric ?? new ChartMetricDefinition(request.Metric.Type, request.Metric.FieldId),
             request.GroupByFieldId,
             request.DateFieldId,
             request.Columns,
             request.Limit,
-            request.Source.ReportId);
+            request.Source.ReportId,
+            request.Series);
     }
 
     private static string ToChartWidgetType(string widgetType)

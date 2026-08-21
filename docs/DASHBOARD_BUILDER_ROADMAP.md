@@ -10,10 +10,10 @@ Implement and verify these increments in order. Each increment must preserve bac
 2. **Widget properties drawer — implemented**
    - Select a card to edit title, subtitle, section, width, source, report, type, aggregation, grouping, date field, row limit, and table columns
    - Live preview, Apply/Cancel, dirty-state warning, validation beside the affected control
-3. **Multi-series analytics contract**
+3. **Multi-series analytics contract — implemented**
    - Bounded series collection with label, metric, aggregation, field, color, axis, and display type
    - Backend validation/execution with field permissions checked for every series
-   - Bar, line, area, and combo rendering without arbitrary formulas or SQL
+   - Bar, line, area, and combo rendering with independent left/right scales, without arbitrary formulas or SQL
 4. **Appearance and color controls**
    - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting
    - Contrast checks and reset-to-theme behavior

@@ -4469,6 +4469,19 @@ var analyticsSummaryRequest = analyticsBreakdownRequest with
 AssertTrue(
     DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsSummaryRequest).Valid,
     "Dashboard analytics should validate numeric summary metrics.");
+var multiSeriesRequest = analyticsBreakdownRequest with
+{
+    Series = new[]
+    {
+        new DashboardChartSeriesDefinition("records", "Records", new ChartMetricDefinition(ChartMetricTypes.Count), "bar", "primary", "left"),
+        new DashboardChartSeriesDefinition("salary", "Salary", new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"), "line", "success", "right")
+    }
+};
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, multiSeriesRequest).Valid, "Dashboard analytics should validate up to four typed series over one source.");
+AssertFalse(DashboardAnalyticsRequestValidator.Validate(reportingSchema, multiSeriesRequest with
+{
+    Series = Enumerable.Range(0, 5).Select(index => new DashboardChartSeriesDefinition($"series-{index}", $"Series {index}", new ChartMetricDefinition(ChartMetricTypes.Count))).ToArray()
+}).Valid, "Dashboard analytics should reject more than four series.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {
@@ -4554,6 +4567,21 @@ catch (System.Reflection.TargetInvocationException exception)
     var analyticsException = exception.InnerException as DashboardAnalyticsException;
     AssertNotNull(analyticsException, "Hidden dashboard analytics table fields should raise a dashboard analytics exception.");
     AssertEqual(403, analyticsException!.StatusCode, "Hidden dashboard analytics field references should be forbidden.");
+}
+try
+{
+    ensureVisibleAnalyticsRequest!.Invoke(null, new object[]
+    {
+        multiSeriesRequest with { Series = new[] { new DashboardChartSeriesDefinition("hidden", "Hidden", new ChartMetricDefinition(ChartMetricTypes.Sum, "salary")) } },
+        new HashSet<string>(new[] { "salary" }, StringComparer.Ordinal)
+    });
+    throw new InvalidOperationException("Hidden dashboard series fields should be rejected.");
+}
+catch (System.Reflection.TargetInvocationException exception)
+{
+    var analyticsException = exception.InnerException as DashboardAnalyticsException;
+    AssertNotNull(analyticsException, "Hidden dashboard series metrics should raise a dashboard analytics exception.");
+    AssertEqual(403, analyticsException!.StatusCode, "Hidden dashboard series fields should be forbidden.");
 }
 
 var tableChartResult = ChartAggregationEngine.Execute(

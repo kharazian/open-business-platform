@@ -36,6 +36,15 @@ public sealed record DashboardAnalyticsMetricDefinition(string Type, string? Fie
 
 public sealed record DashboardAnalyticsFilterDefinition(string FieldId, IReadOnlyList<string>? Values = null, string? Start = null, string? End = null);
 
+public sealed record DashboardAnalyticsDataSeries(
+    string Id,
+    string Label,
+    string DisplayType,
+    string Color,
+    string Axis,
+    DashboardAnalyticsMetricDefinition Metric,
+    IReadOnlyList<ChartSeriesPointDto> Points);
+
 public sealed record DashboardAnalyticsRequest(
     string WidgetType,
     DashboardAnalyticsSourceDefinition Source,
@@ -44,7 +53,8 @@ public sealed record DashboardAnalyticsRequest(
     string? DateFieldId = null,
     IReadOnlyList<string>? Columns = null,
     int? Limit = null,
-    IReadOnlyList<DashboardAnalyticsFilterDefinition>? Filters = null);
+    IReadOnlyList<DashboardAnalyticsFilterDefinition>? Filters = null,
+    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null);
 
 public sealed record DashboardAnalyticsResponse(
     Guid FormId,
@@ -55,7 +65,8 @@ public sealed record DashboardAnalyticsResponse(
     IReadOnlyList<ChartSeriesPointDto> Series,
     IReadOnlyList<ChartTableColumnDto> Columns,
     IReadOnlyList<ChartTableRowDto> Rows,
-    long TotalCount);
+    long TotalCount,
+    IReadOnlyList<DashboardAnalyticsDataSeries>? DataSeries = null);
 
 public sealed record DashboardAnalyticsValidationError(string Path, string Code, string Message);
 

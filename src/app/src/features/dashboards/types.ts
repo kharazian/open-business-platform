@@ -32,6 +32,11 @@ export type ChartMetricDefinition = {
   fieldId?: string | null;
 };
 
+export type DashboardSeriesDisplayType = "bar" | "line" | "area";
+export type DashboardSeriesColor = "primary" | "info" | "success" | "warning" | "danger" | "violet";
+export type DashboardSeriesAxis = "left" | "right";
+export type DashboardChartSeriesDefinition = { id: string; label: string; metric: ChartMetricDefinition; displayType: DashboardSeriesDisplayType; color: DashboardSeriesColor; axis: DashboardSeriesAxis };
+
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;
   metric: ChartMetricDefinition;
@@ -40,6 +45,7 @@ export type ChartWidgetConfig = {
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
+  series?: DashboardChartSeriesDefinition[] | null;
 };
 
 export type ChartSeriesPoint = {
@@ -103,6 +109,7 @@ export type DashboardAnalyticsRequest = {
   columns?: string[] | null;
   limit?: number | null;
   filters?: DashboardAnalyticsFilterValue[];
+  series?: DashboardChartSeriesDefinition[] | null;
 };
 
 export type DashboardAnalyticsFilterValue = { fieldId: string; values?: string[]; start?: string | null; end?: string | null };
@@ -128,6 +135,7 @@ export type DashboardAnalyticsResponse = {
   columns: ChartTableColumn[];
   rows: ChartTableRow[];
   totalCount: number;
+  dataSeries?: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }> | null;
 };
 
 export const dashboardWidgetWidths = ["small", "medium", "wide", "full"] as const;

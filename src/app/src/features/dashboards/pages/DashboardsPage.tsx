@@ -355,7 +355,7 @@ export function DashboardsPage() {
     const layout = layoutWidgets.find((item) => item.id === widgetId);
     if (!widget || !layout || widgets.length >= 48) return;
     const id = `widget-${Date.now()}`;
-    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])] } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
+    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
     setLayoutWidgets((current) => [...current, { id, width: layout.width, order: current.length + 1 }]);
     if (previewStates[widgetId]) setPreviewStates((current) => ({ ...current, [id]: current[widgetId] }));
     setNotice("Widget duplicated. Save the dashboard to persist it.");

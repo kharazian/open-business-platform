@@ -156,10 +156,12 @@ test("dashboard layout helpers sort widgets and map widths", () => {
 });
 
 test("widget property drafts clone nested config and validate permitted fields", () => {
-  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10 } };
+  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }] } };
   const draft = cloneDashboardWidgetForEditing(widget);
   draft.chart.metric.fieldId = "other";
+  draft.chart.series[0].metric.fieldId = "other";
   assert.equal(widget.chart.metric.fieldId, "amount");
+  assert.equal(widget.chart.series[0].metric.fieldId, "amount");
   const fields = [
     { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
     { id: "status", label: "Status", type: "status", source: "system", options: [], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true }

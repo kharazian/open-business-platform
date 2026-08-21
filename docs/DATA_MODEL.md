@@ -793,6 +793,8 @@ Indexes:
 
 The current V2 dashboard definition stores saved dashboard widget config in `config_json` and responsive width/order metadata in `layout_json`. Saved widgets currently reuse chart widget config values. V7 task 001 adds read-only dashboard analytics execution contracts and does not require a dashboard schema migration.
 
+Analytics widget config may include an optional bounded `series` array (maximum four) containing presentation metadata and an existing metric definition. This is an additive JSONB contract change, so it requires no relational migration. The original top-level metric remains synchronized with the first series for legacy readers.
+
 V7 task 004 adds conservative dashboard visibility/default metadata in `extra_properties_json` without a schema migration:
 
 ```json

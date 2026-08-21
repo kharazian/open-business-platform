@@ -56,7 +56,8 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     dateFieldId: chart.dateFieldId ?? null,
     columns: normalizeColumns(chart.columns),
     limit: chart.limit ?? 10,
-    filters
+    filters,
+    series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null
   };
 }
 
