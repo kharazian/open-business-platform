@@ -2,7 +2,7 @@
 
 This is a REST-style API reference for the ASP.NET Core backend.
 
-Status: evolving beyond V1. V1 through V8 provide the current business APIs. V9 tasks 001 through 004 add enforced workspace context, membership-aware authentication, OIDC SSO, and typed enterprise access policies. Add later enterprise APIs task by task as modules are implemented.
+Status: V1 through V10 are implemented for their accepted task lists. V9 establishes the enterprise workspace/identity/policy boundary, and V10 adds operational data modeling, relationships, processing operations, and analysis-only Creator export assistance.
 
 ## Local API Explorer
 
@@ -36,7 +36,7 @@ Operational events use a fixed platform-authored catalog and expose safe IDs, at
 
 V10 Task 010 adds `POST /api/creator-analysis` and a Creator analysis tab under `/integrations`. The endpoint accepts exactly one multipart `source` file named `.ds` or `.txt`, with `text/plain` content, valid UTF-8, no binary controls, at most 1 MiB and 50,000 lines. It uses cookie authentication and requires effective `forms.manage_all` plus `integrations.manage`; API-key authentication is not enabled for this route.
 
-The versioned `creator-analysis-v1` response is ephemeral and always has `canImport: false`. It returns bounded aggregate counts, safe construct names/types/locations, fixed compatibility statuses/reason codes/guidance, and credential categories/counts only. It returns at most 500 constructs and 1,000 findings with explicit completeness/truncation flags. The source is buffered in memory above the accepted size cap, never persisted or executed, and never returned, rendered, logged, or sent externally. A successful request writes one workspace audit event containing only analyzer version, source byte/line counts, aggregate status/finding counts, credential-category counts, flags, and a SHA-256 fingerprint; it stores no filename, source names, snippets, URLs, values, report, or parser errors. There is no apply/import endpoint or server-side report artifact.
+The versioned `creator-analysis-v1` response is ephemeral and always has `canImport: false`. It returns bounded aggregate counts, safe construct names/types/locations, fixed compatibility statuses/reason codes/guidance, and credential categories/counts only. It returns at most 500 constructs and 1,000 findings with explicit completeness/truncation flags. The multipart memory-buffer threshold is above the accepted source-size cap, so accepted sources remain memory-only; source content is never persisted or executed, and is never returned, rendered, logged, or sent externally. A successful request writes one workspace audit event containing only analyzer version, source byte/line counts, aggregate status/finding counts, credential-category counts, flags, and a SHA-256 fingerprint; it stores no filename, source names, snippets, URLs, values, report, or parser errors. There is no apply/import endpoint or server-side report artifact.
 
 ### Health
 

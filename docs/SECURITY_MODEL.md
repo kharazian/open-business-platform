@@ -1,6 +1,6 @@
 # Security Model
 
-Status: the established authentication, permission, field-security, and audit baseline now includes V9 task 004 deny-overrides enterprise policy guardrails.
+Status: the accepted V10 checkpoint layers protected attachments, relationship-safe projections, fenced processing operations, payload-safe diagnostics, and analysis-only untrusted-source inspection over the V9 enterprise security boundary.
 
 ## Core Rules
 
@@ -90,13 +90,13 @@ Log these actions:
 
 Hidden field values are removed from API responses instead of being returned as `null`. Read-only fields are enforced on the backend during record edits, so changing the browser payload cannot bypass the UI.
 
-## File Upload Security Later
+## Protected File Upload Security
 
-If file upload is enabled:
+V10 protected attachments:
 
-- Validate file size
-- Validate file type
-- Scan or restrict risky file types
-- Store files outside web root or behind authenticated access
-- Check permissions before download
-- Audit downloads for sensitive files
+- cap files at 10 MiB and validate safe filenames, declared types, and deterministic content signatures;
+- reject empty, executable/script, unsupported, or signature-mismatched content;
+- store private bytes behind replaceable storage/inspection interfaces and keep only attachment IDs in record JSON;
+- atomically claim pending uploads for the same workspace, form version, field, uploader, and record mutation;
+- recheck form, record-scope, and hidden-field permissions before download; and
+- audit upload, claim/replacement, pending deletion, and download without logging content.

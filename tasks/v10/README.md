@@ -2,6 +2,8 @@
 
 V10 is the Operational App Modeling sequence. It starts only after the accepted V9 checkpoint.
 
+All tasks are complete and the checkpoint is accepted in `docs/V10_FINALIZATION.md`.
+
 ## Recommended Execution Order
 
 1. `001-structured-address-field.md` - complete; typed structured addresses now span schema validation, builder, renderer, records, reports, CSV, and print-safe display.

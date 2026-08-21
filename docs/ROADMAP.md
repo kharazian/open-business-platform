@@ -1,6 +1,6 @@
 # Roadmap
 
-## Current State: V1-V9 Complete, V10 In Progress
+## Current State: V1-V10 Complete
 
 - ASP.NET Core minimal API host exists.
 - React frontend shell exists.
@@ -18,7 +18,7 @@
 - Record submission, list/detail, edit, soft-delete, and browser print flows exist with backend permission checks and audit logs.
 - Saved V2 list report definitions exist with column selection, column ordering, custom labels, filters, sort, backend validation, runnable viewing, CSV export, print, and report management permission checks.
 - Chart widget previews exist for number cards, bar charts, date trends, choice/status breakdowns, and table widgets over permitted form/report data.
-- Saved dashboard definitions exist with PostgreSQL-backed widget config/layout JSON, backend validation, and a `/dashboards` builder/viewer. Workspace ownership remains future work.
+- Workspace-owned saved dashboard definitions exist with PostgreSQL-backed widget/config layout, backend validation, publishing, stable slugs, directory/viewer routes, and permission-filtered navigation.
 - Development startup seed data exists for demo users, roles, departments, a published sample form, permissions, and records.
 - Real app appearance settings exist and are saved in browser localStorage.
 - `/theme` includes sample workspace, foundation, authentication, layout, and component demo pages.
@@ -41,9 +41,9 @@
 - External export jobs exist for permitted form records and list reports with CSV/JSON artifacts, hidden-field filtering, persisted metadata/content, audit logs, and outbound export integration logs.
 - Scheduled trigger contracts include explicit daily/weekly/monthly interval and day metadata, tested due-time calculation, safe action validation, and due/locked/skipped/success/failure trigger log metadata.
 - Scheduled workflow starts exist for explicit same-form workflow targets and bounded record selection rules, with workflow history/audit entries and trigger log record results.
-- `/integrations` exists as a permission-aware operations workspace for API key lifecycle actions, webhook listener operations, CSV import jobs, export jobs, integration log filtering/detail review, and explicit retry requests.
+- `/integrations` exists as a permission-aware operations workspace for API keys, webhook listeners, imports/exports, integration logs, bounded processing jobs/diagnostics/failure policies, and analysis-only Creator export review.
 
-V10 operational app modeling is complete through Task 010. The final slice adds bounded, memory-only Creator export analysis with secret-safe typed findings and no import/apply path; any subsequent V10 work requires a separately reviewed task.
+V10 operational app modeling is finalized through Task 010 in `docs/V10_FINALIZATION.md`. Any later product scope requires a separately reviewed plan.
 
 The Zoho Creator-style Order Bridge sample should be treated as a product expectation reference, not a source artifact. The platform capabilities needed to support that class of operational app are captured in `docs/CREATOR_APP_SUPPORT_ROADMAP.md`.
 
@@ -282,13 +282,13 @@ Features:
 
 Goal: support richer operational business applications on top of the V9 enterprise boundary.
 
-Planned sequence:
+Completed sequence:
 
 - Structured address fields implemented in V10 task 001 with bounded configuration/value contracts and stable record/report/print display.
 - Backend-generated autonumber fields implemented in V10 task 002 with bounded formatting, immutable record values, and transactional PostgreSQL allocation.
 - Protected file attachment storage implemented in V10 task 003 with bounded inspection, private PostgreSQL content, atomic record claims, and audited permission-checked downloads.
 - Lookup relationship integrity implemented in V10 task 004 with canonical edges, delete restriction, legacy detection, and archive-safe existing selections.
-- Nested report relationship data.
+- Nested report relationship data implemented in V10 task 005 with permission-safe one-hop catalogs, filters, search, sort, CSV, and print.
 - Permission-aware related-record workspaces implemented in V10 task 006 with bounded reverse lookup panels, canonical/legacy compatibility, immutable-schema validation, and display-only row projections.
 - Typed operational report and row actions implemented in V10 task 007 with saved allowlisted definitions, backend-projected availability, fixed-catalog builder controls, and authoritative destination reauthorization.
 - Bounded processing jobs implemented in V10 task 008 with durable definitions/runs, bounded imports/exports, fenced scheduling, and safe export retry chains.

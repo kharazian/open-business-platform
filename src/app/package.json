@@ -20,7 +20,7 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "7.18.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "latest",
@@ -29,7 +29,7 @@
     "@vitejs/plugin-react": "latest",
     "tailwindcss": "latest",
     "typescript": "latest",
-    "vite": "latest",
+    "vite": "8.2.2",
     "vitest": "^4.1.7"
   }
 }

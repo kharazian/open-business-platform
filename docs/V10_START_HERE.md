@@ -6,9 +6,9 @@ This packet is the handoff for V10: Operational App Modeling.
 
 - V1 through V9 are complete for their current task lists.
 - V9 is accepted as the enterprise ownership, identity, policy, and administration checkpoint.
-- V10 tasks 001 through 010 are complete. Task 009 adds separate payload-safe processing diagnostics, bounded health and retention, and deduplicated terminal failure alerts; Task 010 adds bounded memory-only Creator export analysis with no import path.
-- Existing form schemas already support currency, percent, rating, URL, time, datetime, user/department pickers, record lookups, file placeholders, and child-record subtables.
-- The next product gap is richer operational data modeling, not another enterprise administration layer.
+- V10 tasks 001 through 010 are complete and accepted in `docs/V10_FINALIZATION.md`.
+- Existing form schemas support currency, percent, rating, URL, time, datetime, user/department pickers, structured addresses, autonumbers, protected file attachments, record lookups, and child-record subtables.
+- No subsequent version is currently scoped. New product work requires a separately reviewed plan.
 
 ## Read In This Order
 
@@ -17,16 +17,17 @@ This packet is the handoff for V10: Operational App Modeling.
 3. `docs/ROADMAP.md`
 4. `docs/CREATOR_APP_SUPPORT_ROADMAP.md`
 5. `docs/V9_FINALIZATION.md`
-6. `docs/API_SPEC.md`
-7. `docs/DATA_MODEL.md`
-8. `tasks/v10/README.md`
-9. The selected `tasks/v10/*.md` task file.
+6. `docs/V10_FINALIZATION.md`
+7. `docs/API_SPEC.md`
+8. `docs/DATA_MODEL.md`
+9. `tasks/v10/README.md`
+10. The selected `tasks/v10/*.md` task file.
 
 ## Direction
 
-V10 should make operational forms and records more expressive while preserving the existing schema/version, permission, report, workflow, and integration boundaries.
+V10 made operational forms and records more expressive while preserving the existing schema/version, permission, report, workflow, and integration boundaries.
 
-Recommended sequence:
+Completed sequence:
 
 1. Structured address fields.
 2. Backend-generated autonumber fields (`tasks/v10/002-backend-generated-autonumber-fields.md`).

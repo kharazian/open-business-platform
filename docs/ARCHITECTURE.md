@@ -21,12 +21,16 @@ Main modules:
 - Forms
 - Records
 - Reports
+- Dashboards
 - Permissions
 - Triggers
 - Workflows
 - Printing
 - Audit
 - Notifications
+- Integrations
+- Processing
+- Creator Analysis
 
 Each module should have clear frontend, backend, and database responsibilities.
 
@@ -44,7 +48,13 @@ src/app/src/
   config/
   context/
   features/
+    creator-analysis/
+    dashboards/
     forms/
+    integrations/
+    records/
+    reports/
+    triggers/
     workflows/
     users/
   layouts/
@@ -63,7 +73,7 @@ Current frontend module registry:
 - `src/app/src/modules/index.ts` exports the app modules.
 - Each file under `src/app/src/modules/*/module.tsx` implements `PlatformModule`.
 - `src/app/src/platform/moduleRegistry.ts` sorts modules by `order`, exposes routes, derives navigation, and filters navigation by effective permissions.
-- Current app modules are dashboard, forms, users/access, reports, triggers, workflows, notifications, settings, and profile.
+- Current app modules are dashboard, forms, users/access, reports, printing, triggers, workflows, integrations, compliance, notifications, settings, and profile.
 - Real app routes are generated from modules in `App.tsx`; `/theme` routes are generated separately from the theme page config.
 
 Current frontend shell/theme behavior:
@@ -127,8 +137,18 @@ src/api/
     Persistence/
   Modules/
     Dashboard/
+    Dashboards/
+    CreatorAnalysis/
     Forms/
     Identity/
+    Integrations/
+    Notifications/
+    Printing/
+    Processing/
+    Records/
+    Reports/
+    Triggers/
+    Workflows/
   Platform/
   Configuration/
   Program.cs
