@@ -14,7 +14,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
-import { appendBoundedCanvasHistory, canDuplicateDashboardSection, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
+import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -216,6 +216,41 @@ test("canvas productivity helpers bound history, toggle selection, and enforce d
   assert.equal(canDuplicateDashboardSection(sections, widgets, "one"), true);
   assert.equal(canDuplicateDashboardSection([sections[0], ...Array.from({ length: 15 }, (_, index) => ({ id: `s-${index}`, title: "S", order: index + 1 }))], widgets, "one"), false);
   assert.equal(canDuplicateDashboardSection(sections, Array.from({ length: 48 }, (_, index) => ({ id: `w-${index}`, title: "W", sourceFormId: null, sectionId: "one" })), "one"), false);
+});
+
+test("accessible canvas movement stays within sections and resolves adjacent sections", () => {
+  const sections = [{ id: "one", title: "One", order: 0 }, { id: "two", title: "Two", order: 1 }];
+  const widgets = [
+    { id: "a", title: "A", sourceFormId: null, sectionId: "one" },
+    { id: "b", title: "B", sourceFormId: null, sectionId: "two" },
+    { id: "c", title: "C", sourceFormId: null, sectionId: "one" }
+  ];
+  const layout = [
+    { id: "a", width: "small", order: 1 },
+    { id: "b", width: "small", order: 2 },
+    { id: "c", width: "small", order: 3 }
+  ];
+  assert.deepEqual(moveDashboardWidgetWithinSection(layout, widgets, "c", -1).map((item) => item.id), ["c", "b", "a"]);
+  assert.equal(moveDashboardWidgetWithinSection(layout, widgets, "a", -1), layout);
+  assert.equal(getAdjacentDashboardSectionId(sections, "one", 1), "two");
+  assert.equal(getAdjacentDashboardSectionId(sections, "one", -1), null);
+});
+
+test("dashboard preview queue enforces the documented performance budget", async () => {
+  let active = 0;
+  let peak = 0;
+  const completed = [];
+  await runDashboardTasksWithConcurrency(Array.from({ length: 10 }, (_, index) => index), async (item) => {
+    active += 1;
+    peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    completed.push(item);
+    active -= 1;
+  });
+  assert.equal(dashboardCanvasQualityLimits.maxWidgets, 48);
+  assert.equal(dashboardCanvasQualityLimits.maxSections, 16);
+  assert.equal(peak, dashboardCanvasQualityLimits.previewConcurrency);
+  assert.equal(completed.length, 10);
 });
 
 test("dashboard analytics helpers preserve saved chart compatibility", () => {

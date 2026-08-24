@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "quality:dashboard": "node scripts/check-dashboard-bundle.mjs",
     "test": "vitest run",
     "preview": "vite preview"
   },

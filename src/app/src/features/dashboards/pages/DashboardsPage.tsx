@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, ExternalLink, GitCompare, GripVertical, History, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, ExternalLink, GitCompare, GripVertical, History, Keyboard, Move, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -37,7 +37,7 @@ import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPr
 import { SavedDashboardViewer } from "../components/SavedDashboardViewer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "../layout";
-import { appendBoundedCanvasHistory, canDuplicateDashboardSection, toggleDashboardWidgetSelection } from "../canvasProductivity";
+import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "../canvasProductivity";
 import { dispatchDashboardsChanged } from "../events";
 import { assignWidgetsToDashboardSections, createDashboardSectionId, defaultDashboardSection, moveDashboardSection, normalizeDashboardSections } from "../sections";
 import { instantiateDashboardTemplate, type DashboardTemplateSourceBinding } from "../templateEngine";
@@ -142,6 +142,9 @@ export function DashboardsPage() {
   const [restoringRevisionId, setRestoringRevisionId] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [savedSignature, setSavedSignature] = useState("");
+  const [canvasAnnouncement, setCanvasAnnouncement] = useState("");
+  const [keyboardGrabbed, setKeyboardGrabbed] = useState<{ kind: "section" | "widget"; id: string } | null>(null);
+  const [touchReorderEnabled, setTouchReorderEnabled] = useState(false);
 
   const draftSignature = JSON.stringify(buildSaveRequest());
   const isDirty = dashboardDetail
@@ -289,6 +292,7 @@ export function DashboardsPage() {
       setFilters(detail.config.filters ?? []);
       setLayoutWidgets(detail.layout.widgets);
       setSavedSignature(JSON.stringify(toDashboardSaveRequest(detail)));
+      setKeyboardGrabbed(null); setCanvasAnnouncement("");
       setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
       await loadPublishingMetadata(detail.id);
       await loadPreviews(nextWidgets);
@@ -314,11 +318,7 @@ export function DashboardsPage() {
 
     setPreviewStates(createDashboardPreviewStates(nextWidgets));
 
-    await Promise.all(
-      nextWidgets.map(async (widget) => {
-        await refreshWidgetPreview(widget, false);
-      })
-    );
+    await runDashboardTasksWithConcurrency(nextWidgets, (widget) => refreshWidgetPreview(widget, false));
   }
 
   async function refreshWidgetPreview(widget: SavedDashboardWidget, setLoadingState = true) {
@@ -388,22 +388,18 @@ export function DashboardsPage() {
   }
 
   function handleMoveWidget(widgetId: string, direction: -1 | 1) {
+    const next = moveDashboardWidgetWithinSection(layoutWidgets, widgets, widgetId, direction);
+    if (next === layoutWidgets) return;
     recordCanvasHistory();
-    setLayoutWidgets((current) => {
-      const ordered = orderDashboardLayoutWidgets(current);
-      const index = ordered.findIndex((item) => item.id === widgetId);
-      const targetIndex = index + direction;
-      if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return current;
-      const next = [...ordered];
-      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-      return next.map((item, nextIndex) => ({ ...item, order: nextIndex + 1 }));
-    });
+    setLayoutWidgets(next);
+    const widget = widgets.find((item) => item.id === widgetId);
+    announceCanvasChange(`${widget?.title ?? "Widget"} moved ${direction < 0 ? "up" : "down"}.`);
   }
 
   function handleDuplicateWidget(widgetId: string) {
     const widget = widgets.find((item) => item.id === widgetId);
     const layout = layoutWidgets.find((item) => item.id === widgetId);
-    if (!widget || !layout || widgets.length >= 48) return;
+    if (!widget || !layout || widgets.length >= dashboardCanvasQualityLimits.maxWidgets) return;
     recordCanvasHistory();
     const id = `widget-${Date.now()}`;
     setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
@@ -427,7 +423,7 @@ export function DashboardsPage() {
   function handleAddSection() {
     const title = newSectionTitle.trim();
     if (!title) return;
-    if (sections.length >= 16) return;
+    if (sections.length >= dashboardCanvasQualityLimits.maxSections) return;
     recordCanvasHistory();
     const section = { id: createDashboardSectionId(title, sections), title, order: sections.length };
     setSections((current) => [...current, section]);
@@ -446,15 +442,14 @@ export function DashboardsPage() {
   }
 
   function handleMoveSection(sectionId: string, direction: -1 | 1) {
+    const index = sections.findIndex((section) => section.id === sectionId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= sections.length) return;
     recordCanvasHistory();
-    setSections((current) => {
-      const index = current.findIndex((section) => section.id === sectionId);
-      const targetIndex = index + direction;
-      if (index < 0 || targetIndex < 0 || targetIndex >= current.length) return current;
-      const next = [...current];
-      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-      return next.map((section, order) => ({ ...section, order }));
-    });
+    const next = [...sections];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setSections(next.map((section, order) => ({ ...section, order })));
+    announceCanvasChange(`${sections[index].title} section moved ${direction < 0 ? "up" : "down"}.`);
   }
 
   function handleDropSection(targetSectionId: string, sourceSectionId = draggedSectionId) {
@@ -464,6 +459,7 @@ export function DashboardsPage() {
     setDraggedSectionId(null);
     setDropTargetId(null);
     setNotice("Section order changed. Save the dashboard to persist it.");
+    announceCanvasChange(`${sections.find((section) => section.id === sourceSectionId)?.title ?? "Section"} moved.`);
   }
 
   function handleDropWidget(sectionId: string, targetWidgetId: string | null, sourceWidgetId = draggedWidgetId) {
@@ -474,6 +470,43 @@ export function DashboardsPage() {
     setDraggedWidgetId(null);
     setDropTargetId(null);
     setNotice("Widget position changed. Save the dashboard to persist it.");
+    announceCanvasChange(`${widgets.find((widget) => widget.id === sourceWidgetId)?.title ?? "Widget"} moved to ${sections.find((section) => section.id === sectionId)?.title ?? "section"}.`);
+  }
+
+  function handleMoveWidgetToAdjacentSection(widgetId: string, direction: -1 | 1) {
+    const widget = widgets.find((item) => item.id === widgetId);
+    const sectionId = getAdjacentDashboardSectionId(sections, widget?.sectionId, direction);
+    if (!widget || !sectionId) return;
+    handleDropWidget(sectionId, null, widgetId);
+  }
+
+  function announceCanvasChange(message: string) {
+    setCanvasAnnouncement("");
+    window.setTimeout(() => setCanvasAnnouncement(message), 20);
+  }
+
+  function handleReorderKeyboard(event: KeyboardEvent<HTMLButtonElement>, kind: "section" | "widget", id: string) {
+    const grabbed = keyboardGrabbed?.kind === kind && keyboardGrabbed.id === id;
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      const next = grabbed ? null : { kind, id } as const;
+      setKeyboardGrabbed(next);
+      announceCanvasChange(grabbed ? `${kind} released.` : `${kind} picked up. Use arrow keys to move it, then Space to release.`);
+      return;
+    }
+    if (!grabbed) return;
+    if (event.key === "Escape") {
+      event.preventDefault(); setKeyboardGrabbed(null); announceCanvasChange(`${kind} reorder cancelled.`); return;
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      const direction = event.key === "ArrowUp" ? -1 : 1;
+      if (kind === "section") handleMoveSection(id, direction);
+      else handleMoveWidget(id, direction);
+    }
+    if (kind === "widget" && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault(); handleMoveWidgetToAdjacentSection(id, event.key === "ArrowLeft" ? -1 : 1);
+    }
   }
 
   function handleRemoveSection(sectionId: string) {
@@ -562,6 +595,7 @@ export function DashboardsPage() {
     setLayoutWidgets([]);
     setPreviewStates({});
     setPublishedComparison(null); setRevisions([]); setSavedSignature("");
+    setKeyboardGrabbed(null); setCanvasAnnouncement("");
     setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
     setNotice("New dashboard draft started.");
   }
@@ -764,6 +798,7 @@ export function DashboardsPage() {
 
       {error ? <Alert title="Dashboards">{error}</Alert> : null}
       {notice ? <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-semibold text-success">{notice}</div> : null}
+      <div aria-atomic="true" aria-live="polite" className="sr-only" role="status">{canvasAnnouncement}</div>
 
       <section className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
         <Card className="self-start">
@@ -840,7 +875,7 @@ export function DashboardsPage() {
                   onDragOver={(event) => { if (!draggedSectionId) return; event.preventDefault(); setDropTargetId(`section-${section.id}`); }}
                   onDrop={(event) => { event.preventDefault(); handleDropSection(section.id, event.dataTransfer.getData("application/x-dashboard-section") || draggedSectionId); }}
                 >
-                  <button aria-label={`Drag ${section.title} section`} className="flex cursor-grab items-center justify-center rounded-md px-2 text-muted-foreground hover:bg-muted active:cursor-grabbing" draggable onDragEnd={() => { setDraggedSectionId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.setData("application/x-dashboard-section", section.id); setDraggedSectionId(section.id); }} type="button"><GripVertical className="size-5" /></button>
+                  <button aria-describedby="canvas-reorder-instructions" aria-keyshortcuts="Space Enter ArrowUp ArrowDown Escape" aria-label={`Reorder ${section.title} section`} aria-pressed={keyboardGrabbed?.kind === "section" && keyboardGrabbed.id === section.id} className="flex min-h-11 min-w-11 cursor-grab items-center justify-center rounded-md px-2 text-muted-foreground hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/30 active:cursor-grabbing" draggable onDragEnd={() => { setDraggedSectionId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.setData("application/x-dashboard-section", section.id); setDraggedSectionId(section.id); }} onKeyDown={(event) => handleReorderKeyboard(event, "section", section.id)} type="button"><GripVertical className="size-5" /></button>
                   <Input
                     aria-label={`Section ${index + 1} title`}
                     onChange={(event) => handleRenameSection(section.id, event.target.value)}
@@ -860,7 +895,7 @@ export function DashboardsPage() {
               {getValidationError("config.sections") ? <p className="text-xs font-semibold text-danger">{getValidationError("config.sections")}</p> : null}
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <Input label="New section" onChange={(event) => setNewSectionTitle(event.target.value)} value={newSectionTitle} />
-                <Button className="self-end" disabled={!newSectionTitle.trim() || sections.length >= 16} onClick={handleAddSection} variant="outline"><Plus className="size-4" />Add section</Button>
+                <Button className="self-end" disabled={!newSectionTitle.trim() || sections.length >= dashboardCanvasQualityLimits.maxSections} onClick={handleAddSection} variant="outline"><Plus className="size-4" />Add section</Button>
               </div>
             </div>
             {adapters.length > 0 ? <Select label="Widget source" onChange={(event) => setWidgetSourceType(event.target.value as "analytics" | "adapter")} options={[{ label: "Platform analytics", value: "analytics" }, { label: "Installed adapter", value: "adapter" }]} value={widgetSourceType} /> : null}
@@ -907,8 +942,8 @@ export function DashboardsPage() {
 
       <section className={`grid md:grid-cols-12 ${canvasDensity === "compact" ? "gap-2" : "gap-4"}`} style={{ zoom: `${canvasZoom}%` }}>
         <div className="md:col-span-12 flex flex-wrap items-end justify-between gap-3">
-          <div><p className="text-lg font-bold text-foreground">Layout canvas</p><p className="mt-1 text-sm text-muted-foreground">Drag widget handles to reorder cards or move them between section drop zones. Arrow controls remain available for keyboard-friendly ordering.</p></div>
-          <div className="flex flex-wrap items-end gap-2"><Button aria-label="Undo canvas change" disabled={!undoStack.length} onClick={handleUndo} size="icon" variant="outline"><Undo2 className="size-4" /></Button><Button aria-label="Redo canvas change" disabled={!redoStack.length} onClick={handleRedo} size="icon" variant="outline"><Redo2 className="size-4" /></Button><Select aria-label="Canvas density" onChange={(event) => setCanvasDensity(event.target.value as "comfortable" | "compact")} value={canvasDensity}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></Select><Select aria-label="Canvas zoom" onChange={(event) => setCanvasZoom(Number(event.target.value))} value={canvasZoom}><option value="80">80%</option><option value="90">90%</option><option value="100">100%</option></Select><Badge tone="info">Drag-and-drop enabled</Badge></div>
+          <div><p className="text-lg font-bold text-foreground">Layout canvas</p><p className="mt-1 text-sm text-muted-foreground" id="canvas-reorder-instructions">Drag with a pointer, use the arrow buttons, or focus a reorder handle and press Space. While picked up, use Up/Down to reorder and Left/Right to move widgets between sections; press Space again to release.</p></div>
+          <div className="flex flex-wrap items-end gap-2"><Button aria-label="Undo canvas change" className="min-h-11 min-w-11" disabled={!undoStack.length} onClick={handleUndo} size="icon" variant="outline"><Undo2 className="size-4" /></Button><Button aria-label="Redo canvas change" className="min-h-11 min-w-11" disabled={!redoStack.length} onClick={handleRedo} size="icon" variant="outline"><Redo2 className="size-4" /></Button><Select aria-label="Canvas density" onChange={(event) => setCanvasDensity(event.target.value as "comfortable" | "compact")} value={canvasDensity}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></Select><Select aria-label="Canvas zoom" onChange={(event) => setCanvasZoom(Number(event.target.value))} value={canvasZoom}><option value="80">80%</option><option value="90">90%</option><option value="100">100%</option></Select><Button aria-pressed={touchReorderEnabled} onClick={() => setTouchReorderEnabled((current) => !current)} variant="outline"><Move className="size-4" />{touchReorderEnabled ? "Hide reorder controls" : "Touch reorder controls"}</Button><Badge tone="info"><Keyboard className="mr-1 inline size-3" />Keyboard ready</Badge></div>
         </div>
         <div className="md:col-span-12 grid gap-3 rounded-xl border border-border bg-muted/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge tone={selectedWidgetIds.size ? "info" : undefined}>{selectedWidgetIds.size} selected</Badge><Button onClick={() => setSelectedWidgetIds(new Set(widgets.map((widget) => widget.id)))} size="sm" variant="outline">Select all</Button>{selectedWidgetIds.size ? <Button onClick={() => setSelectedWidgetIds(new Set())} size="sm" variant="ghost"><X className="size-4" />Clear</Button> : null}</div></div>{selectedWidgetIds.size ? <div aria-label="Bulk widget actions" className="grid gap-2 sm:grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,1fr)_auto_auto]"><Select aria-label="Bulk destination section" onChange={(event) => setBulkSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={bulkSectionId} /><Button onClick={handleBulkMove} variant="outline">Move selected</Button><Select aria-label="Bulk widget width" onChange={(event) => setBulkWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={bulkWidth} /><Button onClick={handleBulkResize} variant="outline">Resize selected</Button><Button onClick={handleBulkDelete} variant="danger"><Trash2 className="size-4" />Remove selected</Button></div> : <p className="text-xs text-muted-foreground">Select widget cards to move, resize, or remove them together.</p>}</div>
         {orderedLayout.length === 0 ? (
@@ -950,7 +985,7 @@ export function DashboardsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
                       <input aria-label={`Select ${widget.title}`} checked={selectedWidgetIds.has(layout.id)} className="mt-1 size-4" onChange={() => toggleWidgetSelection(layout.id)} type="checkbox" />
-                      <button aria-label={`Drag ${widget.title} widget`} className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing" draggable onDragEnd={() => { setDraggedWidgetId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-dashboard-widget", layout.id); setDraggedWidgetId(layout.id); }} type="button"><GripVertical className="size-5" /></button>
+                      <button aria-describedby="canvas-reorder-instructions" aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape" aria-label={`Reorder ${widget.title} widget`} aria-pressed={keyboardGrabbed?.kind === "widget" && keyboardGrabbed.id === layout.id} className="mt-0.5 flex min-h-11 min-w-11 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:ring-4 focus-visible:ring-primary/30 active:cursor-grabbing" draggable onDragEnd={() => { setDraggedWidgetId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-dashboard-widget", layout.id); setDraggedWidgetId(layout.id); }} onKeyDown={(event) => handleReorderKeyboard(event, "widget", layout.id)} type="button"><GripVertical className="size-5" /></button>
                       <div className="min-w-0">
                       <CardTitle className="break-words text-base">{widget.title}</CardTitle>
                       <CardDescription className="break-words">
@@ -970,13 +1005,13 @@ export function DashboardsPage() {
                       >
                         <RefreshCw className={previewState?.status === "loading" ? "size-4 animate-spin" : "size-4"} />
                       </Button>
-                      <Button aria-label="Move widget up" onClick={() => handleMoveWidget(layout.id, -1)} size="icon" variant="outline">
+                      <Button aria-label={`Move ${widget.title} up`} className="min-h-11 min-w-11" onClick={() => handleMoveWidget(layout.id, -1)} size="icon" variant="outline">
                         <ArrowUp className="size-4" />
                       </Button>
-                      <Button aria-label="Move widget down" onClick={() => handleMoveWidget(layout.id, 1)} size="icon" variant="outline">
+                      <Button aria-label={`Move ${widget.title} down`} className="min-h-11 min-w-11" onClick={() => handleMoveWidget(layout.id, 1)} size="icon" variant="outline">
                         <ArrowDown className="size-4" />
                       </Button>
-                      <Button aria-label="Duplicate widget" disabled={widgets.length >= 48} onClick={() => handleDuplicateWidget(layout.id)} size="icon" variant="outline"><Copy className="size-4" /></Button>
+                      <Button aria-label="Duplicate widget" disabled={widgets.length >= dashboardCanvasQualityLimits.maxWidgets} onClick={() => handleDuplicateWidget(layout.id)} size="icon" variant="outline"><Copy className="size-4" /></Button>
                       <Button aria-label={`Edit ${widget.title} properties`} onClick={() => setEditingWidgetId(layout.id)} size="icon" variant="outline"><Pencil className="size-4" /></Button>
                       <Button aria-label="Remove widget" onClick={() => handleRemoveWidget(layout.id)} size="icon" variant="outline">
                         <Trash2 className="size-4" />
@@ -985,6 +1020,7 @@ export function DashboardsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className={`grid min-w-0 ${canvasDensity === "compact" ? "gap-2 p-3 pt-0" : "gap-4"}`}>
+                  {touchReorderEnabled ? <div aria-label={`Touch reorder ${widget.title}`} className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/20 p-2 sm:grid-cols-4"><Button className="min-h-11" disabled={moveDashboardWidgetWithinSection(layoutWidgets, widgets, widget.id, -1) === layoutWidgets} onClick={() => handleMoveWidget(widget.id, -1)} size="sm" variant="outline"><ArrowUp className="size-4" />Up</Button><Button className="min-h-11" disabled={moveDashboardWidgetWithinSection(layoutWidgets, widgets, widget.id, 1) === layoutWidgets} onClick={() => handleMoveWidget(widget.id, 1)} size="sm" variant="outline"><ArrowDown className="size-4" />Down</Button><Button className="min-h-11" disabled={!getAdjacentDashboardSectionId(sections, widget.sectionId, -1)} onClick={() => handleMoveWidgetToAdjacentSection(widget.id, -1)} size="sm" variant="outline"><ArrowLeft className="size-4" />Previous section</Button><Button className="min-h-11" disabled={!getAdjacentDashboardSectionId(sections, widget.sectionId, 1)} onClick={() => handleMoveWidgetToAdjacentSection(widget.id, 1)} size="sm" variant="outline"><ArrowRight className="size-4" />Next section</Button></div> : null}
                   <Select
                     label="Section"
                     onChange={(event) => handleWidgetSectionChange(widget.id, event.target.value)}

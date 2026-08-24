@@ -32,5 +32,7 @@ Implement and verify these increments in order. Each increment must preserve bac
 9. **Publishing workflow — implemented**
    - Draft/published comparison, preview mode, unsaved-change guard, revision history, restore, safer slug/navigation changes
    - Draft saves no longer mutate the live snapshot; publishing explicitly replaces live, and restore always creates a new draft revision
-10. **Accessibility and quality**
+10. **Accessibility and quality — implemented**
     - Keyboard drag alternative, screen-reader move announcements, touch reorder controls, responsive/browser regression coverage, performance budgets
+    - Reorder handles use Space/Enter pickup, arrow-key movement, and Escape/release semantics; labeled 44px touch controls move widgets within and between sections
+    - Builder previews run at a maximum concurrency of four, existing 16-section/48-widget/30-history bounds are centralized, and the dashboard-builder route remains below 32 kB gzip
