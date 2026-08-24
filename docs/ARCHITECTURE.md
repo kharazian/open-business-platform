@@ -325,6 +325,7 @@ Infrastructure responsibility:
 - Bound saved dashboards to 16 sections, 48 widgets, 16 widgets per section, and eight filters. Section icons come from a shared allowlist.
 - Bound analytics widgets to four series. The backend validates every metric field against reportable and visible fields, then executes each series over the same already-authorized form/report/filter record set. Series metadata controls presentation only; it cannot introduce formulas, SQL, or cross-form joins.
 - Keep dashboard appearance as bounded presentation metadata inside saved widget JSON. Palette presets and format options are backend-validated, rendered with the effective user locale, and never participate in analytics execution or permission decisions.
+- Keep add-widget recommendations frontend-only and capability-based. The wizard may remember at most three visualization types in browser storage, but source access, field validity, preview data, and the final saved definition remain governed by existing backend APIs and validators.
 
 ## Data Flow: Dashboard Template Creation
 

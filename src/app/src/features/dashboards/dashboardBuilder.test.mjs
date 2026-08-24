@@ -13,6 +13,7 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
+import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -181,6 +182,28 @@ test("dashboard appearance helpers preserve defaults, palettes, accents, and loc
   assert.equal(getDashboardAccentColor("danger", "warm"), "#b91c1c");
   assert.equal(formatDashboardValue(1234.5, { ...defaults, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 2 }, "en-CA"), "$1,234.50");
   assert.equal(formatDashboardValue(92.5, { ...defaults, numberFormat: "percent", decimalPlaces: 1 }, "en-CA"), "92.5%");
+});
+
+test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {
+  const fields = [
+    { id: "amount", label: "Amount", type: "currency", supportsAggregation: true, supportsChoiceGrouping: false },
+    { id: "status", label: "Status", type: "status", supportsAggregation: false, supportsChoiceGrouping: true },
+    { id: "created", label: "Created", type: "datetime", supportsAggregation: false, supportsChoiceGrouping: false }
+  ];
+  const availability = getVisualizationAvailability(fields);
+  assert.equal(availability.breakdown.available, true);
+  assert.equal(availability.trend.available, true);
+  assert.deepEqual(filterDashboardVisualizations("line").map((item) => item.type), ["trend"]);
+  assert.equal(getVisualizationAvailability(fields.slice(0, 1)).breakdown.available, false);
+
+  let saved = "";
+  const storage = { getItem: () => saved, setItem: (_key, value) => { saved = value; } };
+  let recent = saveRecentDashboardVisualization(storage, "summary", []);
+  recent = saveRecentDashboardVisualization(storage, "trend", recent);
+  recent = saveRecentDashboardVisualization(storage, "table", recent);
+  recent = saveRecentDashboardVisualization(storage, "breakdown", recent);
+  assert.deepEqual(recent, ["breakdown", "table", "trend"]);
+  assert.deepEqual(readRecentDashboardVisualizations(storage), recent);
 });
 
 test("dashboard analytics helpers preserve saved chart compatibility", () => {

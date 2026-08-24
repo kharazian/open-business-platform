@@ -17,8 +17,9 @@ Implement and verify these increments in order. Each increment must preserve bac
 4. **Appearance and color controls — implemented**
    - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting
    - Bounded accessible color presets and reset-to-theme behavior
-5. **Improved add-widget experience**
+5. **Improved add-widget experience — implemented**
    - Searchable visualization gallery, recommended chart hints, source-first wizard, sample preview, recent choices
+   - Four guided steps with field-capability validation and responsive controls
 6. **Canvas productivity**
    - Undo/redo, multi-select, bulk move/resize/delete, duplicate section, collapse sections, zoom/density controls
 7. **Filter authoring**

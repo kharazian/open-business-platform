@@ -30,6 +30,7 @@ import {
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
+import { DashboardAddWidgetWizard } from "../components/DashboardAddWidgetWizard";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
 import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
@@ -54,19 +55,6 @@ import {
   type SavedDashboardWidget,
   type SavedDashboardWidgetLayout
 } from "../types";
-
-const analyticsWidgetOptions: Array<{ label: string; value: DashboardAnalyticsWidgetType }> = [
-  { label: "Summary", value: "summary" },
-  { label: "Breakdown", value: "breakdown" },
-  { label: "Trend", value: "trend" },
-  { label: "Table", value: "table" }
-];
-
-const metricOptions: Array<{ label: string; value: ChartMetricType }> = [
-  { label: "Count records", value: "count" },
-  { label: "Sum numeric field", value: "sum" },
-  { label: "Average numeric field", value: "average" }
-];
 
 const widthOptions = dashboardWidgetWidths.map((width) => ({ label: width, value: width }));
 const sectionIconOptions = ["activity", "badge-dollar-sign", "chart-column", "clipboard-list", "factory", "gauge", "heart-pulse", "package-check", "shield-check", "trending-up", "wrench"].map((icon) => ({ label: icon.replaceAll("-", " "), value: icon }));
@@ -309,8 +297,8 @@ export function DashboardsPage() {
     return buildChartConfigFromDashboardAnalytics(builderConfig);
   }
 
-  async function handleAddWidget() {
-    if (!canAddWidget) return;
+  async function handleAddWidget(): Promise<boolean> {
+    if (!canAddWidget) return false;
 
     const id = `widget-${Date.now()}`;
     const chart = widgetSourceType === "analytics" ? buildChartConfig() : null;
@@ -324,8 +312,10 @@ export function DashboardsPage() {
       setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
       if (preview) setPreviewStates((current) => ({ ...current, [id]: { status: "ready", preview } }));
       setNotice("Widget added. Save the dashboard to persist it.");
+      return true;
     } catch (caught) {
       setRequestError(caught);
+      return false;
     }
   }
 
@@ -715,78 +705,7 @@ export function DashboardsPage() {
             </div>
             {adapters.length > 0 ? <Select label="Widget source" onChange={(event) => setWidgetSourceType(event.target.value as "analytics" | "adapter")} options={[{ label: "Platform analytics", value: "analytics" }, { label: "Installed adapter", value: "adapter" }]} value={widgetSourceType} /> : null}
             {widgetSourceType === "adapter" && adapterWidget ? <><Select label="Module" onChange={(event) => { const adapter = adapters.find((item) => item.id === event.target.value); const next = adapter ? createDashboardAdapterWidget(adapter) : null; if (next) setAdapterWidget(next); }} options={adapters.map((item) => ({ label: item.name, value: item.id }))} value={adapterWidget.adapterId} />{selectedAdapter ? <DashboardAdapterSettingsEditor adapter={selectedAdapter} onChange={setAdapterWidget} value={adapterWidget} /> : null}{!isDashboardAdapterWidgetConfigured(selectedAdapter, adapterWidget) ? <p className="text-xs font-semibold text-danger">Complete all required adapter settings before adding this widget.</p> : null}</> : null}
-            {widgetSourceType === "analytics" ? <>
-            <div className="grid gap-4 lg:grid-cols-4">
-              <Select disabled={forms.length === 0} label="Form" onChange={(event) => setSelectedFormId(event.target.value)} value={selectedFormId}>
-                {forms.map((form) => (
-                  <option key={form.id} value={form.id}>
-                    {form.name}
-                  </option>
-                ))}
-              </Select>
-              <Select disabled={!selectedFormId} label="Saved report filter" onChange={(event) => setSelectedReportId(event.target.value)} value={selectedReportId}>
-                <option value="">All form records</option>
-                {reports.map((report) => (
-                  <option key={report.id} value={report.id}>
-                    {report.name}
-                  </option>
-                ))}
-              </Select>
-              <Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} />
-              <Select label="Section" onChange={(event) => setSelectedSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={selectedSectionId} />
-            </div>
-            <div className="grid gap-4 lg:grid-cols-4">
-              <Select label="Widget" onChange={(event) => setWidgetType(event.target.value as DashboardAnalyticsWidgetType)} options={analyticsWidgetOptions} value={widgetType} />
-              <Select label="Metric" onChange={(event) => setMetricType(event.target.value as ChartMetricType)} options={metricOptions} value={metricType} />
-              <Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} />
-              <Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}>
-                <Plus className="size-4" />
-                Add widget
-              </Button>
-            </div>
-            {metricType !== "count" ? (
-              <Select disabled={numericFields.length === 0} label="Numeric metric field" onChange={(event) => setMetricFieldId(event.target.value)} value={metricFieldId}>
-                {numericFields.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {field.label}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
-            {widgetType === "breakdown" ? (
-              <Select disabled={groupFields.length === 0} label="Group by" onChange={(event) => setGroupByFieldId(event.target.value)} value={groupByFieldId}>
-                {groupFields.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {field.label}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
-            {widgetType === "trend" ? (
-              <Select disabled={dateFields.length === 0} label="Trend date" onChange={(event) => setDateFieldId(event.target.value)} value={dateFieldId}>
-                {dateFields.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {field.label}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
-            {widgetType === "table" ? (
-              <div className="grid gap-2">
-                <p className="text-sm font-bold text-muted-foreground">Table columns</p>
-                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                  {fieldOptions.map((field) => (
-                    <Checkbox
-                      checked={selectedColumns.includes(field.id)}
-                      key={field.id}
-                      label={field.label}
-                      onChange={(event) => handleToggleColumn(field.id, event.target.checked)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            </> : <div className="grid gap-4 sm:grid-cols-2"><Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} /><Select label="Section" onChange={(event) => setSelectedSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={selectedSectionId} /><Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} /><Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}><Plus className="size-4" />Add adapter widget</Button></div>}
+            {widgetSourceType === "analytics" ? <DashboardAddWidgetWizard canAdd={canAddWidget} dateFieldId={dateFieldId} fields={fieldOptions} forms={forms} groupByFieldId={groupByFieldId} metricFieldId={metricFieldId} metricType={metricType} onAdd={handleAddWidget} onColumnsChange={handleToggleColumn} onDateFieldChange={setDateFieldId} onFormChange={setSelectedFormId} onGroupFieldChange={setGroupByFieldId} onMetricFieldChange={setMetricFieldId} onMetricTypeChange={setMetricType} onReportChange={setSelectedReportId} onSectionChange={setSelectedSectionId} onTitleChange={setWidgetTitle} onTypeChange={setWidgetType} onWidthChange={setWidgetWidth} reports={reports} sections={sections} selectedColumns={selectedColumns} selectedFormId={selectedFormId} selectedReportId={selectedReportId} selectedSectionId={selectedSectionId} title={widgetTitle} type={widgetType} width={widgetWidth} /> : <div className="grid gap-4 sm:grid-cols-2"><Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} /><Select label="Section" onChange={(event) => setSelectedSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={selectedSectionId} /><Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} /><Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}><Plus className="size-4" />Add adapter widget</Button></div>}
           </CardContent>
         </Card>
       </section>
