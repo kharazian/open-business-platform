@@ -1,5 +1,6 @@
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Modules.Dashboard;
+using OpenBusinessPlatform.Api.Modules.Forms;
 
 namespace OpenBusinessPlatform.Api.Modules.Dashboards;
 
@@ -56,15 +57,26 @@ public static class DashboardDefinitionValidator
         if (sections.Count > 16) errors.Add(new("config.sections", "dashboard.sections.limit", "A dashboard supports at most 16 sections."));
         if (widgets.Count > 48) errors.Add(new("config.widgets", "dashboard.widgets.limit", "A dashboard supports at most 48 widgets."));
         if (filters.Count > 8) errors.Add(new("config.filters", "dashboard.filters.limit", "A dashboard supports at most 8 shared filters."));
+        foreach (var duplicate in filters.Select(filter => Normalize(filter.Id)).Where(id => id.Length > 0).GroupBy(id => id, StringComparer.Ordinal).Where(group => group.Count() > 1))
+        {
+            errors.Add(new("config.filters", "dashboard.filters.duplicate_id", $"Filter id '{duplicate.Key}' is duplicated."));
+        }
         foreach (var filter in filters)
         {
             var source = sources.SingleOrDefault(candidate => candidate.FormId == filter.SourceFormId);
             var fields = source is null ? null : OpenBusinessPlatform.Api.Modules.Forms.FormReportableFieldMetadata.GetReportableFieldsById(source.Schema);
-            if (string.IsNullOrWhiteSpace(filter.Id) || string.IsNullOrWhiteSpace(filter.Label) || filter.Label.Length > 100) errors.Add(new("config.filters", "dashboard.filter.invalid", "Each filter needs a bounded id and label."));
+            ReportableFieldMetadata? field = null;
+            if (fields is not null) fields.TryGetValue(filter.FieldId, out field);
+            if (string.IsNullOrWhiteSpace(filter.Id) || filter.Id.Length > 100 || string.IsNullOrWhiteSpace(filter.Label) || filter.Label.Length > 100) errors.Add(new("config.filters", "dashboard.filter.invalid", "Each filter needs a bounded id and label."));
             if (filter.Type is not ("date_range" or "single_select" or "multi_select" or "record_status")) errors.Add(new("config.filters.type", "dashboard.filter.type_invalid", "Dashboard filter type is not supported."));
-            if (fields is null || !fields.TryGetValue(filter.FieldId, out var field) || !field.Filterable) errors.Add(new("config.filters.fieldId", "dashboard.filter.field_invalid", "Dashboard filter field must be reportable and filterable."));
-            if ((filter.Options?.Count ?? 0) > 20 || (filter.Options?.Any(value => value.Length > 100) ?? false)) errors.Add(new("config.filters.options", "dashboard.filter.options_invalid", "Dashboard filter options are too large."));
+            if (field is null || !field.Filterable) errors.Add(new("config.filters.fieldId", "dashboard.filter.field_invalid", "Dashboard filter field must be reportable and filterable."));
+            if (field is not null && filter.Type == "date_range" && field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime)) errors.Add(new("config.filters.type", "dashboard.filter.type_mismatch", "Date-range filters require a date or datetime field."));
+            if (field is not null && filter.Type != "date_range" && field.Type is FormFieldTypes.Date or FormFieldTypes.Datetime) errors.Add(new("config.filters.type", "dashboard.filter.type_mismatch", "Date and datetime fields require a date-range filter."));
+            if (field is not null && filter.Type == "record_status" && field.Id != ReportableSystemFields.Status) errors.Add(new("config.filters.type", "dashboard.filter.type_mismatch", "Record-status filters require the record status field."));
+            if ((filter.Options?.Count ?? 0) > 20 || (filter.Options?.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > 100) ?? false) || (filter.Options?.Distinct(StringComparer.Ordinal).Count() ?? 0) != (filter.Options?.Count ?? 0)) errors.Add(new("config.filters.options", "dashboard.filter.options_invalid", "Dashboard filter options must contain at most 20 unique, bounded values."));
             if ((filter.ApplyToWidgetIds ?? Array.Empty<string>()).Any(id => !widgetIds.Contains(id, StringComparer.Ordinal))) errors.Add(new("config.filters.applyToWidgetIds", "dashboard.filter.widget_missing", "Dashboard filter targets an unknown widget."));
+            if ((filter.ApplyToWidgetIds ?? Array.Empty<string>()).Any(id => widgets.Any(widget => widget.Id == id && widget.SourceFormId != filter.SourceFormId))) errors.Add(new("config.filters.applyToWidgetIds", "dashboard.filter.widget_source_mismatch", "Dashboard filters can target only widgets with the same source form."));
+            ValidateFilterDefault(filter, errors);
         }
 
         foreach (var duplicate in sectionIds.Where(id => id.Length > 0).GroupBy(id => id, StringComparer.Ordinal).Where(group => group.Count() > 1))
@@ -223,6 +235,36 @@ public static class DashboardDefinitionValidator
                 errors.Add(new DashboardValidationError("config.widgets.adapter.settings", "dashboard.adapter.setting_unsafe", "Adapter settings may contain only safe scalar configuration values."));
             }
         }
+    }
+
+    private static void ValidateFilterDefault(SavedDashboardFilterDefinition filter, ICollection<DashboardValidationError> errors)
+    {
+        if (filter.DefaultValue is not { } value) return;
+        var values = value.Values ?? Array.Empty<string>();
+        var options = filter.Options ?? Array.Empty<string>();
+        var invalid = value.FieldId != filter.FieldId
+            || values.Count > 20
+            || values.Any(item => string.IsNullOrWhiteSpace(item) || item.Length > 100)
+            || values.Distinct(StringComparer.Ordinal).Count() != values.Count;
+
+        if (filter.Type == "date_range")
+        {
+            invalid |= values.Count > 0
+                || string.IsNullOrWhiteSpace(value.Start)
+                || string.IsNullOrWhiteSpace(value.End)
+                || !DateOnly.TryParse(value.Start, out _)
+                || !DateOnly.TryParse(value.End, out _);
+        }
+        else
+        {
+            invalid |= !string.IsNullOrWhiteSpace(value.Start)
+                || !string.IsNullOrWhiteSpace(value.End)
+                || values.Count == 0
+                || (filter.Type is "single_select" or "record_status") && values.Count != 1
+                || values.Any(item => !options.Contains(item, StringComparer.Ordinal));
+        }
+
+        if (invalid) errors.Add(new("config.filters.defaultValue", "dashboard.filter.default_invalid", "Dashboard filter default does not match its field, type, and bounded options."));
     }
 
     private static bool IsSecretKey(string key)

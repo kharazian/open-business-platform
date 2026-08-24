@@ -14,13 +14,13 @@ import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../app
 import { getDashboardAdapter } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import { normalizeDashboardSections } from "../sections";
+import { getDashboardFilterDefaults, getMissingRequiredDashboardFilters, hasDashboardFilterValue } from "../filterAuthoring";
 import type { DashboardAnalyticsFilterValue, DashboardAnalyticsResponse, DashboardDetail, DashboardFilterDefinition, SavedDashboardWidget } from "../types";
 import { ChartWidgetPreview } from "./ChartWidgetPreview";
 import { DashboardSectionTabs } from "./DashboardSectionTabs";
 
 type WidgetState = { status: "loading" | "ready" | "error"; preview?: DashboardAnalyticsResponse; error?: string };
 type FilterSelections = Record<string, DashboardAnalyticsFilterValue | undefined>;
-const emptyFilterSelections: FilterSelections = {};
 
 export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail }) {
   const { formatDate } = useLocalization();
@@ -42,17 +42,18 @@ export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail
   const visibleWidgets = visibleLayouts.map((layout) => dashboard.config.widgets.find((item) => item.id === layout.id)).filter((widget): widget is SavedDashboardWidget => Boolean(widget));
   const visibleSourceIds = new Set(visibleWidgets.map((widget) => widget.sourceFormId).filter(Boolean));
   const visibleFilters = (dashboard.config.filters ?? []).filter((filter) => visibleSourceIds.has(filter.sourceFormId));
-  const draftFilters = draftFiltersBySection[activeSectionId] ?? emptyFilterSelections;
-  const appliedFilters = appliedFiltersBySection[activeSectionId] ?? emptyFilterSelections;
+  const dashboardDefaults = useMemo(() => getDashboardFilterDefaults(dashboard.config.filters ?? []), [dashboard.config.filters]);
+  const draftFilters = draftFiltersBySection[activeSectionId] ?? dashboardDefaults;
+  const appliedFilters = appliedFiltersBySection[activeSectionId] ?? dashboardDefaults;
 
   useEffect(() => {
     setActiveSectionId(sections[0]?.id ?? "overview");
     setStates({});
-    setDraftFiltersBySection({});
-    setAppliedFiltersBySection({});
+    setDraftFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, { ...dashboardDefaults }])));
+    setAppliedFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, { ...dashboardDefaults }])));
     setLastRefreshByWidget({});
     setFocusMode(false);
-  }, [dashboard.id]);
+  }, [dashboard.id, dashboardDefaults, sections]);
 
   useEffect(() => {
     void refreshVisibleWidgets();
@@ -97,8 +98,8 @@ export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail
   }
 
   function resetCurrentTab() {
-    setDraftFiltersBySection((current) => ({ ...current, [activeSectionId]: {} }));
-    setAppliedFiltersBySection((current) => ({ ...current, [activeSectionId]: {} }));
+    setDraftFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...dashboardDefaults } }));
+    setAppliedFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...dashboardDefaults } }));
   }
 
   const successfulRefreshes = visibleWidgets.map((widget) => lastRefreshByWidget[widget.id]).filter(Boolean).sort();
@@ -141,8 +142,9 @@ function buildWidgetFilters(widget: SavedDashboardWidget, definitions: Dashboard
 }
 
 function DashboardFilters({ definitions, draft, onChange, onApply, onReset }: { definitions: DashboardFilterDefinition[]; draft: FilterSelections; onChange: (value: FilterSelections) => void; onApply: () => void; onReset: () => void }) {
-  const activeCount = Object.values(draft).filter((value) => value && ((value.values?.length ?? 0) > 0 || value.start || value.end)).length;
-  return <section aria-label="Dashboard filters" className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Filter className="size-4 text-primary" /><p className="text-sm font-bold">Filters</p>{activeCount ? <Badge tone="info">{activeCount} active</Badge> : null}</div><div className="flex gap-2"><Button onClick={onReset} size="sm" variant="outline">Reset all</Button><Button onClick={onApply} size="sm">Apply</Button></div></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{definitions.map((definition) => definition.type === "date_range" ? <div className="grid grid-cols-2 gap-2" key={definition.id}><Input aria-label={`${definition.label} start`} onChange={(event) => onChange({ ...draft, [definition.id]: { fieldId: definition.fieldId, ...draft[definition.id], start: event.target.value || null } })} type="date" value={draft[definition.id]?.start ?? ""} /><Input aria-label={`${definition.label} end exclusive`} onChange={(event) => onChange({ ...draft, [definition.id]: { fieldId: definition.fieldId, ...draft[definition.id], end: event.target.value || null } })} type="date" value={draft[definition.id]?.end ?? ""} /></div> : definition.type === "multi_select" ? <Select className="h-28 py-2" key={definition.id} label={definition.label} multiple onChange={(event) => { const values = Array.from(event.target.selectedOptions, (option) => option.value).slice(0, 20); onChange({ ...draft, [definition.id]: values.length ? { fieldId: definition.fieldId, values } : undefined }); }} value={draft[definition.id]?.values ?? []}>{(definition.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</Select> : <Select key={definition.id} label={definition.label} onChange={(event) => onChange({ ...draft, [definition.id]: event.target.value ? { fieldId: definition.fieldId, values: [event.target.value] } : undefined })} value={draft[definition.id]?.values?.[0] ?? ""}><option value="">All</option>{(definition.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</Select>)}</div>{activeCount ? <div aria-label="Active filter chips" className="flex flex-wrap gap-2">{definitions.flatMap((definition) => (draft[definition.id]?.values ?? []).map((value) => <button className="rounded-full border border-border bg-card px-3 py-1 text-xs font-bold" key={`${definition.id}-${value}`} onClick={() => { const values = (draft[definition.id]?.values ?? []).filter((item) => item !== value); onChange({ ...draft, [definition.id]: values.length ? { fieldId: definition.fieldId, values } : undefined }); }} type="button">{definition.label}: {value} ×</button>))}</div> : null}</section>;
+  const activeCount = definitions.filter((definition) => hasDashboardFilterValue(draft[definition.id], definition.type)).length;
+  const missingRequired = getMissingRequiredDashboardFilters(definitions, draft);
+  return <section aria-label="Dashboard filters" className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Filter className="size-4 text-primary" /><p className="text-sm font-bold">Filters</p>{activeCount ? <Badge tone="info">{activeCount} active</Badge> : null}</div><div className="flex gap-2"><Button onClick={onReset} size="sm" variant="outline">Reset all</Button><Button disabled={missingRequired.length > 0} onClick={onApply} size="sm">Apply</Button></div></div>{missingRequired.length ? <Alert title="Required filters incomplete">Complete {missingRequired.map((filter) => filter.label).join(", ")} before applying filters.</Alert> : null}<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{definitions.map((definition) => definition.type === "date_range" ? <div className="grid gap-2" key={definition.id}><p className="text-sm font-bold text-foreground">{definition.label}{definition.required ? " *" : ""}</p><div className="grid grid-cols-2 gap-2"><Input aria-label={`${definition.label} start`} onChange={(event) => onChange({ ...draft, [definition.id]: { fieldId: definition.fieldId, ...draft[definition.id], start: event.target.value || null } })} type="date" value={draft[definition.id]?.start ?? ""} /><Input aria-label={`${definition.label} end exclusive`} onChange={(event) => onChange({ ...draft, [definition.id]: { fieldId: definition.fieldId, ...draft[definition.id], end: event.target.value || null } })} type="date" value={draft[definition.id]?.end ?? ""} /></div></div> : definition.type === "multi_select" ? <Select className="h-28 py-2" key={definition.id} label={`${definition.label}${definition.required ? " *" : ""}`} multiple onChange={(event) => { const values = Array.from(event.target.selectedOptions, (option) => option.value).slice(0, 20); onChange({ ...draft, [definition.id]: values.length ? { fieldId: definition.fieldId, values } : undefined }); }} value={draft[definition.id]?.values ?? []}>{(definition.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</Select> : <Select key={definition.id} label={`${definition.label}${definition.required ? " *" : ""}`} onChange={(event) => onChange({ ...draft, [definition.id]: event.target.value ? { fieldId: definition.fieldId, values: [event.target.value] } : undefined })} value={draft[definition.id]?.values?.[0] ?? ""}><option value="">{definition.required ? "Choose…" : "All"}</option>{(definition.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</Select>)}</div>{activeCount ? <div aria-label="Active filter chips" className="flex flex-wrap gap-2">{definitions.flatMap((definition) => (draft[definition.id]?.values ?? []).map((value) => <button className="rounded-full border border-border bg-card px-3 py-1 text-xs font-bold" key={`${definition.id}-${value}`} onClick={() => { const values = (draft[definition.id]?.values ?? []).filter((item) => item !== value); onChange({ ...draft, [definition.id]: values.length ? { fieldId: definition.fieldId, values } : undefined }); }} type="button">{definition.label}: {value} ×</button>))}</div> : null}</section>;
 }
 
 function ViewerWidget({ layoutWidth, lastRefresh, onRefresh, state, widget }: { layoutWidth: "small" | "medium" | "wide" | "full"; lastRefresh?: string; onRefresh: () => void; state?: WidgetState; widget: SavedDashboardWidget }) {

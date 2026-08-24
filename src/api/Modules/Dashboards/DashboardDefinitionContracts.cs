@@ -40,7 +40,18 @@ public sealed record DashboardTemplateProvenanceDefinition(
     int TemplateVersion,
     DateTimeOffset InstantiatedAt);
 
-public sealed record SavedDashboardFilterDefinition(string Id, string Label, string Type, Guid SourceFormId, string FieldId, IReadOnlyList<string>? Options = null, IReadOnlyList<string>? ApplyToWidgetIds = null);
+public sealed record SavedDashboardFilterValueDefinition(string FieldId, IReadOnlyList<string>? Values = null, string? Start = null, string? End = null);
+
+public sealed record SavedDashboardFilterDefinition(
+    string Id,
+    string Label,
+    string Type,
+    Guid SourceFormId,
+    string FieldId,
+    IReadOnlyList<string>? Options = null,
+    IReadOnlyList<string>? ApplyToWidgetIds = null,
+    SavedDashboardFilterValueDefinition? DefaultValue = null,
+    bool Required = false);
 
 public sealed record SavedDashboardConfigDefinition(
     int SchemaVersion,

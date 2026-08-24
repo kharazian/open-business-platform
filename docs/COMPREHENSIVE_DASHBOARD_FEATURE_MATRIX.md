@@ -14,7 +14,7 @@ Status: implemented and verified on 2026-08-21 unless marked deferred.
 | Trends | Business/operational trends, budget comparison, diagnostics | Verified | Standard analytics and bounded visuals. |
 | Records | Permission-filtered tables and accessible detail dialog | Verified | Dialog demonstrates detail UX without claiming cross-source drill-through. |
 | Data health | Row counts, schema/permission state, source labels | Verified | Adapter exposes configured scalar values only. |
-| Filters | Eight filters, chips, apply/reset per active tab | Verified | Filters apply only to widgets with the matching source form. |
+| Filters | Visual add/edit/reorder, defaults, required state, targeting, chips, apply/reset per active tab | Verified | Options come from permitted form schema or bounded author input; filters target only widgets with the matching source form. |
 | Refresh | Widget/tab refresh, concurrency 3, stale-response protection | Verified | Viewer bounds requests and ignores older responses. |
 | Presentation | Focus mode, copy link, state handling, responsive cards | Verified | Escape exits focus mode. |
 | Authoring | Section CRUD/order/icons; widget add/duplicate/drag/move/remove/resection/resize | Verified | Visual canvas provides section/widget drag handles, drop zones, and button/select fallbacks. |
@@ -28,6 +28,7 @@ Status: implemented and verified on 2026-08-21 unless marked deferred.
 | Chart appearance | Palette, legend, labels, gridlines, card accent, and localized number formats | Verified | Bounded theme/cool/warm/monochrome presets and reset-to-theme controls are saved per analytics widget; presentation settings never alter source data. |
 | Add-widget wizard | Source-first guided creation, searchable gallery, recommendations, preview, and recent choices | Verified | Recommendations use already-loaded reportable field capabilities; the final sample preview and add action reuse the permission-checked analytics endpoint. |
 | Canvas productivity | Undo/redo, multi-select, bulk actions, section duplication/collapse, density, and zoom | Verified | Draft-only history is bounded to 30 snapshots; bulk and duplicate operations preserve the 16-section/48-widget/16-per-section server limits. |
+| Filter authoring | Source/field/control editor, option preview, default values, required/optional state, and per-widget targeting | Verified | Backend revalidates filter ids, field compatibility, defaults, options, and same-source targets before persistence. |
 | Soft delete | Recoverable delete/restore | Deferred | No delete API exists; draft/publish/unpublish remain supported. |
 | Server adapter registry | Per-adapter setting allowlists | Deferred | API bounds scalar settings; shared registry is required before third-party adapters. |
 | Cross-source calculations | Joins/formulas across sources | Deferred | Excluded to preserve permissions and avoid arbitrary SQL. |

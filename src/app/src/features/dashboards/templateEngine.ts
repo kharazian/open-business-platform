@@ -2,10 +2,11 @@ import type {
   ChartWidgetConfig,
   CreateDashboardRequest,
   DashboardAdapterWidget,
+  DashboardAnalyticsFilterValue,
+  DashboardFilterType,
   DashboardTemplateProvenance,
   DashboardWidgetWidth
 } from "./types";
-import type { DashboardFilterType } from "./types";
 
 export type DashboardTemplateSourceSlot = {
   key: string;
@@ -48,7 +49,7 @@ export type DashboardTemplateDefinition = {
   sections: DashboardTemplateSection[];
   widgets: DashboardTemplateWidget[];
   requiredAdapterIds?: string[];
-  filters?: Array<{ key: string; label: string; type: DashboardFilterType; sourceSlot: string; fieldId: string; options?: string[]; applyToWidgetKeys?: string[] | null }>;
+  filters?: Array<{ key: string; label: string; type: DashboardFilterType; sourceSlot: string; fieldId: string; options?: string[]; defaultValue?: DashboardAnalyticsFilterValue | null; required?: boolean; applyToWidgetKeys?: string[] | null }>;
 };
 
 export type DashboardTemplateError = { path: string; code: string; message: string };
@@ -145,6 +146,8 @@ export function instantiateDashboardTemplate(
           sourceFormId: bindings.sources[filter.sourceSlot]!.formId,
           fieldId: filter.fieldId,
           options: [...(filter.options ?? [])],
+          defaultValue: filter.defaultValue ? { ...filter.defaultValue, values: filter.defaultValue.values ? [...filter.defaultValue.values] : undefined } : null,
+          required: filter.required ?? false,
           applyToWidgetIds: filter.applyToWidgetKeys?.map((key) => widgetIds.get(key)!) ?? null
         })),
         sections: template.sections.map((section, order) => ({ id: sectionIds.get(section.key)!, title: section.title, order, icon: section.icon ?? null })),

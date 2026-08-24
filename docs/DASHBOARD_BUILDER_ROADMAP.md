@@ -23,8 +23,9 @@ Implement and verify these increments in order. Each increment must preserve bac
 6. **Canvas productivity — implemented**
    - Undo/redo, multi-select, bulk move/resize/delete, duplicate section, collapse sections, zoom/density controls
    - Thirty-step draft history with existing dashboard bounds enforced before bulk or duplicate operations
-7. **Filter authoring**
+7. **Filter authoring — implemented**
    - Add/edit/reorder filters, widget targeting, defaults, required/optional state, dependency-safe option previews
+   - Eight-filter bound, compatible source/field controls, schema-only option discovery, and viewer enforcement of required values
 8. **Interaction and drill-through**
    - Typed record/report destinations, permission-safe filter mapping, tooltip and selection behavior
 9. **Publishing workflow**

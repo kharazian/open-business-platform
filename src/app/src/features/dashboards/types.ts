@@ -127,6 +127,7 @@ export type DashboardFilterDefinition = {
   fieldId: string;
   options?: string[];
   defaultValue?: DashboardAnalyticsFilterValue | null;
+  required?: boolean;
   applyToWidgetIds?: string[] | null;
 };
 

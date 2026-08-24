@@ -327,6 +327,7 @@ Infrastructure responsibility:
 - Keep dashboard appearance as bounded presentation metadata inside saved widget JSON. Palette presets and format options are backend-validated, rendered with the effective user locale, and never participate in analytics execution or permission decisions.
 - Keep add-widget recommendations frontend-only and capability-based. The wizard may remember at most three visualization types in browser storage, but source access, field validity, preview data, and the final saved definition remain governed by existing backend APIs and validators.
 - Keep dashboard canvas history draft-local and bounded to 30 snapshots. Undo/redo, selection, collapsed sections, density, and zoom are editor state only; the existing explicit Save request remains the sole persistence boundary and the backend revalidates every resulting definition.
+- Author dashboard filters from permitted reportable field metadata, never from record-value discovery. Persist at most eight bounded definitions with optional defaults and required state; backend validation enforces type/field compatibility and prevents cross-source widget targeting.
 
 ## Data Flow: Dashboard Template Creation
 
@@ -337,4 +338,4 @@ Infrastructure responsibility:
 5. The existing saved-dashboard API validates the complete definition against current forms/reports and saves it as a draft.
 6. Analytics requests independently recheck form/report access, record scopes, and hidden fields.
 
-Viewer filter selections are temporary runtime state. `Apply` sends bounded field/value or date-bound filters with each compatible widget request; `Reset all` clears them. Saved definitions retain only safe labels, field IDs, options, source IDs, and optional widget targets. The backend remains authoritative for field visibility and applies inclusive-start/exclusive-end date semantics.
+Viewer filter selections are temporary runtime state. `Apply` sends bounded field/value or date-bound filters with each compatible widget request; `Reset all` restores saved defaults. Required filters block apply until complete. Saved definitions retain only safe labels, field IDs, bounded options/defaults, required state, source IDs, and optional same-source widget targets. The backend remains authoritative for field visibility and applies inclusive-start/exclusive-end date semantics.

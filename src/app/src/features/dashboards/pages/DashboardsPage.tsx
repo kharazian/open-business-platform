@@ -31,6 +31,7 @@ import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
 import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
 import { DashboardAddWidgetWizard } from "../components/DashboardAddWidgetWizard";
+import { DashboardFilterEditor } from "../components/DashboardFilterEditor";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
 import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
@@ -48,6 +49,7 @@ import {
   type DashboardAdapterWidget,
   type DashboardAnalyticsWidgetType,
   type DashboardDetail,
+  type DashboardFilterDefinition,
   type DashboardSummaryItem,
   type DashboardValidationError,
   type DashboardVisibility,
@@ -64,7 +66,7 @@ const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = 
   { label: "Private", value: "private" }
 ];
 
-type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
+type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; filters: DashboardFilterDefinition[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
 
 export function DashboardsPage() {
   const navigate = useNavigate();
@@ -106,6 +108,7 @@ export function DashboardsPage() {
   const [selectedSectionId, setSelectedSectionId] = useState(defaultDashboardSection.id);
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [widgets, setWidgets] = useState<SavedDashboardWidget[]>([]);
+  const [filters, setFilters] = useState<DashboardFilterDefinition[]>([]);
   const [layoutWidgets, setLayoutWidgets] = useState<SavedDashboardWidgetLayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -262,6 +265,7 @@ export function DashboardsPage() {
       setSelectedSectionId(nextSections[0].id);
       setBulkSectionId(nextSections[0].id);
       setWidgets(nextWidgets);
+      setFilters(detail.config.filters ?? []);
       setLayoutWidgets(detail.layout.widgets);
       setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
       await loadPreviews(nextWidgets);
@@ -310,9 +314,9 @@ export function DashboardsPage() {
     return buildChartConfigFromDashboardAnalytics(builderConfig);
   }
 
-  function currentCanvasSnapshot(): CanvasSnapshot { return { sections: [...sections], widgets: [...widgets], layout: [...layoutWidgets], previews: { ...previewStates } }; }
+  function currentCanvasSnapshot(): CanvasSnapshot { return { sections: [...sections], widgets: [...widgets], filters: [...filters], layout: [...layoutWidgets], previews: { ...previewStates } }; }
   function recordCanvasHistory() { const snapshot = currentCanvasSnapshot(); setUndoStack((current) => appendBoundedCanvasHistory(current, snapshot)); setRedoStack([]); }
-  function restoreCanvasSnapshot(snapshot: CanvasSnapshot) { setSections(snapshot.sections); setWidgets(snapshot.widgets); setLayoutWidgets(snapshot.layout); setPreviewStates(snapshot.previews); setSelectedWidgetIds(new Set()); }
+  function restoreCanvasSnapshot(snapshot: CanvasSnapshot) { setSections(snapshot.sections); setWidgets(snapshot.widgets); setFilters(snapshot.filters); setLayoutWidgets(snapshot.layout); setPreviewStates(snapshot.previews); setSelectedWidgetIds(new Set()); }
   function handleUndo() { const snapshot = undoStack.at(-1); if (!snapshot) return; const current = currentCanvasSnapshot(); setUndoStack((items) => items.slice(0, -1)); setRedoStack((items) => appendBoundedCanvasHistory(items, current)); restoreCanvasSnapshot(snapshot); setNotice("Canvas change undone."); }
   function handleRedo() { const snapshot = redoStack.at(-1); if (!snapshot) return; const current = currentCanvasSnapshot(); setRedoStack((items) => items.slice(0, -1)); setUndoStack((items) => appendBoundedCanvasHistory(items, current)); restoreCanvasSnapshot(snapshot); setNotice("Canvas change restored."); }
 
@@ -342,6 +346,7 @@ export function DashboardsPage() {
   function handleRemoveWidget(widgetId: string) {
     recordCanvasHistory();
     setWidgets((current) => current.filter((widget) => widget.id !== widgetId));
+    setFilters((current) => current.map((filter) => filter.applyToWidgetIds ? { ...filter, applyToWidgetIds: filter.applyToWidgetIds.filter((id) => id !== widgetId) } : filter));
     setLayoutWidgets((current) => current.filter((item) => item.id !== widgetId).map((item, index) => ({ ...item, order: index + 1 })));
     setPreviewStates((current) => {
       const next = { ...current };
@@ -377,7 +382,9 @@ export function DashboardsPage() {
 
   function handleApplyWidgetProperties(nextWidget: SavedDashboardWidget, width: DashboardWidgetWidth, preview?: DashboardAnalyticsResponse) {
     recordCanvasHistory();
+    const previousWidget = widgets.find((widget) => widget.id === nextWidget.id);
     setWidgets((current) => current.map((widget) => widget.id === nextWidget.id ? nextWidget : widget));
+    if (previousWidget?.sourceFormId !== nextWidget.sourceFormId) setFilters((current) => current.map((filter) => filter.applyToWidgetIds && filter.sourceFormId !== nextWidget.sourceFormId ? { ...filter, applyToWidgetIds: filter.applyToWidgetIds.filter((id) => id !== nextWidget.id) } : filter));
     setLayoutWidgets((current) => current.map((layout) => layout.id === nextWidget.id ? { ...layout, width } : layout));
     if (preview) setPreviewStates((current) => ({ ...current, [nextWidget.id]: { status: "ready", preview } }));
     else if (nextWidget.adapter) setPreviewStates((current) => ({ ...current, [nextWidget.id]: undefined }));
@@ -465,7 +472,7 @@ export function DashboardsPage() {
   function toggleWidgetSelection(widgetId: string) { setSelectedWidgetIds((current) => toggleDashboardWidgetSelection(current, widgetId)); }
   function handleBulkMove() { if (!selectedWidgetIds.size || !sections.some((section) => section.id === bulkSectionId)) return; if (widgets.filter((widget) => widget.sectionId === bulkSectionId && !selectedWidgetIds.has(widget.id)).length + selectedWidgetIds.size > 16) { setError("The destination section supports at most 16 widgets."); return; } recordCanvasHistory(); setWidgets((current) => current.map((widget) => selectedWidgetIds.has(widget.id) ? { ...widget, sectionId: bulkSectionId } : widget)); setNotice(`${selectedWidgetIds.size} widgets moved.`); }
   function handleBulkResize() { if (!selectedWidgetIds.size) return; recordCanvasHistory(); setLayoutWidgets((current) => current.map((layout) => selectedWidgetIds.has(layout.id) ? { ...layout, width: bulkWidth } : layout)); setNotice(`${selectedWidgetIds.size} widgets resized.`); }
-  function handleBulkDelete() { if (!selectedWidgetIds.size) return; recordCanvasHistory(); setWidgets((current) => current.filter((widget) => !selectedWidgetIds.has(widget.id))); setLayoutWidgets((current) => current.filter((layout) => !selectedWidgetIds.has(layout.id)).map((layout, order) => ({ ...layout, order: order + 1 }))); setPreviewStates((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !selectedWidgetIds.has(id)))); setSelectedWidgetIds(new Set()); setNotice("Selected widgets removed. Use Undo to restore them."); }
+  function handleBulkDelete() { if (!selectedWidgetIds.size) return; recordCanvasHistory(); setWidgets((current) => current.filter((widget) => !selectedWidgetIds.has(widget.id))); setFilters((current) => current.map((filter) => filter.applyToWidgetIds ? { ...filter, applyToWidgetIds: filter.applyToWidgetIds.filter((id) => !selectedWidgetIds.has(id)) } : filter)); setLayoutWidgets((current) => current.filter((layout) => !selectedWidgetIds.has(layout.id)).map((layout, order) => ({ ...layout, order: order + 1 }))); setPreviewStates((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !selectedWidgetIds.has(id)))); setSelectedWidgetIds(new Set()); setNotice("Selected widgets removed. Use Undo to restore them."); }
   function handleWidgetSectionChange(widgetId: string, sectionId: string) { recordCanvasHistory(); setWidgets((current) => current.map((item) => item.id === widgetId ? { ...item, sectionId } : item)); }
   function handleWidgetWidthChange(widgetId: string, width: DashboardWidgetWidth) { recordCanvasHistory(); setLayoutWidgets((current) => current.map((item) => item.id === widgetId ? { ...item, width } : item)); }
   function toggleSectionCollapsed(sectionId: string) { setCollapsedSectionIds((current) => { const next = new Set(current); if (next.has(sectionId)) next.delete(sectionId); else next.add(sectionId); return next; }); }
@@ -490,6 +497,7 @@ export function DashboardsPage() {
       setDashboardIsDefault(settings.isDefault);
       setSections(normalizeDashboardSections(saved.config.sections));
       setWidgets(saved.config.widgets);
+      setFilters(saved.config.filters ?? []);
       setLayoutWidgets(saved.layout.widgets);
       setDashboards(await listDashboards());
       dispatchDashboardsChanged();
@@ -515,6 +523,7 @@ export function DashboardsPage() {
     setBulkSectionId(defaultDashboardSection.id);
     setNewSectionTitle("");
     setWidgets([]);
+    setFilters([]);
     setLayoutWidgets([]);
     setPreviewStates({});
     setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
@@ -620,7 +629,7 @@ export function DashboardsPage() {
     return {
       name: dashboardName,
       description: dashboardDescription || null,
-      config: { schemaVersion: 1 as const, sections: normalizedSections, widgets: normalizedWidgets, templateProvenance: dashboardDetail?.config.templateProvenance ?? null, filters: dashboardDetail?.config.filters ?? null },
+      config: { schemaVersion: 1 as const, sections: normalizedSections, widgets: normalizedWidgets, templateProvenance: dashboardDetail?.config.templateProvenance ?? null, filters: filters.length ? filters : null },
       layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
       settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault }),
       publication: { status: dashboardDetail?.publication.status ?? "draft", slug: slugOverride || null, showInNavigation, menuLabel: showInNavigation ? (menuLabel.trim() || dashboardName.trim()) : null, menuIcon: menuIcon || null, menuOrder, viewPermission: viewPermission || null }
@@ -765,6 +774,7 @@ export function DashboardsPage() {
             {adapters.length > 0 ? <Select label="Widget source" onChange={(event) => setWidgetSourceType(event.target.value as "analytics" | "adapter")} options={[{ label: "Platform analytics", value: "analytics" }, { label: "Installed adapter", value: "adapter" }]} value={widgetSourceType} /> : null}
             {widgetSourceType === "adapter" && adapterWidget ? <><Select label="Module" onChange={(event) => { const adapter = adapters.find((item) => item.id === event.target.value); const next = adapter ? createDashboardAdapterWidget(adapter) : null; if (next) setAdapterWidget(next); }} options={adapters.map((item) => ({ label: item.name, value: item.id }))} value={adapterWidget.adapterId} />{selectedAdapter ? <DashboardAdapterSettingsEditor adapter={selectedAdapter} onChange={setAdapterWidget} value={adapterWidget} /> : null}{!isDashboardAdapterWidgetConfigured(selectedAdapter, adapterWidget) ? <p className="text-xs font-semibold text-danger">Complete all required adapter settings before adding this widget.</p> : null}</> : null}
             {widgetSourceType === "analytics" ? <DashboardAddWidgetWizard canAdd={canAddWidget} dateFieldId={dateFieldId} fields={fieldOptions} forms={forms} groupByFieldId={groupByFieldId} metricFieldId={metricFieldId} metricType={metricType} onAdd={handleAddWidget} onColumnsChange={handleToggleColumn} onDateFieldChange={setDateFieldId} onFormChange={setSelectedFormId} onGroupFieldChange={setGroupByFieldId} onMetricFieldChange={setMetricFieldId} onMetricTypeChange={setMetricType} onReportChange={setSelectedReportId} onSectionChange={setSelectedSectionId} onTitleChange={setWidgetTitle} onTypeChange={setWidgetType} onWidthChange={setWidgetWidth} reports={reports} sections={sections} selectedColumns={selectedColumns} selectedFormId={selectedFormId} selectedReportId={selectedReportId} selectedSectionId={selectedSectionId} title={widgetTitle} type={widgetType} width={widgetWidth} /> : <div className="grid gap-4 sm:grid-cols-2"><Input label="Widget title" onChange={(event) => setWidgetTitle(event.target.value)} value={widgetTitle} /><Select label="Section" onChange={(event) => setSelectedSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={selectedSectionId} /><Select label="Width" onChange={(event) => setWidgetWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={widgetWidth} /><Button disabled={!canAddWidget} onClick={() => void handleAddWidget()}><Plus className="size-4" />Add adapter widget</Button></div>}
+            <DashboardFilterEditor filters={filters} forms={forms} onChange={setFilters} widgets={widgets} />
           </CardContent>
         </Card>
       </section>
