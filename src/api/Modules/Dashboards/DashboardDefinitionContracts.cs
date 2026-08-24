@@ -26,7 +26,15 @@ public sealed record SavedDashboardWidgetDefinition(
     ChartWidgetConfigDefinition? Chart,
     string? SectionId = null,
     DashboardAdapterWidgetDefinition? Adapter = null,
-    string? Subtitle = null);
+    string? Subtitle = null,
+    DashboardWidgetInteractionDefinition? Interaction = null);
+
+public sealed record DashboardWidgetInteractionDefinition(
+    string Destination,
+    Guid? ReportId = null,
+    bool IncludeDashboardFilters = true,
+    bool IncludePointFilter = true,
+    bool OpenInNewTab = false);
 
 public sealed record DashboardAdapterWidgetDefinition(
     string AdapterId,

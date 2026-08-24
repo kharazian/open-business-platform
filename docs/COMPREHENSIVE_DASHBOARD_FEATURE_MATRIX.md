@@ -21,7 +21,7 @@ Status: implemented and verified on 2026-08-21 unless marked deferred.
 | Publishing | Draft/publish/unpublish, slug, navigation, permission | Verified | Existing audited lifecycle reused. |
 | Safety | 16 sections, 48 widgets, 16/section, 8 filters | Verified | Server validator and tests enforce limits. |
 | Localization | Locale-aware number/date formatting | Implemented | Translation keys for sample prose remain a localization backlog item. |
-| Drill-through | Module/report routes with serialized filters | Deferred | Operations/HSE are sample forms. Add typed route adapters when real modules exist. |
+| Drill-through | Typed source-record and saved-report destinations with serialized scalar filters | Verified | Destination APIs recheck current form/report, record-scope, and field permissions; arbitrary URLs and cross-source mappings are not supported. |
 | URL filter state | Shareable query parameters | Deferred | Copy-link currently shares the route only; add versioned serialization first. |
 | Full widget editor | Edit analytics/adapter definitions after creation | Verified | Responsive drawer edits content, layout, source/report, analytics properties, table columns, and adapter settings with capability validation and live preview. |
 | Multi-series charts | Add, remove, reorder, label, style, color, and axis for up to four metrics | Verified | Every metric is validated and executed against the same permission-scoped source rows; combo charts use independent left/right scales. |
@@ -29,6 +29,7 @@ Status: implemented and verified on 2026-08-21 unless marked deferred.
 | Add-widget wizard | Source-first guided creation, searchable gallery, recommendations, preview, and recent choices | Verified | Recommendations use already-loaded reportable field capabilities; the final sample preview and add action reuse the permission-checked analytics endpoint. |
 | Canvas productivity | Undo/redo, multi-select, bulk actions, section duplication/collapse, density, and zoom | Verified | Draft-only history is bounded to 30 snapshots; bulk and duplicate operations preserve the 16-section/48-widget/16-per-section server limits. |
 | Filter authoring | Source/field/control editor, option preview, default values, required/optional state, and per-widget targeting | Verified | Backend revalidates filter ids, field compatibility, defaults, options, and same-source targets before persistence. |
+| Chart interactions | Keyboard/click selection, native SVG tooltips, table-row selection, optional new-tab navigation | Verified | Point filters derive only from the configured grouping/date field; table rows use typed record-detail routes. |
 | Soft delete | Recoverable delete/restore | Deferred | No delete API exists; draft/publish/unpublish remain supported. |
 | Server adapter registry | Per-adapter setting allowlists | Deferred | API bounds scalar settings; shared registry is required before third-party adapters. |
 | Cross-source calculations | Joins/formulas across sources | Deferred | Excluded to preserve permissions and avoid arbitrary SQL. |

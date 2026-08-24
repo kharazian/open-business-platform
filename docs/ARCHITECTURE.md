@@ -328,6 +328,7 @@ Infrastructure responsibility:
 - Keep add-widget recommendations frontend-only and capability-based. The wizard may remember at most three visualization types in browser storage, but source access, field validity, preview data, and the final saved definition remain governed by existing backend APIs and validators.
 - Keep dashboard canvas history draft-local and bounded to 30 snapshots. Undo/redo, selection, collapsed sections, density, and zoom are editor state only; the existing explicit Save request remains the sole persistence boundary and the backend revalidates every resulting definition.
 - Author dashboard filters from permitted reportable field metadata, never from record-value discovery. Persist at most eight bounded definitions with optional defaults and required state; backend validation enforces type/field compatibility and prevents cross-source widget targeting.
+- Keep dashboard interaction destinations typed as source records or an existing list report from the widget's source form. Never persist arbitrary URLs. Viewer navigation serializes at most eight same-source scalar filters; destination record/report APIs reapply current permissions, hidden-field rules, and record scopes before returning rows.
 
 ## Data Flow: Dashboard Template Creation
 

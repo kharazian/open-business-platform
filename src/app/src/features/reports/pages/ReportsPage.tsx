@@ -1,6 +1,6 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Copy, Download, Edit3, Eye, FileDown, FileText, ListFilter, MoreHorizontal, Play, Plus, Printer, RefreshCw, Save, Search, ShieldCheck, Trash2, X } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -22,6 +22,7 @@ import { getGeneratedAtPrintMetadata, requestBrowserPrint } from "../../printing
 import { getPrintTemplatePdfButtonLabel, resolvePrintTemplateRenderTarget } from "../../printing/templateRenderer";
 import type { PrintTemplateRenderDetail, PrintTemplateSummary, ReportTemplateExecution } from "../../printing/types";
 import { getRecordCreatePath, getRecordDetailPath, getRecordEditPath } from "../../records/recordEditor";
+import { readDashboardDrillFilters } from "../../dashboards/drillThrough";
 import {
   createListReportConfig,
   defaultReportActions,
@@ -86,6 +87,12 @@ const rowOpenActionOptions = [
 export function ReportsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const drillHandled = useRef(false);
+  const drillFormId = searchParams.get("drill") === "1" ? searchParams.get("formId") ?? "" : "";
+  const drillReportId = searchParams.get("drill") === "1" ? searchParams.get("reportId") ?? "" : "";
+  const drillFilters = useMemo(() => readDashboardDrillFilters(searchParams), [searchParams]);
+  const drillKey = `${drillFormId}|${drillReportId}|${JSON.stringify(drillFilters)}`;
   const [forms, setForms] = useState<FormSummary[]>([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formDetail, setFormDetail] = useState<FormDetail | null>(null);
@@ -144,7 +151,7 @@ export function ReportsPage() {
       .then((items) => {
         if (!active) return;
         setForms(items);
-        setSelectedFormId((current) => current || items[0]?.id || "");
+        setSelectedFormId((current) => current || (drillFormId && items.some((item) => item.id === drillFormId) ? drillFormId : items[0]?.id) || "");
       })
       .catch((caught: unknown) => {
         if (!active) return;
@@ -269,6 +276,19 @@ export function ReportsPage() {
       active = false;
     };
   }, [forms, selectedFormId]);
+
+  useEffect(() => {
+    drillHandled.current = false;
+  }, [drillKey]);
+
+  useEffect(() => {
+    if (drillHandled.current || loadingReports || !drillReportId || selectedFormId !== drillFormId) return;
+    if (!reports.some((report) => report.id === drillReportId)) return;
+    drillHandled.current = true;
+    setReportColumnFilters(drillFilters);
+    setNotice("Opened from a dashboard selection. Current permissions and report columns determine which filters apply.");
+    void handleRunReport(drillReportId, 1, { filters: drillFilters });
+  }, [drillFilters, drillFormId, drillReportId, loadingReports, reports, selectedFormId]);
 
   const fieldOptions = reportFieldOptions;
 

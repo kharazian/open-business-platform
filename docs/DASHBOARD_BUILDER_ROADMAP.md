@@ -26,8 +26,9 @@ Implement and verify these increments in order. Each increment must preserve bac
 7. **Filter authoring — implemented**
    - Add/edit/reorder filters, widget targeting, defaults, required/optional state, dependency-safe option previews
    - Eight-filter bound, compatible source/field controls, schema-only option discovery, and viewer enforcement of required values
-8. **Interaction and drill-through**
+8. **Interaction and drill-through — implemented**
    - Typed record/report destinations, permission-safe filter mapping, tooltip and selection behavior
+   - Keyboard-selectable points/rows, same-source scalar filter transfer, destination authorization, and optional new-tab behavior
 9. **Publishing workflow**
    - Draft/published comparison, preview mode, unsaved-change guard, revision history, restore, safer slug/navigation changes
 10. **Accessibility and quality**

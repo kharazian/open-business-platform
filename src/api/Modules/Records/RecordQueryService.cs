@@ -56,9 +56,12 @@ public sealed class RecordQueryService
             .Select((record, index) => ToListItem(record, recordValues[index], displayValues[index]))
             .ToArray();
 
+        var runtimeFilters = NormalizeRuntimeFilters(request.Filters, visibleSchema, fieldAccess.HiddenFieldIds);
+
+        var runtimeFilteredRecords = recordItems.Where(record => MatchesRuntimeFilters(record, runtimeFilters));
         var filteredRecords = string.IsNullOrWhiteSpace(search)
-            ? recordItems
-            : recordItems.Where(record => MatchesSearch(record, search));
+            ? runtimeFilteredRecords
+            : runtimeFilteredRecords.Where(record => MatchesSearch(record, search));
 
         var filtered = filteredRecords.ToArray();
         var items = filtered
@@ -334,6 +337,33 @@ public sealed class RecordQueryService
             || record.DisplayValues?.Any(pair =>
                 pair.Key.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || pair.Value.Contains(search, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private static IReadOnlyDictionary<string, string> NormalizeRuntimeFilters(IReadOnlyDictionary<string, string?>? filters, FormSchemaDefinition? visibleSchema, IReadOnlySet<string> hiddenFieldIds)
+    {
+        if ((filters?.Count ?? 0) > 8) throw new RecordQueryException(StatusCodes.Status400BadRequest, "Record drill-through supports at most eight filters.");
+        var allowed = visibleSchema is null
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : FormReportableFieldMetadata.GetReportableFields(visibleSchema).Select(field => field.Id).Where(fieldId => !hiddenFieldIds.Contains(fieldId)).ToHashSet(StringComparer.Ordinal);
+        return (filters ?? new Dictionary<string, string?>())
+            .Where(pair => allowed.Contains(pair.Key) && pair.Key.Length <= 100 && !string.IsNullOrWhiteSpace(pair.Value) && pair.Value!.Length <= 200)
+            .ToDictionary(pair => pair.Key, pair => pair.Value!.Trim(), StringComparer.Ordinal);
+    }
+
+    private static bool MatchesRuntimeFilters(FormRecordListItemDto record, IReadOnlyDictionary<string, string> filters)
+    {
+        return filters.All(filter => GetRuntimeFilterText(record, filter.Key).Contains(filter.Value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetRuntimeFilterText(FormRecordListItemDto record, string fieldId)
+    {
+        if (fieldId == ReportableSystemFields.Status) return record.Status;
+        if (fieldId == ReportableSystemFields.CreatedAt) return record.CreatedAt.ToString("O", CultureInfo.InvariantCulture);
+        if (fieldId == ReportableSystemFields.OwnerId) return record.OwnerId?.ToString() ?? string.Empty;
+        if (fieldId == ReportableSystemFields.DepartmentId) return record.DepartmentId?.ToString() ?? string.Empty;
+        if (fieldId == ReportableSystemFields.CreatedById) return record.CreatedById?.ToString() ?? string.Empty;
+        if (record.DisplayValues?.TryGetValue(fieldId, out var display) == true) return display;
+        return record.Values.TryGetValue(fieldId, out var value) ? Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty : string.Empty;
     }
 
     private async Task<FormSchemaDefinition?> GetCurrentFormSchemaAsync(Guid formId, CancellationToken cancellationToken)

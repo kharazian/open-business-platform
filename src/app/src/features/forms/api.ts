@@ -92,6 +92,7 @@ export type ListRecordsOptions = {
   page?: number;
   pageSize?: number;
   search?: string;
+  filters?: Record<string, string | undefined>;
 };
 
 export type ListSubTableRowsOptions = {
@@ -315,6 +316,10 @@ export async function listRecords(
 
   if (options.search && options.search.trim().length > 0) {
     searchParams.set("search", options.search.trim());
+  }
+
+  for (const [fieldId, value] of Object.entries(options.filters ?? {}).slice(0, 8)) {
+    if (fieldId && value) searchParams.set(`filter.${fieldId}`, value);
   }
 
   return requestJson<PagedResult<FormRecordListItem>>(

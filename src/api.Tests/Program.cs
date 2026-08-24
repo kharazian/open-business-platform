@@ -3548,6 +3548,8 @@ var recordListRequest = new ListRecordsRequest(Page: 2, PageSize: 10, Search: "J
 AssertEqual(2, recordListRequest.Page, "List records requests should carry the requested page.");
 AssertEqual(10, recordListRequest.PageSize, "List records requests should carry the requested page size.");
 AssertEqual("Jane", recordListRequest.Search, "List records requests should carry the search term.");
+recordListRequest = recordListRequest with { Filters = new Dictionary<string, string?> { [ReportableSystemFields.Status] = RecordStatuses.Active } };
+AssertEqual(RecordStatuses.Active, recordListRequest.Filters![ReportableSystemFields.Status], "List records requests should carry bounded drill-through filters.");
 var subTableRowsRequest = new ListSubTableRowsRequest(
     Page: 2,
     PageSize: 5,
@@ -4716,6 +4718,13 @@ var invalidDashboardFilterDefault = dashboardWithFilterDefaults with { Filters =
 AssertTrue(DashboardDefinitionValidator.Validate(invalidDashboardFilterDefault, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.filter.default_invalid"), "Dashboard filters should reject defaults that do not match the configured field and options.");
 var invalidDashboardFilterTarget = dashboardWithFilterDefaults with { Filters = new[] { dashboardWithFilterDefaults.Filters!.Single() with { SourceFormId = Guid.Parse("77777777-7777-7777-7777-777777777777"), ApplyToWidgetIds = new[] { "widget-1" } } } };
 AssertTrue(DashboardDefinitionValidator.Validate(invalidDashboardFilterTarget, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.filter.widget_source_mismatch"), "Dashboard filters should not target widgets backed by another form.");
+var dashboardWithRecordInteraction = dashboardConfig with { Widgets = new[] { dashboardConfig.Widgets.Single() with { Interaction = new DashboardWidgetInteractionDefinition("records") } } };
+AssertTrue(DashboardDefinitionValidator.Validate(dashboardWithRecordInteraction, dashboardLayout, dashboardSources).Valid, "Analytics widgets should support typed source-record drill-through.");
+var reportInteractionId = dashboardSources.Single().Reports.Single().Id;
+var dashboardWithReportInteraction = dashboardConfig with { Widgets = new[] { dashboardConfig.Widgets.Single() with { Interaction = new DashboardWidgetInteractionDefinition("report", reportInteractionId) } } };
+AssertTrue(DashboardDefinitionValidator.Validate(dashboardWithReportInteraction, dashboardLayout, dashboardSources).Valid, "Analytics widgets should support permitted saved-report drill-through.");
+var invalidDashboardInteraction = dashboardConfig with { Widgets = new[] { dashboardConfig.Widgets.Single() with { Interaction = new DashboardWidgetInteractionDefinition("report", Guid.Parse("88888888-8888-8888-8888-888888888888")) } } };
+AssertTrue(DashboardDefinitionValidator.Validate(invalidDashboardInteraction, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.interaction.report_missing"), "Dashboard drill-through should reject reports outside the widget source.");
 AssertFalse(DashboardDefinitionValidator.Validate(dashboardConfig with { TemplateProvenance = new DashboardTemplateProvenanceDefinition("", 0, default) }, dashboardLayout, dashboardSources).Valid, "Invalid template provenance should be rejected without affecting legacy dashboards that omit it.");
 var tooManySections = dashboardConfig with { Sections = Enumerable.Range(0, 17).Select(index => new SavedDashboardSectionDefinition($"section-{index}", $"Section {index}", index)).ToArray() };
 AssertTrue(DashboardDefinitionValidator.Validate(tooManySections, dashboardLayout, dashboardSources).Errors.Any(error => error.Code == "dashboard.sections.limit"), "Dashboard validation should bound section counts.");

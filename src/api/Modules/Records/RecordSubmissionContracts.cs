@@ -2,7 +2,7 @@ using OpenBusinessPlatform.Api.Modules.Forms;
 
 namespace OpenBusinessPlatform.Api.Modules.Records;
 
-public sealed record ListRecordsRequest(int Page = 1, int PageSize = 25, string? Search = null);
+public sealed record ListRecordsRequest(int Page = 1, int PageSize = 25, string? Search = null, IReadOnlyDictionary<string, string?>? Filters = null);
 
 public sealed record ListSubTableRowsRequest(
     int Page = 1,

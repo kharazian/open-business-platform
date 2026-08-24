@@ -13,9 +13,12 @@ type TableProps<T extends object> = {
   columns: Array<TableColumn<T>>;
   data?: T[];
   rows?: T[];
+  getRowKey?: (row: T, index: number) => string;
+  onRowClick?: (row: T) => void;
+  selectedRowKey?: string | null;
 };
 
-export function Table<T extends object>({ columns, data, rows }: TableProps<T>) {
+export function Table<T extends object>({ columns, data, rows, getRowKey, onRowClick, selectedRowKey }: TableProps<T>) {
   const tableRows = data ?? rows ?? [];
   const { densityClasses } = useDesignTheme();
 
@@ -36,8 +39,10 @@ export function Table<T extends object>({ columns, data, rows }: TableProps<T>) 
           </tr>
         </thead>
         <tbody className="divide-y divide-border bg-card/70">
-          {tableRows.map((row, index) => (
-            <tr className={cn("transition hover:bg-muted/50", index % 2 ? "bg-muted/20" : "")} key={index}>
+          {tableRows.map((row, index) => {
+            const rowKey = getRowKey?.(row, index) ?? String(index);
+            return (
+            <tr aria-selected={selectedRowKey ? rowKey === selectedRowKey : undefined} className={cn("transition hover:bg-muted/50", index % 2 ? "bg-muted/20" : "", onRowClick ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" : "", selectedRowKey === rowKey ? "bg-primary/10 ring-1 ring-inset ring-primary" : "")} key={rowKey} onClick={() => onRowClick?.(row)} onKeyDown={(event) => { if (onRowClick && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onRowClick(row); } }} tabIndex={onRowClick ? 0 : undefined}>
               {columns.map((column) => (
                 <td
                   className={cn("text-foreground", densityClasses.tableCell)}
@@ -48,7 +53,7 @@ export function Table<T extends object>({ columns, data, rows }: TableProps<T>) 
                 </td>
               ))}
             </tr>
-          ))}
+          );})}
         </tbody>
       </table>
     </div>

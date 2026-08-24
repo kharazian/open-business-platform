@@ -189,7 +189,7 @@ test("forms API client maps requests, responses, and errors", async () => {
     };
   }
 
-  if (input === "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant" && init.method === "GET") {
+  if (input === "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant&filter.status=active" && init.method === "GET") {
     return {
       ok: true,
       json: async () => ({
@@ -312,7 +312,7 @@ const updatedDraft = await api.updateFormDraft(
 const published = await api.publishForm("form-2", fetcher);
 const publishedSubmissionForm = await api.getPublishedFormForSubmission("form-2", fetcher);
 const submittedRecord = await api.submitRecord("form-2", { values: { site_name: "North plant" } }, fetcher);
-const listedRecords = await api.listRecords("form-2", { page: 2, pageSize: 10, search: "North plant" }, fetcher);
+const listedRecords = await api.listRecords("form-2", { page: 2, pageSize: 10, search: "North plant", filters: { status: "active" } }, fetcher);
 const lookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme" }, fetcher);
 const dependentLookupOptions = await api.listLookupOptions("form-2", "customer", { search: "Acme", dependencies: { department: "hr" } }, fetcher);
 const subTableRows = await api.listSubTableRows(
@@ -388,7 +388,7 @@ assert.equal(calls[6].init.method, "POST");
 assert.equal(calls[6].init.credentials, "include");
 assert.equal(calls[6].init.headers["Content-Type"], "application/json");
 assert.deepEqual(JSON.parse(calls[6].init.body), { values: { site_name: "North plant" } });
-assert.equal(calls[7].input, "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant");
+assert.equal(calls[7].input, "/api/forms/form-2/records?page=2&pageSize=10&search=North+plant&filter.status=active");
 assert.equal(calls[7].init.method, "GET");
 assert.equal(calls[7].init.credentials, "include");
 assert.equal(calls[8].input, "/api/forms/form-2/fields/customer/lookup-options?page=1&pageSize=25&search=Acme");

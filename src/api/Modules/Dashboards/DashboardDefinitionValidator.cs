@@ -170,6 +170,7 @@ public static class DashboardDefinitionValidator
 
         if (widget.Adapter is not null)
         {
+            if (widget.Interaction is not null) errors.Add(new DashboardValidationError("config.widgets.interaction", "dashboard.interaction.source_required", "Drill-through requires an analytics widget source."));
             ValidateAdapter(widget.Adapter, errors);
             if (widget.Chart is not null)
             {
@@ -204,6 +205,8 @@ public static class DashboardDefinitionValidator
             errors.Add(new DashboardValidationError("config.widgets.chart.reportId", "dashboard.widget.report_missing", "Widget source report was not found for the selected form."));
         }
 
+        ValidateInteraction(widget.Interaction, source, errors);
+
         var chartValidation = ChartWidgetConfigValidator.Validate(source.Schema, widget.Chart);
 
         foreach (var error in chartValidation.Errors)
@@ -219,6 +222,24 @@ public static class DashboardDefinitionValidator
             "activity", "badge-dollar-sign", "chart-column", "clipboard-list", "factory", "gauge",
             "heart-pulse", "package-check", "shield-check", "trending-up", "wrench"
         };
+    }
+
+    private static void ValidateInteraction(DashboardWidgetInteractionDefinition? interaction, DashboardSourceDefinition source, ICollection<DashboardValidationError> errors)
+    {
+        if (interaction is null) return;
+        if (interaction.Destination is not ("records" or "report"))
+        {
+            errors.Add(new DashboardValidationError("config.widgets.interaction.destination", "dashboard.interaction.destination_invalid", "Widget drill-through destination is not supported."));
+            return;
+        }
+        if (interaction.Destination == "records" && interaction.ReportId is not null)
+        {
+            errors.Add(new DashboardValidationError("config.widgets.interaction.reportId", "dashboard.interaction.report_unexpected", "Record drill-through cannot specify a saved report."));
+        }
+        if (interaction.Destination == "report" && (interaction.ReportId is null || !source.Reports.Any(report => report.Id == interaction.ReportId && report.Type == ReportTypes.List)))
+        {
+            errors.Add(new DashboardValidationError("config.widgets.interaction.reportId", "dashboard.interaction.report_missing", "Choose a permitted list report from the widget source form."));
+        }
     }
 
     private static void ValidateAdapter(DashboardAdapterWidgetDefinition adapter, ICollection<DashboardValidationError> errors)

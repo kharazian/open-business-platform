@@ -105,7 +105,7 @@ public static class RecordsEndpoints
                 var records = await recordQuery.ListRecordsAsync(
                     httpContext.User,
                     formId,
-                    new ListRecordsRequest(page ?? 1, pageSize ?? 25, search),
+                    new ListRecordsRequest(page ?? 1, pageSize ?? 25, search, GetSubTableFilterValues(httpContext)),
                     permissionService,
                     cancellationToken);
 

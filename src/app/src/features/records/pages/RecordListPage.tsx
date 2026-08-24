@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Eye, FileText, Printer, RefreshCw, Search } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -16,6 +16,7 @@ import { getGeneratedAtPrintMetadata } from "../../printing/printLayout";
 import { listRecords, type FormRecordListItem } from "../../forms/api";
 import type { FormRecordValue } from "../../forms/types";
 import { formatFormRecordValue } from "../../forms/valueFormatting";
+import { readDashboardDrillFilters } from "../../dashboards/drillThrough";
 import { getRecordListPrintDescription, requestBrowserPrint } from "../recordPrint";
 
 const pageSize = 25;
@@ -59,7 +60,10 @@ const recordColumns: Array<TableColumn<FormRecordListItem>> = [
 
 export function RecordListPage() {
   const { formId } = useParams();
+  const [searchParams] = useSearchParams();
   const resolvedFormId = formId ?? "";
+  const drillFilters = useMemo(() => readDashboardDrillFilters(searchParams), [searchParams]);
+  const drillFilterKey = JSON.stringify(drillFilters);
   const [records, setRecords] = useState<FormRecordListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [query, setQuery] = useState("");
@@ -72,7 +76,7 @@ export function RecordListPage() {
 
   useEffect(() => {
     void refreshRecords(1, "");
-  }, [resolvedFormId]);
+  }, [resolvedFormId, drillFilterKey]);
 
   async function refreshRecords(targetPage = page, search = submittedQuery) {
     if (!resolvedFormId) {
@@ -85,7 +89,7 @@ export function RecordListPage() {
     setError(null);
 
     try {
-      const result = await listRecords(resolvedFormId, { page: targetPage, pageSize, search });
+      const result = await listRecords(resolvedFormId, { page: targetPage, pageSize, search, filters: drillFilters });
       setRecords(result.items);
       setTotalCount(result.totalCount);
       setPage(targetPage);
@@ -139,6 +143,8 @@ export function RecordListPage() {
         />
       </div>
 
+      {Object.keys(drillFilters).length ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3" data-print-hide="true"><span className="text-sm font-bold text-foreground">Dashboard drill-through</span>{Object.entries(drillFilters).map(([fieldId, value]) => <Badge key={fieldId}>{fieldId}: {value}</Badge>)}</div> : null}
+
       {error ? (
         <div data-print-hide="true">
           <Alert title="Records">{error}</Alert>
@@ -189,10 +195,12 @@ export function RecordListPage() {
             </>
           ) : (
             <EmptyState
-              title={submittedQuery ? "No records found" : "No records yet"}
+              title={submittedQuery || Object.keys(drillFilters).length ? "No records found" : "No records yet"}
               description={
                 submittedQuery
                   ? "No submitted records match the current search."
+                  : Object.keys(drillFilters).length
+                    ? "No permitted records match the dashboard selection."
                   : "Records will appear here after users submit the published form."
               }
               action={

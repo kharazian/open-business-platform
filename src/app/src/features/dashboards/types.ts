@@ -207,6 +207,16 @@ export type SavedDashboardWidget = {
   chart?: ChartWidgetConfig | null;
   sectionId?: string | null;
   adapter?: DashboardAdapterWidget | null;
+  interaction?: DashboardWidgetInteraction | null;
+};
+
+export type DashboardInteractionDestination = "records" | "report";
+export type DashboardWidgetInteraction = {
+  destination: DashboardInteractionDestination;
+  reportId?: EntityId | null;
+  includeDashboardFilters?: boolean;
+  includePointFilter?: boolean;
+  openInNewTab?: boolean;
 };
 
 export type SavedDashboardConfig = {
