@@ -795,6 +795,8 @@ The current V2 dashboard definition stores saved dashboard widget config in `con
 
 Analytics widget config may include an optional bounded `series` array (maximum four) containing presentation metadata and an existing metric definition. This is an additive JSONB contract change, so it requires no relational migration. The original top-level metric remains synchronized with the first series for legacy readers.
 
+Analytics widget config may also include an optional bounded `appearance` object for palette, legend, labels, gridlines, card accent, and localized numeric presentation. It is stored inside existing dashboard `config_json`, has safe defaults when absent, and requires no relational migration.
+
 V7 task 004 adds conservative dashboard visibility/default metadata in `extra_properties_json` without a schema migration:
 
 ```json

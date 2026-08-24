@@ -51,6 +51,31 @@ public static class DashboardSeriesColors
 
 public sealed record DashboardChartSeriesDefinition(string Id, string Label, ChartMetricDefinition Metric, string DisplayType = "bar", string Color = "primary", string Axis = "left");
 
+public static class DashboardChartPalettes
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "theme", "cool", "warm", "mono" };
+}
+
+public static class DashboardNumberFormats
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "auto", "number", "currency", "percent" };
+}
+
+public static class DashboardCardAccents
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "primary", "info", "success", "warning", "danger", "violet" };
+}
+
+public sealed record DashboardChartAppearanceDefinition(
+    string Palette = "theme",
+    bool ShowLegend = true,
+    bool ShowDataLabels = false,
+    bool ShowGridlines = true,
+    string CardAccent = "none",
+    string NumberFormat = "auto",
+    string CurrencyCode = "CAD",
+    int DecimalPlaces = 0);
+
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,
     ChartMetricDefinition Metric,
@@ -59,7 +84,8 @@ public sealed record ChartWidgetConfigDefinition(
     IReadOnlyList<string>? Columns = null,
     int? Limit = null,
     Guid? ReportId = null,
-    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null);
+    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
+    DashboardChartAppearanceDefinition? Appearance = null);
 
 public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
 

@@ -958,6 +958,8 @@ Supported visibility values are `workspace` and `private`. Missing settings reso
 
 Saved dashboard definitions are persisted in the workspace-owned `dashboards` table. The `DashboardPublishingAndNavigation` migration adds publication status, a workspace-unique slug, navigation metadata, an optional view permission, and publication actor/time. Existing rows backfill to `draft` with navigation disabled.
 
+Analytics widget chart config may include an optional `appearance` object. Supported values are bounded to `theme`, `cool`, `warm`, or `mono` palettes; semantic card accents; boolean legend/data-label/gridline flags; `auto`, `number`, `currency`, or `percent` number formats; a three-letter currency code; and zero to four decimal places. Appearance is presentation-only and is not accepted as an analytics expression or database query input. Missing appearance config uses theme-aware legacy defaults.
+
 `GET /api/dashboards/by-slug/{slug}` returns only a published dashboard visible to the current user. It returns `404` for drafts, unauthorized dashboards, deleted dashboards, and missing slugs so direct links cannot bypass access rules.
 
 `GET /api/dashboards/navigation` returns only published, navigation-enabled, visible, permitted dashboards, ordered by `menuOrder` and label.

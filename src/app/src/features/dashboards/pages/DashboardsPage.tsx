@@ -28,6 +28,7 @@ import {
   type DashboardPreviewState
 } from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
+import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
 import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
@@ -355,7 +356,7 @@ export function DashboardsPage() {
     const layout = layoutWidgets.find((item) => item.id === widgetId);
     if (!widget || !layout || widgets.length >= 48) return;
     const id = `widget-${Date.now()}`;
-    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
+    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
     setLayoutWidgets((current) => [...current, { id, width: layout.width, order: current.length + 1 }]);
     if (previewStates[widgetId]) setPreviewStates((current) => ({ ...current, [id]: current[widgetId] }));
     setNotice("Widget duplicated. Save the dashboard to persist it.");
@@ -819,6 +820,8 @@ export function DashboardsPage() {
 
             const analyticsWidgetType = widget.chart ? toDashboardAnalyticsWidgetType(widget.chart.widgetType) : null;
             const statusTone = getPreviewStatusTone(previewState);
+            const appearance = resolveDashboardChartAppearance(widget.chart?.appearance);
+            const accent = getDashboardAccentColor(appearance.cardAccent, appearance.palette);
 
             return (
               <Card
@@ -826,6 +829,7 @@ export function DashboardsPage() {
                 key={layout.id}
                 onDragOver={(event) => { if (!draggedWidgetId) return; event.preventDefault(); event.stopPropagation(); setDropTargetId(`widget-${layout.id}`); }}
                 onDrop={(event) => { event.preventDefault(); event.stopPropagation(); handleDropWidget(section.id, layout.id, event.dataTransfer.getData("application/x-dashboard-widget") || draggedWidgetId); }}
+                style={accent ? { borderTopColor: accent, borderTopWidth: 4 } : undefined}
               >
                 <CardHeader>
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -872,7 +876,7 @@ export function DashboardsPage() {
                     value={widget.sectionId ?? sections[0].id}
                   />
                   <Select label="Width" onChange={(event) => setLayoutWidgets((current) => current.map((item) => item.id === layout.id ? { ...item, width: event.target.value as DashboardWidgetWidth } : item))} options={widthOptions} value={layout.width} />
-                  {widget.adapter && getDashboardAdapter(widget.adapter.adapterId) ? (() => { const Renderer = getDashboardAdapter(widget.adapter!.adapterId)!.render; return <Renderer widget={widget} />; })() : <DashboardWidgetPreviewStateView state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />}
+                  {widget.adapter && getDashboardAdapter(widget.adapter.adapterId) ? (() => { const Renderer = getDashboardAdapter(widget.adapter!.adapterId)!.render; return <Renderer widget={widget} />; })() : <DashboardWidgetPreviewStateView appearance={widget.chart?.appearance} state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />}
                 </CardContent>
               </Card>
             );
@@ -927,9 +931,9 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Dashboard request failed.";
 }
 
-function DashboardWidgetPreviewStateView({ state, onRefresh }: { state?: DashboardPreviewState; onRefresh: () => void }) {
+function DashboardWidgetPreviewStateView({ appearance, state, onRefresh }: { appearance?: ChartWidgetConfig["appearance"]; state?: DashboardPreviewState; onRefresh: () => void }) {
   if (state?.status === "ready" && state.preview) {
-    return <ChartWidgetPreview preview={state.preview} />;
+    return <ChartWidgetPreview appearance={appearance} preview={state.preview} />;
   }
 
   if (state?.status === "loading") {

@@ -14,9 +14,9 @@ Implement and verify these increments in order. Each increment must preserve bac
    - Bounded series collection with label, metric, aggregation, field, color, axis, and display type
    - Backend validation/execution with field permissions checked for every series
    - Bar, line, area, and combo rendering with independent left/right scales, without arbitrary formulas or SQL
-4. **Appearance and color controls**
+4. **Appearance and color controls — implemented**
    - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting
-   - Contrast checks and reset-to-theme behavior
+   - Bounded accessible color presets and reset-to-theme behavior
 5. **Improved add-widget experience**
    - Searchable visualization gallery, recommended chart hints, source-first wizard, sample preview, recent choices
 6. **Canvas productivity**

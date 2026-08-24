@@ -12,6 +12,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
+import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -156,18 +157,30 @@ test("dashboard layout helpers sort widgets and map widths", () => {
 });
 
 test("widget property drafts clone nested config and validate permitted fields", () => {
-  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }] } };
+  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }], appearance: { ...defaultDashboardChartAppearance, palette: "warm", cardAccent: "warning" } } };
   const draft = cloneDashboardWidgetForEditing(widget);
   draft.chart.metric.fieldId = "other";
   draft.chart.series[0].metric.fieldId = "other";
+  draft.chart.appearance.palette = "mono";
   assert.equal(widget.chart.metric.fieldId, "amount");
   assert.equal(widget.chart.series[0].metric.fieldId, "amount");
+  assert.equal(widget.chart.appearance.palette, "warm");
   const fields = [
     { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
     { id: "status", label: "Status", type: "status", source: "system", options: [], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true }
   ];
   assert.equal(isDashboardAnalyticsWidgetDraftValid(widget, fields), true);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
+});
+
+test("dashboard appearance helpers preserve defaults, palettes, accents, and localized formats", () => {
+  const defaults = resolveDashboardChartAppearance(null);
+  assert.deepEqual(defaults, defaultDashboardChartAppearance);
+  assert.equal(getDashboardSeriesColor("primary", "cool"), "#2563eb");
+  assert.equal(getDashboardAccentColor("none", "warm"), undefined);
+  assert.equal(getDashboardAccentColor("danger", "warm"), "#b91c1c");
+  assert.equal(formatDashboardValue(1234.5, { ...defaults, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 2 }, "en-CA"), "$1,234.50");
+  assert.equal(formatDashboardValue(92.5, { ...defaults, numberFormat: "percent", decimalPlaces: 1 }, "en-CA"), "92.5%");
 });
 
 test("dashboard analytics helpers preserve saved chart compatibility", () => {

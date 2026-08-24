@@ -36,6 +36,10 @@ export type DashboardSeriesDisplayType = "bar" | "line" | "area";
 export type DashboardSeriesColor = "primary" | "info" | "success" | "warning" | "danger" | "violet";
 export type DashboardSeriesAxis = "left" | "right";
 export type DashboardChartSeriesDefinition = { id: string; label: string; metric: ChartMetricDefinition; displayType: DashboardSeriesDisplayType; color: DashboardSeriesColor; axis: DashboardSeriesAxis };
+export type DashboardChartPalette = "theme" | "cool" | "warm" | "mono";
+export type DashboardNumberFormat = "auto" | "number" | "currency" | "percent";
+export type DashboardCardAccent = "none" | DashboardSeriesColor;
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;
@@ -46,6 +50,7 @@ export type ChartWidgetConfig = {
   limit?: number | null;
   reportId?: EntityId | null;
   series?: DashboardChartSeriesDefinition[] | null;
+  appearance?: DashboardChartAppearance | null;
 };
 
 export type ChartSeriesPoint = {

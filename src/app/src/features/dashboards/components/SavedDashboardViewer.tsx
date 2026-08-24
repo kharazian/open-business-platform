@@ -10,6 +10,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { runDashboardAnalytics } from "../api";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { buildDashboardAnalyticsRequest } from "../analytics";
+import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { getDashboardAdapter } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import { normalizeDashboardSections } from "../sections";
@@ -151,5 +152,7 @@ function ViewerWidget({ layoutWidth, lastRefresh, onRefresh, state, widget }: { 
     const Renderer = registration.render;
     return <Card className={getDashboardWidgetGridClass(layoutWidth)}><CardHeader><CardTitle>{widget.title}</CardTitle><CardDescription>{registration.name}</CardDescription></CardHeader><CardContent><Renderer widget={widget} /></CardContent></Card>;
   }
-  return <Card className={getDashboardWidgetGridClass(layoutWidth)}><CardHeader><div className="flex items-start justify-between gap-3"><div><CardTitle>{widget.title}</CardTitle>{widget.subtitle ? <CardDescription>{widget.subtitle}</CardDescription> : null}{lastRefresh ? <p className="mt-1 text-xs font-semibold text-muted-foreground">Refreshed {new Date(lastRefresh).toLocaleTimeString()}</p> : null}</div><Button aria-label={`Refresh ${widget.title}`} disabled={state?.status === "loading"} onClick={onRefresh} size="icon" variant="outline"><RefreshCw className={`size-4 ${state?.status === "loading" ? "animate-spin" : ""}`} /></Button></div></CardHeader><CardContent>{state?.status === "ready" && state.preview ? <ChartWidgetPreview preview={state.preview} /> : state?.status === "error" ? <Alert title="Widget unavailable">{state.error}</Alert> : <div className="flex items-center gap-2 py-6 text-sm font-semibold text-muted-foreground"><RefreshCw className="size-4 animate-spin" /> Loading widget…</div>}</CardContent></Card>;
+  const appearance = resolveDashboardChartAppearance(widget.chart?.appearance);
+  const accent = getDashboardAccentColor(appearance.cardAccent, appearance.palette);
+  return <Card className={getDashboardWidgetGridClass(layoutWidth)} style={accent ? { borderTopColor: accent, borderTopWidth: 4 } : undefined}><CardHeader><div className="flex items-start justify-between gap-3"><div><CardTitle>{widget.title}</CardTitle>{widget.subtitle ? <CardDescription>{widget.subtitle}</CardDescription> : null}{lastRefresh ? <p className="mt-1 text-xs font-semibold text-muted-foreground">Refreshed {new Date(lastRefresh).toLocaleTimeString()}</p> : null}</div><Button aria-label={`Refresh ${widget.title}`} disabled={state?.status === "loading"} onClick={onRefresh} size="icon" variant="outline"><RefreshCw className={`size-4 ${state?.status === "loading" ? "animate-spin" : ""}`} /></Button></div></CardHeader><CardContent>{state?.status === "ready" && state.preview ? <ChartWidgetPreview appearance={appearance} preview={state.preview} /> : state?.status === "error" ? <Alert title="Widget unavailable">{state.error}</Alert> : <div className="flex items-center gap-2 py-6 text-sm font-semibold text-muted-foreground"><RefreshCw className="size-4 animate-spin" /> Loading widget…</div>}</CardContent></Card>;
 }

@@ -324,6 +324,7 @@ Infrastructure responsibility:
 - Keep specialized dashboard visuals behind a frontend adapter registry with bounded scalar settings. Adapters do not execute SQL, join form sources, or imply that missing Operations, Finance, or HSE domain modules exist.
 - Bound saved dashboards to 16 sections, 48 widgets, 16 widgets per section, and eight filters. Section icons come from a shared allowlist.
 - Bound analytics widgets to four series. The backend validates every metric field against reportable and visible fields, then executes each series over the same already-authorized form/report/filter record set. Series metadata controls presentation only; it cannot introduce formulas, SQL, or cross-form joins.
+- Keep dashboard appearance as bounded presentation metadata inside saved widget JSON. Palette presets and format options are backend-validated, rendered with the effective user locale, and never participate in analytics execution or permission decisions.
 
 ## Data Flow: Dashboard Template Creation
 

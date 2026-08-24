@@ -37,8 +37,20 @@ public static class ChartWidgetConfigValidator
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);
+        ValidateAppearance(config.Appearance, errors);
 
         return new ChartValidationResult(errors);
+    }
+
+    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, ICollection<ChartValidationError> errors)
+    {
+        if (appearance is null) return;
+        if (!DashboardChartPalettes.Supported.Contains(Normalize(appearance.Palette))) errors.Add(new("appearance.palette", "chart.appearance.palette_invalid", "Chart palette is not supported."));
+        if (!DashboardCardAccents.Supported.Contains(Normalize(appearance.CardAccent))) errors.Add(new("appearance.cardAccent", "chart.appearance.accent_invalid", "Card accent is not supported."));
+        if (!DashboardNumberFormats.Supported.Contains(Normalize(appearance.NumberFormat))) errors.Add(new("appearance.numberFormat", "chart.appearance.number_format_invalid", "Number format is not supported."));
+        if (appearance.DecimalPlaces is < 0 or > 4) errors.Add(new("appearance.decimalPlaces", "chart.appearance.decimals_range", "Decimal places must be between zero and four."));
+        var currencyCode = Normalize(appearance.CurrencyCode);
+        if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter)) errors.Add(new("appearance.currencyCode", "chart.appearance.currency_invalid", "Currency code must contain three letters."));
     }
 
     private static void ValidateSeries(ChartWidgetConfigDefinition config, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<ChartValidationError> errors)

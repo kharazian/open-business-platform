@@ -4482,6 +4482,18 @@ AssertFalse(DashboardAnalyticsRequestValidator.Validate(reportingSchema, multiSe
 {
     Series = Enumerable.Range(0, 5).Select(index => new DashboardChartSeriesDefinition($"series-{index}", $"Series {index}", new ChartMetricDefinition(ChartMetricTypes.Count))).ToArray()
 }).Valid, "Dashboard analytics should reject more than four series.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition("warm", true, true, true, "warning", "currency", "CAD", 2))).Valid,
+    "Dashboard chart config should accept bounded appearance and formatting settings.");
+AssertFalse(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition("unsafe", DecimalPlaces: 8))).Valid,
+    "Dashboard chart config should reject unsupported palettes and excessive decimals.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {
