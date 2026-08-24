@@ -4774,6 +4774,33 @@ var legacyAdapterLayout = new SavedDashboardLayoutDefinition(1, new[] { new Save
 AssertTrue(
     DashboardDefinitionValidator.Validate(legacyAdapterConfig, legacyAdapterLayout, Array.Empty<DashboardSourceDefinition>()).Valid,
     "Legacy adapter widgets should support a null analytics source form without crashing dashboard reads.");
+var unknownBuiltInAdapterConfig = legacyAdapterConfig with
+{
+    Widgets = new[]
+    {
+        legacyAdapterConfig.Widgets.Single() with
+        {
+            Adapter = new DashboardAdapterWidgetDefinition("sample-dashboard", "unregistered-view", new Dictionary<string, object?> { ["unregisteredSetting"] = "value" })
+        }
+    }
+};
+var validBuiltInAdapterConfig = legacyAdapterConfig with
+{
+    Widgets = new[]
+    {
+        legacyAdapterConfig.Widgets.Single() with
+        {
+            Adapter = new DashboardAdapterWidgetDefinition("sample-dashboard", "target_attainment", new Dictionary<string, object?>
+            {
+                ["actual"] = 92, ["target"] = 100, ["unit"] = "%", ["tone"] = "warning", ["sourceLabel"] = "Sample data"
+            })
+        }
+    }
+};
+AssertTrue(DashboardDefinitionValidator.Validate(validBuiltInAdapterConfig, legacyAdapterLayout, Array.Empty<DashboardSourceDefinition>()).Valid, "Registered built-in adapter visualizations and settings should remain publishable.");
+var unknownBuiltInAdapterValidation = DashboardDefinitionValidator.Validate(unknownBuiltInAdapterConfig, legacyAdapterLayout, Array.Empty<DashboardSourceDefinition>());
+AssertTrue(unknownBuiltInAdapterValidation.Errors.Any(error => error.Code == "dashboard.adapter.visualization_unknown"), "Built-in adapters should reject unregistered visualizations.");
+AssertTrue(unknownBuiltInAdapterValidation.Errors.Any(error => error.Code == "dashboard.adapter.setting_unknown"), "Built-in adapters should reject unregistered settings while legacy third-party adapters remain compatible.");
 
 var createDashboardRequest = new CreateDashboardRequest(
     "Operations dashboard",

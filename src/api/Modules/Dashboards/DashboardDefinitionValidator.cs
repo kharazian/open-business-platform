@@ -6,6 +6,16 @@ namespace OpenBusinessPlatform.Api.Modules.Dashboards;
 
 public static class DashboardDefinitionValidator
 {
+    private static readonly IReadOnlySet<string> SampleAdapterVisualizations = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "kpi_delta", "target_attainment", "stacked_bar", "combo", "target_line", "donut", "heatmap", "waterfall", "detail_popup", "data_health", "status_panel"
+    };
+    private static readonly IReadOnlySet<string> SampleAdapterSettings = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "actual", "comparison", "target", "unit", "sourceLabel", "labels", "primary", "secondary", "tertiary", "values",
+        "rows", "columns", "title", "period", "businessRows", "operationsRows", "incidentRows", "issues", "detail", "count",
+        "status", "tone", "groups", "updated"
+    };
     public static DashboardValidationResult Validate(
         SavedDashboardConfigDefinition? config,
         SavedDashboardLayoutDefinition? layout,
@@ -249,11 +259,21 @@ public static class DashboardDefinitionValidator
             errors.Add(new DashboardValidationError("config.widgets.adapter", "dashboard.adapter.required", "Adapter and visualization ids are required."));
         }
 
+        var isBuiltInSampleAdapter = string.Equals(adapter.AdapterId, "sample-dashboard", StringComparison.Ordinal);
+        if (isBuiltInSampleAdapter && !SampleAdapterVisualizations.Contains(adapter.VisualizationId))
+        {
+            errors.Add(new DashboardValidationError("config.widgets.adapter.visualizationId", "dashboard.adapter.visualization_unknown", "The built-in adapter visualization is not registered."));
+        }
+
         foreach (var (key, value) in adapter.Settings ?? new Dictionary<string, object?>())
         {
             if (string.IsNullOrWhiteSpace(key) || key.Length > 80 || IsSecretKey(key) || !IsSafeSetting(value))
             {
                 errors.Add(new DashboardValidationError("config.widgets.adapter.settings", "dashboard.adapter.setting_unsafe", "Adapter settings may contain only safe scalar configuration values."));
+            }
+            else if (isBuiltInSampleAdapter && !SampleAdapterSettings.Contains(key))
+            {
+                errors.Add(new DashboardValidationError("config.widgets.adapter.settings", "dashboard.adapter.setting_unknown", $"Setting '{key}' is not registered for the built-in adapter."));
             }
         }
     }

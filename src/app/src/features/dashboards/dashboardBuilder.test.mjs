@@ -15,6 +15,24 @@ import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } 
 import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
+import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
+
+test("dashboard viewer URL state round-trips bounded permitted filters", () => {
+  const definitions = [
+    { id: "region", label: "Region", type: "multi_select", sourceFormId: "form-1", fieldId: "region", options: ["North", "South"] },
+    { id: "period", label: "Period", type: "date_range", sourceFormId: "form-1", fieldId: "event_date" }
+  ];
+  const written = writeDashboardViewerUrlState("overview", definitions, {
+    region: { fieldId: "region", values: ["North", "Unknown", "South"] },
+    period: { fieldId: "event_date", start: "2026-01-01", end: "2026-04-01" }
+  });
+  const parsed = readDashboardViewerUrlState(written, new Set(["overview"]), definitions);
+  assert.equal(parsed.activeSectionId, "overview");
+  assert.deepEqual(parsed.filters.region.values, ["North", "South"]);
+  assert.deepEqual(parsed.filters.period, { fieldId: "event_date", start: "2026-01-01", end: "2026-04-01" });
+  const rejected = readDashboardViewerUrlState(new URLSearchParams("dv=1&tab=missing&filter.region=Unknown&filter.period.start=not-a-date"), new Set(["overview"]), definitions);
+  assert.deepEqual(rejected, { activeSectionId: null, filters: {} });
+});
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -113,6 +131,10 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
       };
     }
 
+    if (input === "/api/dashboards/dash-1" && init.method === "DELETE") {
+      return { ok: true, json: async () => null };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -120,6 +142,7 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
   const detail = await api.getDashboard("dash-1", fetcher);
   const created = await api.createDashboard(request, fetcher);
   const updated = await api.updateDashboard("dash-1", { ...request, concurrencyStamp: "stamp-1" }, fetcher);
+  await api.deleteDashboard("dash-1", "stamp-2", fetcher);
 
   assert.equal(summaries[0].widgetCount, 1);
   assert.equal(summaries[0].visibility, "workspace");
@@ -132,6 +155,8 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
   assert.equal(calls[0].input, "/api/dashboards");
   assert.equal(calls[2].init.headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(calls[2].init.body), request);
+  assert.equal(calls.at(-1).init.method, "DELETE");
+  assert.deepEqual(JSON.parse(calls.at(-1).init.body), { concurrencyStamp: "stamp-2" });
 
   await assert.rejects(
     () => api.listDashboards(async () => ({ ok: false, json: async () => ({ message: "Dashboard access denied." }) })),

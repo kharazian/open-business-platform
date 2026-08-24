@@ -2836,7 +2836,9 @@ The backend bounds and validates this metadata. It does not use it for authoriza
 
 Saved configs may also include up to eight bounded shared filter definitions. Runtime analytics requests accept `filters` entries with a reportable `fieldId`, up to 20 select `values`, and/or date `start` and `end`. Date ranges use inclusive start and exclusive end. The analytics endpoint validates types and bounds, rejects hidden fields, and applies filters only after normal form/report permissions and record scopes.
 
-Saved config schema version 1 supports at most 16 ordered sections, 48 widgets, and 16 widgets in one section. Sections may store an allowlisted `icon`; widgets may store a bounded optional `subtitle`. Adapter widgets remain mutually exclusive with analytics config and accept bounded scalar settings only.
+Saved config schema version 1 supports at most 16 ordered sections, 48 widgets, and 16 widgets in one section. Sections may store an allowlisted `icon`; widgets may store a bounded optional `subtitle`. Adapter widgets remain mutually exclusive with analytics config and accept bounded scalar settings only. The built-in `sample-dashboard` adapter additionally uses backend allowlists for visualization IDs and setting keys; unknown third-party adapters retain the legacy scalar-only compatibility path.
+
+Published viewer URLs may include versioned `dv=1` runtime state for the active section and applied dashboard filters. This browser-only state is parsed against the saved section/filter definitions, declared filter options, and existing value/date bounds. Unsupported or malformed query values are ignored and never affect authorization.
 
 ## Workspace Branding
 

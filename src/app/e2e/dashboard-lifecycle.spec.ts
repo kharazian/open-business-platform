@@ -50,6 +50,13 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
     await expect(page.getByText("Draft published. The live dashboard now matches this version.")).toBeVisible();
     const firstLive = await expectDashboard(page.request, `/api/dashboards/by-slug/${slug}`, 200);
     expect(firstLive.name).toBe(originalName);
+    const directoryPage = await page.context().newPage();
+    await directoryPage.goto("/dashboards");
+    await directoryPage.getByRole("textbox", { name: "Search dashboards" }).fill(originalName);
+    await expect(directoryPage.getByRole("heading", { name: originalName })).toBeVisible();
+    await directoryPage.getByRole("textbox", { name: "Search dashboards" }).fill("no-dashboard-has-this-name");
+    await expect(directoryPage.getByText("No dashboards match your search")).toBeVisible();
+    await directoryPage.close();
 
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(draftName);
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -110,6 +117,17 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
     await page.getByRole("button", { name: "Unpublish" }).click();
     await expect(page.getByText("Dashboard unpublished. Its last published version remains in revision history.")).toBeVisible();
     expect((await page.request.get(`/api/dashboards/by-slug/${slug}`)).status()).toBe(404);
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Duplicate", exact: true }).click();
+    await expect(page.getByText("Independent dashboard draft created.")).toBeVisible();
+    const duplicateId = page.url().split("/").at(-1)!;
+    expect(duplicateId).not.toBe(dashboardId);
+    expect((await page.request.get(`/api/dashboards/${duplicateId}`)).status()).toBe(200);
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByText(/archived/)).toBeVisible();
+    expect((await page.request.get(`/api/dashboards/${duplicateId}`)).status()).toBe(404);
   } finally {
     if (dashboardId) {
       const detailResponse = await page.request.get(`/api/dashboards/${dashboardId}`);

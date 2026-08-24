@@ -15,7 +15,7 @@ import type { FormSummary } from "../../forms/drafts";
 import { getReportableFields } from "../../forms/reportableFields";
 import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
-import { createDashboard, DashboardApiError, getDashboard, getDashboardPublishedComparison, getDashboardSharing, getDashboardSharingOptions, listDashboardRevisions, listDashboards, publishDashboard, restoreDashboardRevision, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
+import { createDashboard, DashboardApiError, deleteDashboard, getDashboard, getDashboardPublishedComparison, getDashboardSharing, getDashboardSharingOptions, listDashboardRevisions, listDashboards, publishDashboard, restoreDashboardRevision, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
@@ -591,8 +591,8 @@ export function DashboardsPage() {
     }
   }
 
-  function handleNewDashboard() {
-    if (!confirmDiscardChanges()) return;
+  function handleNewDashboard(force = false) {
+    if (!force && !confirmDiscardChanges()) return;
     setSelectedDashboardId("");
     setDashboardDetail(null);
     setDashboardName("New dashboard");
@@ -614,6 +614,48 @@ export function DashboardsPage() {
     setKeyboardGrabbed(null); setCanvasAnnouncement("");
     setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
     setNotice("New dashboard draft started.");
+  }
+
+  async function handleDuplicateDashboard() {
+    if (!dashboardDetail || !window.confirm(`Create an independent draft copy of “${dashboardName}” using the current editor content?`)) return;
+    setSaving(true); setError(null); setValidationErrors([]);
+    try {
+      const request = buildSaveRequest();
+      const saved = await createDashboard({
+        ...request,
+        name: `${dashboardName.trim() || "Dashboard"} copy`,
+        settings: { ...request.settings, isDefault: false },
+        publication: { ...request.publication, status: "draft", slug: null, showInNavigation: false, menuLabel: null }
+      });
+      setDashboards(await listDashboards());
+      setSelectedDashboardId(saved.id);
+      navigate(`/dashboard-builder/${saved.id}`);
+      setNotice("Independent dashboard draft created.");
+      dispatchDashboardsChanged();
+    } catch (caught) { setRequestError(caught); } finally { setSaving(false); }
+  }
+
+  async function handleArchiveDashboard() {
+    if (!dashboardDetail) return;
+    const consequence = dashboardDetail.publication.status === "published" ? " It will immediately disappear from live links, the directory, and navigation." : "";
+    if (!window.confirm(`Archive “${dashboardName}”?${consequence} This action is recorded in the audit log.`)) return;
+    setSaving(true); setError(null); setValidationErrors([]);
+    try {
+      await deleteDashboard(dashboardDetail.id, dashboardDetail.concurrencyStamp);
+      const remaining = await listDashboards();
+      setDashboards(remaining);
+      const next = remaining[0];
+      if (next) {
+        setSelectedDashboardId(next.id);
+        navigate(`/dashboard-builder/${next.id}`, { replace: true });
+        setNotice(`“${dashboardName}” archived.`);
+      } else {
+        handleNewDashboard(true);
+        navigate("/dashboard-builder", { replace: true });
+        setNotice(`“${dashboardName}” archived. Start a new dashboard when ready.`);
+      }
+      dispatchDashboardsChanged();
+    } catch (caught) { setRequestError(caught); } finally { setSaving(false); }
   }
 
   async function handleCreateFromTemplate() {
@@ -814,6 +856,8 @@ export function DashboardsPage() {
               <Eye className="size-4" />
               Preview draft
             </Button>
+            {dashboardDetail ? <Button disabled={saving} onClick={() => void handleDuplicateDashboard()} variant="outline"><Copy className="size-4" />Duplicate</Button> : null}
+            {dashboardDetail ? <Button disabled={saving} onClick={() => void handleArchiveDashboard()} variant="danger"><Trash2 className="size-4" />Archive</Button> : null}
             <Button disabled={saving || widgets.length === 0 || Boolean(sharingError)} onClick={() => void handleSave()}>
               <Save className="size-4" />
               {saving ? "Saving..." : "Save"}

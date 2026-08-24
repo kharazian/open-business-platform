@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Filter, Maximize2, Minimize2, RefreshCw, RotateCcw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Copy, Filter, Maximize2, Minimize2, Pencil, RefreshCw, RotateCcw } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { runDashboardAnalytics } from "../api";
 import { useLocalization } from "../../../context/LocalizationContext";
+import { useAuth } from "../../../context/AuthContext";
 import { buildDashboardAnalyticsRequest } from "../analytics";
 import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { getDashboardAdapter } from "../adapters";
@@ -17,6 +18,7 @@ import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../lay
 import { normalizeDashboardSections } from "../sections";
 import { getDashboardFilterDefaults, getMissingRequiredDashboardFilters, hasDashboardFilterValue } from "../filterAuthoring";
 import { buildDashboardDrillThroughPath, type DashboardPointSelection } from "../drillThrough";
+import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "../viewerState";
 import type { DashboardAnalyticsFilterValue, DashboardAnalyticsResponse, DashboardDetail, DashboardFilterDefinition, SavedDashboardWidget } from "../types";
 import { ChartWidgetPreview } from "./ChartWidgetPreview";
 import { DashboardSectionTabs } from "./DashboardSectionTabs";
@@ -26,6 +28,8 @@ type FilterSelections = Record<string, DashboardAnalyticsFilterValue | undefined
 
 export function SavedDashboardViewer({ dashboard, preview = false }: { dashboard: DashboardDetail; preview?: boolean }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const { formatDate } = useLocalization();
   const sections = useMemo(() => {
     return normalizeDashboardSections(dashboard.config.sections);
@@ -50,10 +54,13 @@ export function SavedDashboardViewer({ dashboard, preview = false }: { dashboard
   const appliedFilters = appliedFiltersBySection[activeSectionId] ?? dashboardDefaults;
 
   useEffect(() => {
-    setActiveSectionId(sections[0]?.id ?? "overview");
+    const urlState = preview ? { activeSectionId: null, filters: {} } : readDashboardViewerUrlState(searchParams, new Set(sections.map((section) => section.id)), dashboard.config.filters ?? []);
+    const initialSectionId = urlState.activeSectionId ?? sections[0]?.id ?? "overview";
+    const initialFilters = { ...dashboardDefaults, ...urlState.filters };
+    setActiveSectionId(initialSectionId);
     setStates({});
-    setDraftFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, { ...dashboardDefaults }])));
-    setAppliedFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, { ...dashboardDefaults }])));
+    setDraftFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, section.id === initialSectionId ? initialFilters : { ...dashboardDefaults }])));
+    setAppliedFiltersBySection(Object.fromEntries(sections.map((section) => [section.id, section.id === initialSectionId ? initialFilters : { ...dashboardDefaults }])));
     setLastRefreshByWidget({});
     setFocusMode(false);
   }, [dashboard.id, dashboardDefaults, sections]);
@@ -103,6 +110,17 @@ export function SavedDashboardViewer({ dashboard, preview = false }: { dashboard
   function resetCurrentTab() {
     setDraftFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...dashboardDefaults } }));
     setAppliedFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...dashboardDefaults } }));
+    if (!preview) setSearchParams(writeDashboardViewerUrlState(activeSectionId, visibleFilters, dashboardDefaults), { replace: true });
+  }
+
+  function changeSection(sectionId: string) {
+    setActiveSectionId(sectionId);
+    if (!preview) setSearchParams(writeDashboardViewerUrlState(sectionId, dashboard.config.filters ?? [], appliedFiltersBySection[sectionId] ?? dashboardDefaults), { replace: true });
+  }
+
+  function applyCurrentFilters() {
+    setAppliedFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...draftFilters } }));
+    if (!preview) setSearchParams(writeDashboardViewerUrlState(activeSectionId, visibleFilters, draftFilters), { replace: true });
   }
 
   function openDrillThrough(widget: SavedDashboardWidget, point: DashboardPointSelection) {
@@ -126,14 +144,15 @@ export function SavedDashboardViewer({ dashboard, preview = false }: { dashboard
           <Button onClick={() => void refreshVisibleWidgets()} size="sm" variant="outline"><RefreshCw className="size-4" />Refresh current tab</Button>
           <Button onClick={resetCurrentTab} size="sm" variant="outline"><RotateCcw className="size-4" />Reset current tab</Button>
           {!preview ? <Button onClick={() => void navigator.clipboard.writeText(window.location.href)} size="sm" variant="outline"><Copy className="size-4" />Copy link</Button> : null}
+          {!preview && user?.permissions.includes("dashboards.manage") ? <Button onClick={() => navigate(`/dashboard-builder/${dashboard.id}`)} size="sm" variant="outline"><Pencil className="size-4" />Edit dashboard</Button> : null}
           <Button aria-pressed={focusMode} onClick={() => setFocusMode((current) => !current)} size="sm" variant="outline">{focusMode ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}{focusMode ? "Exit focus" : "Focus mode"}</Button>
         </div>
         {lastSuccessfulRefresh ? <p className="text-xs font-semibold text-muted-foreground">Last successful refresh {formatDate(lastSuccessfulRefresh)}</p> : null}
       </header>
 
-      {sections.length > 1 ? <DashboardSectionTabs activeSectionId={activeSectionId} onChange={setActiveSectionId} sections={sections} /> : null}
+      {sections.length > 1 ? <DashboardSectionTabs activeSectionId={activeSectionId} onChange={changeSection} sections={sections} /> : null}
 
-      {visibleFilters.length > 0 ? <DashboardFilters definitions={visibleFilters} draft={draftFilters} onChange={(next) => setDraftFiltersBySection((current) => ({ ...current, [activeSectionId]: next }))} onApply={() => setAppliedFiltersBySection((current) => ({ ...current, [activeSectionId]: { ...draftFilters } }))} onReset={resetCurrentTab} /> : null}
+      {visibleFilters.length > 0 ? <DashboardFilters definitions={visibleFilters} draft={draftFilters} onChange={(next) => setDraftFiltersBySection((current) => ({ ...current, [activeSectionId]: next }))} onApply={applyCurrentFilters} onReset={resetCurrentTab} /> : null}
 
       <section aria-labelledby={`dashboard-tab-${activeSectionId}`} className="grid gap-4 md:grid-cols-12" id={`dashboard-panel-${activeSectionId}`} role="tabpanel">
         {visibleLayouts.length === 0 ? <div className="md:col-span-12"><EmptyState title="No widgets in this section" description="This published section has no visible widgets." /></div> : visibleLayouts.map((layout) => {

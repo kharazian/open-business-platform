@@ -329,6 +329,8 @@ Infrastructure responsibility:
 - Keep dashboard canvas history draft-local and bounded to 30 snapshots. Undo/redo, selection, collapsed sections, density, and zoom are editor state only; the existing explicit Save request remains the sole persistence boundary and the backend revalidates every resulting definition.
 - Author dashboard filters from permitted reportable field metadata, never from record-value discovery. Persist at most eight bounded definitions with optional defaults and required state; backend validation enforces type/field compatibility and prevents cross-source widget targeting.
 - Keep dashboard interaction destinations typed as source records or an existing list report from the widget's source form. Never persist arbitrary URLs. Viewer navigation serializes at most eight same-source scalar filters; destination record/report APIs reapply current permissions, hidden-field rules, and record scopes before returning rows.
+- Keep viewer tab/filter state personal and URL-local. Versioned dashboard viewer query parameters accept only existing section IDs, existing filter IDs, declared select options, bounded values, and valid date ranges; they never grant source access or mutate the shared definition.
+- Built-in dashboard adapters must have backend allowlists for visualization and setting IDs. Unknown external adapters remain readable only through the legacy safe-scalar contract until a module-owned server registration mechanism exists.
 
 ## Data Flow: Dashboard Template Creation
 

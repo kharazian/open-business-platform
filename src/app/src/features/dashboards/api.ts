@@ -136,6 +136,15 @@ export async function updateDashboard(
   );
 }
 
+export async function deleteDashboard(dashboardId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<void> {
+  await requestJson<null>(`/api/dashboards/${encodeURIComponent(dashboardId)}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ concurrencyStamp })
+  }, fetcher);
+}
+
 export async function previewChartWidget(
   formId: string,
   request: ChartWidgetConfig,

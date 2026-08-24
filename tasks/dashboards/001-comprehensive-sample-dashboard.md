@@ -26,7 +26,10 @@ Add a reusable dashboard-template contract and a comprehensive Business Performa
 - [x] Focused frontend/backend tests and documentation are updated.
 - [x] The builder exposes a responsive visual layout canvas with drag handles and cross-section widget drop zones while retaining accessible fallback controls.
 - [x] Existing analytics and adapter widgets can be edited through a responsive properties drawer with permitted source metadata, live preview, dirty-state handling, and explicit Apply/Cancel controls.
+- [x] Published viewer links preserve a bounded active tab and validated filter state without storing personal runtime state in the shared definition.
+- [x] The dashboard library supports search, clear publication/audience badges, independent draft duplication, and audited archive controls.
+- [x] Built-in sample adapter visualizations and setting keys are backend allowlisted while legacy third-party adapter definitions retain scalar compatibility.
 
-## Deferred follow-up
+## Explicit boundaries
 
-Permission-safe drill-through remains follow-up work because the current record-list route does not yet accept the dashboard filter contract. Operations and Finance template conversions remain separate tasks.
+Cross-form joins, arbitrary formulas/SQL, automatic template upgrades, forecasts, subscriptions, collaborative editing, and Operations/Finance module conversion remain intentionally outside the core dashboard boundary. Permission-safe drill-through is implemented through existing record/report routes.
