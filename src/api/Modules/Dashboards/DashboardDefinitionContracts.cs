@@ -104,6 +104,19 @@ public sealed record DashboardPublicationSettingsDefinition(
     string? ViewPermission);
 
 public sealed record DashboardPublicationMutationRequest(string ConcurrencyStamp);
+public sealed record DashboardRevisionRestoreRequest(string ConcurrencyStamp);
+
+public sealed record DashboardRevisionSnapshotDefinition(
+    string Name,
+    string? Description,
+    SavedDashboardConfigDefinition Config,
+    SavedDashboardLayoutDefinition Layout,
+    DashboardSettingsDefinition Settings,
+    DashboardPublicationSettingsDefinition Publication);
+
+public sealed record DashboardRevisionSummaryDto(Guid Id, int RevisionNumber, string Reason, DateTimeOffset CreatedAt, Guid? CreatedById, bool IsPublished);
+
+public sealed record DashboardPublishedComparisonDto(bool HasPublishedVersion, DashboardRevisionSnapshotDefinition? Published, DateTimeOffset? PublishedAt, Guid? PublishedById);
 
 public sealed record DashboardSummaryDto(
     Guid Id,

@@ -29,7 +29,8 @@ Implement and verify these increments in order. Each increment must preserve bac
 8. **Interaction and drill-through — implemented**
    - Typed record/report destinations, permission-safe filter mapping, tooltip and selection behavior
    - Keyboard-selectable points/rows, same-source scalar filter transfer, destination authorization, and optional new-tab behavior
-9. **Publishing workflow**
+9. **Publishing workflow — implemented**
    - Draft/published comparison, preview mode, unsaved-change guard, revision history, restore, safer slug/navigation changes
+   - Draft saves no longer mutate the live snapshot; publishing explicitly replaces live, and restore always creates a new draft revision
 10. **Accessibility and quality**
     - Keyboard drag alternative, screen-reader move announcements, touch reorder controls, responsive/browser regression coverage, performance budgets

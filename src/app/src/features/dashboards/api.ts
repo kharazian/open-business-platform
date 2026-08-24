@@ -6,6 +6,8 @@ import type {
   DashboardAnalyticsResponse,
   DashboardDetail,
   DashboardNavigationItem,
+  DashboardPublishedComparison,
+  DashboardRevisionSummary,
   DashboardSummary,
   DashboardSummaryItem,
   DashboardValidationError,
@@ -62,6 +64,20 @@ export async function publishDashboard(dashboardId: string, concurrencyStamp: st
 
 export async function unpublishDashboard(dashboardId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
   return mutatePublication(dashboardId, "unpublish", concurrencyStamp, fetcher);
+}
+
+export async function listDashboardRevisions(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardRevisionSummary[]> {
+  return requestItems<DashboardRevisionSummary>(`/api/dashboards/${encodeURIComponent(dashboardId)}/revisions`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function getDashboardPublishedComparison(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardPublishedComparison> {
+  return requestJson<DashboardPublishedComparison>(`/api/dashboards/${encodeURIComponent(dashboardId)}/published-comparison`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function restoreDashboardRevision(dashboardId: string, revisionId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/revisions/${encodeURIComponent(revisionId)}/restore`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concurrencyStamp })
+  }, fetcher);
 }
 
 function mutatePublication(dashboardId: string, action: "publish" | "unpublish", concurrencyStamp: string, fetcher: DashboardFetcher): Promise<DashboardDetail> {

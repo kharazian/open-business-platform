@@ -59,6 +59,24 @@ public static class DashboardsEndpoints
             });
         });
 
+        group.MapGet("/{dashboardId:guid}/revisions", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(new { items = await dashboards.ListRevisionsAsync(dashboardId, cancellationToken) }));
+        });
+
+        group.MapGet("/{dashboardId:guid}/published-comparison", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetPublishedComparisonAsync(dashboardId, cancellationToken)));
+        });
+
+        group.MapPost("/{dashboardId:guid}/revisions/{revisionId:guid}/restore", async (Guid dashboardId, Guid revisionId, DashboardRevisionRestoreRequest request, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.RestoreRevisionAsync(dashboardId, revisionId, request, GetCurrentUserId(httpContext), cancellationToken)));
+        });
+
         group.MapPost("", async (
             CreateDashboardRequest request,
             DashboardDefinitionService dashboards,

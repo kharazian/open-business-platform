@@ -260,6 +260,31 @@ export type DashboardDetail = DashboardSummaryItem & {
   layout: SavedDashboardLayout;
 };
 
+export type DashboardRevisionSnapshot = {
+  name: string;
+  description?: string | null;
+  config: SavedDashboardConfig;
+  layout: SavedDashboardLayout;
+  settings: { visibility: DashboardVisibility; isDefault: boolean };
+  publication: DashboardPublicationSettings;
+};
+
+export type DashboardRevisionSummary = {
+  id: EntityId;
+  revisionNumber: number;
+  reason: "created" | "saved" | "published" | "unpublished" | "restored";
+  createdAt: string;
+  createdById?: EntityId | null;
+  isPublished: boolean;
+};
+
+export type DashboardPublishedComparison = {
+  hasPublishedVersion: boolean;
+  published?: DashboardRevisionSnapshot | null;
+  publishedAt?: string | null;
+  publishedById?: EntityId | null;
+};
+
 export type CreateDashboardRequest = {
   name: string;
   description?: string | null;

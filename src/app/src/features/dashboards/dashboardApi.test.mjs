@@ -96,3 +96,26 @@ test("dashboard API errors retain structured validation details", async () => {
     }
   );
 });
+
+test("dashboard publishing history API maps comparison, revisions, and restore endpoints", async () => {
+  const calls = [];
+  const fetcher = async (input, init = {}) => {
+    calls.push({ input, init });
+    if (input.endsWith("/revisions")) return { ok: true, json: async () => ({ items: [{ id: "revision/1", revisionNumber: 3, reason: "published", isPublished: true }] }) };
+    if (input.endsWith("/published-comparison")) return { ok: true, json: async () => ({ hasPublishedVersion: true, published: { name: "Live dashboard" } }) };
+    return { ok: true, json: async () => ({ id: "dashboard 1", name: "Restored dashboard" }) };
+  };
+
+  const revisions = await api.listDashboardRevisions("dashboard 1", fetcher);
+  const comparison = await api.getDashboardPublishedComparison("dashboard 1", fetcher);
+  await api.restoreDashboardRevision("dashboard 1", "revision/1", "stamp-3", fetcher);
+
+  assert.equal(revisions[0].revisionNumber, 3);
+  assert.equal(comparison.published.name, "Live dashboard");
+  assert.deepEqual(calls.map((call) => call.input), [
+    "/api/dashboards/dashboard%201/revisions",
+    "/api/dashboards/dashboard%201/published-comparison",
+    "/api/dashboards/dashboard%201/revisions/revision%2F1/restore"
+  ]);
+  assert.deepEqual(JSON.parse(calls[2].init.body), { concurrencyStamp: "stamp-3" });
+});

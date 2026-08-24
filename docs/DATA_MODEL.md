@@ -810,6 +810,12 @@ Supported visibility values are `workspace` and `private`. Only published dashbo
 
 Publication/navigation columns are `status`, `slug`, `show_in_navigation`, `menu_label`, `menu_icon`, `menu_order`, `view_permission`, `published_at`, and `published_by_id`. `(workspace_id, slug)` has a unique index and `(workspace_id, status, show_in_navigation)` supports the shell navigation query. Approved icon registry keys are stored rather than React component names.
 
+Dashboard builder feature 9 adds a stable live snapshot and bounded revision history. `published_snapshot_json` stores the last explicitly published name, description, config, layout, visibility/default settings, and publication settings. The duplicated `published_slug`, `published_show_in_navigation`, `published_menu_label`, `published_menu_icon`, `published_menu_order`, and `published_view_permission` columns make live routing, navigation, uniqueness, and authorization queryable without reading the editable draft. `(workspace_id, published_slug)` is unique. Existing published rows use their current definition as a compatibility snapshot until they are republished.
+
+### dashboard_revisions
+
+Each create, save, publish, unpublish, or restore operation records a JSONB snapshot with a per-dashboard revision number and reason. Revisions are workspace-owned, creation-audited, cascade with their dashboard, and are retained to the latest 50 entries. `(workspace_id, dashboard_id, revision_number)` is unique. Restoring copies a historical snapshot into the editable draft and records a new `restored` revision; it does not change the live snapshot until an explicit publish.
+
 ## Permissions
 
 ### permission_rules later

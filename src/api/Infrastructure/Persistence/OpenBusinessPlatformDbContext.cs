@@ -91,6 +91,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
     public DbSet<ReportDefinition> Reports => Set<ReportDefinition>();
 
     public DbSet<DashboardDefinition> Dashboards => Set<DashboardDefinition>();
+    public DbSet<DashboardRevision> DashboardRevisions => Set<DashboardRevision>();
 
     public DbSet<TriggerDefinition> Triggers => Set<TriggerDefinition>();
 
@@ -960,6 +961,7 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.HasIndex(dashboard => dashboard.CreatedById);
             entity.HasIndex(dashboard => dashboard.Name);
             entity.HasIndex(dashboard => new { dashboard.WorkspaceId, dashboard.Slug }).IsUnique();
+            entity.HasIndex(dashboard => new { dashboard.WorkspaceId, dashboard.PublishedSlug }).IsUnique();
             entity.HasIndex(dashboard => new { dashboard.WorkspaceId, dashboard.Status, dashboard.ShowInNavigation });
             entity.Property(dashboard => dashboard.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
             entity.Property(dashboard => dashboard.Description).HasColumnName("description").HasMaxLength(1000);
@@ -974,6 +976,24 @@ public sealed class OpenBusinessPlatformDbContext : DbContext
             entity.Property(dashboard => dashboard.PublishedById).HasColumnName("published_by_id").HasColumnType("uuid");
             entity.Property(dashboard => dashboard.ConfigJson).HasColumnName("config_json").HasColumnType("jsonb").IsRequired();
             entity.Property(dashboard => dashboard.LayoutJson).HasColumnName("layout_json").HasColumnType("jsonb").IsRequired();
+            entity.Property(dashboard => dashboard.PublishedSnapshotJson).HasColumnName("published_snapshot_json").HasColumnType("jsonb");
+            entity.Property(dashboard => dashboard.PublishedSlug).HasColumnName("published_slug").HasMaxLength(100);
+            entity.Property(dashboard => dashboard.PublishedShowInNavigation).HasColumnName("published_show_in_navigation").HasDefaultValue(false);
+            entity.Property(dashboard => dashboard.PublishedMenuLabel).HasColumnName("published_menu_label").HasMaxLength(100);
+            entity.Property(dashboard => dashboard.PublishedMenuIcon).HasColumnName("published_menu_icon").HasMaxLength(50);
+            entity.Property(dashboard => dashboard.PublishedMenuOrder).HasColumnName("published_menu_order").HasDefaultValue(0);
+            entity.Property(dashboard => dashboard.PublishedViewPermission).HasColumnName("published_view_permission").HasMaxLength(120);
+        });
+
+        modelBuilder.Entity<DashboardRevision>(entity =>
+        {
+            ConfigureCreationAuditedEntity(entity, "dashboard_revisions");
+            entity.HasIndex(revision => new { revision.WorkspaceId, revision.DashboardId, revision.RevisionNumber }).IsUnique();
+            entity.Property(revision => revision.DashboardId).HasColumnName("dashboard_id").HasColumnType("uuid").IsRequired();
+            entity.Property(revision => revision.RevisionNumber).HasColumnName("revision_number").IsRequired();
+            entity.Property(revision => revision.Reason).HasColumnName("reason").HasMaxLength(30).IsRequired();
+            entity.Property(revision => revision.SnapshotJson).HasColumnName("snapshot_json").HasColumnType("jsonb").IsRequired();
+            entity.HasOne(revision => revision.Dashboard).WithMany().HasForeignKey(revision => revision.DashboardId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

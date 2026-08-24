@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, ExternalLink, GripVertical, Pencil, Plus, Redo2, RefreshCw, Save, Trash2, Undo2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, ExternalLink, GitCompare, GripVertical, History, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -15,7 +15,7 @@ import type { FormSummary } from "../../forms/drafts";
 import { getReportableFields } from "../../forms/reportableFields";
 import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
-import { createDashboard, DashboardApiError, getDashboard, listDashboards, publishDashboard, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
+import { createDashboard, DashboardApiError, getDashboard, getDashboardPublishedComparison, listDashboardRevisions, listDashboards, publishDashboard, restoreDashboardRevision, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
@@ -34,6 +34,7 @@ import { DashboardAddWidgetWizard } from "../components/DashboardAddWidgetWizard
 import { DashboardFilterEditor } from "../components/DashboardFilterEditor";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
 import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
+import { SavedDashboardViewer } from "../components/SavedDashboardViewer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "../layout";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, toggleDashboardWidgetSelection } from "../canvasProductivity";
@@ -50,6 +51,9 @@ import {
   type DashboardAnalyticsWidgetType,
   type DashboardDetail,
   type DashboardFilterDefinition,
+  type DashboardPublishedComparison,
+  type DashboardRevisionSnapshot,
+  type DashboardRevisionSummary,
   type DashboardSummaryItem,
   type DashboardValidationError,
   type DashboardVisibility,
@@ -133,6 +137,23 @@ export function DashboardsPage() {
   const [bulkWidth, setBulkWidth] = useState<DashboardWidgetWidth>("medium");
   const [canvasDensity, setCanvasDensity] = useState<"comfortable" | "compact">("comfortable");
   const [canvasZoom, setCanvasZoom] = useState(100);
+  const [publishedComparison, setPublishedComparison] = useState<DashboardPublishedComparison | null>(null);
+  const [revisions, setRevisions] = useState<DashboardRevisionSummary[]>([]);
+  const [restoringRevisionId, setRestoringRevisionId] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [savedSignature, setSavedSignature] = useState("");
+
+  const draftSignature = JSON.stringify(buildSaveRequest());
+  const isDirty = dashboardDetail
+    ? savedSignature !== draftSignature
+    : dashboardName !== "New dashboard" || dashboardDescription !== "" || widgets.length > 0 || filters.length > 0 || sections.length > 1;
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     void loadInitialData();
@@ -267,11 +288,22 @@ export function DashboardsPage() {
       setWidgets(nextWidgets);
       setFilters(detail.config.filters ?? []);
       setLayoutWidgets(detail.layout.widgets);
+      setSavedSignature(JSON.stringify(toDashboardSaveRequest(detail)));
       setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
+      await loadPublishingMetadata(detail.id);
       await loadPreviews(nextWidgets);
     } catch (caught) {
       setRequestError(caught);
     }
+  }
+
+  async function loadPublishingMetadata(dashboardId: string) {
+    const [comparison, revisionItems] = await Promise.all([
+      getDashboardPublishedComparison(dashboardId),
+      listDashboardRevisions(dashboardId)
+    ]);
+    setPublishedComparison(comparison);
+    setRevisions(revisionItems);
   }
 
   async function loadPreviews(nextWidgets: SavedDashboardWidget[]) {
@@ -490,6 +522,7 @@ export function DashboardsPage() {
         ? await updateDashboard(dashboardDetail.id, { ...request, concurrencyStamp: dashboardDetail.concurrencyStamp })
         : await createDashboard(request);
       setDashboardDetail(saved);
+      setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved)));
       setSelectedDashboardId(saved.id);
       navigate(`/dashboard-builder/${saved.id}`, { replace: true });
       const settings = normalizeDashboardSettings({ visibility: saved.visibility, isDefault: saved.isDefault });
@@ -500,6 +533,7 @@ export function DashboardsPage() {
       setFilters(saved.config.filters ?? []);
       setLayoutWidgets(saved.layout.widgets);
       setDashboards(await listDashboards());
+      await loadPublishingMetadata(saved.id);
       dispatchDashboardsChanged();
       await loadPreviews(saved.config.widgets);
       setNotice("Dashboard saved.");
@@ -511,6 +545,7 @@ export function DashboardsPage() {
   }
 
   function handleNewDashboard() {
+    if (!confirmDiscardChanges()) return;
     setSelectedDashboardId("");
     setDashboardDetail(null);
     setDashboardName("New dashboard");
@@ -526,6 +561,7 @@ export function DashboardsPage() {
     setFilters([]);
     setLayoutWidgets([]);
     setPreviewStates({});
+    setPublishedComparison(null); setRevisions([]); setSavedSignature("");
     setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
     setNotice("New dashboard draft started.");
   }
@@ -595,6 +631,8 @@ export function DashboardsPage() {
   }
 
   function handleSelectDashboard(dashboardId: string) {
+    if (dashboardId === selectedDashboardId) return;
+    if (!confirmDiscardChanges()) return;
     if (!dashboardId) {
       handleNewDashboard();
       return;
@@ -604,23 +642,49 @@ export function DashboardsPage() {
     navigate(`/dashboard-builder/${dashboardId}`);
   }
 
-  async function handlePublicationAction() {
+  async function handlePublicationAction(action: "publish" | "unpublish") {
     if (!dashboardDetail) return;
+    if (action === "unpublish" && isDirty && !window.confirm("Unpublish the live dashboard and discard the unsaved editor changes?")) return;
+    const liveSlug = publishedComparison?.published?.publication.slug;
+    if (action === "publish") {
+      const message = liveSlug && liveSlug !== (slug || createDashboardSlug(dashboardName))
+        ? `Publish these changes? The live URL will change from /dashboards/${liveSlug} and the old link will stop working.`
+        : dashboardDetail.publication.status === "published"
+          ? "Publish the current draft and replace the live dashboard?"
+          : "Publish this dashboard and make the saved draft live?";
+      if (!window.confirm(message)) return;
+    }
     setSaving(true); setError(null); setValidationErrors([]);
     try {
-      const nextSlug = slug || createDashboardSlug(dashboardName);
-      const pending = await updateDashboard(dashboardDetail.id, {
-        ...buildSaveRequest(nextSlug),
-        concurrencyStamp: dashboardDetail.concurrencyStamp
-      });
-      const saved = pending.publication.status === "published"
-        ? await unpublishDashboard(pending.id, pending.concurrencyStamp)
-        : await publishDashboard(pending.id, pending.concurrencyStamp);
-      setSlug(saved.publication.slug ?? nextSlug);
-      setDashboardDetail(saved); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Dashboard published." : "Dashboard returned to draft.");
+      let saved: DashboardDetail;
+      if (action === "publish") {
+        const nextSlug = slug || createDashboardSlug(dashboardName);
+        const pending = await updateDashboard(dashboardDetail.id, { ...buildSaveRequest(nextSlug), concurrencyStamp: dashboardDetail.concurrencyStamp });
+        saved = await publishDashboard(pending.id, pending.concurrencyStamp);
+      } else {
+        saved = await unpublishDashboard(dashboardDetail.id, dashboardDetail.concurrencyStamp);
+      }
+      setSlug(saved.publication.slug ?? (slug || createDashboardSlug(dashboardName)));
+      setDashboardDetail(saved); setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved))); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Draft published. The live dashboard now matches this version." : "Dashboard unpublished. Its last published version remains in revision history.");
       setDashboards(await listDashboards());
+      await loadPublishingMetadata(saved.id);
       dispatchDashboardsChanged();
     } catch (caught) { setRequestError(caught); } finally { setSaving(false); }
+  }
+
+  async function handleRestoreRevision(revision: DashboardRevisionSummary) {
+    if (!dashboardDetail || !window.confirm(`Restore revision ${revision.revisionNumber} as the editable draft? The live dashboard will not change until you publish.`)) return;
+    setRestoringRevisionId(revision.id); setError(null); setValidationErrors([]);
+    try {
+      const restored = await restoreDashboardRevision(dashboardDetail.id, revision.id, dashboardDetail.concurrencyStamp);
+      setNotice(`Revision ${revision.revisionNumber} restored as a new draft revision.`);
+      await loadDashboard(restored.id);
+      setDashboards(await listDashboards());
+    } catch (caught) { setRequestError(caught); } finally { setRestoringRevisionId(""); }
+  }
+
+  function confirmDiscardChanges() {
+    return !isDirty || window.confirm("Discard your unsaved dashboard changes?");
   }
 
   function buildSaveRequest(slugOverride = slug) {
@@ -647,6 +711,28 @@ export function DashboardsPage() {
 
   const slugError = slug && (slug.length < 2 || slug.length > 100 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) ? "Use 2-100 lowercase letters, numbers, and single hyphens only." : ["new", "builder", "settings"].includes(slug) ? "This slug is reserved." : null;
   const publicationDirty = Boolean(dashboardDetail && (slug !== (dashboardDetail.publication.slug ?? "") || showInNavigation !== dashboardDetail.publication.showInNavigation || menuLabel !== (dashboardDetail.publication.menuLabel ?? "") || menuIcon !== (dashboardDetail.publication.menuIcon ?? "layout-dashboard") || menuOrder !== dashboardDetail.publication.menuOrder || viewPermission !== (dashboardDetail.publication.viewPermission ?? "")));
+  const liveSnapshot = publishedComparison?.published ?? null;
+  const liveSlug = liveSnapshot?.publication.slug ?? null;
+  const hasPublishedChanges = Boolean(liveSnapshot && JSON.stringify(normalizeDashboardRevisionSnapshot(liveSnapshot)) !== draftSignature);
+  const previewRequest = buildSaveRequest();
+  const previewDashboard: DashboardDetail = {
+    id: dashboardDetail?.id ?? "draft-preview",
+    name: previewRequest.name,
+    description: previewRequest.description,
+    config: previewRequest.config,
+    layout: previewRequest.layout,
+    visibility: previewRequest.settings.visibility,
+    isDefault: previewRequest.settings.isDefault,
+    publication: { ...previewRequest.publication, status: "draft" },
+    publishedAt: null,
+    publishedById: null,
+    widgetCount: previewRequest.config.widgets.length,
+    concurrencyStamp: dashboardDetail?.concurrencyStamp ?? "preview",
+    createdAt: dashboardDetail?.createdAt ?? new Date().toISOString(),
+    createdById: dashboardDetail?.createdById ?? null,
+    updatedAt: dashboardDetail?.updatedAt ?? null,
+    updatedById: dashboardDetail?.updatedById ?? null
+  };
 
   return (
     <div className="grid gap-6">
@@ -660,9 +746,13 @@ export function DashboardsPage() {
               <RefreshCw className="size-4" />
               Refresh
             </Button>
-            <Button onClick={() => { handleSelectTemplate(""); setTemplateGalleryOpen(true); }} variant="outline">
+            <Button onClick={() => { if (!confirmDiscardChanges()) return; handleSelectTemplate(""); setTemplateGalleryOpen(true); }} variant="outline">
               <Plus className="size-4" />
               New
+            </Button>
+            <Button disabled={widgets.length === 0} onClick={() => setPreviewOpen(true)} variant="outline">
+              <Eye className="size-4" />
+              Preview draft
             </Button>
             <Button disabled={saving || widgets.length === 0} onClick={() => void handleSave()}>
               <Save className="size-4" />
@@ -711,19 +801,21 @@ export function DashboardsPage() {
               <Badge>{sections.length} sections</Badge>
               <Badge tone={dashboardVisibility === "workspace" ? "info" : "warning"}>{getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
               {dashboardIsDefault ? <Badge tone="success">Default</Badge> : null}
+              {isDirty ? <Badge tone="warning">Unsaved changes</Badge> : <Badge tone="success">Saved</Badge>}
             </div>
             {dashboardDetail?.config.templateProvenance ? <p className="text-xs font-semibold text-muted-foreground">Created from {dashboardTemplateCatalog.find((item) => item.id === dashboardDetail.config.templateProvenance?.templateId)?.name ?? dashboardDetail.config.templateProvenance.templateId} v{dashboardDetail.config.templateProvenance.templateVersion}. This dashboard is independently editable.</p> : null}
             <div className="grid gap-3 border-t border-border pt-4">
               <div><p className="text-sm font-bold text-foreground">Publishing and navigation</p><p className="text-xs text-muted-foreground">Status: {dashboardDetail?.publication.status ?? "draft"}{dashboardDetail?.publishedAt ? ` · Published ${new Date(dashboardDetail.publishedAt).toLocaleString()}` : ""}</p></div>
               <Input label="URL slug" onChange={(event) => setSlug(event.target.value.toLowerCase())} value={slug} />
-              {slugError || getValidationError("publication.slug") ? <p className="text-xs font-semibold text-danger">{slugError ?? getValidationError("publication.slug")}</p> : dashboardDetail?.publication.slug && dashboardDetail.publication.slug !== slug ? <p className="text-xs font-semibold text-warning">Changing the slug will break existing dashboard links.</p> : null}
+              {slugError || getValidationError("publication.slug") ? <p className="text-xs font-semibold text-danger">{slugError ?? getValidationError("publication.slug")}</p> : liveSlug && liveSlug !== slug ? <p className="text-xs font-semibold text-warning">The live URL remains /dashboards/{liveSlug} until you publish. Publishing this slug will make the old link stop working.</p> : null}
               <Checkbox checked={showInNavigation} label="Show in navigation" onChange={(event) => setShowInNavigation(event.target.checked)} />
               {showInNavigation ? <><Input label="Menu label" onChange={(event) => setMenuLabel(event.target.value)} value={menuLabel} />{getValidationError("publication.menuLabel") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuLabel")}</p> : !menuLabel.trim() ? <p className="text-xs font-semibold text-muted-foreground">Defaults to the dashboard name.</p> : null}<Select label="Menu icon" onChange={(event) => setMenuIcon(event.target.value)} options={[{label:"Dashboard",value:"layout-dashboard"},{label:"Factory",value:"factory"},{label:"Landmark",value:"landmark"},{label:"Bar chart",value:"chart-column"},{label:"Trend",value:"chart-line"},{label:"Activity",value:"activity"},{label:"Business",value:"briefcase-business"}]} value={menuIcon} />{getValidationError("publication.menuIcon") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuIcon")}</p> : null}<Input label="Menu order" onChange={(event) => setMenuOrder(Number(event.target.value))} type="number" value={menuOrder} /></> : null}
               <Input label="Required view permission" onChange={(event) => setViewPermission(event.target.value)} value={viewPermission} />
               <div className="flex flex-wrap gap-2">
-                {dashboardDetail?.publication.slug ? <Button onClick={() => window.open(`/dashboards/${dashboardDetail.publication.slug}`, "_blank")} variant="outline"><ExternalLink className="size-4" />Open dashboard</Button> : null}
-                {dashboardDetail?.publication.slug ? <Button onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/dashboards/${dashboardDetail.publication.slug}`)} variant="outline"><Copy className="size-4" />Copy link</Button> : null}
-                <Button disabled={!dashboardDetail || saving || Boolean(slugError)} onClick={() => void handlePublicationAction()} variant={dashboardDetail?.publication.status === "published" ? "danger" : "primary"}>{dashboardDetail?.publication.status === "published" ? "Unpublish" : "Publish dashboard"}</Button>
+                {liveSlug ? <Button onClick={() => window.open(`/dashboards/${liveSlug}`, "_blank")} variant="outline"><ExternalLink className="size-4" />Open live</Button> : null}
+                {liveSlug ? <Button onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/dashboards/${liveSlug}`)} variant="outline"><Copy className="size-4" />Copy live link</Button> : null}
+                <Button disabled={!dashboardDetail || saving || Boolean(slugError)} onClick={() => void handlePublicationAction("publish")}>{dashboardDetail?.publication.status === "published" ? "Publish changes" : "Publish dashboard"}</Button>
+                {dashboardDetail?.publication.status === "published" ? <Button disabled={saving} onClick={() => void handlePublicationAction("unpublish")} variant="danger">Unpublish</Button> : null}
               </div>
               {publicationDirty ? <p className="text-xs font-semibold text-warning">Pending publishing settings will be saved with the publish action.</p> : null}
             </div>
@@ -778,6 +870,40 @@ export function DashboardsPage() {
           </CardContent>
         </Card>
       </section>
+
+      {dashboardDetail ? <section className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2"><GitCompare className="size-5 text-primary" /><CardTitle>Draft versus live</CardTitle></div>
+            <CardDescription>Editing and saving changes the draft only. Visitors keep seeing the last published snapshot.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {!liveSnapshot ? <Alert title="No published version">This dashboard is not live yet. Preview the draft, then publish when it is ready.</Alert> : <>
+              <ComparisonRow draft={dashboardName} label="Name" live={liveSnapshot.name} />
+              <ComparisonRow draft={`${widgets.length}`} label="Widgets" live={`${liveSnapshot.config.widgets.length}`} />
+              <ComparisonRow draft={`${sections.length}`} label="Sections" live={`${normalizeDashboardSections(liveSnapshot.config.sections).length}`} />
+              <ComparisonRow draft={slug || "—"} label="URL slug" live={liveSnapshot.publication.slug ?? "—"} />
+              <ComparisonRow draft={showInNavigation ? (menuLabel.trim() || dashboardName) : "Hidden"} label="Navigation" live={liveSnapshot.publication.showInNavigation ? (liveSnapshot.publication.menuLabel || liveSnapshot.name) : "Hidden"} />
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                <Badge tone={hasPublishedChanges ? "warning" : "success"}>{hasPublishedChanges ? "Draft differs from live" : "Draft matches live"}</Badge>
+                {publishedComparison?.publishedAt ? <span className="text-xs font-semibold text-muted-foreground">Live since {new Date(publishedComparison.publishedAt).toLocaleString()}</span> : null}
+              </div>
+            </>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2"><History className="size-5 text-primary" /><CardTitle>Revision history</CardTitle></div>
+            <CardDescription>Every save and publishing action creates a revision. Restoring creates a new editable draft and never silently changes live.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid max-h-80 gap-2 overflow-auto">
+            {revisions.length === 0 ? <EmptyState description="Save this dashboard to create its first revision." title="No revisions yet" /> : revisions.map((revision) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3" key={revision.id}>
+              <div><div className="flex items-center gap-2"><p className="text-sm font-bold">Revision {revision.revisionNumber}</p>{revision.isPublished ? <Badge tone="success">Published</Badge> : null}</div><p className="text-xs capitalize text-muted-foreground">{revision.reason} · {new Date(revision.createdAt).toLocaleString()}</p></div>
+              <Button disabled={Boolean(restoringRevisionId)} onClick={() => void handleRestoreRevision(revision)} size="sm" variant="outline"><RotateCcw className="size-4" />{restoringRevisionId === revision.id ? "Restoring..." : "Restore draft"}</Button>
+            </div>)}
+          </CardContent>
+        </Card>
+      </section> : null}
 
       <section className={`grid md:grid-cols-12 ${canvasDensity === "compact" ? "gap-2" : "gap-4"}`} style={{ zoom: `${canvasZoom}%` }}>
         <div className="md:col-span-12 flex flex-wrap items-end justify-between gap-3">
@@ -899,6 +1025,13 @@ export function DashboardsPage() {
         sections={sections}
         widget={widgets.find((widget) => widget.id === editingWidgetId) ?? null}
       />
+      {previewOpen ? <div className="fixed inset-0 z-50 overflow-auto bg-background">
+        <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:px-8">
+          <div><div className="flex items-center gap-2"><Badge tone="warning">Draft preview</Badge>{isDirty ? <Badge tone="warning">Unsaved</Badge> : <Badge tone="success">Saved draft</Badge>}</div><p className="mt-1 text-xs text-muted-foreground">This is not the live dashboard. Close preview to continue editing.</p></div>
+          <Button onClick={() => setPreviewOpen(false)} variant="outline"><X className="size-4" />Close preview</Button>
+        </div>
+        <main className="p-4 sm:p-8"><SavedDashboardViewer dashboard={previewDashboard} preview /></main>
+      </div> : null}
     </div>
   );
 
@@ -919,6 +1052,53 @@ function getErrorMessage(error: unknown): string {
   }
 
   return error instanceof Error ? error.message : "Dashboard request failed.";
+}
+
+function toDashboardSaveRequest(dashboard: DashboardDetail) {
+  const sections = normalizeDashboardSections(dashboard.config.sections);
+  const widgets = assignWidgetsToDashboardSections(dashboard.config.widgets, sections);
+  const showInNavigation = dashboard.publication.showInNavigation;
+  return {
+    name: dashboard.name,
+    description: dashboard.description ?? null,
+    config: {
+      schemaVersion: 1 as const,
+      sections,
+      widgets,
+      templateProvenance: dashboard.config.templateProvenance ?? null,
+      filters: dashboard.config.filters?.length ? dashboard.config.filters : null
+    },
+    layout: { schemaVersion: 1 as const, widgets: dashboard.layout.widgets },
+    settings: normalizeDashboardSettings({ visibility: dashboard.visibility, isDefault: dashboard.isDefault }),
+    publication: {
+      status: dashboard.publication.status,
+      slug: dashboard.publication.slug ?? null,
+      showInNavigation,
+      menuLabel: showInNavigation ? (dashboard.publication.menuLabel?.trim() || dashboard.name.trim()) : null,
+      menuIcon: dashboard.publication.menuIcon ?? "layout-dashboard",
+      menuOrder: dashboard.publication.menuOrder,
+      viewPermission: dashboard.publication.viewPermission ?? null
+    }
+  };
+}
+
+function normalizeDashboardRevisionSnapshot(snapshot: DashboardRevisionSnapshot) {
+  const sections = normalizeDashboardSections(snapshot.config.sections);
+  const widgets = assignWidgetsToDashboardSections(snapshot.config.widgets, sections);
+  const showInNavigation = snapshot.publication.showInNavigation;
+  return {
+    name: snapshot.name,
+    description: snapshot.description ?? null,
+    config: { schemaVersion: 1 as const, sections, widgets, templateProvenance: snapshot.config.templateProvenance ?? null, filters: snapshot.config.filters?.length ? snapshot.config.filters : null },
+    layout: { schemaVersion: 1 as const, widgets: snapshot.layout.widgets },
+    settings: normalizeDashboardSettings(snapshot.settings),
+    publication: { status: "published", slug: snapshot.publication.slug ?? null, showInNavigation, menuLabel: showInNavigation ? (snapshot.publication.menuLabel?.trim() || snapshot.name.trim()) : null, menuIcon: snapshot.publication.menuIcon ?? "layout-dashboard", menuOrder: snapshot.publication.menuOrder, viewPermission: snapshot.publication.viewPermission ?? null }
+  };
+}
+
+function ComparisonRow({ draft, label, live }: { draft: string; label: string; live: string }) {
+  const changed = draft !== live;
+  return <div className="grid gap-2 rounded-xl border border-border p-3 sm:grid-cols-[7rem_1fr_1fr_auto] sm:items-center"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p><div><p className="text-[0.65rem] font-bold uppercase text-muted-foreground">Draft</p><p className="break-words text-sm font-semibold">{draft}</p></div><div><p className="text-[0.65rem] font-bold uppercase text-muted-foreground">Live</p><p className="break-words text-sm font-semibold">{live}</p></div><Badge tone={changed ? "warning" : "success"}>{changed ? "Changed" : "Same"}</Badge></div>;
 }
 
 function DashboardWidgetPreviewStateView({ appearance, state, onRefresh }: { appearance?: ChartWidgetConfig["appearance"]; state?: DashboardPreviewState; onRefresh: () => void }) {

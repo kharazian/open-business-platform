@@ -55,22 +55,32 @@ public sealed class DashboardDefinitionService
     {
         var normalizedSlug = DashboardSlugs.Normalize(slug);
         var dashboard = await dbContext.Dashboards.AsNoTracking()
-            .FirstOrDefaultAsync(candidate => candidate.Slug == normalizedSlug && !candidate.IsDeleted, cancellationToken);
-        if (dashboard is null || dashboard.Status != DashboardPublicationStatuses.Published || !DashboardDefinitionAccess.CanView(dashboard, accessContext))
+            .FirstOrDefaultAsync(candidate => !candidate.IsDeleted && candidate.Status == DashboardPublicationStatuses.Published
+                && (candidate.PublishedSlug == normalizedSlug || candidate.PublishedSlug == null && candidate.Slug == normalizedSlug), cancellationToken);
+        var snapshot = dashboard is null ? null : ResolvePublishedSnapshot(dashboard);
+        if (dashboard is null || snapshot is null || !CanViewPublished(dashboard, snapshot, accessContext))
         {
             throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
         }
-        return ToDetailDto(dashboard);
+        return ToDetailDto(dashboard, snapshot);
     }
 
     public async Task<IReadOnlyCollection<DashboardNavigationItemDto>> ListNavigationAsync(DashboardAccessContext accessContext, CancellationToken cancellationToken)
     {
         var dashboards = await dbContext.Dashboards.AsNoTracking()
-            .Where(item => !item.IsDeleted && item.Status == DashboardPublicationStatuses.Published && item.ShowInNavigation && item.Slug != null)
+            .Where(item => !item.IsDeleted && item.Status == DashboardPublicationStatuses.Published
+                && (item.PublishedSnapshotJson != null && item.PublishedShowInNavigation && item.PublishedSlug != null
+                    || item.PublishedSnapshotJson == null && item.ShowInNavigation && item.Slug != null))
             .ToArrayAsync(cancellationToken);
-        return dashboards.Where(item => DashboardDefinitionAccess.CanView(item, accessContext))
-            .OrderBy(item => item.MenuOrder).ThenBy(item => item.MenuLabel ?? item.Name)
-            .Select(item => new DashboardNavigationItemDto(item.Id, item.Slug!, item.MenuLabel ?? item.Name, item.MenuIcon, item.MenuOrder)).ToArray();
+        return dashboards.Select(item => new { Dashboard = item, Snapshot = ResolvePublishedSnapshot(item) })
+            .Where(item => item.Snapshot is not null && CanViewPublished(item.Dashboard, item.Snapshot, accessContext))
+            .OrderBy(item => item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.MenuOrder : item.Dashboard.PublishedMenuOrder)
+            .ThenBy(item => item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.MenuLabel ?? item.Dashboard.Name : item.Dashboard.PublishedMenuLabel ?? item.Snapshot!.Name)
+            .Select(item => new DashboardNavigationItemDto(item.Dashboard.Id,
+                item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.Slug! : item.Dashboard.PublishedSlug!,
+                item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.MenuLabel ?? item.Dashboard.Name : item.Dashboard.PublishedMenuLabel ?? item.Snapshot!.Name,
+                item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.MenuIcon : item.Dashboard.PublishedMenuIcon,
+                item.Dashboard.PublishedSnapshotJson is null ? item.Dashboard.MenuOrder : item.Dashboard.PublishedMenuOrder)).ToArray();
     }
 
     public async Task<DashboardDetailDto> CreateAsync(CreateDashboardRequest request, Guid? createdById, CancellationToken cancellationToken)
@@ -99,6 +109,7 @@ public sealed class DashboardDefinitionService
         };
 
         dbContext.Dashboards.Add(dashboard);
+        await CreateRevisionAsync(dashboard, "created", createdById, cancellationToken);
         await ClearDefaultDashboardsIfNeededAsync(dashboard.Id, settings, createdById, cancellationToken);
         AddAudit("Dashboard", dashboard.Id, "dashboard_created", createdById);
         await SaveWithConflictAsync(cancellationToken);
@@ -144,6 +155,7 @@ public sealed class DashboardDefinitionService
         await ClearDefaultDashboardsIfNeededAsync(dashboard.Id, settings, updatedById, cancellationToken);
         AddAudit("Dashboard", dashboard.Id, "dashboard_updated", updatedById);
         if (navigationChanged) AddAudit("Dashboard", dashboard.Id, "dashboard_navigation_changed", updatedById);
+        await CreateRevisionAsync(dashboard, "saved", updatedById, cancellationToken);
         await SaveWithConflictAsync(cancellationToken);
 
         return ToDetailDto(dashboard);
@@ -157,11 +169,20 @@ public sealed class DashboardDefinitionService
         var layout = Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>());
         await ValidateRequestAsync(NormalizeName(dashboard.Name), config, layout, cancellationToken);
         await ValidatePublicationAsync(ToPublication(dashboard) with { Status = DashboardPublicationStatuses.Published }, dashboard.Id, cancellationToken, requirePublishable: true, config);
+        var snapshot = CreateSnapshot(dashboard) with { Publication = ToPublication(dashboard) with { Status = DashboardPublicationStatuses.Published } };
         dashboard.Status = DashboardPublicationStatuses.Published;
+        dashboard.PublishedSnapshotJson = Serialize(snapshot);
+        dashboard.PublishedSlug = snapshot.Publication.Slug;
+        dashboard.PublishedShowInNavigation = snapshot.Publication.ShowInNavigation;
+        dashboard.PublishedMenuLabel = snapshot.Publication.MenuLabel;
+        dashboard.PublishedMenuIcon = snapshot.Publication.MenuIcon;
+        dashboard.PublishedMenuOrder = snapshot.Publication.MenuOrder;
+        dashboard.PublishedViewPermission = snapshot.Publication.ViewPermission;
         dashboard.PublishedAt = DateTimeOffset.UtcNow;
         dashboard.PublishedById = userId;
         dashboard.UpdatedById = userId;
         AddAudit("Dashboard", dashboard.Id, "dashboard_published", userId);
+        await CreateRevisionAsync(dashboard, "published", userId, cancellationToken, snapshot);
         await SaveWithConflictAsync(cancellationToken);
         return ToDetailDto(dashboard);
     }
@@ -172,11 +193,69 @@ public sealed class DashboardDefinitionService
         EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
         dashboard.Status = DashboardPublicationStatuses.Draft;
         dashboard.ShowInNavigation = false;
+        dashboard.PublishedSlug = null;
+        dashboard.PublishedShowInNavigation = false;
+        dashboard.PublishedMenuLabel = null;
+        dashboard.PublishedMenuIcon = null;
+        dashboard.PublishedMenuOrder = 0;
+        dashboard.PublishedViewPermission = null;
         dashboard.PublishedAt = null;
         dashboard.PublishedById = null;
         dashboard.UpdatedById = userId;
         AddAudit("Dashboard", dashboard.Id, "dashboard_unpublished", userId);
         AddAudit("Dashboard", dashboard.Id, "dashboard_navigation_changed", userId);
+        await CreateRevisionAsync(dashboard, "unpublished", userId, cancellationToken);
+        await SaveWithConflictAsync(cancellationToken);
+        return ToDetailDto(dashboard);
+    }
+
+    public async Task<IReadOnlyCollection<DashboardRevisionSummaryDto>> ListRevisionsAsync(Guid dashboardId, CancellationToken cancellationToken)
+    {
+        await FindManagedAsync(dashboardId, cancellationToken);
+        return await dbContext.DashboardRevisions.AsNoTracking()
+            .Where(revision => revision.DashboardId == dashboardId)
+            .OrderByDescending(revision => revision.RevisionNumber)
+            .Take(50)
+            .Select(revision => new DashboardRevisionSummaryDto(revision.Id, revision.RevisionNumber, revision.Reason, revision.CreatedAt, revision.CreatedById, revision.Reason == "published"))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<DashboardPublishedComparisonDto> GetPublishedComparisonAsync(Guid dashboardId, CancellationToken cancellationToken)
+    {
+        var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
+        var snapshot = ResolvePublishedSnapshot(dashboard);
+        return new DashboardPublishedComparisonDto(snapshot is not null, snapshot, dashboard.PublishedAt, dashboard.PublishedById);
+    }
+
+    public async Task<DashboardDetailDto> RestoreRevisionAsync(Guid dashboardId, Guid revisionId, DashboardRevisionRestoreRequest request, Guid? userId, CancellationToken cancellationToken)
+    {
+        var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
+        var revision = await dbContext.DashboardRevisions.AsNoTracking().FirstOrDefaultAsync(item => item.Id == revisionId && item.DashboardId == dashboardId, cancellationToken)
+            ?? throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard revision was not found.");
+        var snapshot = Deserialize<DashboardRevisionSnapshotDefinition>(revision.SnapshotJson)
+            ?? throw new DashboardDefinitionException(StatusCodes.Status409Conflict, "Dashboard revision snapshot is invalid.");
+        var name = NormalizeName(snapshot.Name);
+        var settings = ValidateSettings(snapshot.Settings);
+        await ValidateRequestAsync(name, snapshot.Config, snapshot.Layout, cancellationToken);
+        var publication = await ValidatePublicationAsync(snapshot.Publication, dashboard.Id, cancellationToken,
+            dashboard.Status == DashboardPublicationStatuses.Published, snapshot.Config);
+
+        dashboard.Name = name;
+        dashboard.Description = NormalizeOptionalText(snapshot.Description);
+        dashboard.ConfigJson = Serialize(snapshot.Config);
+        dashboard.LayoutJson = Serialize(snapshot.Layout);
+        dashboard.ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(settings);
+        dashboard.Slug = publication.Slug;
+        dashboard.ShowInNavigation = publication.ShowInNavigation;
+        dashboard.MenuLabel = publication.MenuLabel;
+        dashboard.MenuIcon = publication.MenuIcon;
+        dashboard.MenuOrder = publication.MenuOrder;
+        dashboard.ViewPermission = publication.ViewPermission;
+        dashboard.UpdatedById = userId;
+        await ClearDefaultDashboardsIfNeededAsync(dashboard.Id, settings, userId, cancellationToken);
+        AddAudit("Dashboard", dashboard.Id, "dashboard_revision_restored", userId);
+        await CreateRevisionAsync(dashboard, "restored", userId, cancellationToken);
         await SaveWithConflictAsync(cancellationToken);
         return ToDetailDto(dashboard);
     }
@@ -249,7 +328,7 @@ public sealed class DashboardDefinitionService
         var errors = new List<DashboardValidationError>();
         if (slug.Length > 0 && !DashboardSlugs.IsValid(slug))
             errors.Add(new("publication.slug", "dashboard.slug.invalid", "Use 2-100 lowercase letters, numbers, or single hyphens; reserved values are not allowed."));
-        if (slug.Length > 0 && await dbContext.Dashboards.AsNoTracking().AnyAsync(item => item.Id != dashboardId && item.Slug == slug, cancellationToken))
+        if (slug.Length > 0 && await dbContext.Dashboards.AsNoTracking().AnyAsync(item => item.Id != dashboardId && (item.Slug == slug || item.PublishedSlug == slug), cancellationToken))
             errors.Add(new("publication.slug", "dashboard.slug.duplicate", "This dashboard URL slug is already in use."));
         if (publication.ShowInNavigation)
         {
@@ -383,6 +462,77 @@ public sealed class DashboardDefinitionService
             dashboard.CreatedById,
             dashboard.UpdatedAt,
             dashboard.UpdatedById);
+    }
+
+    private static DashboardDetailDto ToDetailDto(DashboardDefinition dashboard, DashboardRevisionSnapshotDefinition snapshot)
+    {
+        return new DashboardDetailDto(
+            dashboard.Id,
+            snapshot.Name,
+            snapshot.Description,
+            snapshot.Config,
+            snapshot.Layout,
+            snapshot.Settings.Visibility,
+            snapshot.Settings.IsDefault,
+            snapshot.Publication with { Status = DashboardPublicationStatuses.Published },
+            dashboard.PublishedAt,
+            dashboard.PublishedById,
+            dashboard.ConcurrencyStamp,
+            dashboard.CreatedAt,
+            dashboard.CreatedById,
+            dashboard.UpdatedAt,
+            dashboard.UpdatedById);
+    }
+
+    private DashboardRevisionSnapshotDefinition CreateSnapshot(DashboardDefinition dashboard) => new(
+        dashboard.Name,
+        dashboard.Description,
+        Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new SavedDashboardConfigDefinition(1, Array.Empty<SavedDashboardWidgetDefinition>()),
+        Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new SavedDashboardLayoutDefinition(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>()),
+        DashboardDefinitionAccess.ResolveSettings(dashboard),
+        ToPublication(dashboard));
+
+    private static DashboardRevisionSnapshotDefinition? ResolvePublishedSnapshot(DashboardDefinition dashboard)
+    {
+        if (dashboard.PublishedSnapshotJson is not null)
+        {
+            return Deserialize<DashboardRevisionSnapshotDefinition>(dashboard.PublishedSnapshotJson);
+        }
+        if (dashboard.Status != DashboardPublicationStatuses.Published) return null;
+        return new DashboardRevisionSnapshotDefinition(
+            dashboard.Name,
+            dashboard.Description,
+            Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new SavedDashboardConfigDefinition(1, Array.Empty<SavedDashboardWidgetDefinition>()),
+            Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new SavedDashboardLayoutDefinition(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>()),
+            DashboardDefinitionAccess.ResolveSettings(dashboard),
+            ToPublication(dashboard));
+    }
+
+    private static bool CanViewPublished(DashboardDefinition dashboard, DashboardRevisionSnapshotDefinition snapshot, DashboardAccessContext accessContext)
+    {
+        if (accessContext.CanManageDashboards) return true;
+        if (!string.IsNullOrWhiteSpace(snapshot.Publication.ViewPermission)
+            && !(accessContext.Permissions?.Contains(snapshot.Publication.ViewPermission) ?? false)) return false;
+        if (snapshot.Settings.Visibility == DashboardVisibilityModes.Workspace) return true;
+        return accessContext.UserId.HasValue && dashboard.CreatedById == accessContext.UserId.Value;
+    }
+
+    private async Task CreateRevisionAsync(DashboardDefinition dashboard, string reason, Guid? userId, CancellationToken cancellationToken, DashboardRevisionSnapshotDefinition? snapshot = null)
+    {
+        var revisions = await dbContext.DashboardRevisions
+            .Where(item => item.DashboardId == dashboard.Id)
+            .OrderByDescending(item => item.RevisionNumber)
+            .ToArrayAsync(cancellationToken);
+        dbContext.DashboardRevisions.Add(new DashboardRevision
+        {
+            Id = Guid.NewGuid(),
+            DashboardId = dashboard.Id,
+            RevisionNumber = (revisions.FirstOrDefault()?.RevisionNumber ?? 0) + 1,
+            Reason = reason,
+            SnapshotJson = Serialize(snapshot ?? CreateSnapshot(dashboard)),
+            CreatedById = userId
+        });
+        if (revisions.Length >= 50) dbContext.DashboardRevisions.RemoveRange(revisions.Skip(49));
     }
 
     private static DashboardPublicationSettingsDefinition ToPublication(DashboardDefinition dashboard) => new(

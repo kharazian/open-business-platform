@@ -24,7 +24,7 @@ import { DashboardSectionTabs } from "./DashboardSectionTabs";
 type WidgetState = { status: "loading" | "ready" | "error"; preview?: DashboardAnalyticsResponse; error?: string };
 type FilterSelections = Record<string, DashboardAnalyticsFilterValue | undefined>;
 
-export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail }) {
+export function SavedDashboardViewer({ dashboard, preview = false }: { dashboard: DashboardDetail; preview?: boolean }) {
   const navigate = useNavigate();
   const { formatDate } = useLocalization();
   const sections = useMemo(() => {
@@ -118,14 +118,14 @@ export function SavedDashboardViewer({ dashboard }: { dashboard: DashboardDetail
   return (
     <div className={`grid gap-6 ${focusMode ? "fixed inset-0 z-50 overflow-auto bg-background p-4 sm:p-8" : ""}`}>
       <header className="grid gap-2">
-        <div className="flex flex-wrap items-center gap-2"><Badge tone="success">Published</Badge>{dashboard.isDefault ? <Badge>Default</Badge> : null}</div>
+        <div className="flex flex-wrap items-center gap-2"><Badge tone={preview ? "warning" : "success"}>{preview ? "Draft preview" : "Published"}</Badge>{dashboard.isDefault ? <Badge>Default</Badge> : null}</div>
         <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{dashboard.name}</h1>
         {dashboard.description ? <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{dashboard.description}</p> : null}
-        <p className="text-xs font-semibold text-muted-foreground">Published {formatDate(dashboard.publishedAt ?? dashboard.updatedAt ?? dashboard.createdAt)}</p>
+        <p className="text-xs font-semibold text-muted-foreground">{preview ? "Previewing the current editor draft" : `Published ${formatDate(dashboard.publishedAt ?? dashboard.updatedAt ?? dashboard.createdAt)}`}</p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void refreshVisibleWidgets()} size="sm" variant="outline"><RefreshCw className="size-4" />Refresh current tab</Button>
           <Button onClick={resetCurrentTab} size="sm" variant="outline"><RotateCcw className="size-4" />Reset current tab</Button>
-          <Button onClick={() => void navigator.clipboard.writeText(window.location.href)} size="sm" variant="outline"><Copy className="size-4" />Copy link</Button>
+          {!preview ? <Button onClick={() => void navigator.clipboard.writeText(window.location.href)} size="sm" variant="outline"><Copy className="size-4" />Copy link</Button> : null}
           <Button aria-pressed={focusMode} onClick={() => setFocusMode((current) => !current)} size="sm" variant="outline">{focusMode ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}{focusMode ? "Exit focus" : "Focus mode"}</Button>
         </div>
         {lastSuccessfulRefresh ? <p className="text-xs font-semibold text-muted-foreground">Last successful refresh {formatDate(lastSuccessfulRefresh)}</p> : null}
