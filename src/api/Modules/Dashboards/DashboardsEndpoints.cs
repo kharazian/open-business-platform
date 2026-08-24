@@ -21,6 +21,12 @@ public static class DashboardsEndpoints
             return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetBySlugAsync(slug, await BuildAccessContextAsync(permissionService, httpContext, cancellationToken), cancellationToken)));
         });
 
+        group.MapGet("/sharing-options", async (DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetSharingOptionsAsync(cancellationToken)));
+        });
+
         group.MapGet("", async (
             DashboardDefinitionService dashboards,
             PermissionService permissionService,
@@ -63,6 +69,12 @@ public static class DashboardsEndpoints
         {
             if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
             return await HandleDashboardRequestAsync(async () => Results.Ok(new { items = await dashboards.ListRevisionsAsync(dashboardId, cancellationToken) }));
+        });
+
+        group.MapGet("/{dashboardId:guid}/sharing", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetSharingAsync(dashboardId, cancellationToken)));
         });
 
         group.MapGet("/{dashboardId:guid}/published-comparison", async (Guid dashboardId, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
@@ -150,8 +162,9 @@ public static class DashboardsEndpoints
     private static async Task<DashboardAccessContext> BuildAccessContextAsync(PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken)
     {
         var permissions = await permissionService.GetEffectivePermissionsAsync(httpContext.User, cancellationToken);
+        var subjects = await permissionService.GetSubjectIdsAsync(httpContext.User, cancellationToken);
         return new DashboardAccessContext(GetCurrentUserId(httpContext),
-            permissions.Contains(PlatformPermissions.Dashboards.Manage), permissions.ToHashSet(StringComparer.Ordinal));
+            permissions.Contains(PlatformPermissions.Dashboards.Manage), permissions.ToHashSet(StringComparer.Ordinal), subjects.RoleIds, subjects.GroupIds);
     }
 
     private static async Task<IResult> HandleDashboardRequestAsync(Func<Task<IResult>> action)

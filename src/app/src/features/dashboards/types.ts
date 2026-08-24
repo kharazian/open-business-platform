@@ -153,7 +153,14 @@ export type DashboardVisibility = (typeof dashboardVisibilityModes)[number];
 export type DashboardSettings = {
   visibility: DashboardVisibility;
   isDefault: boolean;
+  viewerUserIds: EntityId[];
+  viewerRoleIds: EntityId[];
+  viewerGroupIds: EntityId[];
 };
+
+export type DashboardSharingSettings = { userIds: EntityId[]; roleIds: EntityId[]; groupIds: EntityId[] };
+export type DashboardSharingOption = { id: EntityId; label: string; description?: string | null };
+export type DashboardSharingOptions = { users: DashboardSharingOption[]; roles: DashboardSharingOption[]; groups: DashboardSharingOption[] };
 
 export type DashboardPublicationStatus = "draft" | "published";
 
@@ -265,7 +272,7 @@ export type DashboardRevisionSnapshot = {
   description?: string | null;
   config: SavedDashboardConfig;
   layout: SavedDashboardLayout;
-  settings: { visibility: DashboardVisibility; isDefault: boolean };
+  settings: DashboardSettings;
   publication: DashboardPublicationSettings;
 };
 

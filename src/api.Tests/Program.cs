@@ -4832,6 +4832,20 @@ var permissionProtectedDashboard = new DashboardDefinition
 };
 AssertFalse(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new DashboardAccessContext(dashboardViewerId, false, new HashSet<string>())), "Dashboard view permissions should be backend enforced.");
 AssertTrue(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new DashboardAccessContext(dashboardViewerId, false, new HashSet<string> { "dashboards.team.view" })), "Users with the configured dashboard permission should be able to view a published workspace dashboard.");
+var sharedRoleId = Guid.NewGuid();
+var sharedGroupId = Guid.NewGuid();
+var audienceDashboard = new DashboardDefinition
+{
+    Id = Guid.NewGuid(), Name = "Audience dashboard", Status = DashboardPublicationStatuses.Published,
+    ConfigJson = SerializeHarnessJson(dashboardConfig), LayoutJson = SerializeHarnessJson(dashboardLayout),
+    ExtraPropertiesJson = SerializeHarnessJson(new DashboardSettingsDefinition(DashboardVisibilityModes.Workspace, false,
+        new[] { dashboardOwnerId }, new[] { sharedRoleId }, new[] { sharedGroupId }))
+};
+AssertTrue(DashboardDefinitionAccess.CanView(audienceDashboard, new DashboardAccessContext(dashboardOwnerId, false)), "Explicit dashboard viewers should receive access.");
+AssertTrue(DashboardDefinitionAccess.CanView(audienceDashboard, new DashboardAccessContext(dashboardViewerId, false, RoleIds: new HashSet<Guid> { sharedRoleId })), "A matching role should receive dashboard access.");
+AssertTrue(DashboardDefinitionAccess.CanView(audienceDashboard, new DashboardAccessContext(dashboardViewerId, false, GroupIds: new HashSet<Guid> { sharedGroupId })), "A matching group should receive dashboard access.");
+AssertFalse(DashboardDefinitionAccess.CanView(audienceDashboard, new DashboardAccessContext(dashboardViewerId, false)), "Unmatched viewers should not receive restricted dashboard access.");
+AssertFalse(DashboardDefinitionAccess.ValidateSettings(new DashboardSettingsDefinition(DashboardVisibilityModes.Private, false, new[] { dashboardViewerId })).Valid, "Private dashboards should reject additional viewers.");
 AssertTrue(DashboardMenuIcons.Approved.Contains("factory"), "Dashboard menus should use approved icon registry keys.");
 AssertTypeAssignable<object, DashboardDefinitionService>();
 AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.DeleteAsync)), "Dashboard management should expose audited soft deletion for lifecycle cleanup.");

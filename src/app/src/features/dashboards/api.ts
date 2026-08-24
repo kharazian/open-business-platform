@@ -8,6 +8,8 @@ import type {
   DashboardNavigationItem,
   DashboardPublishedComparison,
   DashboardRevisionSummary,
+  DashboardSharingOptions,
+  DashboardSharingSettings,
   DashboardSummary,
   DashboardSummaryItem,
   DashboardValidationError,
@@ -48,6 +50,14 @@ export async function getDashboard(dashboardId: string, fetcher: DashboardFetche
     { method: "GET", credentials: "include" },
     fetcher
   );
+}
+
+export async function getDashboardSharing(dashboardId: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardSharingSettings> {
+  return requestJson<DashboardSharingSettings>(`/api/dashboards/${encodeURIComponent(dashboardId)}/sharing`, { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function getDashboardSharingOptions(fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardSharingOptions> {
+  return requestJson<DashboardSharingOptions>("/api/dashboards/sharing-options", { method: "GET", credentials: "include" }, fetcher);
 }
 
 export async function getDashboardBySlug(slug: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {

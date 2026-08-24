@@ -16,10 +16,14 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
   expect(formsResponse.ok()).toBeTruthy();
   const forms = (await formsResponse.json()).items as Array<{ id: string }>;
   expect(forms.length).toBeGreaterThan(0);
+  const sharingOptionsResponse = await page.request.get("/api/dashboards/sharing-options");
+  expect(sharingOptionsResponse.ok()).toBeTruthy();
+  const viewerRole = ((await sharingOptionsResponse.json()).roles as Array<{ id: string; label: string }>).find((role) => role.label === "Viewer");
+  expect(viewerRole).toBeTruthy();
 
   try {
     const createResponse = await page.request.post("/api/dashboards", {
-      data: dashboardRequest(originalName, slug, forms[0].id)
+      data: dashboardRequest(originalName, slug, forms[0].id, viewerRole!.id)
     });
     expect(createResponse.status()).toBe(201);
     const created = await createResponse.json();
@@ -29,6 +33,8 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
     await page.waitForLoadState("networkidle");
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(originalName);
+    await expect(page.getByLabel("Audience")).toHaveValue("restricted");
+    await expect(page.getByRole("group", { name: "Roles" }).getByRole("checkbox", { name: /^Viewer/ })).toBeChecked();
 
     await page.getByRole("button", { name: "Preview draft" }).click();
     await expect(page.getByText("This is not the live dashboard.")).toBeVisible();
@@ -62,8 +68,21 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
       const viewerItem = ((await viewerListResponse.json()).items as Array<{ id: string; name: string }>).find((item) => item.id === dashboardId);
       expect(viewerItem?.name).toBe(originalName);
       expect((await viewerPage.request.get(`/api/dashboards/${dashboardId}/revisions`)).status()).toBe(403);
+      expect((await viewerPage.request.get(`/api/dashboards/${dashboardId}/sharing`)).status()).toBe(403);
     } finally {
       await viewerContext.close();
+    }
+
+    const unrelatedContext = await browser.newContext({ baseURL: "http://127.0.0.1:5174" });
+    try {
+      const unrelatedPage = await unrelatedContext.newPage();
+      await login(unrelatedPage, "user.demo@company.test");
+      expect((await unrelatedPage.request.get(`/api/dashboards/by-slug/${slug}`)).status()).toBe(404);
+      const unrelatedList = await unrelatedPage.request.get("/api/dashboards");
+      expect(unrelatedList.ok()).toBeTruthy();
+      expect(((await unrelatedList.json()).items as Array<{ id: string }>).some((item) => item.id === dashboardId)).toBeFalsy();
+    } finally {
+      await unrelatedContext.close();
     }
 
     page.once("dialog", (dialog) => dialog.accept());
@@ -124,7 +143,7 @@ async function removeInterruptedTestDashboards(request: APIRequestContext) {
   }
 }
 
-function dashboardRequest(name: string, slug: string, formId: string) {
+function dashboardRequest(name: string, slug: string, formId: string, viewerRoleId: string) {
   return {
     name,
     description: "Isolated dashboard lifecycle test.",
@@ -153,7 +172,7 @@ function dashboardRequest(name: string, slug: string, formId: string) {
       filters: null
     },
     layout: { schemaVersion: 1, widgets: [{ id: "record-count", width: "small", order: 1 }] },
-    settings: { visibility: "workspace", isDefault: false },
+    settings: { visibility: "workspace", isDefault: false, viewerUserIds: [], viewerRoleIds: [viewerRoleId], viewerGroupIds: [] },
     publication: { status: "draft", slug, showInNavigation: false, menuLabel: null, menuIcon: "layout-dashboard", menuOrder: 0, viewPermission: null }
   };
 }

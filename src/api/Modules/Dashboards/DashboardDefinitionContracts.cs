@@ -118,6 +118,13 @@ public sealed record DashboardRevisionSummaryDto(Guid Id, int RevisionNumber, st
 
 public sealed record DashboardPublishedComparisonDto(bool HasPublishedVersion, DashboardRevisionSnapshotDefinition? Published, DateTimeOffset? PublishedAt, Guid? PublishedById);
 
+public sealed record DashboardSharingSettingsDto(IReadOnlyCollection<Guid> UserIds, IReadOnlyCollection<Guid> RoleIds, IReadOnlyCollection<Guid> GroupIds);
+public sealed record DashboardSharingOptionDto(Guid Id, string Label, string? Description = null);
+public sealed record DashboardSharingOptionsDto(
+    IReadOnlyCollection<DashboardSharingOptionDto> Users,
+    IReadOnlyCollection<DashboardSharingOptionDto> Roles,
+    IReadOnlyCollection<DashboardSharingOptionDto> Groups);
+
 public sealed record DashboardSummaryDto(
     Guid Id,
     string Name,

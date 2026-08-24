@@ -953,18 +953,23 @@ Create and update requests may include optional dashboard settings:
 {
   "settings": {
     "visibility": "workspace",
-    "isDefault": false
+    "isDefault": false,
+    "viewerUserIds": [],
+    "viewerRoleIds": ["50000000-0000-0000-0000-000000000004"],
+    "viewerGroupIds": []
   }
 }
 ```
 
-Supported visibility values are `workspace` and `private`. Missing settings resolve to `workspace` and `isDefault: false`. Only workspace-visible dashboards can be saved as the shared default. Saving one dashboard as default clears the previous default.
+Supported visibility values are `workspace` and `private`. A workspace dashboard with no viewer IDs is visible workspace-wide; once any user, role, or group is selected, a viewer must match at least one selection. Private dashboards reject additional viewer IDs and remain visible only to their creator and dashboard managers. Sharing is limited to 100 combined entries, and selected subjects must be active in the current workspace. Missing settings resolve to unrestricted workspace visibility and `isDefault: false`. Only workspace-visible dashboards can be saved as the shared default. Saving one dashboard as default clears the previous default.
+
+`GET /api/dashboards/sharing-options` returns active workspace users, roles, and groups for the audience editor. `GET /api/dashboards/{dashboardId}/sharing` returns the editable draft's selected subject IDs. Both endpoints require `dashboards.manage`; normal viewer responses never expose audience identity IDs.
 
 Saved dashboard definitions are persisted in the workspace-owned `dashboards` table. The `DashboardPublishingAndNavigation` migration adds publication status, a workspace-unique slug, navigation metadata, an optional view permission, and publication actor/time. Existing rows backfill to `draft` with navigation disabled.
 
 Analytics widget chart config may include an optional `appearance` object. Supported values are bounded to `theme`, `cool`, `warm`, or `mono` palettes; semantic card accents; boolean legend/data-label/gridline flags; `auto`, `number`, `currency`, or `percent` number formats; a three-letter currency code; and zero to four decimal places. Appearance is presentation-only and is not accepted as an analytics expression or database query input. Missing appearance config uses theme-aware legacy defaults.
 
-`GET /api/dashboards/by-slug/{slug}` returns only a published dashboard visible to the current user. It returns `404` for drafts, unauthorized dashboards, deleted dashboards, and missing slugs so direct links cannot bypass access rules.
+`GET /api/dashboards/by-slug/{slug}` returns only a published dashboard visible to the current user, including user/role/group audience checks from the published snapshot. It returns `404` for drafts, unauthorized dashboards, deleted dashboards, and missing slugs so direct links cannot bypass access rules.
 
 `GET /api/dashboards/navigation` returns only published, navigation-enabled, visible, permitted dashboards, ordered by `menuOrder` and label.
 

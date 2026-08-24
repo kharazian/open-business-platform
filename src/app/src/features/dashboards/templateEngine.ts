@@ -168,7 +168,7 @@ export function instantiateDashboardTemplate(
         schemaVersion: 1,
         widgets: template.widgets.map((widget, order) => ({ id: widgetIds.get(widget.key)!, width: widget.width, order }))
       },
-      settings: { visibility: "workspace", isDefault: false },
+      settings: { visibility: "workspace", isDefault: false, viewerUserIds: [], viewerRoleIds: [], viewerGroupIds: [] },
       publication: { status: "draft", slug: null, showInNavigation: false, menuLabel: null, menuIcon: "layout-dashboard", menuOrder: 0, viewPermission: null }
     }
   };

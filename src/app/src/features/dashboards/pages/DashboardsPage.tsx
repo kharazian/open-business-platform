@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, ExternalLink, GitCompare, GripVertical, History, Keyboard, Move, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
@@ -15,7 +15,7 @@ import type { FormSummary } from "../../forms/drafts";
 import { getReportableFields } from "../../forms/reportableFields";
 import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
-import { createDashboard, DashboardApiError, getDashboard, getDashboardPublishedComparison, listDashboardRevisions, listDashboards, publishDashboard, restoreDashboardRevision, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
+import { createDashboard, DashboardApiError, getDashboard, getDashboardPublishedComparison, getDashboardSharing, getDashboardSharingOptions, listDashboardRevisions, listDashboards, publishDashboard, restoreDashboardRevision, runDashboardAnalytics, unpublishDashboard, updateDashboard } from "../api";
 import {
   buildChartConfigFromDashboardAnalytics,
   buildDashboardAnalyticsRequest,
@@ -54,6 +54,9 @@ import {
   type DashboardPublishedComparison,
   type DashboardRevisionSnapshot,
   type DashboardRevisionSummary,
+  type DashboardSharingOption,
+  type DashboardSharingOptions,
+  type DashboardSettings,
   type DashboardSummaryItem,
   type DashboardValidationError,
   type DashboardVisibility,
@@ -65,10 +68,13 @@ import {
 
 const widthOptions = dashboardWidgetWidths.map((width) => ({ label: width, value: width }));
 const sectionIconOptions = ["activity", "badge-dollar-sign", "chart-column", "clipboard-list", "factory", "gauge", "heart-pulse", "package-check", "shield-check", "trending-up", "wrench"].map((icon) => ({ label: icon.replaceAll("-", " "), value: icon }));
-const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = [
-  { label: "Workspace", value: "workspace" },
-  { label: "Private", value: "private" }
+type DashboardAudience = "workspace" | "restricted" | "private";
+const audienceOptions: Array<{ label: string; value: DashboardAudience }> = [
+  { label: "Everyone in this workspace", value: "workspace" },
+  { label: "Specific people, roles, or groups", value: "restricted" },
+  { label: "Private — only me and dashboard managers", value: "private" }
 ];
+const emptySharingOptions: DashboardSharingOptions = { users: [], roles: [], groups: [] };
 
 type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; filters: DashboardFilterDefinition[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
 
@@ -85,7 +91,12 @@ export function DashboardsPage() {
   const [dashboardName, setDashboardName] = useState("New dashboard");
   const [dashboardDescription, setDashboardDescription] = useState("");
   const [dashboardVisibility, setDashboardVisibility] = useState<DashboardVisibility>("workspace");
+  const [dashboardAudience, setDashboardAudience] = useState<DashboardAudience>("workspace");
   const [dashboardIsDefault, setDashboardIsDefault] = useState(false);
+  const [viewerUserIds, setViewerUserIds] = useState<string[]>([]);
+  const [viewerRoleIds, setViewerRoleIds] = useState<string[]>([]);
+  const [viewerGroupIds, setViewerGroupIds] = useState<string[]>([]);
+  const [sharingOptions, setSharingOptions] = useState<DashboardSharingOptions>(emptySharingOptions);
   const [slug, setSlug] = useState("");
   const [showInNavigation, setShowInNavigation] = useState(false);
   const [menuLabel, setMenuLabel] = useState("");
@@ -253,9 +264,10 @@ export function DashboardsPage() {
     setValidationErrors([]);
 
     try {
-      const [dashboardItems, formItems] = await Promise.all([listDashboards(), listForms()]);
+      const [dashboardItems, formItems, availableSharingOptions] = await Promise.all([listDashboards(), listForms(), getDashboardSharingOptions()]);
       setDashboards(dashboardItems);
       setForms(formItems);
+      setSharingOptions(availableSharingOptions);
       setSelectedDashboardId((current) => current || routeDashboardId || dashboardItems[0]?.id || "");
       setSelectedFormId((current) => current || formItems[0]?.id || "");
     } catch (caught) {
@@ -270,13 +282,15 @@ export function DashboardsPage() {
     setValidationErrors([]);
 
     try {
-      const detail = await getDashboard(dashboardId);
+      const [detail, sharing] = await Promise.all([getDashboard(dashboardId), getDashboardSharing(dashboardId)]);
       setDashboardDetail(detail);
       setDashboardName(detail.name);
       setDashboardDescription(detail.description ?? "");
-      const settings = normalizeDashboardSettings({ visibility: detail.visibility, isDefault: detail.isDefault });
+      const settings = normalizeDashboardSettings({ visibility: detail.visibility, isDefault: detail.isDefault, viewerUserIds: sharing.userIds, viewerRoleIds: sharing.roleIds, viewerGroupIds: sharing.groupIds });
       setDashboardVisibility(settings.visibility);
+      setDashboardAudience(settings.visibility === "private" ? "private" : settings.viewerUserIds.length + settings.viewerRoleIds.length + settings.viewerGroupIds.length > 0 ? "restricted" : "workspace");
       setDashboardIsDefault(settings.isDefault);
+      setViewerUserIds(settings.viewerUserIds); setViewerRoleIds(settings.viewerRoleIds); setViewerGroupIds(settings.viewerGroupIds);
       setSlug(detail.publication.slug ?? "");
       setShowInNavigation(detail.publication.showInNavigation);
       setMenuLabel(detail.publication.menuLabel ?? "");
@@ -291,7 +305,7 @@ export function DashboardsPage() {
       setWidgets(nextWidgets);
       setFilters(detail.config.filters ?? []);
       setLayoutWidgets(detail.layout.widgets);
-      setSavedSignature(JSON.stringify(toDashboardSaveRequest(detail)));
+      setSavedSignature(JSON.stringify(toDashboardSaveRequest(detail, settings)));
       setKeyboardGrabbed(null); setCanvasAnnouncement("");
       setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
       await loadPublishingMetadata(detail.id);
@@ -555,10 +569,10 @@ export function DashboardsPage() {
         ? await updateDashboard(dashboardDetail.id, { ...request, concurrencyStamp: dashboardDetail.concurrencyStamp })
         : await createDashboard(request);
       setDashboardDetail(saved);
-      setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved)));
+      setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved, request.settings)));
       setSelectedDashboardId(saved.id);
       navigate(`/dashboard-builder/${saved.id}`, { replace: true });
-      const settings = normalizeDashboardSettings({ visibility: saved.visibility, isDefault: saved.isDefault });
+      const settings = request.settings;
       setDashboardVisibility(settings.visibility);
       setDashboardIsDefault(settings.isDefault);
       setSections(normalizeDashboardSections(saved.config.sections));
@@ -584,7 +598,9 @@ export function DashboardsPage() {
     setDashboardName("New dashboard");
     setDashboardDescription("");
     setDashboardVisibility("workspace");
+    setDashboardAudience("workspace");
     setDashboardIsDefault(false);
+    setViewerUserIds([]); setViewerRoleIds([]); setViewerGroupIds([]);
     setSlug(""); setShowInNavigation(false); setMenuLabel(""); setMenuIcon("layout-dashboard"); setMenuOrder(0); setViewPermission("");
     setSections([defaultDashboardSection]);
     setSelectedSectionId(defaultDashboardSection.id);
@@ -699,7 +715,8 @@ export function DashboardsPage() {
         saved = await unpublishDashboard(dashboardDetail.id, dashboardDetail.concurrencyStamp);
       }
       setSlug(saved.publication.slug ?? (slug || createDashboardSlug(dashboardName)));
-      setDashboardDetail(saved); setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved))); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Draft published. The live dashboard now matches this version." : "Dashboard unpublished. Its last published version remains in revision history.");
+      const currentSettings = buildSaveRequest().settings;
+      setDashboardDetail(saved); setSavedSignature(JSON.stringify(toDashboardSaveRequest(saved, currentSettings))); setShowInNavigation(saved.publication.showInNavigation); setNotice(saved.publication.status === "published" ? "Draft published. The live dashboard now matches this version." : "Dashboard unpublished. Its last published version remains in revision history.");
       setDashboards(await listDashboards());
       await loadPublishingMetadata(saved.id);
       dispatchDashboardsChanged();
@@ -721,6 +738,13 @@ export function DashboardsPage() {
     return !isDirty || window.confirm("Discard your unsaved dashboard changes?");
   }
 
+  function handleAudienceChange(audience: DashboardAudience) {
+    setDashboardAudience(audience);
+    setDashboardVisibility(audience === "private" ? "private" : "workspace");
+    if (audience === "private") setDashboardIsDefault(false);
+    if (audience !== "restricted") { setViewerUserIds([]); setViewerRoleIds([]); setViewerGroupIds([]); }
+  }
+
   function buildSaveRequest(slugOverride = slug) {
     const normalizedSections = normalizeDashboardSections(sections);
     const normalizedWidgets = assignWidgetsToDashboardSections(widgets, normalizedSections);
@@ -729,7 +753,7 @@ export function DashboardsPage() {
       description: dashboardDescription || null,
       config: { schemaVersion: 1 as const, sections: normalizedSections, widgets: normalizedWidgets, templateProvenance: dashboardDetail?.config.templateProvenance ?? null, filters: filters.length ? filters : null },
       layout: { schemaVersion: 1 as const, widgets: layoutWidgets },
-      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault }),
+      settings: normalizeDashboardSettings({ visibility: dashboardVisibility, isDefault: dashboardIsDefault, viewerUserIds, viewerRoleIds, viewerGroupIds }),
       publication: { status: dashboardDetail?.publication.status ?? "draft", slug: slugOverride || null, showInNavigation, menuLabel: showInNavigation ? (menuLabel.trim() || dashboardName.trim()) : null, menuIcon: menuIcon || null, menuOrder, viewPermission: viewPermission || null }
     };
   }
@@ -744,6 +768,8 @@ export function DashboardsPage() {
   }
 
   const slugError = slug && (slug.length < 2 || slug.length > 100 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) ? "Use 2-100 lowercase letters, numbers, and single hyphens only." : ["new", "builder", "settings"].includes(slug) ? "This slug is reserved." : null;
+  const sharingSelectionCount = viewerUserIds.length + viewerRoleIds.length + viewerGroupIds.length;
+  const sharingError = dashboardAudience === "restricted" && sharingSelectionCount === 0 ? "Choose at least one person, role, or group." : null;
   const publicationDirty = Boolean(dashboardDetail && (slug !== (dashboardDetail.publication.slug ?? "") || showInNavigation !== dashboardDetail.publication.showInNavigation || menuLabel !== (dashboardDetail.publication.menuLabel ?? "") || menuIcon !== (dashboardDetail.publication.menuIcon ?? "layout-dashboard") || menuOrder !== dashboardDetail.publication.menuOrder || viewPermission !== (dashboardDetail.publication.viewPermission ?? "")));
   const liveSnapshot = publishedComparison?.published ?? null;
   const liveSlug = liveSnapshot?.publication.slug ?? null;
@@ -788,7 +814,7 @@ export function DashboardsPage() {
               <Eye className="size-4" />
               Preview draft
             </Button>
-            <Button disabled={saving || widgets.length === 0} onClick={() => void handleSave()}>
+            <Button disabled={saving || widgets.length === 0 || Boolean(sharingError)} onClick={() => void handleSave()}>
               <Save className="size-4" />
               {saving ? "Saving..." : "Save"}
             </Button>
@@ -819,11 +845,21 @@ export function DashboardsPage() {
             {getValidationError("name") ? <p className="text-xs font-semibold text-danger">{getValidationError("name")}</p> : null}
             <Input label="Description" onChange={(event) => setDashboardDescription(event.target.value)} value={dashboardDescription} />
             <Select
-              label="Visibility"
-              onChange={(event) => setDashboardVisibility(event.target.value as DashboardVisibility)}
-              options={visibilityOptions}
-              value={dashboardVisibility}
+              help="Control who can open the published dashboard. Dashboard managers always retain access."
+              label="Audience"
+              onChange={(event) => handleAudienceChange(event.target.value as DashboardAudience)}
+              options={audienceOptions}
+              value={dashboardAudience}
             />
+            {dashboardAudience === "restricted" ? (
+              <div className="grid gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <div><p className="text-sm font-bold">Choose viewers</p><p className="text-xs text-muted-foreground">Access is granted when a viewer matches any selected person, role, or group.</p></div>
+                <SharingChoiceList label="People" options={sharingOptions.users} selectedIds={viewerUserIds} setSelectedIds={setViewerUserIds} />
+                <SharingChoiceList label="Roles" options={sharingOptions.roles} selectedIds={viewerRoleIds} setSelectedIds={setViewerRoleIds} />
+                <SharingChoiceList label="Groups" options={sharingOptions.groups} selectedIds={viewerGroupIds} setSelectedIds={setViewerGroupIds} />
+                {sharingError || getValidationError("settings.sharing") ? <p className="text-xs font-semibold text-danger">{sharingError ?? getValidationError("settings.sharing")}</p> : <p className="text-xs font-semibold text-success">{sharingSelectionCount} audience {sharingSelectionCount === 1 ? "entry" : "entries"} selected.</p>}
+              </div>
+            ) : null}
             <Checkbox
               checked={dashboardIsDefault}
               description="Workspace defaults are selected first for dashboard viewers."
@@ -834,7 +870,7 @@ export function DashboardsPage() {
             <div className="flex flex-wrap gap-2">
               <Badge>{widgets.length} widgets</Badge>
               <Badge>{sections.length} sections</Badge>
-              <Badge tone={dashboardVisibility === "workspace" ? "info" : "warning"}>{getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
+              <Badge tone={dashboardAudience === "workspace" ? "info" : "warning"}>{dashboardAudience === "restricted" ? `Specific audience (${sharingSelectionCount})` : getDashboardVisibilityLabel(dashboardVisibility)}</Badge>
               {dashboardIsDefault ? <Badge tone="success">Default</Badge> : null}
               {isDirty ? <Badge tone="warning">Unsaved changes</Badge> : <Badge tone="success">Saved</Badge>}
             </div>
@@ -843,13 +879,13 @@ export function DashboardsPage() {
               <div><p className="text-sm font-bold text-foreground">Publishing and navigation</p><p className="text-xs text-muted-foreground">Status: {dashboardDetail?.publication.status ?? "draft"}{dashboardDetail?.publishedAt ? ` · Published ${new Date(dashboardDetail.publishedAt).toLocaleString()}` : ""}</p></div>
               <Input label="URL slug" onChange={(event) => setSlug(event.target.value.toLowerCase())} value={slug} />
               {slugError || getValidationError("publication.slug") ? <p className="text-xs font-semibold text-danger">{slugError ?? getValidationError("publication.slug")}</p> : liveSlug && liveSlug !== slug ? <p className="text-xs font-semibold text-warning">The live URL remains /dashboards/{liveSlug} until you publish. Publishing this slug will make the old link stop working.</p> : null}
-              <Checkbox checked={showInNavigation} label="Show in navigation" onChange={(event) => setShowInNavigation(event.target.checked)} />
+              <Checkbox checked={showInNavigation} description="Turn this off for an unlisted dashboard that viewers open only from its direct link." label="Show in navigation" onChange={(event) => setShowInNavigation(event.target.checked)} />
               {showInNavigation ? <><Input label="Menu label" onChange={(event) => setMenuLabel(event.target.value)} value={menuLabel} />{getValidationError("publication.menuLabel") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuLabel")}</p> : !menuLabel.trim() ? <p className="text-xs font-semibold text-muted-foreground">Defaults to the dashboard name.</p> : null}<Select label="Menu icon" onChange={(event) => setMenuIcon(event.target.value)} options={[{label:"Dashboard",value:"layout-dashboard"},{label:"Factory",value:"factory"},{label:"Landmark",value:"landmark"},{label:"Bar chart",value:"chart-column"},{label:"Trend",value:"chart-line"},{label:"Activity",value:"activity"},{label:"Business",value:"briefcase-business"}]} value={menuIcon} />{getValidationError("publication.menuIcon") ? <p className="text-xs font-semibold text-danger">{getValidationError("publication.menuIcon")}</p> : null}<Input label="Menu order" onChange={(event) => setMenuOrder(Number(event.target.value))} type="number" value={menuOrder} /></> : null}
-              <Input label="Required view permission" onChange={(event) => setViewPermission(event.target.value)} value={viewPermission} />
+              {viewPermission ? <Alert title="Legacy permission rule">This dashboard also requires the backend permission “{viewPermission}”. Clear it to use only the audience selected above.<div className="mt-3"><Button onClick={() => setViewPermission("")} size="sm" variant="outline">Clear legacy rule</Button></div></Alert> : null}
               <div className="flex flex-wrap gap-2">
                 {liveSlug ? <Button onClick={() => window.open(`/dashboards/${liveSlug}`, "_blank")} variant="outline"><ExternalLink className="size-4" />Open live</Button> : null}
                 {liveSlug ? <Button onClick={() => void navigator.clipboard.writeText(`${window.location.origin}/dashboards/${liveSlug}`)} variant="outline"><Copy className="size-4" />Copy live link</Button> : null}
-                <Button disabled={!dashboardDetail || saving || Boolean(slugError)} onClick={() => void handlePublicationAction("publish")}>{dashboardDetail?.publication.status === "published" ? "Publish changes" : "Publish dashboard"}</Button>
+                <Button disabled={!dashboardDetail || saving || Boolean(slugError) || Boolean(sharingError)} onClick={() => void handlePublicationAction("publish")}>{dashboardDetail?.publication.status === "published" ? "Publish changes" : "Publish dashboard"}</Button>
                 {dashboardDetail?.publication.status === "published" ? <Button disabled={saving} onClick={() => void handlePublicationAction("unpublish")} variant="danger">Unpublish</Button> : null}
               </div>
               {publicationDirty ? <p className="text-xs font-semibold text-warning">Pending publishing settings will be saved with the publish action.</p> : null}
@@ -1090,7 +1126,7 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Dashboard request failed.";
 }
 
-function toDashboardSaveRequest(dashboard: DashboardDetail) {
+function toDashboardSaveRequest(dashboard: DashboardDetail, sharing?: DashboardSettings) {
   const sections = normalizeDashboardSections(dashboard.config.sections);
   const widgets = assignWidgetsToDashboardSections(dashboard.config.widgets, sections);
   const showInNavigation = dashboard.publication.showInNavigation;
@@ -1105,7 +1141,7 @@ function toDashboardSaveRequest(dashboard: DashboardDetail) {
       filters: dashboard.config.filters?.length ? dashboard.config.filters : null
     },
     layout: { schemaVersion: 1 as const, widgets: dashboard.layout.widgets },
-    settings: normalizeDashboardSettings({ visibility: dashboard.visibility, isDefault: dashboard.isDefault }),
+    settings: normalizeDashboardSettings(sharing ?? { visibility: dashboard.visibility, isDefault: dashboard.isDefault }),
     publication: {
       status: dashboard.publication.status,
       slug: dashboard.publication.slug ?? null,
@@ -1116,6 +1152,18 @@ function toDashboardSaveRequest(dashboard: DashboardDetail) {
       viewPermission: dashboard.publication.viewPermission ?? null
     }
   };
+}
+
+function SharingChoiceList({ label, options, selectedIds, setSelectedIds }: {
+  label: string;
+  options: DashboardSharingOption[];
+  selectedIds: string[];
+  setSelectedIds: Dispatch<SetStateAction<string[]>>;
+}) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = normalizedQuery ? options.filter((option) => `${option.label} ${option.description ?? ""}`.toLowerCase().includes(normalizedQuery)) : options;
+  return <fieldset className="grid gap-2"><legend className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</legend>{options.length > 3 ? <Input aria-label={`Search ${label.toLowerCase()}`} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${label.toLowerCase()}…`} value={query} /> : null}<div className="grid max-h-44 gap-2 overflow-y-auto pr-1">{filtered.length ? filtered.map((option) => <Checkbox checked={selectedIds.includes(option.id)} description={option.description ?? undefined} key={option.id} label={option.label} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...new Set([...current, option.id])] : current.filter((id) => id !== option.id))} />) : <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">{options.length ? `No ${label.toLowerCase()} match your search.` : `No active ${label.toLowerCase()} are available.`}</p>}</div></fieldset>;
 }
 
 function normalizeDashboardRevisionSnapshot(snapshot: DashboardRevisionSnapshot) {

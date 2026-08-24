@@ -102,6 +102,7 @@ public sealed class DashboardDefinitionService
     {
         var name = NormalizeName(request.Name);
         var settings = ValidateSettings(request.Settings);
+        await ValidateSharingSubjectsAsync(settings, cancellationToken);
         await ValidateRequestAsync(name, request.Config, request.Layout, cancellationToken);
         var publication = await ValidatePublicationAsync(request.Publication, null, cancellationToken);
 
@@ -149,6 +150,7 @@ public sealed class DashboardDefinitionService
 
         var name = NormalizeName(request.Name);
         var settings = request.Settings is null ? DashboardDefinitionAccess.ResolveSettings(dashboard) : ValidateSettings(request.Settings);
+        await ValidateSharingSubjectsAsync(settings, cancellationToken);
         await ValidateRequestAsync(name, request.Config, request.Layout, cancellationToken);
         var publication = await ValidatePublicationAsync(request.Publication ?? ToPublication(dashboard), dashboard.Id, cancellationToken,
             dashboard.Status == DashboardPublicationStatuses.Published, request.Config);
@@ -182,6 +184,7 @@ public sealed class DashboardDefinitionService
         EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
         var config = Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new(1, Array.Empty<SavedDashboardWidgetDefinition>());
         var layout = Deserialize<SavedDashboardLayoutDefinition>(dashboard.LayoutJson) ?? new(1, Array.Empty<SavedDashboardWidgetLayoutDefinition>());
+        await ValidateSharingSubjectsAsync(DashboardDefinitionAccess.ResolveSettings(dashboard), cancellationToken);
         await ValidateRequestAsync(NormalizeName(dashboard.Name), config, layout, cancellationToken);
         await ValidatePublicationAsync(ToPublication(dashboard) with { Status = DashboardPublicationStatuses.Published }, dashboard.Id, cancellationToken, requirePublishable: true, config);
         var snapshot = CreateSnapshot(dashboard) with { Publication = ToPublication(dashboard) with { Status = DashboardPublicationStatuses.Published } };
@@ -265,6 +268,30 @@ public sealed class DashboardDefinitionService
         return new DashboardPublishedComparisonDto(snapshot is not null, snapshot, dashboard.PublishedAt, dashboard.PublishedById);
     }
 
+    public async Task<DashboardSharingSettingsDto> GetSharingAsync(Guid dashboardId, CancellationToken cancellationToken)
+    {
+        var settings = DashboardDefinitionAccess.ResolveSettings(await FindManagedAsync(dashboardId, cancellationToken));
+        return new DashboardSharingSettingsDto(
+            settings.ViewerUserIds ?? Array.Empty<Guid>(),
+            settings.ViewerRoleIds ?? Array.Empty<Guid>(),
+            settings.ViewerGroupIds ?? Array.Empty<Guid>());
+    }
+
+    public async Task<DashboardSharingOptionsDto> GetSharingOptionsAsync(CancellationToken cancellationToken)
+    {
+        var users = await dbContext.Users.AsNoTracking()
+            .Where(user => user.IsActive && user.WorkspaceMemberships.Any(membership =>
+                membership.WorkspaceId == dbContext.ActiveWorkspaceId && membership.Status == WorkspaceMembershipStatuses.Active))
+            .OrderBy(user => user.Name)
+            .Select(user => new DashboardSharingOptionDto(user.Id, user.Name, user.Email))
+            .ToArrayAsync(cancellationToken);
+        var roles = await dbContext.Roles.AsNoTracking().Where(role => role.IsActive).OrderBy(role => role.Name)
+            .Select(role => new DashboardSharingOptionDto(role.Id, role.Name, role.Description)).ToArrayAsync(cancellationToken);
+        var groups = await dbContext.Groups.AsNoTracking().Where(group => group.IsActive).OrderBy(group => group.Name)
+            .Select(group => new DashboardSharingOptionDto(group.Id, group.Name, group.Description)).ToArrayAsync(cancellationToken);
+        return new DashboardSharingOptionsDto(users, roles, groups);
+    }
+
     public async Task<DashboardDetailDto> RestoreRevisionAsync(Guid dashboardId, Guid revisionId, DashboardRevisionRestoreRequest request, Guid? userId, CancellationToken cancellationToken)
     {
         var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
@@ -275,6 +302,7 @@ public sealed class DashboardDefinitionService
             ?? throw new DashboardDefinitionException(StatusCodes.Status409Conflict, "Dashboard revision snapshot is invalid.");
         var name = NormalizeName(snapshot.Name);
         var settings = ValidateSettings(snapshot.Settings);
+        await ValidateSharingSubjectsAsync(settings, cancellationToken);
         await ValidateRequestAsync(name, snapshot.Config, snapshot.Layout, cancellationToken);
         var publication = await ValidatePublicationAsync(snapshot.Publication, dashboard.Id, cancellationToken,
             dashboard.Status == DashboardPublicationStatuses.Published, snapshot.Config);
@@ -352,6 +380,28 @@ public sealed class DashboardDefinitionService
         }
 
         return DashboardDefinitionAccess.NormalizeSettings(settings);
+    }
+
+    private async Task ValidateSharingSubjectsAsync(DashboardSettingsDefinition settings, CancellationToken cancellationToken)
+    {
+        var userIds = settings.ViewerUserIds ?? Array.Empty<Guid>();
+        var roleIds = settings.ViewerRoleIds ?? Array.Empty<Guid>();
+        var groupIds = settings.ViewerGroupIds ?? Array.Empty<Guid>();
+        var errors = new List<DashboardValidationError>();
+
+        if (userIds.Count > 0)
+        {
+            var valid = await dbContext.Users.AsNoTracking().Where(user => userIds.Contains(user.Id) && user.IsActive
+                && user.WorkspaceMemberships.Any(membership => membership.WorkspaceId == dbContext.ActiveWorkspaceId
+                    && membership.Status == WorkspaceMembershipStatuses.Active)).Select(user => user.Id).ToArrayAsync(cancellationToken);
+            if (valid.Length != userIds.Count) errors.Add(new("settings.viewerUserIds", "dashboard.sharing.user_invalid", "One or more selected users are inactive or outside this workspace."));
+        }
+        if (roleIds.Count > 0 && await dbContext.Roles.AsNoTracking().CountAsync(role => roleIds.Contains(role.Id) && role.IsActive, cancellationToken) != roleIds.Count)
+            errors.Add(new("settings.viewerRoleIds", "dashboard.sharing.role_invalid", "One or more selected roles are inactive or unavailable."));
+        if (groupIds.Count > 0 && await dbContext.Groups.AsNoTracking().CountAsync(group => groupIds.Contains(group.Id) && group.IsActive, cancellationToken) != groupIds.Count)
+            errors.Add(new("settings.viewerGroupIds", "dashboard.sharing.group_invalid", "One or more selected groups are inactive or unavailable."));
+
+        if (errors.Count > 0) throw new DashboardDefinitionException(StatusCodes.Status400BadRequest, "Dashboard sharing settings are invalid.", errors);
     }
 
     private async Task<DashboardPublicationSettingsDefinition> ValidatePublicationAsync(
@@ -570,7 +620,16 @@ public sealed class DashboardDefinitionService
         if (accessContext.CanManageDashboards) return true;
         if (!string.IsNullOrWhiteSpace(snapshot.Publication.ViewPermission)
             && !(accessContext.Permissions?.Contains(snapshot.Publication.ViewPermission) ?? false)) return false;
-        if (snapshot.Settings.Visibility == DashboardVisibilityModes.Workspace) return true;
+        if (snapshot.Settings.Visibility == DashboardVisibilityModes.Workspace)
+        {
+            var userIds = snapshot.Settings.ViewerUserIds ?? Array.Empty<Guid>();
+            var roleIds = snapshot.Settings.ViewerRoleIds ?? Array.Empty<Guid>();
+            var groupIds = snapshot.Settings.ViewerGroupIds ?? Array.Empty<Guid>();
+            if (userIds.Count == 0 && roleIds.Count == 0 && groupIds.Count == 0) return true;
+            return accessContext.UserId.HasValue && userIds.Contains(accessContext.UserId.Value)
+                || roleIds.Any(id => accessContext.RoleIds?.Contains(id) ?? false)
+                || groupIds.Any(id => accessContext.GroupIds?.Contains(id) ?? false);
+        }
         return accessContext.UserId.HasValue && dashboard.CreatedById == accessContext.UserId.Value;
     }
 

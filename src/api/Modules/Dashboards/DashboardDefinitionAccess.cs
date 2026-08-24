@@ -17,9 +17,17 @@ public static class DashboardVisibilityModes
 
 public sealed record DashboardSettingsDefinition(
     string Visibility = DashboardVisibilityModes.Workspace,
-    bool IsDefault = false);
+    bool IsDefault = false,
+    IReadOnlyCollection<Guid>? ViewerUserIds = null,
+    IReadOnlyCollection<Guid>? ViewerRoleIds = null,
+    IReadOnlyCollection<Guid>? ViewerGroupIds = null);
 
-public sealed record DashboardAccessContext(Guid? UserId, bool CanManageDashboards, IReadOnlySet<string>? Permissions = null);
+public sealed record DashboardAccessContext(
+    Guid? UserId,
+    bool CanManageDashboards,
+    IReadOnlySet<string>? Permissions = null,
+    IReadOnlySet<Guid>? RoleIds = null,
+    IReadOnlySet<Guid>? GroupIds = null);
 
 public static class DashboardPublicationStatuses
 {
@@ -57,7 +65,10 @@ public static class DashboardDefinitionAccess
 
         return new DashboardSettingsDefinition(
             string.IsNullOrWhiteSpace(visibility) ? DashboardVisibilityModes.Workspace : visibility,
-            settings?.IsDefault ?? false);
+            settings?.IsDefault ?? false,
+            NormalizeIds(settings?.ViewerUserIds),
+            NormalizeIds(settings?.ViewerRoleIds),
+            NormalizeIds(settings?.ViewerGroupIds));
     }
 
     public static DashboardValidationResult ValidateSettings(DashboardSettingsDefinition? settings)
@@ -79,6 +90,16 @@ public static class DashboardDefinitionAccess
                 "settings.isDefault",
                 "dashboard.default.private_not_supported",
                 "Only workspace-visible dashboards can be the shared default."));
+        }
+
+        var sharingCount = normalized.ViewerUserIds!.Count + normalized.ViewerRoleIds!.Count + normalized.ViewerGroupIds!.Count;
+        if (sharingCount > 100)
+        {
+            errors.Add(new DashboardValidationError("settings.sharing", "dashboard.sharing.limit", "Choose at most 100 users, roles, and groups combined."));
+        }
+        if (string.Equals(normalized.Visibility, DashboardVisibilityModes.Private, StringComparison.Ordinal) && sharingCount > 0)
+        {
+            errors.Add(new DashboardValidationError("settings.sharing", "dashboard.sharing.private_not_supported", "Private dashboards cannot include additional viewers."));
         }
 
         return new DashboardValidationResult(errors);
@@ -124,7 +145,13 @@ public static class DashboardDefinitionAccess
 
         if (string.Equals(settings.Visibility, DashboardVisibilityModes.Workspace, StringComparison.Ordinal))
         {
-            return true;
+            var userIds = settings.ViewerUserIds ?? Array.Empty<Guid>();
+            var roleIds = settings.ViewerRoleIds ?? Array.Empty<Guid>();
+            var groupIds = settings.ViewerGroupIds ?? Array.Empty<Guid>();
+            if (userIds.Count == 0 && roleIds.Count == 0 && groupIds.Count == 0) return true;
+            return accessContext.UserId.HasValue && userIds.Contains(accessContext.UserId.Value)
+                || roleIds.Any(id => accessContext.RoleIds?.Contains(id) ?? false)
+                || groupIds.Any(id => accessContext.GroupIds?.Contains(id) ?? false);
         }
 
         return accessContext.UserId.HasValue && dashboard.CreatedById == accessContext.UserId.Value;
@@ -151,4 +178,7 @@ public static class DashboardDefinitionAccess
             return null;
         }
     }
+
+    private static IReadOnlyCollection<Guid> NormalizeIds(IReadOnlyCollection<Guid>? ids) =>
+        (ids ?? Array.Empty<Guid>()).Where(id => id != Guid.Empty).Distinct().Take(101).ToArray();
 }

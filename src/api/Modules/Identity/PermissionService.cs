@@ -6,6 +6,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 namespace OpenBusinessPlatform.Api.Modules.Identity;
 
 public sealed record FieldAccessResult(IReadOnlySet<string> HiddenFieldIds, IReadOnlySet<string> ReadOnlyFieldIds);
+public sealed record PermissionSubjectIds(IReadOnlySet<Guid> RoleIds, IReadOnlySet<Guid> GroupIds);
 
 public sealed class PermissionService(
     OpenBusinessPlatformDbContext dbContext,
@@ -57,6 +58,19 @@ public sealed class PermissionService(
             .AnyAsync(userRole => userRole.Role!.Permissions.Any(rolePermission => rolePermission.Permission == permission), cancellationToken);
         return granted && !await accessPolicies.IsDeniedAsync(
             principal, new(AccessPolicyResourceTypes.Platform, null, permission), cancellationToken);
+    }
+
+    public async Task<PermissionSubjectIds> GetSubjectIdsAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        var userId = GetLocalUserId(principal);
+        if (userId is null) return new PermissionSubjectIds(new HashSet<Guid>(), new HashSet<Guid>());
+        var roleIds = await dbContext.UserRoles.AsNoTracking()
+            .Where(item => item.UserId == userId.Value && item.Role != null && item.Role.IsActive)
+            .Select(item => item.RoleId).ToHashSetAsync(cancellationToken);
+        var groupIds = await dbContext.UserGroups.AsNoTracking()
+            .Where(item => item.UserId == userId.Value && item.Group != null && item.Group.IsActive)
+            .Select(item => item.GroupId).ToHashSetAsync(cancellationToken);
+        return new PermissionSubjectIds(roleIds, groupIds);
     }
 
     public async Task<bool> CanAccessFormAsync(

@@ -373,9 +373,10 @@ test("dashboard viewer helpers label V7 widget types", () => {
 });
 
 test("dashboard settings helpers normalize visibility defaults", () => {
-  assert.deepEqual(normalizeDashboardSettings(null), { visibility: "workspace", isDefault: false });
-  assert.deepEqual(normalizeDashboardSettings({ visibility: "private", isDefault: true }), { visibility: "private", isDefault: false });
-  assert.deepEqual(normalizeDashboardSettings({ visibility: "workspace", isDefault: true }), { visibility: "workspace", isDefault: true });
+  const emptySettings = { visibility: "workspace", isDefault: false, viewerUserIds: [], viewerRoleIds: [], viewerGroupIds: [] };
+  assert.deepEqual(normalizeDashboardSettings(null), emptySettings);
+  assert.deepEqual(normalizeDashboardSettings({ visibility: "private", isDefault: true, viewerUserIds: ["user-1"] }), { ...emptySettings, visibility: "private" });
+  assert.deepEqual(normalizeDashboardSettings({ visibility: "workspace", isDefault: true, viewerRoleIds: ["role-1", "role-1"] }), { ...emptySettings, isDefault: true, viewerRoleIds: ["role-1"] });
   assert.equal(getDashboardVisibilityLabel("workspace"), "Workspace");
   assert.equal(getDashboardVisibilityLabel("private"), "Private");
 });

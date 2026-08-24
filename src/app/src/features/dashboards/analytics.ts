@@ -103,8 +103,15 @@ export function normalizeDashboardSettings(settings?: Partial<DashboardSettings>
 
   return {
     visibility,
-    isDefault: visibility === "workspace" ? Boolean(settings?.isDefault) : false
+    isDefault: visibility === "workspace" ? Boolean(settings?.isDefault) : false,
+    viewerUserIds: visibility === "workspace" ? normalizeIds(settings?.viewerUserIds) : [],
+    viewerRoleIds: visibility === "workspace" ? normalizeIds(settings?.viewerRoleIds) : [],
+    viewerGroupIds: visibility === "workspace" ? normalizeIds(settings?.viewerGroupIds) : []
   };
+}
+
+function normalizeIds(values?: string[]): string[] {
+  return [...new Set((values ?? []).filter(Boolean))];
 }
 
 export function getDashboardVisibilityLabel(visibility: DashboardVisibility): string {

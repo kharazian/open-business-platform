@@ -802,11 +802,14 @@ V7 task 004 adds conservative dashboard visibility/default metadata in `extra_pr
 ```json
 {
   "visibility": "workspace",
-  "isDefault": false
+  "isDefault": false,
+  "viewerUserIds": [],
+  "viewerRoleIds": [],
+  "viewerGroupIds": []
 }
 ```
 
-Supported visibility values are `workspace` and `private`. Only published dashboards are visible to normal viewers; legacy rows remain drafts after the publication migration. Private published dashboards are visible to their creator and dashboard managers only. Only workspace-visible dashboards can be saved as the shared default.
+Supported visibility values are `workspace` and `private`. Empty viewer arrays preserve workspace-wide access. Non-empty arrays restrict a workspace dashboard with OR semantics across active users, role memberships, and group memberships. Audience IDs live only in existing JSONB draft, revision, and published-snapshot settings, so this addition has no relational migration. Only published dashboards are visible to normal viewers; legacy rows remain drafts after the publication migration. Private published dashboards are visible to their creator and dashboard managers only. Only workspace-visible dashboards can be saved as the shared default.
 
 Publication/navigation columns are `status`, `slug`, `show_in_navigation`, `menu_label`, `menu_icon`, `menu_order`, `view_permission`, `published_at`, and `published_by_id`. `(workspace_id, slug)` has a unique index and `(workspace_id, status, show_in_navigation)` supports the shell navigation query. Approved icon registry keys are stored rather than React component names.
 
