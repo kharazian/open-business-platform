@@ -20,8 +20,9 @@ Implement and verify these increments in order. Each increment must preserve bac
 5. **Improved add-widget experience — implemented**
    - Searchable visualization gallery, recommended chart hints, source-first wizard, sample preview, recent choices
    - Four guided steps with field-capability validation and responsive controls
-6. **Canvas productivity**
+6. **Canvas productivity — implemented**
    - Undo/redo, multi-select, bulk move/resize/delete, duplicate section, collapse sections, zoom/density controls
+   - Thirty-step draft history with existing dashboard bounds enforced before bulk or duplicate operations
 7. **Filter authoring**
    - Add/edit/reorder filters, widget targeting, defaults, required/optional state, dependency-safe option previews
 8. **Interaction and drill-through**

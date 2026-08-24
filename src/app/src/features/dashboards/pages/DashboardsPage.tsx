@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, GripVertical, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, ExternalLink, GripVertical, Pencil, Plus, Redo2, RefreshCw, Save, Trash2, Undo2, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
 import { Badge } from "../../../components/ui/Badge";
@@ -35,6 +35,7 @@ import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery
 import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "../layout";
+import { appendBoundedCanvasHistory, canDuplicateDashboardSection, toggleDashboardWidgetSelection } from "../canvasProductivity";
 import { dispatchDashboardsChanged } from "../events";
 import { assignWidgetsToDashboardSections, createDashboardSectionId, defaultDashboardSection, moveDashboardSection, normalizeDashboardSections } from "../sections";
 import { instantiateDashboardTemplate, type DashboardTemplateSourceBinding } from "../templateEngine";
@@ -62,6 +63,8 @@ const visibilityOptions: Array<{ label: string; value: DashboardVisibility }> = 
   { label: "Workspace", value: "workspace" },
   { label: "Private", value: "private" }
 ];
+
+type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
 
 export function DashboardsPage() {
   const navigate = useNavigate();
@@ -119,6 +122,14 @@ export function DashboardsPage() {
   const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [editingWidgetId, setEditingWidgetId] = useState<string | null>(null);
+  const [undoStack, setUndoStack] = useState<CanvasSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<CanvasSnapshot[]>([]);
+  const [selectedWidgetIds, setSelectedWidgetIds] = useState<Set<string>>(new Set());
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+  const [bulkSectionId, setBulkSectionId] = useState(defaultDashboardSection.id);
+  const [bulkWidth, setBulkWidth] = useState<DashboardWidgetWidth>("medium");
+  const [canvasDensity, setCanvasDensity] = useState<"comfortable" | "compact">("comfortable");
+  const [canvasZoom, setCanvasZoom] = useState(100);
 
   useEffect(() => {
     void loadInitialData();
@@ -249,8 +260,10 @@ export function DashboardsPage() {
       const nextWidgets = assignWidgetsToDashboardSections(detail.config.widgets, nextSections);
       setSections(nextSections);
       setSelectedSectionId(nextSections[0].id);
+      setBulkSectionId(nextSections[0].id);
       setWidgets(nextWidgets);
       setLayoutWidgets(detail.layout.widgets);
+      setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
       await loadPreviews(nextWidgets);
     } catch (caught) {
       setRequestError(caught);
@@ -297,6 +310,12 @@ export function DashboardsPage() {
     return buildChartConfigFromDashboardAnalytics(builderConfig);
   }
 
+  function currentCanvasSnapshot(): CanvasSnapshot { return { sections: [...sections], widgets: [...widgets], layout: [...layoutWidgets], previews: { ...previewStates } }; }
+  function recordCanvasHistory() { const snapshot = currentCanvasSnapshot(); setUndoStack((current) => appendBoundedCanvasHistory(current, snapshot)); setRedoStack([]); }
+  function restoreCanvasSnapshot(snapshot: CanvasSnapshot) { setSections(snapshot.sections); setWidgets(snapshot.widgets); setLayoutWidgets(snapshot.layout); setPreviewStates(snapshot.previews); setSelectedWidgetIds(new Set()); }
+  function handleUndo() { const snapshot = undoStack.at(-1); if (!snapshot) return; const current = currentCanvasSnapshot(); setUndoStack((items) => items.slice(0, -1)); setRedoStack((items) => appendBoundedCanvasHistory(items, current)); restoreCanvasSnapshot(snapshot); setNotice("Canvas change undone."); }
+  function handleRedo() { const snapshot = redoStack.at(-1); if (!snapshot) return; const current = currentCanvasSnapshot(); setRedoStack((items) => items.slice(0, -1)); setUndoStack((items) => appendBoundedCanvasHistory(items, current)); restoreCanvasSnapshot(snapshot); setNotice("Canvas change restored."); }
+
   async function handleAddWidget(): Promise<boolean> {
     if (!canAddWidget) return false;
 
@@ -308,6 +327,7 @@ export function DashboardsPage() {
 
     try {
       const preview = chart ? await runDashboardAnalytics(buildDashboardAnalyticsRequest(selectedFormId, chart)) : null;
+      recordCanvasHistory();
       setWidgets((current) => [...current, widget]);
       setLayoutWidgets((current) => [...current, { id, width: widgetWidth, order: current.length + 1 }]);
       if (preview) setPreviewStates((current) => ({ ...current, [id]: { status: "ready", preview } }));
@@ -320,6 +340,7 @@ export function DashboardsPage() {
   }
 
   function handleRemoveWidget(widgetId: string) {
+    recordCanvasHistory();
     setWidgets((current) => current.filter((widget) => widget.id !== widgetId));
     setLayoutWidgets((current) => current.filter((item) => item.id !== widgetId).map((item, index) => ({ ...item, order: index + 1 })));
     setPreviewStates((current) => {
@@ -330,6 +351,7 @@ export function DashboardsPage() {
   }
 
   function handleMoveWidget(widgetId: string, direction: -1 | 1) {
+    recordCanvasHistory();
     setLayoutWidgets((current) => {
       const ordered = orderDashboardLayoutWidgets(current);
       const index = ordered.findIndex((item) => item.id === widgetId);
@@ -345,6 +367,7 @@ export function DashboardsPage() {
     const widget = widgets.find((item) => item.id === widgetId);
     const layout = layoutWidgets.find((item) => item.id === widgetId);
     if (!widget || !layout || widgets.length >= 48) return;
+    recordCanvasHistory();
     const id = `widget-${Date.now()}`;
     setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
     setLayoutWidgets((current) => [...current, { id, width: layout.width, order: current.length + 1 }]);
@@ -353,6 +376,7 @@ export function DashboardsPage() {
   }
 
   function handleApplyWidgetProperties(nextWidget: SavedDashboardWidget, width: DashboardWidgetWidth, preview?: DashboardAnalyticsResponse) {
+    recordCanvasHistory();
     setWidgets((current) => current.map((widget) => widget.id === nextWidget.id ? nextWidget : widget));
     setLayoutWidgets((current) => current.map((layout) => layout.id === nextWidget.id ? { ...layout, width } : layout));
     if (preview) setPreviewStates((current) => ({ ...current, [nextWidget.id]: { status: "ready", preview } }));
@@ -364,6 +388,8 @@ export function DashboardsPage() {
   function handleAddSection() {
     const title = newSectionTitle.trim();
     if (!title) return;
+    if (sections.length >= 16) return;
+    recordCanvasHistory();
     const section = { id: createDashboardSectionId(title, sections), title, order: sections.length };
     setSections((current) => [...current, section]);
     setSelectedSectionId(section.id);
@@ -371,14 +397,17 @@ export function DashboardsPage() {
   }
 
   function handleRenameSection(sectionId: string, title: string) {
+    recordCanvasHistory();
     setSections((current) => current.map((section) => section.id === sectionId ? { ...section, title } : section));
   }
 
   function handleSectionIcon(sectionId: string, icon: string) {
+    recordCanvasHistory();
     setSections((current) => current.map((section) => section.id === sectionId ? { ...section, icon: icon || null } : section));
   }
 
   function handleMoveSection(sectionId: string, direction: -1 | 1) {
+    recordCanvasHistory();
     setSections((current) => {
       const index = current.findIndex((section) => section.id === sectionId);
       const targetIndex = index + direction;
@@ -391,6 +420,7 @@ export function DashboardsPage() {
 
   function handleDropSection(targetSectionId: string, sourceSectionId = draggedSectionId) {
     if (!sourceSectionId) return;
+    recordCanvasHistory();
     setSections((current) => moveDashboardSection(current, sourceSectionId, targetSectionId));
     setDraggedSectionId(null);
     setDropTargetId(null);
@@ -399,6 +429,7 @@ export function DashboardsPage() {
 
   function handleDropWidget(sectionId: string, targetWidgetId: string | null, sourceWidgetId = draggedWidgetId) {
     if (!sourceWidgetId) return;
+    recordCanvasHistory();
     setWidgets((current) => current.map((widget) => widget.id === sourceWidgetId ? { ...widget, sectionId } : widget));
     setLayoutWidgets((current) => moveDashboardLayoutWidget(current, sourceWidgetId, targetWidgetId));
     setDraggedWidgetId(null);
@@ -408,12 +439,36 @@ export function DashboardsPage() {
 
   function handleRemoveSection(sectionId: string) {
     if (sections.length === 1) return;
+    recordCanvasHistory();
     const nextSections = sections.filter((section) => section.id !== sectionId).map((section, order) => ({ ...section, order }));
     const fallbackSectionId = nextSections[0].id;
     setSections(nextSections);
     setWidgets((current) => current.map((widget) => widget.sectionId === sectionId ? { ...widget, sectionId: fallbackSectionId } : widget));
     if (selectedSectionId === sectionId) setSelectedSectionId(fallbackSectionId);
   }
+
+  function handleDuplicateSection(sectionId: string) {
+    const source = sections.find((section) => section.id === sectionId);
+    const sourceWidgets = widgets.filter((widget) => widget.sectionId === sectionId);
+    if (!source || !canDuplicateDashboardSection(sections, widgets, sectionId)) return;
+    recordCanvasHistory();
+    const section = { ...source, id: createDashboardSectionId(`${source.title} copy`, sections), title: `${source.title} copy`, order: sections.length };
+    const idMap = new Map(sourceWidgets.map((widget, index) => [widget.id, `widget-${Date.now()}-${index}`]));
+    const copies = sourceWidgets.map((widget) => ({ ...widget, id: idMap.get(widget.id)!, title: `${widget.title} copy`, sectionId: section.id, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }));
+    const nextLayouts = sourceWidgets.map((widget, index) => { const layout = layoutWidgets.find((item) => item.id === widget.id); return { id: idMap.get(widget.id)!, width: layout?.width ?? "medium" as DashboardWidgetWidth, order: layoutWidgets.length + index + 1 }; });
+    setSections((current) => [...current, section]); setWidgets((current) => [...current, ...copies]); setLayoutWidgets((current) => [...current, ...nextLayouts]);
+    setPreviewStates((current) => { const next = { ...current }; sourceWidgets.forEach((widget) => { next[idMap.get(widget.id)!] = current[widget.id]; }); return next; });
+    setCollapsedSectionIds((current) => { const next = new Set(current); next.delete(section.id); return next; });
+    setNotice("Section duplicated. Save the dashboard to persist it.");
+  }
+
+  function toggleWidgetSelection(widgetId: string) { setSelectedWidgetIds((current) => toggleDashboardWidgetSelection(current, widgetId)); }
+  function handleBulkMove() { if (!selectedWidgetIds.size || !sections.some((section) => section.id === bulkSectionId)) return; if (widgets.filter((widget) => widget.sectionId === bulkSectionId && !selectedWidgetIds.has(widget.id)).length + selectedWidgetIds.size > 16) { setError("The destination section supports at most 16 widgets."); return; } recordCanvasHistory(); setWidgets((current) => current.map((widget) => selectedWidgetIds.has(widget.id) ? { ...widget, sectionId: bulkSectionId } : widget)); setNotice(`${selectedWidgetIds.size} widgets moved.`); }
+  function handleBulkResize() { if (!selectedWidgetIds.size) return; recordCanvasHistory(); setLayoutWidgets((current) => current.map((layout) => selectedWidgetIds.has(layout.id) ? { ...layout, width: bulkWidth } : layout)); setNotice(`${selectedWidgetIds.size} widgets resized.`); }
+  function handleBulkDelete() { if (!selectedWidgetIds.size) return; recordCanvasHistory(); setWidgets((current) => current.filter((widget) => !selectedWidgetIds.has(widget.id))); setLayoutWidgets((current) => current.filter((layout) => !selectedWidgetIds.has(layout.id)).map((layout, order) => ({ ...layout, order: order + 1 }))); setPreviewStates((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !selectedWidgetIds.has(id)))); setSelectedWidgetIds(new Set()); setNotice("Selected widgets removed. Use Undo to restore them."); }
+  function handleWidgetSectionChange(widgetId: string, sectionId: string) { recordCanvasHistory(); setWidgets((current) => current.map((item) => item.id === widgetId ? { ...item, sectionId } : item)); }
+  function handleWidgetWidthChange(widgetId: string, width: DashboardWidgetWidth) { recordCanvasHistory(); setLayoutWidgets((current) => current.map((item) => item.id === widgetId ? { ...item, width } : item)); }
+  function toggleSectionCollapsed(sectionId: string) { setCollapsedSectionIds((current) => { const next = new Set(current); if (next.has(sectionId)) next.delete(sectionId); else next.add(sectionId); return next; }); }
 
   async function handleSave() {
     setSaving(true);
@@ -457,10 +512,12 @@ export function DashboardsPage() {
     setSlug(""); setShowInNavigation(false); setMenuLabel(""); setMenuIcon("layout-dashboard"); setMenuOrder(0); setViewPermission("");
     setSections([defaultDashboardSection]);
     setSelectedSectionId(defaultDashboardSection.id);
+    setBulkSectionId(defaultDashboardSection.id);
     setNewSectionTitle("");
     setWidgets([]);
     setLayoutWidgets([]);
     setPreviewStates({});
+    setUndoStack([]); setRedoStack([]); setSelectedWidgetIds(new Set()); setCollapsedSectionIds(new Set());
     setNotice("New dashboard draft started.");
   }
 
@@ -690,6 +747,8 @@ export function DashboardsPage() {
                   />
                   <Select aria-label={`${section.title} icon`} onChange={(event) => handleSectionIcon(section.id, event.target.value)} value={section.icon ?? ""}><option value="">No icon</option>{sectionIconOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
                   <div className="flex gap-2">
+                    <Button aria-label={`Collapse ${section.title}`} onClick={() => toggleSectionCollapsed(section.id)} size="icon" variant="outline">{collapsedSectionIds.has(section.id) ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</Button>
+                    <Button aria-label={`Duplicate ${section.title}`} disabled={!canDuplicateDashboardSection(sections, widgets, section.id)} onClick={() => handleDuplicateSection(section.id)} size="icon" variant="outline"><Copy className="size-4" /></Button>
                     <Button aria-label={`Move ${section.title} up`} disabled={index === 0} onClick={() => handleMoveSection(section.id, -1)} size="icon" variant="outline"><ArrowUp className="size-4" /></Button>
                     <Button aria-label={`Move ${section.title} down`} disabled={index === sections.length - 1} onClick={() => handleMoveSection(section.id, 1)} size="icon" variant="outline"><ArrowDown className="size-4" /></Button>
                     <Button aria-label={`Remove ${section.title}`} disabled={sections.length === 1} onClick={() => handleRemoveSection(section.id)} size="icon" variant="outline"><Trash2 className="size-4" /></Button>
@@ -700,7 +759,7 @@ export function DashboardsPage() {
               {getValidationError("config.sections") ? <p className="text-xs font-semibold text-danger">{getValidationError("config.sections")}</p> : null}
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <Input label="New section" onChange={(event) => setNewSectionTitle(event.target.value)} value={newSectionTitle} />
-                <Button className="self-end" disabled={!newSectionTitle.trim()} onClick={handleAddSection} variant="outline"><Plus className="size-4" />Add section</Button>
+                <Button className="self-end" disabled={!newSectionTitle.trim() || sections.length >= 16} onClick={handleAddSection} variant="outline"><Plus className="size-4" />Add section</Button>
               </div>
             </div>
             {adapters.length > 0 ? <Select label="Widget source" onChange={(event) => setWidgetSourceType(event.target.value as "analytics" | "adapter")} options={[{ label: "Platform analytics", value: "analytics" }, { label: "Installed adapter", value: "adapter" }]} value={widgetSourceType} /> : null}
@@ -710,11 +769,12 @@ export function DashboardsPage() {
         </Card>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-12">
+      <section className={`grid md:grid-cols-12 ${canvasDensity === "compact" ? "gap-2" : "gap-4"}`} style={{ zoom: `${canvasZoom}%` }}>
         <div className="md:col-span-12 flex flex-wrap items-end justify-between gap-3">
           <div><p className="text-lg font-bold text-foreground">Layout canvas</p><p className="mt-1 text-sm text-muted-foreground">Drag widget handles to reorder cards or move them between section drop zones. Arrow controls remain available for keyboard-friendly ordering.</p></div>
-          <Badge tone="info">Drag-and-drop enabled</Badge>
+          <div className="flex flex-wrap items-end gap-2"><Button aria-label="Undo canvas change" disabled={!undoStack.length} onClick={handleUndo} size="icon" variant="outline"><Undo2 className="size-4" /></Button><Button aria-label="Redo canvas change" disabled={!redoStack.length} onClick={handleRedo} size="icon" variant="outline"><Redo2 className="size-4" /></Button><Select aria-label="Canvas density" onChange={(event) => setCanvasDensity(event.target.value as "comfortable" | "compact")} value={canvasDensity}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></Select><Select aria-label="Canvas zoom" onChange={(event) => setCanvasZoom(Number(event.target.value))} value={canvasZoom}><option value="80">80%</option><option value="90">90%</option><option value="100">100%</option></Select><Badge tone="info">Drag-and-drop enabled</Badge></div>
         </div>
+        <div className="md:col-span-12 grid gap-3 rounded-xl border border-border bg-muted/20 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Badge tone={selectedWidgetIds.size ? "info" : undefined}>{selectedWidgetIds.size} selected</Badge><Button onClick={() => setSelectedWidgetIds(new Set(widgets.map((widget) => widget.id)))} size="sm" variant="outline">Select all</Button>{selectedWidgetIds.size ? <Button onClick={() => setSelectedWidgetIds(new Set())} size="sm" variant="ghost"><X className="size-4" />Clear</Button> : null}</div></div>{selectedWidgetIds.size ? <div aria-label="Bulk widget actions" className="grid gap-2 sm:grid-cols-[minmax(10rem,1fr)_auto_minmax(8rem,1fr)_auto_auto]"><Select aria-label="Bulk destination section" onChange={(event) => setBulkSectionId(event.target.value)} options={sections.map((section) => ({ label: section.title, value: section.id }))} value={bulkSectionId} /><Button onClick={handleBulkMove} variant="outline">Move selected</Button><Select aria-label="Bulk widget width" onChange={(event) => setBulkWidth(event.target.value as DashboardWidgetWidth)} options={widthOptions} value={bulkWidth} /><Button onClick={handleBulkResize} variant="outline">Resize selected</Button><Button onClick={handleBulkDelete} variant="danger"><Trash2 className="size-4" />Remove selected</Button></div> : <p className="text-xs text-muted-foreground">Select widget cards to move, resize, or remove them together.</p>}</div>
         {orderedLayout.length === 0 ? (
           <div className="md:col-span-12">
             <EmptyState title="No dashboard widgets" description="Add a widget and save the dashboard." action={<Button disabled={!canAddWidget} onClick={() => void handleAddWidget()} variant="outline">Add widget</Button>} />
@@ -728,10 +788,10 @@ export function DashboardsPage() {
               onDragOver={(event) => { if (!draggedWidgetId) return; event.preventDefault(); setDropTargetId(`widget-section-${section.id}`); }}
               onDrop={(event) => { event.preventDefault(); handleDropWidget(section.id, null, event.dataTransfer.getData("application/x-dashboard-widget") || draggedWidgetId); }}
             >
-              <div><p className="text-sm font-bold text-foreground">{section.title}</p><p className="text-xs text-muted-foreground">Drop a widget here to move it into this section.</p></div>
-              <Badge>{widgets.filter((widget) => widget.sectionId === section.id).length} widgets</Badge>
+              <div><p className="text-sm font-bold text-foreground">{section.title}</p><p className="text-xs text-muted-foreground">{collapsedSectionIds.has(section.id) ? "Section collapsed in the editor." : "Drop a widget here to move it into this section."}</p></div>
+              <div className="flex items-center gap-2"><Button aria-label={`${collapsedSectionIds.has(section.id) ? "Expand" : "Collapse"} ${section.title} canvas section`} onClick={() => toggleSectionCollapsed(section.id)} size="icon" variant="ghost">{collapsedSectionIds.has(section.id) ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}</Button><Badge>{widgets.filter((widget) => widget.sectionId === section.id).length} widgets</Badge></div>
             </div>,
-            ...orderedLayout.filter((layout) => widgets.find((widget) => widget.id === layout.id)?.sectionId === section.id).map((layout) => {
+            ...(collapsedSectionIds.has(section.id) ? [] : orderedLayout.filter((layout) => widgets.find((widget) => widget.id === layout.id)?.sectionId === section.id).map((layout) => {
             const widget = widgets.find((candidate) => candidate.id === layout.id);
             const previewState = previewStates[layout.id];
 
@@ -744,15 +804,16 @@ export function DashboardsPage() {
 
             return (
               <Card
-                className={`${getDashboardWidgetGridClass(layout.width)} min-w-0 transition ${dropTargetId === `widget-${layout.id}` ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                className={`${getDashboardWidgetGridClass(layout.width)} min-w-0 transition ${selectedWidgetIds.has(layout.id) ? "ring-2 ring-primary ring-offset-2" : dropTargetId === `widget-${layout.id}` ? "ring-2 ring-primary ring-offset-2" : ""}`}
                 key={layout.id}
                 onDragOver={(event) => { if (!draggedWidgetId) return; event.preventDefault(); event.stopPropagation(); setDropTargetId(`widget-${layout.id}`); }}
                 onDrop={(event) => { event.preventDefault(); event.stopPropagation(); handleDropWidget(section.id, layout.id, event.dataTransfer.getData("application/x-dashboard-widget") || draggedWidgetId); }}
                 style={accent ? { borderTopColor: accent, borderTopWidth: 4 } : undefined}
               >
-                <CardHeader>
+                <CardHeader className={canvasDensity === "compact" ? "p-3" : undefined}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
+                      <input aria-label={`Select ${widget.title}`} checked={selectedWidgetIds.has(layout.id)} className="mt-1 size-4" onChange={() => toggleWidgetSelection(layout.id)} type="checkbox" />
                       <button aria-label={`Drag ${widget.title} widget`} className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing" draggable onDragEnd={() => { setDraggedWidgetId(null); setDropTargetId(null); }} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-dashboard-widget", layout.id); setDraggedWidgetId(layout.id); }} type="button"><GripVertical className="size-5" /></button>
                       <div className="min-w-0">
                       <CardTitle className="break-words text-base">{widget.title}</CardTitle>
@@ -787,19 +848,19 @@ export function DashboardsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="grid min-w-0 gap-4">
+                <CardContent className={`grid min-w-0 ${canvasDensity === "compact" ? "gap-2 p-3 pt-0" : "gap-4"}`}>
                   <Select
                     label="Section"
-                    onChange={(event) => setWidgets((current) => current.map((item) => item.id === widget.id ? { ...item, sectionId: event.target.value } : item))}
+                    onChange={(event) => handleWidgetSectionChange(widget.id, event.target.value)}
                     options={sections.map((section) => ({ label: section.title, value: section.id }))}
                     value={widget.sectionId ?? sections[0].id}
                   />
-                  <Select label="Width" onChange={(event) => setLayoutWidgets((current) => current.map((item) => item.id === layout.id ? { ...item, width: event.target.value as DashboardWidgetWidth } : item))} options={widthOptions} value={layout.width} />
+                  <Select label="Width" onChange={(event) => handleWidgetWidthChange(layout.id, event.target.value as DashboardWidgetWidth)} options={widthOptions} value={layout.width} />
                   {widget.adapter && getDashboardAdapter(widget.adapter.adapterId) ? (() => { const Renderer = getDashboardAdapter(widget.adapter!.adapterId)!.render; return <Renderer widget={widget} />; })() : <DashboardWidgetPreviewStateView appearance={widget.chart?.appearance} state={previewState} onRefresh={() => void refreshWidgetPreview(widget)} />}
                 </CardContent>
               </Card>
             );
-          })])
+          }))])
         )}
       </section>
       <DashboardTemplateGallery

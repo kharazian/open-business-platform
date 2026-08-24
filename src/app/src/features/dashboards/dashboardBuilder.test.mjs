@@ -14,6 +14,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
+import { appendBoundedCanvasHistory, canDuplicateDashboardSection, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 
 test("dashboard API client maps saved dashboard requests and errors", async () => {
   const calls = [];
@@ -204,6 +205,17 @@ test("add-widget wizard filters visualizations, recommends compatible charts, an
   recent = saveRecentDashboardVisualization(storage, "breakdown", recent);
   assert.deepEqual(recent, ["breakdown", "table", "trend"]);
   assert.deepEqual(readRecentDashboardVisualizations(storage), recent);
+});
+
+test("canvas productivity helpers bound history, toggle selection, and enforce duplication limits", () => {
+  assert.deepEqual(appendBoundedCanvasHistory([1, 2, 3], 4, 3), [2, 3, 4]);
+  assert.deepEqual([...toggleDashboardWidgetSelection(new Set(["a"]), "a")], []);
+  assert.deepEqual([...toggleDashboardWidgetSelection(new Set(["a"]), "b")], ["a", "b"]);
+  const sections = [{ id: "one", title: "One", order: 0 }];
+  const widgets = [{ id: "a", title: "A", sourceFormId: null, sectionId: "one" }];
+  assert.equal(canDuplicateDashboardSection(sections, widgets, "one"), true);
+  assert.equal(canDuplicateDashboardSection([sections[0], ...Array.from({ length: 15 }, (_, index) => ({ id: `s-${index}`, title: "S", order: index + 1 }))], widgets, "one"), false);
+  assert.equal(canDuplicateDashboardSection(sections, Array.from({ length: 48 }, (_, index) => ({ id: `w-${index}`, title: "W", sourceFormId: null, sectionId: "one" })), "one"), false);
 });
 
 test("dashboard analytics helpers preserve saved chart compatibility", () => {

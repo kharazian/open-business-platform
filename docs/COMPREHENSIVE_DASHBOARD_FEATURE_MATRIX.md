@@ -27,6 +27,7 @@ Status: implemented and verified on 2026-08-21 unless marked deferred.
 | Multi-series charts | Add, remove, reorder, label, style, color, and axis for up to four metrics | Verified | Every metric is validated and executed against the same permission-scoped source rows; combo charts use independent left/right scales. |
 | Chart appearance | Palette, legend, labels, gridlines, card accent, and localized number formats | Verified | Bounded theme/cool/warm/monochrome presets and reset-to-theme controls are saved per analytics widget; presentation settings never alter source data. |
 | Add-widget wizard | Source-first guided creation, searchable gallery, recommendations, preview, and recent choices | Verified | Recommendations use already-loaded reportable field capabilities; the final sample preview and add action reuse the permission-checked analytics endpoint. |
+| Canvas productivity | Undo/redo, multi-select, bulk actions, section duplication/collapse, density, and zoom | Verified | Draft-only history is bounded to 30 snapshots; bulk and duplicate operations preserve the 16-section/48-widget/16-per-section server limits. |
 | Soft delete | Recoverable delete/restore | Deferred | No delete API exists; draft/publish/unpublish remain supported. |
 | Server adapter registry | Per-adapter setting allowlists | Deferred | API bounds scalar settings; shared registry is required before third-party adapters. |
 | Cross-source calculations | Joins/formulas across sources | Deferred | Excluded to preserve permissions and avoid arbitrary SQL. |
