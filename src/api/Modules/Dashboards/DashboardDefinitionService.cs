@@ -23,12 +23,21 @@ public sealed class DashboardDefinitionService
             .Where(dashboard => !dashboard.IsDeleted)
             .ToArrayAsync(cancellationToken);
 
-        return dashboards
-            .Where(dashboard => DashboardDefinitionAccess.CanView(dashboard, accessContext))
-            .OrderByDescending(dashboard => DashboardDefinitionAccess.ResolveSettings(dashboard).IsDefault)
-            .ThenByDescending(dashboard => dashboard.UpdatedAt ?? dashboard.CreatedAt)
-            .ThenBy(dashboard => dashboard.Name)
-            .Select(ToSummaryDto)
+        if (accessContext.CanManageDashboards)
+        {
+            return dashboards.OrderByDescending(dashboard => DashboardDefinitionAccess.ResolveSettings(dashboard).IsDefault)
+                .ThenByDescending(dashboard => dashboard.UpdatedAt ?? dashboard.CreatedAt)
+                .ThenBy(dashboard => dashboard.Name)
+                .Select(ToSummaryDto)
+                .ToArray();
+        }
+
+        return dashboards.Select(dashboard => new { Dashboard = dashboard, Snapshot = ResolvePublishedSnapshot(dashboard) })
+            .Where(item => item.Snapshot is not null && CanViewPublished(item.Dashboard, item.Snapshot, accessContext))
+            .Select(item => ToSummaryDto(item.Dashboard, item.Snapshot!))
+            .OrderByDescending(item => item.IsDefault)
+            .ThenByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .ThenBy(item => item.Name)
             .ToArray();
     }
 
@@ -43,12 +52,18 @@ public sealed class DashboardDefinitionService
             throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
         }
 
-        if (!DashboardDefinitionAccess.CanView(dashboard, accessContext))
+        if (accessContext.CanManageDashboards)
+        {
+            return ToDetailDto(dashboard);
+        }
+
+        var snapshot = ResolvePublishedSnapshot(dashboard);
+        if (snapshot is null || !CanViewPublished(dashboard, snapshot, accessContext))
         {
             throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
         }
 
-        return ToDetailDto(dashboard);
+        return ToDetailDto(dashboard, snapshot);
     }
 
     public async Task<DashboardDetailDto> GetBySlugAsync(string slug, DashboardAccessContext accessContext, CancellationToken cancellationToken)
@@ -207,6 +222,29 @@ public sealed class DashboardDefinitionService
         await CreateRevisionAsync(dashboard, "unpublished", userId, cancellationToken);
         await SaveWithConflictAsync(cancellationToken);
         return ToDetailDto(dashboard);
+    }
+
+    public async Task DeleteAsync(Guid dashboardId, DashboardPublicationMutationRequest request, Guid? userId, CancellationToken cancellationToken)
+    {
+        var dashboard = await FindManagedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
+        dashboard.IsDeleted = true;
+        dashboard.DeletedAt = DateTimeOffset.UtcNow;
+        dashboard.DeletedById = userId;
+        dashboard.Status = DashboardPublicationStatuses.Draft;
+        dashboard.Slug = null;
+        dashboard.ShowInNavigation = false;
+        dashboard.PublishedSlug = null;
+        dashboard.PublishedShowInNavigation = false;
+        dashboard.PublishedMenuLabel = null;
+        dashboard.PublishedMenuIcon = null;
+        dashboard.PublishedMenuOrder = 0;
+        dashboard.PublishedViewPermission = null;
+        dashboard.PublishedAt = null;
+        dashboard.PublishedById = null;
+        dashboard.UpdatedById = userId;
+        AddAudit("Dashboard", dashboard.Id, "dashboard_deleted", userId);
+        await SaveWithConflictAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<DashboardRevisionSummaryDto>> ListRevisionsAsync(Guid dashboardId, CancellationToken cancellationToken)
@@ -433,6 +471,25 @@ public sealed class DashboardDefinitionService
             settings.Visibility,
             settings.IsDefault,
             ToPublication(dashboard),
+            dashboard.PublishedAt,
+            dashboard.PublishedById,
+            dashboard.ConcurrencyStamp,
+            dashboard.CreatedAt,
+            dashboard.CreatedById,
+            dashboard.UpdatedAt,
+            dashboard.UpdatedById);
+    }
+
+    private static DashboardSummaryDto ToSummaryDto(DashboardDefinition dashboard, DashboardRevisionSnapshotDefinition snapshot)
+    {
+        return new DashboardSummaryDto(
+            dashboard.Id,
+            snapshot.Name,
+            snapshot.Description,
+            snapshot.Config.Widgets.Count,
+            snapshot.Settings.Visibility,
+            snapshot.Settings.IsDefault,
+            snapshot.Publication with { Status = DashboardPublicationStatuses.Published },
             dashboard.PublishedAt,
             dashboard.PublishedById,
             dashboard.ConcurrencyStamp,

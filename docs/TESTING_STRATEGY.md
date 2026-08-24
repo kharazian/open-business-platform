@@ -14,6 +14,7 @@ Current validation commands:
 cd src/app
 npm test
 npm run build
+npm run test:e2e:dashboard
 ```
 
 ```bash
@@ -25,6 +26,8 @@ dotnet build
 The current frontend `npm test` command runs Vitest-based tests for shared TypeScript logic, API clients, module navigation filtering, auth parsing, users/forms types, form-builder helpers, and small shared UI helper coverage. The backend test harness runs focused assertions, including EF Core model metadata checks for UUID IDs, entity inheritance, JSONB mappings, role/form permission mappings, password hashing, permission constants, form DTOs, and repository primitives, without external test dependencies. Add fuller frontend/backend test projects when product modules need component, unit, or integration coverage.
 
 Dashboard-builder quality checks cover bounded history and duplication, section-local widget movement, adjacent-section resolution, and the four-request preview concurrency ceiling. Browser regression checks exercise keyboard pickup/move/release, the polite screen-reader announcement region, touch reorder controls, reduced-motion rendering, 390px horizontal overflow, and browser console/page errors. The lazy dashboard-builder route has a practical build budget of 32 kB gzip; investigate before raising that budget or adding a large dependency.
+
+The Playwright dashboard lifecycle suite starts or reuses the real Vite/API hosts and uses the local PostgreSQL development database. It creates a uniquely named one-widget dashboard, previews and saves it in Chromium, publishes it, proves later draft edits are absent from slug/list/ID viewer responses, checks viewer denial for revision management, republishes, restores an older revision without changing live, unpublishes, and soft-deletes the dashboard in `finally`. It also removes interrupted `E2E dashboard ...` runs before starting. Run `npx playwright install chromium` once on a new machine.
 
 The V1 finalization smoke path should cover health, demo login, current session, forms list, published form rendering, records list, record detail, unauthenticated rejection, and viewer permission denials.
 
@@ -78,7 +81,7 @@ Use for:
 - RecordList
 - ReportViewer later
 
-### E2E Tests Later
+### E2E Tests
 
 Use for:
 
@@ -87,6 +90,7 @@ Use for:
 - Submit record
 - View record
 - Print record
+- Dashboard draft/publish/live-isolation/revision/unpublish lifecycle — implemented
 
 ## V1 Priority Tests
 

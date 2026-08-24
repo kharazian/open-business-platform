@@ -11,6 +11,8 @@
     "build": "tsc --noEmit && vite build",
     "quality:dashboard": "node scripts/check-dashboard-bundle.mjs",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:dashboard": "playwright test e2e/dashboard-lifecycle.spec.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "react-router-dom": "7.18.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

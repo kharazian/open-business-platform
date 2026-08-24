@@ -931,7 +931,7 @@ Lists saved dashboard definitions. Requires authentication and `menu.dashboard`.
 
 `GET /api/dashboards/{dashboardId}`
 
-Returns a saved dashboard definition with `config`, `layout`, `visibility`, `isDefault`, `publishedAt`, and `publishedById`. Requires authentication and `menu.dashboard` plus the same visibility rules used by the list endpoint.
+Returns a saved dashboard definition with `config`, `layout`, `visibility`, `isDefault`, `publishedAt`, and `publishedById`. Requires authentication and `menu.dashboard` plus the same visibility rules used by the list endpoint. Dashboard managers receive the editable draft. Normal viewers receive only the immutable published snapshot, even when a newer draft has been saved.
 
 `POST /api/dashboards`
 
@@ -940,6 +940,10 @@ Creates a draft saved dashboard definition. Requires authentication and `dashboa
 `PUT /api/dashboards/{dashboardId}`
 
 Updates a saved dashboard definition. Requires authentication and `dashboards.manage`. Stale concurrency stamps return `409`.
+
+`DELETE /api/dashboards/{dashboardId}`
+
+Soft-deletes a dashboard and removes its draft/published slug and navigation exposure. Requires `dashboards.manage` and `{ "concurrencyStamp": "..." }`; stale stamps return `409`. The action writes `dashboard_deleted` to the audit log. Historical revisions remain database-owned by the soft-deleted dashboard but are no longer reachable through dashboard APIs.
 
 Dashboard config stores widget definitions, and dashboard layout stores responsive width/order metadata. Supported widths are `small`, `medium`, `wide`, and `full`. Saved widgets reuse chart widget config values and are validated against source forms, source reports, fields, metrics, and widget types before save.
 
@@ -965,6 +969,8 @@ Analytics widget chart config may include an optional `appearance` object. Suppo
 `GET /api/dashboards/navigation` returns only published, navigation-enabled, visible, permitted dashboards, ordered by `menuOrder` and label.
 
 `POST /api/dashboards/{dashboardId}/publish` and `POST /api/dashboards/{dashboardId}/unpublish` require `dashboards.manage`. Both accept `{ "concurrencyStamp": "..." }`; stale stamps return `409`. Publishing requires a valid name, unique safe slug, at least one section and widget, valid widget configuration, and valid enabled menu metadata. Publication, unpublication, and navigation changes are audited.
+
+The published snapshot is also authoritative for normal-user list and ID-based reads. Saving changes to a published dashboard cannot leak draft names, descriptions, widgets, visibility, default state, or view permissions before an explicit publish.
 
 ## Shared V1 Form Schema Contract
 

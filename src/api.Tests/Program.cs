@@ -4834,6 +4834,12 @@ AssertFalse(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new 
 AssertTrue(DashboardDefinitionAccess.CanView(permissionProtectedDashboard, new DashboardAccessContext(dashboardViewerId, false, new HashSet<string> { "dashboards.team.view" })), "Users with the configured dashboard permission should be able to view a published workspace dashboard.");
 AssertTrue(DashboardMenuIcons.Approved.Contains("factory"), "Dashboard menus should use approved icon registry keys.");
 AssertTypeAssignable<object, DashboardDefinitionService>();
+AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.DeleteAsync)), "Dashboard management should expose audited soft deletion for lifecycle cleanup.");
+var dashboardsEndpointsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Dashboards", "DashboardsEndpoints.cs"));
+AssertTrue(dashboardsEndpointsSource.Contains("MapDelete(\"/{dashboardId:guid}\"", StringComparison.Ordinal), "Dashboard endpoints should expose permission-protected soft deletion.");
+var dashboardServiceSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Dashboards", "DashboardDefinitionService.cs"));
+AssertTrue(dashboardServiceSource.Contains("ToSummaryDto(item.Dashboard, item.Snapshot!)", StringComparison.Ordinal), "Normal dashboard lists should project the published snapshot instead of editable draft data.");
+AssertTrue(dashboardServiceSource.Contains("\"dashboard_deleted\"", StringComparison.Ordinal), "Dashboard deletion should write an audit entry.");
 AssertTypeAssignable<IPlatformApiModule, DashboardsModule>();
 
 static void AssertEqual<T>(T expected, T actual, string message)

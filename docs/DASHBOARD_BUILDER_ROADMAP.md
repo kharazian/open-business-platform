@@ -36,3 +36,9 @@ Implement and verify these increments in order. Each increment must preserve bac
     - Keyboard drag alternative, screen-reader move announcements, touch reorder controls, responsive/browser regression coverage, performance budgets
     - Reorder handles use Space/Enter pickup, arrow-key movement, and Escape/release semantics; labeled 44px touch controls move widgets within and between sections
     - Builder previews run at a maximum concurrency of four, existing 16-section/48-widget/30-history bounds are centralized, and the dashboard-builder route remains below 32 kB gzip
+
+## Release hardening — implemented
+
+- A real Chromium/API/PostgreSQL lifecycle suite covers preview, save, first publish, isolated post-publish draft edits, normal-viewer published-snapshot reads, manager-only revision access, republish, restore-without-live-change, unpublish, and cleanup.
+- Dashboard list and ID reads project the immutable published snapshot for normal viewers; only managers receive editable draft state.
+- Permission-protected audited soft deletion provides deterministic E2E cleanup without altering seeded sample dashboards.

@@ -9,6 +9,7 @@
 - Cache/queue foundation: Redis 7 through Docker Compose
 - Package manager: npm
 - Frontend test command: `npm test`
+- Dashboard E2E command: `npm run test:e2e:dashboard`
 - Local frontend port: `5174`
 - Local backend URL: `http://localhost:5080`
 
@@ -46,7 +47,7 @@ Use these only when a task needs them:
 - Zustand only for builder/editor state
 - Vitest or Jest for unit tests
 - React Testing Library for component tests
-- Playwright for E2E tests later
+- Playwright for API-backed browser lifecycle and permission tests
 
 ## Recommended Backend Additions
 
