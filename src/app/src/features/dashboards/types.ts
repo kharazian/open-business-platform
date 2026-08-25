@@ -39,7 +39,10 @@ export type DashboardChartSeriesDefinition = { id: string; label: string; metric
 export type DashboardChartPalette = "theme" | "cool" | "warm" | "mono";
 export type DashboardNumberFormat = "auto" | "number" | "currency" | "percent";
 export type DashboardCardAccent = "none" | DashboardSeriesColor;
-export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number };
+export type DashboardConditionalOperator = "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "equal";
+export type DashboardConditionalRule = { id: string; operator: DashboardConditionalOperator; value: number; accent: DashboardSeriesColor };
+export type DashboardConditionalFormatting = { enabled: boolean; rules: DashboardConditionalRule[] };
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;

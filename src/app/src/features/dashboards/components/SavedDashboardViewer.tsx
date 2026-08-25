@@ -12,7 +12,7 @@ import { runDashboardAnalytics } from "../api";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { useAuth } from "../../../context/AuthContext";
 import { buildDashboardAnalyticsRequest } from "../analytics";
-import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
+import { getDashboardAccentColor, getDashboardEffectiveCardAccent, resolveDashboardChartAppearance } from "../appearance";
 import { getDashboardAdapter } from "../adapters";
 import { getDashboardWidgetGridClass, orderDashboardLayoutWidgets } from "../layout";
 import { normalizeDashboardSections } from "../sections";
@@ -184,6 +184,6 @@ function ViewerWidget({ layoutWidth, lastRefresh, onDrillThrough, onRefresh, sta
     return <Card className={getDashboardWidgetGridClass(layoutWidth)}><CardHeader><CardTitle>{widget.title}</CardTitle><CardDescription>{registration.name}</CardDescription></CardHeader><CardContent><Renderer widget={widget} /></CardContent></Card>;
   }
   const appearance = resolveDashboardChartAppearance(widget.chart?.appearance);
-  const accent = getDashboardAccentColor(appearance.cardAccent, appearance.palette);
+  const accent = getDashboardAccentColor(getDashboardEffectiveCardAccent(appearance, state?.preview?.series[0]?.value), appearance.palette);
   return <Card className={getDashboardWidgetGridClass(layoutWidth)} style={accent ? { borderTopColor: accent, borderTopWidth: 4 } : undefined}><CardHeader><div className="flex items-start justify-between gap-3"><div><CardTitle>{widget.title}</CardTitle>{widget.subtitle ? <CardDescription>{widget.subtitle}</CardDescription> : null}{widget.interaction ? <p className="mt-1 text-xs font-semibold text-primary">Select data to open {widget.interaction.destination === "report" ? "the linked report" : "source records"}.</p> : null}{lastRefresh ? <p className="mt-1 text-xs font-semibold text-muted-foreground">Refreshed {new Date(lastRefresh).toLocaleTimeString()}</p> : null}</div><Button aria-label={`Refresh ${widget.title}`} disabled={state?.status === "loading"} onClick={onRefresh} size="icon" variant="outline"><RefreshCw className={`size-4 ${state?.status === "loading" ? "animate-spin" : ""}`} /></Button></div></CardHeader><CardContent>{state?.status === "ready" && state.preview ? <ChartWidgetPreview appearance={appearance} interactionLabel={`Open ${widget.interaction?.destination === "report" ? "linked report" : "source records"}`} onSelect={widget.interaction ? onDrillThrough : undefined} preview={state.preview} /> : state?.status === "error" ? <Alert title="Widget unavailable">{state.error}</Alert> : <div className="flex items-center gap-2 py-6 text-sm font-semibold text-muted-foreground"><RefreshCw className="size-4 animate-spin" /> Loading widget…</div>}</CardContent></Card>;
 }

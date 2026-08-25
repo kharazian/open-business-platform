@@ -7,6 +7,7 @@ import type {
   DashboardTemplateProvenance,
   DashboardWidgetWidth
 } from "./types";
+import { cloneDashboardChartAppearance } from "./appearance";
 
 export type DashboardTemplateSourceSlot = {
   key: string;
@@ -175,7 +176,7 @@ export function instantiateDashboardTemplate(
 }
 
 function cloneChart(chart: Omit<ChartWidgetConfig, "reportId">): Omit<ChartWidgetConfig, "reportId"> {
-  return { ...chart, metric: { ...chart.metric }, columns: [...(chart.columns ?? [])], series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: chart.appearance ? { ...chart.appearance } : null, fixedFilters: chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null };
+  return { ...chart, metric: { ...chart.metric }, columns: [...(chart.columns ?? [])], series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: chart.appearance ? cloneDashboardChartAppearance(chart.appearance) : null, fixedFilters: chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null };
 }
 
 function cloneAdapter(adapter: DashboardAdapterWidget): DashboardAdapterWidget {

@@ -36,6 +36,20 @@ test("Business Performance template creates an independent eleven-section multi-
   assert.equal(businessPerformanceSampleTemplate.widgets[0].title, "Total records");
 });
 
+test("template instantiation deep-clones KPI conditional rules", () => {
+  const template = { ...businessPerformanceSampleTemplate, widgets: businessPerformanceSampleTemplate.widgets.map((widget, index) => index !== 0 || widget.source.kind !== "analytics" ? widget : { ...widget, source: { ...widget.source, chart: { ...widget.source.chart, appearance: { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: true, rules: [{ id: "target", operator: "greater_or_equal", value: 40, accent: "success" }] } } } } }) };
+  let sequence = 0;
+  const instantiate = () => instantiateDashboardTemplate(template, { sources }, { idGenerator: () => `conditional-${++sequence}`, availableAdapterIds: new Set(["sample-dashboard"]) });
+  const first = instantiate();
+  const second = instantiate();
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!first.ok || !second.ok) return;
+  first.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].value = 50;
+  assert.equal(second.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].value, 40);
+  assert.equal(template.widgets[0].source.chart.appearance.conditionalFormatting.rules[0].value, 40);
+});
+
 test("Operations Performance template creates an independent seven-section draft", () => {
   let sequence = 0;
   const instantiate = () => instantiateDashboardTemplate(

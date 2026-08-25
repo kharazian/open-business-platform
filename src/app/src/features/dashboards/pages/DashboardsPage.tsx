@@ -28,12 +28,11 @@ import {
   type DashboardPreviewState
 } from "../analytics";
 import { ChartWidgetPreview } from "../components/ChartWidgetPreview";
-import { getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
+import { cloneDashboardChartAppearance, getDashboardAccentColor, resolveDashboardChartAppearance } from "../appearance";
 import { DashboardAdapterSettingsEditor } from "../components/DashboardAdapterSettingsEditor";
 import { DashboardAddWidgetWizard } from "../components/DashboardAddWidgetWizard";
 import { DashboardFilterEditor } from "../components/DashboardFilterEditor";
 import { DashboardTemplateGallery } from "../components/DashboardTemplateGallery";
-import { DashboardWidgetPropertiesDrawer } from "../components/DashboardWidgetPropertiesDrawer";
 import { SavedDashboardViewer } from "../components/SavedDashboardViewer";
 import { createDashboardAdapterWidget, getDashboardAdapter, isDashboardAdapterWidgetConfigured, listDashboardAdapters } from "../adapters";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "../layout";
@@ -76,6 +75,7 @@ const audienceOptions: Array<{ label: string; value: DashboardAudience }> = [
 ];
 const emptySharingOptions: DashboardSharingOptions = { users: [], roles: [], groups: [] };
 const DashboardRecycleBinModal = lazy(() => import("../components/DashboardRecycleBinModal").then((module) => ({ default: module.DashboardRecycleBinModal })));
+const DashboardWidgetPropertiesDrawer = lazy(() => import("../components/DashboardWidgetPropertiesDrawer").then((module) => ({ default: module.DashboardWidgetPropertiesDrawer })));
 
 type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; filters: DashboardFilterDefinition[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
 
@@ -418,7 +418,7 @@ export function DashboardsPage() {
     if (!widget || !layout || widgets.length >= dashboardCanvasQualityLimits.maxWidgets) return;
     recordCanvasHistory();
     const id = `widget-${Date.now()}`;
-    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null, fixedFilters: widget.chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
+    setWidgets((current) => [...current, { ...widget, id, title: `${widget.title} copy`, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? cloneDashboardChartAppearance(widget.chart.appearance) : null, fixedFilters: widget.chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }]);
     setLayoutWidgets((current) => [...current, { id, width: layout.width, order: current.length + 1 }]);
     if (previewStates[widgetId]) setPreviewStates((current) => ({ ...current, [id]: current[widgetId] }));
     setNotice("Widget duplicated. Save the dashboard to persist it.");
@@ -542,7 +542,7 @@ export function DashboardsPage() {
     recordCanvasHistory();
     const section = { ...source, id: createDashboardSectionId(`${source.title} copy`, sections), title: `${source.title} copy`, order: sections.length };
     const idMap = new Map(sourceWidgets.map((widget, index) => [widget.id, `widget-${Date.now()}-${index}`]));
-    const copies = sourceWidgets.map((widget) => ({ ...widget, id: idMap.get(widget.id)!, title: `${widget.title} copy`, sectionId: section.id, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? { ...widget.chart.appearance } : null, fixedFilters: widget.chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }));
+    const copies = sourceWidgets.map((widget) => ({ ...widget, id: idMap.get(widget.id)!, title: `${widget.title} copy`, sectionId: section.id, chart: widget.chart ? { ...widget.chart, metric: { ...widget.chart.metric }, columns: [...(widget.chart.columns ?? [])], series: widget.chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null, appearance: widget.chart.appearance ? cloneDashboardChartAppearance(widget.chart.appearance) : null, fixedFilters: widget.chart.fixedFilters?.map((filter) => ({ ...filter, values: filter.values ? [...filter.values] : undefined })) ?? null } : null, adapter: widget.adapter ? { ...widget.adapter, settings: { ...widget.adapter.settings } } : null }));
     const nextLayouts = sourceWidgets.map((widget, index) => { const layout = layoutWidgets.find((item) => item.id === widget.id); return { id: idMap.get(widget.id)!, width: layout?.width ?? "medium" as DashboardWidgetWidth, order: layoutWidgets.length + index + 1 }; });
     setSections((current) => [...current, section]); setWidgets((current) => [...current, ...copies]); setLayoutWidgets((current) => [...current, ...nextLayouts]);
     setPreviewStates((current) => { const next = { ...current }; sourceWidgets.forEach((widget) => { next[idMap.get(widget.id)!] = current[widget.id]; }); return next; });
@@ -1134,7 +1134,7 @@ export function DashboardsPage() {
         selectedTemplateId={selectedTemplateId}
         templates={dashboardTemplateCatalog}
       />
-      <DashboardWidgetPropertiesDrawer
+      {editingWidgetId ? <Suspense fallback={null}><DashboardWidgetPropertiesDrawer
         adapters={adapters}
         forms={forms}
         layout={layoutWidgets.find((layout) => layout.id === editingWidgetId) ?? null}
@@ -1143,7 +1143,7 @@ export function DashboardsPage() {
         open={Boolean(editingWidgetId)}
         sections={sections}
         widget={widgets.find((widget) => widget.id === editingWidgetId) ?? null}
-      />
+      /></Suspense> : null}
       {recycleBinOpen ? <Suspense fallback={null}>
         <DashboardRecycleBinModal
           onClose={() => setRecycleBinOpen(false)}

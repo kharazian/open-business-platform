@@ -37,7 +37,7 @@ public static class ChartWidgetConfigValidator
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);
-        ValidateAppearance(config.Appearance, errors);
+        ValidateAppearance(config.Appearance, widgetType, errors);
         ValidateFixedFilters(config.FixedFilters, schema, errors);
 
         return new ChartValidationResult(errors);
@@ -82,7 +82,7 @@ public static class ChartWidgetConfigValidator
         }
     }
 
-    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, ICollection<ChartValidationError> errors)
+    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, string widgetType, ICollection<ChartValidationError> errors)
     {
         if (appearance is null) return;
         if (!DashboardChartPalettes.Supported.Contains(Normalize(appearance.Palette))) errors.Add(new("appearance.palette", "chart.appearance.palette_invalid", "Chart palette is not supported."));
@@ -91,6 +91,28 @@ public static class ChartWidgetConfigValidator
         if (appearance.DecimalPlaces is < 0 or > 4) errors.Add(new("appearance.decimalPlaces", "chart.appearance.decimals_range", "Decimal places must be between zero and four."));
         var currencyCode = Normalize(appearance.CurrencyCode);
         if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter)) errors.Add(new("appearance.currencyCode", "chart.appearance.currency_invalid", "Currency code must contain three letters."));
+        ValidateConditionalFormatting(appearance.ConditionalFormatting, widgetType, errors);
+    }
+
+    private static void ValidateConditionalFormatting(DashboardConditionalFormattingDefinition? formatting, string widgetType, ICollection<ChartValidationError> errors)
+    {
+        if (formatting is null) return;
+        var rules = formatting.Rules ?? Array.Empty<DashboardConditionalRuleDefinition>();
+        if (rules.Count > 5) errors.Add(new("appearance.conditionalFormatting.rules", "chart.conditional.rule_limit", "Conditional formatting supports at most five rules."));
+        if (formatting.Enabled && widgetType != ChartWidgetTypes.NumberCard) errors.Add(new("appearance.conditionalFormatting", "chart.conditional.widget_type_invalid", "Conditional formatting is supported only for KPI widgets."));
+        if (formatting.Enabled && rules.Count == 0) errors.Add(new("appearance.conditionalFormatting.rules", "chart.conditional.rule_required", "Enabled conditional formatting requires at least one rule."));
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in rules.Select((rule, index) => (rule, index)))
+        {
+            var path = $"appearance.conditionalFormatting.rules[{item.index}]";
+            var id = Normalize(item.rule.Id);
+            if (id.Length is < 1 or > 50 || !id.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_')) errors.Add(new($"{path}.id", "chart.conditional.id_invalid", "Conditional rule id must contain 1-50 letters, numbers, hyphens, or underscores."));
+            else if (!ids.Add(id)) errors.Add(new("appearance.conditionalFormatting.rules", "chart.conditional.duplicate_id", "Conditional rule ids must be unique."));
+            if (!DashboardConditionalOperators.Supported.Contains(Normalize(item.rule.Operator))) errors.Add(new($"{path}.operator", "chart.conditional.operator_invalid", "Conditional rule operator is not supported."));
+            if (Math.Abs(item.rule.Value) > 1_000_000_000_000_000m) errors.Add(new($"{path}.value", "chart.conditional.value_range", "Conditional threshold is outside the supported range."));
+            var accent = Normalize(item.rule.Accent);
+            if (accent == "none" || !DashboardCardAccents.Supported.Contains(accent)) errors.Add(new($"{path}.accent", "chart.conditional.accent_invalid", "Conditional rule requires a semantic accent color."));
+        }
     }
 
     private static void ValidateSeries(ChartWidgetConfigDefinition config, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<ChartValidationError> errors)

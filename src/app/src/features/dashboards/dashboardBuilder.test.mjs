@@ -13,7 +13,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
-import { defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardSeriesColor, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardEffectiveCardAccent, getDashboardSeriesColor, isDashboardConditionalFormattingValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -216,15 +216,17 @@ test("dashboard layout helpers sort widgets and map widths", () => {
 });
 
 test("widget property drafts clone nested config and validate permitted fields", () => {
-  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }], appearance: { ...defaultDashboardChartAppearance, palette: "warm", cardAccent: "warning" }, fixedFilters: [{ fieldId: "status", values: ["active"] }] } };
+  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }], appearance: { ...defaultDashboardChartAppearance, palette: "warm", cardAccent: "warning", conditionalFormatting: { enabled: false, rules: [{ id: "target", operator: "greater_or_equal", value: 100, accent: "success" }] } }, fixedFilters: [{ fieldId: "status", values: ["active"] }] } };
   const draft = cloneDashboardWidgetForEditing(widget);
   draft.chart.metric.fieldId = "other";
   draft.chart.series[0].metric.fieldId = "other";
   draft.chart.appearance.palette = "mono";
+  draft.chart.appearance.conditionalFormatting.rules[0].value = 120;
   draft.chart.fixedFilters[0].values[0] = "closed";
   assert.equal(widget.chart.metric.fieldId, "amount");
   assert.equal(widget.chart.series[0].metric.fieldId, "amount");
   assert.equal(widget.chart.appearance.palette, "warm");
+  assert.equal(widget.chart.appearance.conditionalFormatting.rules[0].value, 100);
   assert.equal(widget.chart.fixedFilters[0].values[0], "active");
   const fields = [
     { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
@@ -260,6 +262,24 @@ test("dashboard appearance helpers preserve defaults, palettes, accents, and loc
   assert.equal(getDashboardAccentColor("danger", "warm"), "#b91c1c");
   assert.equal(formatDashboardValue(1234.5, { ...defaults, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 2 }, "en-CA"), "$1,234.50");
   assert.equal(formatDashboardValue(92.5, { ...defaults, numberFormat: "percent", decimalPlaces: 1 }, "en-CA"), "92.5%");
+});
+
+test("KPI conditional formatting evaluates ordered bounded rules with a static fallback", () => {
+  const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, cardAccent: "info", conditionalFormatting: { enabled: true, rules: [
+    { id: "excellent", operator: "greater_or_equal", value: 100, accent: "success" },
+    { id: "near-target", operator: "greater_or_equal", value: 90, accent: "warning" },
+    { id: "below-target", operator: "less_than", value: 90, accent: "danger" }
+  ] } });
+  assert.equal(getDashboardEffectiveCardAccent(appearance, 105), "success");
+  assert.equal(getDashboardEffectiveCardAccent(appearance, 95), "warning");
+  assert.equal(getDashboardEffectiveCardAccent(appearance, 70), "danger");
+  assert.equal(getDashboardEffectiveCardAccent({ ...appearance, conditionalFormatting: { enabled: true, rules: [] } }, 70), "info");
+  assert.equal(isDashboardConditionalFormattingValid(appearance.conditionalFormatting, "number_card"), true);
+  assert.equal(isDashboardConditionalFormattingValid(appearance.conditionalFormatting, "choice_breakdown"), false);
+  assert.equal(isDashboardConditionalFormattingValid({ enabled: true, rules: [{ id: "bad", operator: "unsupported", value: 1, accent: "success" }] }, "number_card"), false);
+  const cloned = cloneDashboardChartAppearance(appearance);
+  cloned.conditionalFormatting.rules[0].value = 120;
+  assert.equal(appearance.conditionalFormatting.rules[0].value, 100);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

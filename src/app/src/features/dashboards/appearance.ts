@@ -1,9 +1,32 @@
-import type { DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0 };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] } };
 
-export function resolveDashboardChartAppearance(value?: DashboardChartAppearance | null): DashboardChartAppearance {
-  return { ...defaultDashboardChartAppearance, ...value };
+export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
+  return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] } };
+}
+
+export function cloneDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance { return resolveDashboardChartAppearance(value); }
+
+export function getDashboardEffectiveCardAccent(appearance: DashboardChartAppearance, value?: number | null): DashboardCardAccent {
+  if (!appearance.conditionalFormatting.enabled || value === null || value === undefined || !Number.isFinite(value)) return appearance.cardAccent;
+  return appearance.conditionalFormatting.rules.find((rule) => matchesConditionalRule(value, rule.operator, rule.value))?.accent ?? appearance.cardAccent;
+}
+
+export function isDashboardConditionalFormattingValid(formatting: DashboardConditionalFormatting, widgetType: ChartWidgetType): boolean {
+  if (formatting.rules.length > 5 || (formatting.enabled && (widgetType !== "number_card" || formatting.rules.length < 1))) return false;
+  const ids = new Set<string>();
+  return formatting.rules.every((rule) => /^[A-Za-z0-9_-]{1,50}$/.test(rule.id) && !ids.has(rule.id) && Boolean(ids.add(rule.id)) && conditionalOperators.has(rule.operator) && Number.isFinite(rule.value) && Math.abs(rule.value) <= 1_000_000_000_000_000 && conditionalAccents.has(rule.accent));
+}
+
+const conditionalOperators = new Set<DashboardConditionalOperator>(["greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal"]);
+const conditionalAccents = new Set<DashboardSeriesColor>(["primary", "info", "success", "warning", "danger", "violet"]);
+function matchesConditionalRule(actual: number, operator: DashboardConditionalOperator, threshold: number): boolean {
+  if (operator === "greater_than") return actual > threshold;
+  if (operator === "greater_or_equal") return actual >= threshold;
+  if (operator === "less_than") return actual < threshold;
+  if (operator === "less_or_equal") return actual <= threshold;
+  return actual === threshold;
 }
 
 const palettes: Record<DashboardChartPalette, Record<DashboardSeriesColor, string>> = {

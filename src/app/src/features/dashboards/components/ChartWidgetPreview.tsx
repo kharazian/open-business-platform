@@ -1,7 +1,7 @@
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
-import { formatDashboardValue, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
+import { formatDashboardValue, getDashboardAccentColor, getDashboardEffectiveCardAccent, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -26,9 +26,10 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
 
   if (preview.widgetType === "number_card" || preview.widgetType === "summary") {
     const point = preview.series[0];
+    const accent = getDashboardAccentColor(getDashboardEffectiveCardAccent(appearance, point?.value), appearance.palette);
 
     return (
-      <button aria-label={onSelect ? interactionLabel : undefined} className={`w-full rounded-lg border border-border bg-muted/30 p-4 text-left transition ${onSelect ? "cursor-pointer hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? "summary") ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} onClick={() => select({ key: point?.key ?? "summary", label: point?.label ?? "Records", value: point?.value ?? 0 })} type="button">
+      <button aria-label={onSelect ? interactionLabel : undefined} className={`w-full rounded-lg border border-border bg-muted/30 p-4 text-left transition ${onSelect ? "cursor-pointer hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? "summary") ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} onClick={() => select({ key: point?.key ?? "summary", label: point?.label ?? "Records", value: point?.value ?? 0 })} style={accent ? { borderLeftColor: accent, borderLeftWidth: 5 } : undefined} type="button">
         <p className="break-words text-sm font-bold text-muted-foreground">{point?.label ?? "Records"}</p>
         <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatNumber(point?.value ?? 0)}</p>
       </button>

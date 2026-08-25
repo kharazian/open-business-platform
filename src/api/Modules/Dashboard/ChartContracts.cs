@@ -66,6 +66,14 @@ public static class DashboardCardAccents
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "primary", "info", "success", "warning", "danger", "violet" };
 }
 
+public static class DashboardConditionalOperators
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal" };
+}
+
+public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent);
+public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
+
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",
     bool ShowLegend = true,
@@ -74,7 +82,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string CardAccent = "none",
     string NumberFormat = "auto",
     string CurrencyCode = "CAD",
-    int DecimalPlaces = 0);
+    int DecimalPlaces = 0,
+    DashboardConditionalFormattingDefinition? ConditionalFormatting = null);
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

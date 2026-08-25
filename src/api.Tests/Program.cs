@@ -4504,6 +4504,29 @@ AssertFalse(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidget
     "status",
     Appearance: new DashboardChartAppearanceDefinition("unsafe", DecimalPlaces: 8))).Valid,
     "Dashboard chart config should reject unsupported palettes and excessive decimals.");
+var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
+{
+    new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success"),
+    new DashboardConditionalRuleDefinition("warning", "greater_or_equal", 90m, "warning"),
+    new DashboardConditionalRuleDefinition("low", "less_than", 90m, "danger")
+}));
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"),
+    Appearance: conditionalKpiAppearance)).Valid, "KPI widgets should accept bounded ordered conditional-color rules.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: conditionalKpiAppearance)).Errors.Any(error => error.Code == "chart.conditional.widget_type_invalid"), "Conditional colors should be limited to KPI widgets.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, Enumerable.Range(0, 6).Select(index => new DashboardConditionalRuleDefinition($"rule-{index}", "greater_than", index, "success")).ToArray())))).Errors.Any(error => error.Code == "chart.conditional.rule_limit"), "KPI conditional formatting should reject more than five rules.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("invalid", "unsupported", 1m, "none") })))).Errors.Any(error => error.Code is "chart.conditional.operator_invalid" or "chart.conditional.accent_invalid"), "KPI conditional formatting should reject unsupported operators and non-semantic accents.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {

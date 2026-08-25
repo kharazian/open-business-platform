@@ -2852,6 +2852,8 @@ Analytics widget configs may additionally persist up to eight `fixedFilters` usi
 
 Saved config schema version 1 supports at most 16 ordered sections, 48 widgets, and 16 widgets in one section. Sections may store an allowlisted `icon`; widgets may store a bounded optional `subtitle`. Adapter widgets remain mutually exclusive with analytics config and accept bounded scalar settings only. The built-in `sample-dashboard` adapter additionally uses backend allowlists for visualization IDs and setting keys; unknown third-party adapters retain the legacy scalar-only compatibility path.
 
+KPI (`number_card`) appearance may include optional conditional formatting with at most five ordered rules. Each rule has a bounded unique ID, one numeric threshold, an allowlisted comparison operator (`greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`, or `equal`), and a semantic accent. The first matching rule controls presentation; the saved static card accent is the fallback. Conditional rules do not modify analytics queries, values, permissions, or non-KPI widgets.
+
 Published viewer URLs may include versioned `dv=1` runtime state for the active section and applied dashboard filters. This browser-only state is parsed against the saved section/filter definitions, declared filter options, and existing value/date bounds. Unsupported or malformed query values are ignored and never affect authorization.
 
 ## Workspace Branding
