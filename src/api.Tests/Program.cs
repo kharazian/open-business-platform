@@ -4732,6 +4732,22 @@ AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilte
 {
     FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "Unknown" }) }
 }).Errors.Any(error => error.Code == "chart.fixed_filter.option_invalid"), "Saved chart configs should reject fixed-filter values outside a choice field's declared options.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("event_date", Start: "2026-01-01", End: "2026-02-01") }
+}).Valid, "Saved chart configs should accept an ordered fixed date range.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("event_date", Start: "2026-02-01", End: "2026-01-01") }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.date_range_invalid"), "Saved chart configs should reject a fixed date range whose end is not after its start.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("event_date", new[] { "2026-01-01" }) }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.date_values_invalid"), "Saved fixed date filters should reject scalar values.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }, Start: "2026-01-01") }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.date_field_invalid"), "Saved fixed choice filters should reject date bounds.");
 var fixedFilterPrecedence = ChartAggregationEngine.Execute(
     DemoDataSeeder.BusinessPerformanceFormId,
     "Business Performance Sample Data",

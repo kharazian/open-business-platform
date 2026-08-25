@@ -228,12 +228,17 @@ test("widget property drafts clone nested config and validate permitted fields",
   const fields = [
     { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
     { id: "status", label: "Status", type: "status", source: "system", options: [{ id: "active", label: "Active", value: "active" }, { id: "closed", label: "Closed", value: "closed" }], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true },
+    { id: "event_date", label: "Event date", type: "date", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: false, supportsChoiceGrouping: false },
     { id: "restricted", label: "Restricted", type: "text", source: "form", options: [], filterable: false, sortable: false, searchable: false, supportsAggregation: false, supportsChoiceGrouping: false }
   ];
   assert.equal(isDashboardAnalyticsWidgetDraftValid(widget, fields), true);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "hidden", values: ["x"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "restricted", values: ["x"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["unknown"] }] } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", start: "2026-01-01", end: "2026-02-01" }] } }, fields), true);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", start: "2026-02-01", end: "2026-01-01" }] } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", values: ["2026-01-01"] }] } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["active"], start: "2026-01-01" }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
 });
 

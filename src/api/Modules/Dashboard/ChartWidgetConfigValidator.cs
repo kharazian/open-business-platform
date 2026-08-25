@@ -71,6 +71,14 @@ public static class ChartWidgetConfigValidator
                     errors.Add(new($"fixedFilters[{item.index}].values", "chart.fixed_filter.option_invalid", "Fixed filter values must use an option declared by the field."));
                 }
             }
+            if (fieldsById.TryGetValue(fieldId, out field) && field.Type is FormFieldTypes.Date or FormFieldTypes.Datetime)
+            {
+                if ((item.filter.Values?.Count ?? 0) > 0) errors.Add(new($"fixedFilters[{item.index}].values", "chart.fixed_filter.date_values_invalid", "Fixed date filters use start and end bounds instead of values."));
+                if (DateTimeOffset.TryParse(item.filter.Start, out var start) && DateTimeOffset.TryParse(item.filter.End, out var end) && start >= end)
+                {
+                    errors.Add(new($"fixedFilters[{item.index}]", "chart.fixed_filter.date_range_invalid", "Fixed filter end must be after start."));
+                }
+            }
         }
     }
 
