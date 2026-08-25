@@ -9,14 +9,19 @@ export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAp
 export function cloneDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance { return resolveDashboardChartAppearance(value); }
 
 export function getDashboardEffectiveCardAccent(appearance: DashboardChartAppearance, value?: number | null): DashboardCardAccent {
-  if (!appearance.conditionalFormatting.enabled || value === null || value === undefined || !Number.isFinite(value)) return appearance.cardAccent;
-  return appearance.conditionalFormatting.rules.find((rule) => matchesConditionalRule(value, rule.operator, rule.value))?.accent ?? appearance.cardAccent;
+  return getDashboardConditionalResult(appearance, value)?.accent ?? appearance.cardAccent;
+}
+
+export function getDashboardConditionalResult(appearance: DashboardChartAppearance, value?: number | null): { ruleId: string; accent: DashboardSeriesColor; label: string | null } | null {
+  if (!appearance.conditionalFormatting.enabled || value === null || value === undefined || !Number.isFinite(value)) return null;
+  const rule = appearance.conditionalFormatting.rules.find((candidate) => matchesConditionalRule(value, candidate.operator, candidate.value));
+  return rule ? { ruleId: rule.id, accent: rule.accent, label: rule.label?.trim() || null } : null;
 }
 
 export function isDashboardConditionalFormattingValid(formatting: DashboardConditionalFormatting, widgetType: ChartWidgetType): boolean {
   if (formatting.rules.length > 5 || (formatting.enabled && (widgetType !== "number_card" || formatting.rules.length < 1))) return false;
   const ids = new Set<string>();
-  return formatting.rules.every((rule) => /^[A-Za-z0-9_-]{1,50}$/.test(rule.id) && !ids.has(rule.id) && Boolean(ids.add(rule.id)) && conditionalOperators.has(rule.operator) && Number.isFinite(rule.value) && Math.abs(rule.value) <= 1_000_000_000_000_000 && conditionalAccents.has(rule.accent));
+  return formatting.rules.every((rule) => /^[A-Za-z0-9_-]{1,50}$/.test(rule.id) && !ids.has(rule.id) && Boolean(ids.add(rule.id)) && conditionalOperators.has(rule.operator) && Number.isFinite(rule.value) && Math.abs(rule.value) <= 1_000_000_000_000_000 && conditionalAccents.has(rule.accent) && (!formatting.enabled || Boolean(rule.label?.trim())) && (rule.label?.length ?? 0) <= 80);
 }
 
 const conditionalOperators = new Set<DashboardConditionalOperator>(["greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal"]);

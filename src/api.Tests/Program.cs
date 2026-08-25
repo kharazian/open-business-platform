@@ -4506,9 +4506,9 @@ AssertFalse(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidget
     "Dashboard chart config should reject unsupported palettes and excessive decimals.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
-    new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success"),
-    new DashboardConditionalRuleDefinition("warning", "greater_or_equal", 90m, "warning"),
-    new DashboardConditionalRuleDefinition("low", "less_than", 90m, "danger")
+    new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),
+    new DashboardConditionalRuleDefinition("warning", "greater_or_equal", 90m, "warning", "Watch"),
+    new DashboardConditionalRuleDefinition("low", "less_than", 90m, "danger", "Below target")
 }));
 AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
     ChartWidgetTypes.NumberCard,
@@ -4527,6 +4527,14 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     ChartWidgetTypes.NumberCard,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("invalid", "unsupported", 1m, "none") })))).Errors.Any(error => error.Code is "chart.conditional.operator_invalid" or "chart.conditional.accent_invalid"), "KPI conditional formatting should reject unsupported operators and non-semantic accents.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("label", "equal", 1m, "success", new string('x', 81)) })))).Errors.Any(error => error.Code == "chart.conditional.label_invalid"), "KPI conditional formatting should reject labels longer than 80 characters.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("label", "equal", 1m, "success") })))).Errors.Any(error => error.Code == "chart.conditional.label_required"), "Enabled KPI conditional rules should require readable status labels.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {

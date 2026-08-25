@@ -112,6 +112,8 @@ public static class ChartWidgetConfigValidator
             if (Math.Abs(item.rule.Value) > 1_000_000_000_000_000m) errors.Add(new($"{path}.value", "chart.conditional.value_range", "Conditional threshold is outside the supported range."));
             var accent = Normalize(item.rule.Accent);
             if (accent == "none" || !DashboardCardAccents.Supported.Contains(accent)) errors.Add(new($"{path}.accent", "chart.conditional.accent_invalid", "Conditional rule requires a semantic accent color."));
+            if (formatting.Enabled && string.IsNullOrWhiteSpace(item.rule.Label)) errors.Add(new($"{path}.label", "chart.conditional.label_required", "Enabled conditional rules require a status label."));
+            else if ((item.rule.Label?.Length ?? 0) > 80) errors.Add(new($"{path}.label", "chart.conditional.label_invalid", "Conditional rule label must contain at most 80 characters."));
         }
     }
 

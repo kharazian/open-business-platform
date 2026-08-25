@@ -71,7 +71,7 @@ public static class DashboardConditionalOperators
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal" };
 }
 
-public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent);
+public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 
 public sealed record DashboardChartAppearanceDefinition(

@@ -37,7 +37,7 @@ test("Business Performance template creates an independent eleven-section multi-
 });
 
 test("template instantiation deep-clones KPI conditional rules", () => {
-  const template = { ...businessPerformanceSampleTemplate, widgets: businessPerformanceSampleTemplate.widgets.map((widget, index) => index !== 0 || widget.source.kind !== "analytics" ? widget : { ...widget, source: { ...widget.source, chart: { ...widget.source.chart, appearance: { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: true, rules: [{ id: "target", operator: "greater_or_equal", value: 40, accent: "success" }] } } } } }) };
+  const template = { ...businessPerformanceSampleTemplate, widgets: businessPerformanceSampleTemplate.widgets.map((widget, index) => index !== 0 || widget.source.kind !== "analytics" ? widget : { ...widget, source: { ...widget.source, chart: { ...widget.source.chart, appearance: { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: true, rules: [{ id: "target", operator: "greater_or_equal", value: 40, accent: "success", label: "On target" }] } } } } }) };
   let sequence = 0;
   const instantiate = () => instantiateDashboardTemplate(template, { sources }, { idGenerator: () => `conditional-${++sequence}`, availableAdapterIds: new Set(["sample-dashboard"]) });
   const first = instantiate();
@@ -46,8 +46,11 @@ test("template instantiation deep-clones KPI conditional rules", () => {
   assert.equal(second.ok, true);
   if (!first.ok || !second.ok) return;
   first.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].value = 50;
+  first.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].label = "Changed status";
   assert.equal(second.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].value, 40);
+  assert.equal(second.dashboard.config.widgets[0].chart.appearance.conditionalFormatting.rules[0].label, "On target");
   assert.equal(template.widgets[0].source.chart.appearance.conditionalFormatting.rules[0].value, 40);
+  assert.equal(template.widgets[0].source.chart.appearance.conditionalFormatting.rules[0].label, "On target");
 });
 
 test("Operations Performance template creates an independent seven-section draft", () => {

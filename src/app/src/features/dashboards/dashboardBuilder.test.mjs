@@ -13,7 +13,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardEffectiveCardAccent, getDashboardSeriesColor, isDashboardConditionalFormattingValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardSeriesColor, isDashboardConditionalFormattingValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -266,17 +266,21 @@ test("dashboard appearance helpers preserve defaults, palettes, accents, and loc
 
 test("KPI conditional formatting evaluates ordered bounded rules with a static fallback", () => {
   const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, cardAccent: "info", conditionalFormatting: { enabled: true, rules: [
-    { id: "excellent", operator: "greater_or_equal", value: 100, accent: "success" },
-    { id: "near-target", operator: "greater_or_equal", value: 90, accent: "warning" },
-    { id: "below-target", operator: "less_than", value: 90, accent: "danger" }
+    { id: "excellent", operator: "greater_or_equal", value: 100, accent: "success", label: "On target" },
+    { id: "near-target", operator: "greater_or_equal", value: 90, accent: "warning", label: "Watch" },
+    { id: "below-target", operator: "less_than", value: 90, accent: "danger", label: "Below target" }
   ] } });
   assert.equal(getDashboardEffectiveCardAccent(appearance, 105), "success");
   assert.equal(getDashboardEffectiveCardAccent(appearance, 95), "warning");
   assert.equal(getDashboardEffectiveCardAccent(appearance, 70), "danger");
+  assert.deepEqual(getDashboardConditionalResult(appearance, 95), { accent: "warning", label: "Watch", ruleId: "near-target" });
+  assert.equal(getDashboardConditionalResult(appearance, 85)?.label, "Below target");
   assert.equal(getDashboardEffectiveCardAccent({ ...appearance, conditionalFormatting: { enabled: true, rules: [] } }, 70), "info");
   assert.equal(isDashboardConditionalFormattingValid(appearance.conditionalFormatting, "number_card"), true);
   assert.equal(isDashboardConditionalFormattingValid(appearance.conditionalFormatting, "choice_breakdown"), false);
+  assert.equal(isDashboardConditionalFormattingValid({ enabled: true, rules: [{ id: "missing-label", operator: "equal", value: 1, accent: "success" }] }, "number_card"), false);
   assert.equal(isDashboardConditionalFormattingValid({ enabled: true, rules: [{ id: "bad", operator: "unsupported", value: 1, accent: "success" }] }, "number_card"), false);
+  assert.equal(isDashboardConditionalFormattingValid({ enabled: true, rules: [{ id: "bad-label", operator: "equal", value: 1, accent: "success", label: "x".repeat(81) }] }, "number_card"), false);
   const cloned = cloneDashboardChartAppearance(appearance);
   cloned.conditionalFormatting.rules[0].value = 120;
   assert.equal(appearance.conditionalFormatting.rules[0].value, 100);

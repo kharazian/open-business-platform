@@ -1,7 +1,7 @@
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
-import { formatDashboardValue, getDashboardAccentColor, getDashboardEffectiveCardAccent, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
+import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -13,11 +13,12 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   const select = (selection: DashboardPointSelection) => { setSelectedKey(selection.recordId ?? selection.key); onSelect?.(selection); };
   const { effectiveLocale } = useLocalization();
   const appearance = resolveDashboardChartAppearance(appearanceInput);
+  const conditionalResult = getDashboardConditionalResult(appearance, preview.series[0]?.value);
   const formatNumber = (value: number) => formatDashboardValue(value, appearance, effectiveLocale);
   const formatCount = (value: number) => new Intl.NumberFormat(effectiveLocale).format(value);
   if ("dataSeries" in preview && (preview.dataSeries?.length ?? 0) > 1 && preview.widgetType !== "table") {
     return preview.widgetType === "summary"
-      ? <MultiSeriesSummary appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} />
+      ? <MultiSeriesSummary appearance={appearance} conditionalResult={conditionalResult} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} />
       : <MultiSeriesChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} />;
   }
   if (preview.widgetType === "table") {
@@ -32,6 +33,7 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
       <button aria-label={onSelect ? interactionLabel : undefined} className={`w-full rounded-lg border border-border bg-muted/30 p-4 text-left transition ${onSelect ? "cursor-pointer hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? "summary") ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} onClick={() => select({ key: point?.key ?? "summary", label: point?.label ?? "Records", value: point?.value ?? 0 })} style={accent ? { borderLeftColor: accent, borderLeftWidth: 5 } : undefined} type="button">
         <p className="break-words text-sm font-bold text-muted-foreground">{point?.label ?? "Records"}</p>
         <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatNumber(point?.value ?? 0)}</p>
+        <ConditionalStatus accent={accent} label={conditionalResult?.label} />
       </button>
     );
   }
@@ -39,9 +41,12 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   return <SeriesBars appearance={appearance} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} points={preview.series} selectedKey={selectedKey} />;
 }
 
-function MultiSeriesSummary({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
-  return <div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; return <button aria-label={onSelect ? `${interactionLabel}: ${item.label}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{(item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0)}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div>;
+function MultiSeriesSummary({ appearance, conditionalResult, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; conditionalResult: ReturnType<typeof getDashboardConditionalResult>; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
+  const accent = conditionalResult ? getDashboardAccentColor(conditionalResult.accent, appearance.palette) : undefined;
+  return <div className="grid gap-3"><ConditionalStatus accent={accent} label={conditionalResult?.label} /><div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; return <button aria-label={onSelect ? `${interactionLabel}: ${item.label}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{(item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0)}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div></div>;
 }
+
+function ConditionalStatus({ accent, label }: { accent?: string; label?: string | null }) { return label ? <span aria-label={`KPI status: ${label}`} className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-bold"><span className="size-2 rounded-full" style={{ background: accent }} />{label}</span> : null; }
 
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
   const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
