@@ -4802,6 +4802,28 @@ var unknownBuiltInAdapterValidation = DashboardDefinitionValidator.Validate(unkn
 AssertTrue(unknownBuiltInAdapterValidation.Errors.Any(error => error.Code == "dashboard.adapter.visualization_unknown"), "Built-in adapters should reject unregistered visualizations.");
 AssertTrue(unknownBuiltInAdapterValidation.Errors.Any(error => error.Code == "dashboard.adapter.setting_unknown"), "Built-in adapters should reject unregistered settings while legacy third-party adapters remain compatible.");
 
+var operationsDashboard = DemoDataSeeder.CreateOperationsPerformanceDashboardSeed(Guid.Parse("30000000-0000-0000-0000-000000000002"));
+var operationsConfig = operationsDashboard.ConfigJson.RootElement.Deserialize<SavedDashboardConfigDefinition>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+var operationsLayout = operationsDashboard.LayoutJson.RootElement.Deserialize<SavedDashboardLayoutDefinition>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+var operationsSnapshot = operationsDashboard.PublishedSnapshotJson!.RootElement.Deserialize<DashboardRevisionSnapshotDefinition>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+var operationsSource = new[] { new DashboardSourceDefinition(DemoDataSeeder.OperationalPerformanceFormId, DemoDataSeeder.CreateOperationalPerformanceSchema(), Array.Empty<DashboardSourceReportDefinition>()) };
+
+AssertEqual(Guid.Parse("11000000-0000-0000-0000-000000000013"), DemoDataSeeder.OperationsPerformanceDashboardId, "The Operations sample dashboard ID should remain deterministic.");
+AssertEqual("Operations Performance Sample", operationsDashboard.Name, "The seeded Operations dashboard should use the approved name.");
+AssertEqual("operations-performance-sample", operationsDashboard.Slug, "The seeded Operations dashboard should use the approved slug.");
+AssertEqual(DashboardPublicationStatuses.Published, operationsDashboard.Status, "The seeded Operations dashboard should be published.");
+AssertFalse(operationsDashboard.ShowInNavigation, "The seeded Operations dashboard should remain out of navigation.");
+AssertEqual(7, operationsConfig.Sections!.Count, "The seeded Operations dashboard should contain seven sections.");
+AssertEqual(24, operationsConfig.Widgets.Count, "The seeded Operations dashboard should contain 24 widgets.");
+AssertEqual(5, operationsConfig.Filters!.Count, "The seeded Operations dashboard should contain five filters.");
+AssertEqual("operations-performance", operationsConfig.TemplateProvenance!.TemplateId, "The seeded dashboard should retain template provenance.");
+AssertEqual(1, operationsConfig.TemplateProvenance.TemplateVersion, "The seeded dashboard should retain template version 1.");
+AssertEqual(24, operationsLayout.Widgets.Count, "Every seeded Operations widget should have layout metadata.");
+AssertTrue(DashboardDefinitionValidator.Validate(operationsConfig, operationsLayout, operationsSource).Valid, "The seeded Operations dashboard should pass the normal backend validator.");
+AssertEqual("operations-performance-sample", operationsSnapshot.Publication.Slug, "The immutable published snapshot should expose the approved slug.");
+AssertEqual(DashboardVisibilityModes.Workspace, operationsSnapshot.Settings.Visibility, "The published sample should be workspace-visible.");
+AssertFalse(operationsSnapshot.Settings.IsDefault, "The published sample should not become the workspace default.");
+
 var createDashboardRequest = new CreateDashboardRequest(
     "Operations dashboard",
     "Saved widgets for V2 dashboards.",

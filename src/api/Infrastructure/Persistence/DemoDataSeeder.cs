@@ -20,6 +20,8 @@ public static class DemoDataSeeder
     public static readonly Guid BusinessPerformanceDashboardId = Guid.Parse("11000000-0000-0000-0000-000000000003");
     public static readonly Guid OperationalPerformanceFormId = Guid.Parse("11000000-0000-0000-0000-000000000011");
     public static readonly Guid OperationalPerformanceFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000012");
+    public static readonly Guid OperationsPerformanceDashboardId = Guid.Parse("11000000-0000-0000-0000-000000000013");
+    private static readonly DateTimeOffset OperationsPerformancePublishedAt = new(2026, 8, 25, 0, 0, 0, TimeSpan.Zero);
     public static readonly Guid HseIncidentFormId = Guid.Parse("11000000-0000-0000-0000-000000000021");
     public static readonly Guid HseIncidentFormVersionId = Guid.Parse("11000000-0000-0000-0000-000000000022");
 
@@ -107,6 +109,7 @@ public static class DemoDataSeeder
         await EnsureOperationalPerformanceRecordsAsync(dbContext, operationsFormVersion, users, departments, cancellationToken);
         await EnsureHseIncidentRecordsAsync(dbContext, incidentFormVersion, users, departments, cancellationToken);
         await EnsureBusinessPerformanceDashboardAsync(dbContext, businessFormVersion, operationsFormVersion, incidentFormVersion, users, cancellationToken);
+        await EnsureOperationsPerformanceDashboardAsync(dbContext, operationsFormVersion, users, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -793,6 +796,146 @@ public static class DemoDataSeeder
                 })
             });
         }
+    }
+
+    public static DashboardDefinition CreateOperationsPerformanceDashboardSeed(Guid creatorId)
+    {
+        static IReadOnlyDictionary<string, object?> Settings(Dictionary<string, object?> values) => values;
+
+        var sections = new[]
+        {
+            new SavedDashboardSectionDefinition("operations-overview", "Operations Overview", 0, "gauge"),
+            new SavedDashboardSectionDefinition("operations-loss", "Loss", 1, "trending-up"),
+            new SavedDashboardSectionDefinition("operations-production", "Production", 2, "factory"),
+            new SavedDashboardSectionDefinition("operations-engineering", "Engineering", 3, "wrench"),
+            new SavedDashboardSectionDefinition("operations-supply", "Supply Chain", 4, "package-check"),
+            new SavedDashboardSectionDefinition("operations-qaqc", "QA/QC", 5, "shield-check"),
+            new SavedDashboardSectionDefinition("operations-trends-records", "Trends & Records", 6, "clipboard-list")
+        };
+        var analyticsSpecs = new[]
+        {
+            ("operational-facts", "Operational facts", "operations-overview", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Count, (string?)null, (string?)null, (string?)null, Array.Empty<string>()),
+            ("total-actual", "Total actual", "operations-overview", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, null, Array.Empty<string>()),
+            ("total-target", "Total target", "operations-overview", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "target_value", null, null, Array.Empty<string>()),
+            ("performance-by-module", "Performance by module", "operations-overview", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "module", null, Array.Empty<string>()),
+            ("loss-actual", "Total loss actual", "operations-loss", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, null, Array.Empty<string>()),
+            ("loss-by-metric", "Loss by metric", "operations-loss", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "metric_key", null, Array.Empty<string>()),
+            ("production-by-product", "Production by product", "operations-production", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "product", null, Array.Empty<string>()),
+            ("production-trend", "Production trend", "operations-production", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("engineering-by-equipment", "Engineering performance", "operations-engineering", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "equipment", null, Array.Empty<string>()),
+            ("engineering-trend", "Utilities and reliability trend", "operations-engineering", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Average, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("supply-by-product", "Inventory by product", "operations-supply", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Sum, "actual_value", "product", null, Array.Empty<string>()),
+            ("supply-by-metric", "Supply-chain KPI families", "operations-supply", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "metric_key", null, Array.Empty<string>()),
+            ("qaqc-rate", "QA/QC first-time release", "operations-qaqc", DashboardWidgetWidths.Small, ChartWidgetTypes.NumberCard, DashboardAnalyticsMetricTypes.Average, "actual_value", null, null, Array.Empty<string>()),
+            ("qaqc-metrics", "Quality metrics", "operations-qaqc", DashboardWidgetWidths.Wide, ChartWidgetTypes.ChoiceBreakdown, DashboardAnalyticsMetricTypes.Average, "actual_value", "metric_key", null, Array.Empty<string>()),
+            ("qaqc-detail", "Quality detail", "operations-qaqc", DashboardWidgetWidths.Full, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "period_label", "metric_key", "product", "actual_value", "target_value", "unit", "status" }),
+            ("operations-over-time", "Operational actual over time", "operations-trends-records", DashboardWidgetWidths.Wide, ChartWidgetTypes.DateTrend, DashboardAnalyticsMetricTypes.Sum, "actual_value", null, "period_date", Array.Empty<string>()),
+            ("recent-operations", "Operational detail", "operations-trends-records", DashboardWidgetWidths.Full, ChartWidgetTypes.Table, DashboardAnalyticsMetricTypes.Count, null, null, null, new[] { "module", "metric_key", "period_label", "period_number", "product", "equipment", "actual_value", "target_value", "budget_value", "numerator", "denominator", "unit" })
+        };
+        var adapterSpecs = new[]
+        {
+            ("overview-target", "Actual versus target", "operations-overview", DashboardWidgetWidths.Wide, "target_attainment", Settings(new() { ["actual"] = 92, ["target"] = 100, ["unit"] = "%", ["tone"] = "warning", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("loss-target", "Loss actual and standard", "operations-loss", DashboardWidgetWidths.Wide, "combo", Settings(new() { ["labels"] = "Jan|Feb|Mar|Apr|May|Jun", ["primary"] = "8|7|9|6|5|6", ["secondary"] = "7|7|7|6|6|6", ["unit"] = "%", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("production-stack", "Product composition", "operations-production", DashboardWidgetWidths.Wide, "stacked_bar", Settings(new() { ["labels"] = "Q1|Q2|Q3|Q4", ["primary"] = "42|48|51|55", ["secondary"] = "31|34|38|41", ["tertiary"] = "18|21|24|27", ["unit"] = "t", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("engineering-target", "Actual versus engineering standard", "operations-engineering", DashboardWidgetWidths.Wide, "target_line", Settings(new() { ["labels"] = "W1|W2|W3|W4|W5|W6", ["primary"] = "72|69|75|71|68|66", ["secondary"] = "70|70|70|70|70|70", ["unit"] = "%", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("supply-attainment", "Service-level attainment", "operations-supply", DashboardWidgetWidths.Medium, "target_attainment", Settings(new() { ["actual"] = 96, ["target"] = 98, ["unit"] = "%", ["tone"] = "warning", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("actual-budget", "Actual and budget comparison", "operations-trends-records", DashboardWidgetWidths.Wide, "combo", Settings(new() { ["labels"] = "Jan|Feb|Mar|Apr|May|Jun", ["primary"] = "31|35|39|42|46|49", ["secondary"] = "30|34|38|43|45|48", ["unit"] = "%", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
+            ("detail-popup", "Period detail preview", "operations-trends-records", DashboardWidgetWidths.Wide, "detail_popup", Settings(new() { ["title"] = "Selected period detail", ["period"] = "2026 Q2", ["rows"] = 18, ["groups"] = "Module|Product|Equipment|Metric", ["sourceLabel"] = "Illustrative Operations sample adapter" }))
+        };
+        var widgets = analyticsSpecs.Select(spec => new SavedDashboardWidgetDefinition(
+            $"operations-{spec.Item1}",
+            spec.Item2,
+            OperationalPerformanceFormId,
+            new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null),
+            spec.Item3))
+            .Concat(adapterSpecs.Select(spec => new SavedDashboardWidgetDefinition(
+                $"operations-{spec.Item1}",
+                spec.Item2,
+                null,
+                null,
+                spec.Item3,
+                new DashboardAdapterWidgetDefinition("sample-dashboard", spec.Item5, spec.Item6))))
+            .ToArray();
+        var filters = new[]
+        {
+            new SavedDashboardFilterDefinition("operations-filter-fiscal-year", "Fiscal year", "single_select", OperationalPerformanceFormId, "fiscal_year", new[] { "2025", "2026" }),
+            new SavedDashboardFilterDefinition("operations-filter-period-type", "Period", "single_select", OperationalPerformanceFormId, "period_type", new[] { "Week", "Month", "Quarter" }),
+            new SavedDashboardFilterDefinition("operations-filter-product", "Product / recipe", "multi_select", OperationalPerformanceFormId, "product", new[] { "Classic", "Premium", "Light", "Specialty" }, new[] { "operations-production-by-product", "operations-production-trend", "operations-supply-by-product", "operations-supply-by-metric", "operations-qaqc-rate", "operations-qaqc-metrics", "operations-qaqc-detail", "operations-recent-operations" }),
+            new SavedDashboardFilterDefinition("operations-filter-equipment", "Equipment", "multi_select", OperationalPerformanceFormId, "equipment", new[] { "Line 1", "Line 2", "Dryer", "Packaging" }, new[] { "operations-engineering-by-equipment", "operations-engineering-trend", "operations-recent-operations" }),
+            new SavedDashboardFilterDefinition("operations-filter-module", "Module", "single_select", OperationalPerformanceFormId, "module", new[] { "Loss", "Production", "Engineering", "Supply Chain", "QAQC" }, new[] { "operations-operational-facts", "operations-total-actual", "operations-total-target", "operations-performance-by-module", "operations-operations-over-time", "operations-recent-operations" })
+        };
+        var config = new SavedDashboardConfigDefinition(
+            1,
+            widgets,
+            sections,
+            new DashboardTemplateProvenanceDefinition("operations-performance", 1, OperationsPerformancePublishedAt),
+            filters);
+        var layout = new SavedDashboardLayoutDefinition(
+            1,
+            analyticsSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"operations-{spec.Item1}", spec.Item4, index))
+                .Concat(adapterSpecs.Select((spec, index) => new SavedDashboardWidgetLayoutDefinition($"operations-{spec.Item1}", spec.Item4, analyticsSpecs.Length + index)))
+                .ToArray());
+        var settings = new DashboardSettingsDefinition(DashboardVisibilityModes.Workspace, false);
+        var publication = new DashboardPublicationSettingsDefinition(
+            DashboardPublicationStatuses.Published,
+            "operations-performance-sample",
+            false,
+            null,
+            "factory",
+            0,
+            null);
+        var snapshot = new DashboardRevisionSnapshotDefinition(
+            "Operations Performance Sample",
+            "A focused Operations reference dashboard using permission-filtered analytics and clearly labeled illustrative adapters.",
+            config,
+            layout,
+            settings,
+            publication);
+
+        return new DashboardDefinition
+        {
+            Id = OperationsPerformanceDashboardId,
+            Name = snapshot.Name,
+            Description = snapshot.Description,
+            Status = DashboardPublicationStatuses.Published,
+            Slug = publication.Slug,
+            ShowInNavigation = false,
+            MenuIcon = publication.MenuIcon,
+            PublishedAt = OperationsPerformancePublishedAt,
+            PublishedById = creatorId,
+            CreatedById = creatorId,
+            ConfigJson = SerializeToDocument(config),
+            LayoutJson = SerializeToDocument(layout),
+            ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(settings),
+            PublishedSnapshotJson = SerializeToDocument(snapshot),
+            PublishedSlug = publication.Slug,
+            PublishedShowInNavigation = false,
+            PublishedMenuIcon = publication.MenuIcon,
+            PublishedMenuOrder = 0
+        };
+    }
+
+    private static async Task EnsureOperationsPerformanceDashboardAsync(
+        OpenBusinessPlatformDbContext dbContext,
+        FormVersion operationsVersion,
+        IReadOnlyDictionary<string, User> users,
+        CancellationToken cancellationToken)
+    {
+        if (await dbContext.Dashboards.AnyAsync(item => item.Id == OperationsPerformanceDashboardId, cancellationToken)) return;
+
+        var schema = operationsVersion.SchemaJson.RootElement.Deserialize<FormSchemaDefinition>(JsonOptions);
+        var requiredFields = new[]
+        {
+            "module", "metric_key", "fiscal_year", "period_type", "period_label", "period_number", "period_date",
+            "product", "equipment", "actual_value", "target_value", "budget_value", "numerator", "denominator", "unit", "status"
+        };
+        if (schema is null || !requiredFields.All(FormReportableFieldMetadata.GetReportableFieldsById(schema).ContainsKey)) return;
+
+        var creatorId = users["builder.demo@company.test"].Id;
+        dbContext.Dashboards.Add(CreateOperationsPerformanceDashboardSeed(creatorId));
+        dbContext.AuditLogs.AddRange(
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "Dashboard", EntityId = OperationsPerformanceDashboardId, Action = "dashboard_created", UserId = creatorId },
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityType = "Dashboard", EntityId = OperationsPerformanceDashboardId, Action = "dashboard_published", UserId = creatorId });
     }
 
     private static async Task EnsureBusinessPerformanceDashboardAsync(
