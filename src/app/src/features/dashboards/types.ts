@@ -51,6 +51,7 @@ export type ChartWidgetConfig = {
   reportId?: EntityId | null;
   series?: DashboardChartSeriesDefinition[] | null;
   appearance?: DashboardChartAppearance | null;
+  fixedFilters?: DashboardAnalyticsFilterValue[] | null;
 };
 
 export type ChartSeriesPoint = {

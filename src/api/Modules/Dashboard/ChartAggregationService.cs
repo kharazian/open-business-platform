@@ -128,8 +128,9 @@ public sealed class ChartAggregationService
         var hiddenMetric = config.Metric.FieldId is not null && hiddenFieldIds.Contains(config.Metric.FieldId);
         var hiddenGroup = config.GroupByFieldId is not null && hiddenFieldIds.Contains(config.GroupByFieldId);
         var hiddenDate = config.DateFieldId is not null && hiddenFieldIds.Contains(config.DateFieldId);
+        var hiddenFixedFilter = (config.FixedFilters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Any(filter => hiddenFieldIds.Contains(filter.FieldId.Trim()));
 
-        if (hiddenMetric || hiddenGroup || hiddenDate)
+        if (hiddenMetric || hiddenGroup || hiddenDate || hiddenFixedFilter)
         {
             throw new ChartAggregationException(StatusCodes.Status403Forbidden, "Chart config references a hidden field.");
         }

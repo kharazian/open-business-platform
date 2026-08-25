@@ -40,7 +40,8 @@ export function buildChartConfigFromDashboardAnalytics(config: DashboardAnalytic
     dateFieldId: config.widgetType === "trend" ? normalizeOptional(config.dateFieldId) : null,
     columns: config.widgetType === "table" ? normalizeColumns(config.columns) : [],
     limit: config.limit ?? 10,
-    reportId: config.reportId || null
+    reportId: config.reportId || null,
+    fixedFilters: []
   };
 }
 
@@ -56,9 +57,19 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     dateFieldId: chart.dateFieldId ?? null,
     columns: normalizeColumns(chart.columns),
     limit: chart.limit ?? 10,
-    filters,
+    filters: mergeDashboardAnalyticsFilters(chart.fixedFilters, filters),
     series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null
   };
+}
+
+export function mergeDashboardAnalyticsFilters(fixedFilters: DashboardAnalyticsFilterValue[] | null | undefined, runtimeFilters: DashboardAnalyticsFilterValue[] = []): DashboardAnalyticsFilterValue[] {
+  const fixed = (fixedFilters ?? []).map(cloneFilter);
+  const fixedFieldIds = new Set(fixed.map((filter) => filter.fieldId));
+  return [...fixed, ...runtimeFilters.filter((filter) => !fixedFieldIds.has(filter.fieldId)).map(cloneFilter)];
+}
+
+function cloneFilter(filter: DashboardAnalyticsFilterValue): DashboardAnalyticsFilterValue {
+  return filter.values ? { ...filter, values: [...filter.values] } : { ...filter };
 }
 
 export function hasRequiredDashboardAnalyticsConfig(config: DashboardAnalyticsBuilderConfig): boolean {

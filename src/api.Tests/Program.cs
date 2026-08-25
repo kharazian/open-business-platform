@@ -4714,6 +4714,40 @@ AssertEqual(6m, filteredSample.Series.Single().Value, "Shared dashboard filters 
 AssertFalse(DashboardAnalyticsRequestValidator.Validate(sampleDashboardSchema, new DashboardAnalyticsRequest(
     DashboardAnalyticsWidgetTypes.Summary, new DashboardAnalyticsSourceDefinition(DemoDataSeeder.BusinessPerformanceFormId), new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Count),
     Filters: new[] { new DashboardAnalyticsFilterDefinition("owner_name", Start: "2025-01-01") })).Valid, "Date bounds should be rejected for non-date fields.");
+var fixedFilterChart = new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Limit: 12,
+    FixedFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }) });
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart).Valid, "Saved chart configs should accept bounded fixed filters over reportable fields.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("missing", new[] { "North" }) }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.field_invalid"), "Saved chart configs should reject fixed filters over unknown fields.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }), new DashboardAnalyticsFilterDefinition("region", new[] { "South" }) }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.duplicate_field"), "Saved chart configs should reject duplicate fixed-filter fields.");
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "Unknown" }) }
+}).Errors.Any(error => error.Code == "chart.fixed_filter.option_invalid"), "Saved chart configs should reject fixed-filter values outside a choice field's declared options.");
+var fixedFilterPrecedence = ChartAggregationEngine.Execute(
+    DemoDataSeeder.BusinessPerformanceFormId,
+    "Business Performance Sample Data",
+    fixedFilterChart,
+    sampleDashboardSchema,
+    sampleAnalyticsRecords,
+    dashboardFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "South" }) });
+AssertEqual(12m, fixedFilterPrecedence.Series.Single().Value, "Fixed chart filters should take precedence over runtime filters for the same field.");
+var normalizedFixedFilterPrecedence = ChartAggregationEngine.Execute(
+    DemoDataSeeder.BusinessPerformanceFormId,
+    "Business Performance Sample Data",
+    fixedFilterChart with { FixedFilters = new[] { new DashboardAnalyticsFilterDefinition(" region ", new[] { " North " }) } },
+    sampleDashboardSchema,
+    sampleAnalyticsRecords,
+    dashboardFilters: new[] { new DashboardAnalyticsFilterDefinition(" region ", new[] { " South " }) });
+AssertEqual(12m, normalizedFixedFilterPrecedence.Series.Single().Value, "Fixed-filter normalization should preserve same-field precedence during execution.");
 var dashboardWithProvenance = dashboardConfig with
 {
     TemplateProvenance = new DashboardTemplateProvenanceDefinition("business-performance-sample", 1, DateTimeOffset.Parse("2026-08-21T00:00:00Z"))
@@ -4817,8 +4851,11 @@ AssertEqual(7, operationsConfig.Sections!.Count, "The seeded Operations dashboar
 AssertEqual(24, operationsConfig.Widgets.Count, "The seeded Operations dashboard should contain 24 widgets.");
 AssertEqual(5, operationsConfig.Filters!.Count, "The seeded Operations dashboard should contain five filters.");
 AssertEqual("operations-performance", operationsConfig.TemplateProvenance!.TemplateId, "The seeded dashboard should retain template provenance.");
-AssertEqual(1, operationsConfig.TemplateProvenance.TemplateVersion, "The seeded dashboard should retain template version 1.");
+AssertEqual(2, operationsConfig.TemplateProvenance.TemplateVersion, "The seeded dashboard should retain template version 2.");
 AssertEqual(24, operationsLayout.Widgets.Count, "Every seeded Operations widget should have layout metadata.");
+AssertEqual(11, operationsConfig.Widgets.Count(widget => widget.Chart?.FixedFilters?.Count > 0), "Every module-specific Operations analytics widget should carry a fixed module filter.");
+AssertTrue(operationsConfig.Widgets.Where(widget => widget.SectionId == "operations-loss" && widget.Chart is not null).All(widget => widget.Chart!.FixedFilters!.Single().Values!.Single() == "Loss"), "Loss analytics should be permanently scoped to the Loss module.");
+AssertTrue(operationsConfig.Widgets.Where(widget => widget.SectionId == "operations-production" && widget.Chart is not null).All(widget => widget.Chart!.FixedFilters!.Single().Values!.Single() == "Production"), "Production analytics should be permanently scoped to the Production module.");
 AssertTrue(DashboardDefinitionValidator.Validate(operationsConfig, operationsLayout, operationsSource).Valid, "The seeded Operations dashboard should pass the normal backend validator.");
 AssertEqual("operations-performance-sample", operationsSnapshot.Publication.Slug, "The immutable published snapshot should expose the approved slug.");
 AssertEqual(DashboardVisibilityModes.Workspace, operationsSnapshot.Settings.Visibility, "The published sample should be workspace-visible.");

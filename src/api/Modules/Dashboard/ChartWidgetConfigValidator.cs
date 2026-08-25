@@ -38,8 +38,40 @@ public static class ChartWidgetConfigValidator
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);
         ValidateAppearance(config.Appearance, errors);
+        ValidateFixedFilters(config.FixedFilters, schema, errors);
 
         return new ChartValidationResult(errors);
+    }
+
+    private static void ValidateFixedFilters(IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters, FormSchemaDefinition schema, ICollection<ChartValidationError> errors)
+    {
+        var values = filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>();
+        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
+        if (values.Count > 8) errors.Add(new("fixedFilters", "chart.fixed_filter.limit", "A chart supports at most eight fixed filters."));
+        foreach (var duplicate in values.Select(filter => Normalize(filter.FieldId)).Where(fieldId => fieldId.Length > 0).GroupBy(fieldId => fieldId, StringComparer.Ordinal).Where(group => group.Count() > 1))
+        {
+            errors.Add(new("fixedFilters", "chart.fixed_filter.duplicate_field", $"Fixed filter field '{duplicate.Key}' is duplicated."));
+        }
+        foreach (var error in DashboardAnalyticsRequestValidator.ValidateFilterValues(schema, values.Take(8).ToArray(), "fixedFilters").Errors)
+        {
+            errors.Add(new(error.Path, error.Code.Replace("dashboard.analytics.filter", "chart.fixed_filter", StringComparison.Ordinal), error.Message));
+        }
+        foreach (var item in values.Select((filter, index) => (filter, index)))
+        {
+            if ((item.filter.Values?.Count ?? 0) == 0 && string.IsNullOrWhiteSpace(item.filter.Start) && string.IsNullOrWhiteSpace(item.filter.End))
+            {
+                errors.Add(new($"fixedFilters[{item.index}]", "chart.fixed_filter.value_required", "A fixed filter requires at least one value or date bound."));
+            }
+            var fieldId = Normalize(item.filter.FieldId);
+            if (fieldsById.TryGetValue(fieldId, out var field) && field.Options.Count > 0)
+            {
+                var allowedValues = field.Options.Select(option => option.Value).ToHashSet(StringComparer.Ordinal);
+                if ((item.filter.Values ?? Array.Empty<string>()).Any(value => !allowedValues.Contains(value)))
+                {
+                    errors.Add(new($"fixedFilters[{item.index}].values", "chart.fixed_filter.option_invalid", "Fixed filter values must use an option declared by the field."));
+                }
+            }
+        }
     }
 
     private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, ICollection<ChartValidationError> errors)

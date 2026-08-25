@@ -52,13 +52,17 @@ test("Operations Performance template creates an independent seven-section draft
   assert.equal(first.dashboard.config.widgets.length, 24);
   assert.equal(first.dashboard.config.filters.length, 5);
   assert.equal(first.dashboard.config.templateProvenance?.templateId, "operations-performance");
-  assert.equal(first.dashboard.config.templateProvenance?.templateVersion, 1);
+  assert.equal(first.dashboard.config.templateProvenance?.templateVersion, 2);
   assert.equal(first.dashboard.publication.status, "draft");
   assert.equal(first.dashboard.settings.visibility, "workspace");
   assert.notEqual(first.dashboard.config.widgets[0].id, second.dashboard.config.widgets[0].id);
   first.dashboard.config.widgets[0].title = "Changed instance";
   assert.equal(second.dashboard.config.widgets[0].title, "Operational facts");
   assert.equal(operationsPerformanceTemplate.widgets[0].title, "Operational facts");
+  const moduleBySection = new Map([["loss", "Loss"], ["production", "Production"], ["engineering", "Engineering"], ["supply-chain", "Supply Chain"], ["qaqc", "QAQC"]]);
+  for (const widget of operationsPerformanceTemplate.widgets.filter((item) => item.source.kind === "analytics" && moduleBySection.has(item.sectionKey))) {
+    assert.deepEqual(widget.source.chart.fixedFilters, [{ fieldId: "module", values: [moduleBySection.get(widget.sectionKey)] }]);
+  }
 });
 
 test("Operations Performance filters resolve only to intended widget ids", () => {

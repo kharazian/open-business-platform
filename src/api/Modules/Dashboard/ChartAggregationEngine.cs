@@ -23,12 +23,12 @@ public static class ChartAggregationEngine
         var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema)
             .Where(pair => hiddenFieldIds is null || !hiddenFieldIds.Contains(pair.Key))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var normalizedConfig = NormalizeConfig(config);
         var preparedRecords = records
             .Select(record => new PreparedChartRecord(record, DeserializeValues(record.ValuesJson)))
             .Where(record => MatchesSourceReportFilters(record, sourceReportConfig))
-            .Where(record => MatchesDashboardFilters(record, dashboardFilters))
+            .Where(record => MatchesDashboardFilters(record, MergeFilters(normalizedConfig.FixedFilters, dashboardFilters)))
             .ToArray();
-        var normalizedConfig = NormalizeConfig(config);
 
         return normalizedConfig.WidgetType switch
         {
@@ -56,6 +56,23 @@ public static class ChartAggregationEngine
         });
     }
 
+    private static IReadOnlyList<DashboardAnalyticsFilterDefinition> MergeFilters(IReadOnlyList<DashboardAnalyticsFilterDefinition>? fixedFilters, IReadOnlyList<DashboardAnalyticsFilterDefinition>? runtimeFilters)
+    {
+        var fixedValues = fixedFilters ?? Array.Empty<DashboardAnalyticsFilterDefinition>();
+        var fixedFieldIds = fixedValues.Select(filter => filter.FieldId).ToHashSet(StringComparer.Ordinal);
+        return fixedValues.Concat((runtimeFilters ?? Array.Empty<DashboardAnalyticsFilterDefinition>())
+            .Select(NormalizeFilter)
+            .Where(filter => !fixedFieldIds.Contains(filter.FieldId))).ToArray();
+    }
+
+    private static DashboardAnalyticsFilterDefinition NormalizeFilter(DashboardAnalyticsFilterDefinition filter) => filter with
+    {
+        FieldId = filter.FieldId.Trim(),
+        Values = (filter.Values ?? Array.Empty<string>()).Select(value => value.Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+        Start = NormalizeOptional(filter.Start),
+        End = NormalizeOptional(filter.End)
+    };
+
     private static ChartWidgetConfigDefinition NormalizeConfig(ChartWidgetConfigDefinition config)
     {
         return config with
@@ -71,6 +88,7 @@ public static class ChartAggregationEngine
                 .Where(column => column.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray(),
+            FixedFilters = (config.FixedFilters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Select(NormalizeFilter).ToArray(),
             Limit = Math.Clamp(config.Limit ?? 10, 1, 50)
         };
     }

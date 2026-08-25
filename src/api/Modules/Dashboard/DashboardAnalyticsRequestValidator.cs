@@ -41,7 +41,7 @@ public static class DashboardAnalyticsRequestValidator
 
         ValidateMetricField(request, fieldsById, errors);
         ValidateWidgetFields(request, fieldsById, errors);
-        ValidateFilters(request.Filters, fieldsById, errors);
+        errors.AddRange(ValidateFilterValues(schema, request.Filters).Errors);
         var seriesValidation = ChartWidgetConfigValidator.Validate(schema, new ChartWidgetConfigDefinition(
             request.WidgetType switch { "summary" => ChartWidgetTypes.NumberCard, "breakdown" => ChartWidgetTypes.ChoiceBreakdown, "trend" => ChartWidgetTypes.DateTrend, "table" => ChartWidgetTypes.Table, _ => request.WidgetType },
             new ChartMetricDefinition(request.Metric?.Type ?? string.Empty, request.Metric?.FieldId),
@@ -54,12 +54,14 @@ public static class DashboardAnalyticsRequestValidator
         return new DashboardAnalyticsValidationResult(errors);
     }
 
-    private static void ValidateFilters(IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<DashboardAnalyticsValidationError> errors)
+    public static DashboardAnalyticsValidationResult ValidateFilterValues(FormSchemaDefinition schema, IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters, string pathPrefix = "filters")
     {
-        if ((filters?.Count ?? 0) > 8) errors.Add(new("filters", "dashboard.analytics.filters.limit", "A dashboard request supports at most 8 filters."));
+        var errors = new List<DashboardAnalyticsValidationError>();
+        var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema);
+        if ((filters?.Count ?? 0) > 16) errors.Add(new(pathPrefix, "dashboard.analytics.filters.limit", "A dashboard request supports at most 16 combined filters."));
         foreach (var item in (filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Select((filter, index) => (filter, index)))
         {
-            var path = $"filters[{item.index}]";
+            var path = $"{pathPrefix}[{item.index}]";
             var fieldId = NormalizeOptional(item.filter.FieldId);
             if (fieldId is null || !fieldsById.TryGetValue(fieldId, out var field) || !field.Filterable) { errors.Add(new($"{path}.fieldId", "dashboard.analytics.filter.field_invalid", "Filter field must be reportable and filterable.")); continue; }
             var values = item.filter.Values ?? Array.Empty<string>();
@@ -67,6 +69,7 @@ public static class DashboardAnalyticsRequestValidator
             if ((!string.IsNullOrWhiteSpace(item.filter.Start) || !string.IsNullOrWhiteSpace(item.filter.End)) && field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime)) errors.Add(new(path, "dashboard.analytics.filter.date_field_invalid", "Date bounds require a date or datetime field."));
             if ((!string.IsNullOrWhiteSpace(item.filter.Start) && !DateTimeOffset.TryParse(item.filter.Start, out _)) || (!string.IsNullOrWhiteSpace(item.filter.End) && !DateTimeOffset.TryParse(item.filter.End, out _))) errors.Add(new(path, "dashboard.analytics.filter.date_invalid", "Date filter bounds must be valid dates."));
         }
+        return new DashboardAnalyticsValidationResult(errors);
     }
 
     private static void ValidateMetricField(

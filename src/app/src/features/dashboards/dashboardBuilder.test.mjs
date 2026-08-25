@@ -215,19 +215,25 @@ test("dashboard layout helpers sort widgets and map widths", () => {
 });
 
 test("widget property drafts clone nested config and validate permitted fields", () => {
-  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }], appearance: { ...defaultDashboardChartAppearance, palette: "warm", cardAccent: "warning" } } };
+  const widget = { id: "widget-1", title: "Amount", sourceFormId: "form-1", sectionId: "overview", chart: { widgetType: "choice_breakdown", metric: { type: "sum", fieldId: "amount" }, groupByFieldId: "status", columns: [], limit: 10, series: [{ id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "bar", color: "primary", axis: "left" }], appearance: { ...defaultDashboardChartAppearance, palette: "warm", cardAccent: "warning" }, fixedFilters: [{ fieldId: "status", values: ["active"] }] } };
   const draft = cloneDashboardWidgetForEditing(widget);
   draft.chart.metric.fieldId = "other";
   draft.chart.series[0].metric.fieldId = "other";
   draft.chart.appearance.palette = "mono";
+  draft.chart.fixedFilters[0].values[0] = "closed";
   assert.equal(widget.chart.metric.fieldId, "amount");
   assert.equal(widget.chart.series[0].metric.fieldId, "amount");
   assert.equal(widget.chart.appearance.palette, "warm");
+  assert.equal(widget.chart.fixedFilters[0].values[0], "active");
   const fields = [
     { id: "amount", label: "Amount", type: "currency", source: "form", options: [], filterable: true, sortable: true, searchable: false, supportsAggregation: true, supportsChoiceGrouping: false },
-    { id: "status", label: "Status", type: "status", source: "system", options: [], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true }
+    { id: "status", label: "Status", type: "status", source: "system", options: [{ id: "active", label: "Active", value: "active" }, { id: "closed", label: "Closed", value: "closed" }], filterable: true, sortable: true, searchable: true, supportsAggregation: false, supportsChoiceGrouping: true },
+    { id: "restricted", label: "Restricted", type: "text", source: "form", options: [], filterable: false, sortable: false, searchable: false, supportsAggregation: false, supportsChoiceGrouping: false }
   ];
   assert.equal(isDashboardAnalyticsWidgetDraftValid(widget, fields), true);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "hidden", values: ["x"] }] } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "restricted", values: ["x"] }] } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["unknown"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
 });
 
@@ -337,6 +343,33 @@ test("dashboard analytics helpers preserve saved chart compatibility", () => {
   assert.equal(request.groupByFieldId, "status");
   assert.equal(request.dateFieldId, null);
   assert.deepEqual(request.columns, []);
+});
+
+test("dashboard analytics requests preserve fixed-filter precedence", () => {
+  const chart = {
+    widgetType: "number_card",
+    metric: { type: "count", fieldId: null },
+    columns: [],
+    limit: 10,
+    reportId: null,
+    fixedFilters: [
+      { fieldId: "module", values: ["Loss"] },
+      { fieldId: "period_date", start: "2026-01-01", end: "2027-01-01" }
+    ]
+  };
+
+  const request = buildDashboardAnalyticsRequest("form-1", chart, [
+    { fieldId: "module", values: ["Production"] },
+    { fieldId: "fiscal_year", values: ["2026"] }
+  ]);
+
+  assert.deepEqual(request.filters, [
+    { fieldId: "module", values: ["Loss"] },
+    { fieldId: "period_date", start: "2026-01-01", end: "2027-01-01" },
+    { fieldId: "fiscal_year", values: ["2026"] }
+  ]);
+  request.filters[0].values[0] = "Changed";
+  assert.equal(chart.fixedFilters[0].values[0], "Loss");
 });
 
 test("dashboard analytics helpers reject incomplete builder configs", () => {

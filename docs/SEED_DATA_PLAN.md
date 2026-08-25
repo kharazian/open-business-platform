@@ -71,7 +71,7 @@ All IDs are deterministic. Each entity is created only when its deterministic ID
 Development seeding also creates the focused Operations sample:
 
 - Published workspace-visible `Operations Performance Sample` saved dashboard with fixed slug `operations-performance-sample`.
-- The dashboard is seeded from the environment-neutral `operations-performance` template, template provenance version 1, with seven sections, 24 widgets, five targeted filters, and one permissioned, report-capable Operations source slot.
+- The dashboard is seeded from the environment-neutral `operations-performance` template, template provenance version 2, with seven sections, 24 widgets, five targeted filters, and one permissioned, report-capable Operations source slot. Eleven module analytics widgets carry fixed `module` filters for Loss, Production, Engineering, Supply Chain, and QA/QC; Overview, Trends, and Records remain broad or shared-filter driven.
 - The dashboard is published with an immutable snapshot. Record-backed widgets use the existing permission-filtered analytics engine; illustrative adapter values are labeled as illustrative rather than live calculations.
 - Seeding is additive and deterministic. The fixed dashboard ID is created only when absent and never overwrites existing edits, publication state, or archive state.
 

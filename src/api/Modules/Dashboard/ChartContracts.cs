@@ -85,7 +85,8 @@ public sealed record ChartWidgetConfigDefinition(
     int? Limit = null,
     Guid? ReportId = null,
     IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
-    DashboardChartAppearanceDefinition? Appearance = null);
+    DashboardChartAppearanceDefinition? Appearance = null,
+    IReadOnlyList<DashboardAnalyticsFilterDefinition>? FixedFilters = null);
 
 public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
 

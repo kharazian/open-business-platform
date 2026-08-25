@@ -842,11 +842,20 @@ public static class DemoDataSeeder
             ("actual-budget", "Actual and budget comparison", "operations-trends-records", DashboardWidgetWidths.Wide, "combo", Settings(new() { ["labels"] = "Jan|Feb|Mar|Apr|May|Jun", ["primary"] = "31|35|39|42|46|49", ["secondary"] = "30|34|38|43|45|48", ["unit"] = "%", ["sourceLabel"] = "Illustrative Operations sample adapter" })),
             ("detail-popup", "Period detail preview", "operations-trends-records", DashboardWidgetWidths.Wide, "detail_popup", Settings(new() { ["title"] = "Selected period detail", ["period"] = "2026 Q2", ["rows"] = 18, ["groups"] = "Module|Product|Equipment|Metric", ["sourceLabel"] = "Illustrative Operations sample adapter" }))
         };
+        var fixedModules = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["loss-actual"] = "Loss", ["loss-by-metric"] = "Loss",
+            ["production-by-product"] = "Production", ["production-trend"] = "Production",
+            ["engineering-by-equipment"] = "Engineering", ["engineering-trend"] = "Engineering",
+            ["supply-by-product"] = "Supply Chain", ["supply-by-metric"] = "Supply Chain",
+            ["qaqc-rate"] = "QAQC", ["qaqc-metrics"] = "QAQC", ["qaqc-detail"] = "QAQC"
+        };
         var widgets = analyticsSpecs.Select(spec => new SavedDashboardWidgetDefinition(
             $"operations-{spec.Item1}",
             spec.Item2,
             OperationalPerformanceFormId,
-            new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null),
+            new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null,
+                FixedFilters: fixedModules.TryGetValue(spec.Item1, out var fixedModule) ? new[] { new DashboardAnalyticsFilterDefinition("module", new[] { fixedModule }) } : null),
             spec.Item3))
             .Concat(adapterSpecs.Select(spec => new SavedDashboardWidgetDefinition(
                 $"operations-{spec.Item1}",
@@ -868,7 +877,7 @@ public static class DemoDataSeeder
             1,
             widgets,
             sections,
-            new DashboardTemplateProvenanceDefinition("operations-performance", 1, OperationsPerformancePublishedAt),
+            new DashboardTemplateProvenanceDefinition("operations-performance", 2, OperationsPerformancePublishedAt),
             filters);
         var layout = new SavedDashboardLayoutDefinition(
             1,
