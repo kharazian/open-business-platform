@@ -10,6 +10,7 @@ Status: implemented and verified through 2026-08-25 unless marked deferred.
 | Executive | Counts, value KPIs, status mix, target attainment | Verified | Standard analytics plus bounded adapter. |
 | Financial | Category/trend, delta, waterfall, heatmap | Verified | Illustrative values are labeled; no Finance module was invented. |
 | Operations | Loss, Production, Engineering, Supply Chain, QAQC | Verified | Deterministic Operations form plus analytics/adapter patterns. |
+| Focused Operations sample | Reusable template plus separate published sample | Verified | Seven sections, 24 widgets, five targeted filters, one permissioned Operations source, immutable published snapshot, and additive deterministic seeding. |
 | HSE | Incident count/cost/hours, location, trend, donut | Verified | Dedicated HSE sample form; no HSE domain module was invented. |
 | Trends | Business/operational trends, budget comparison, diagnostics | Verified | Standard analytics and bounded visuals. |
 | Records | Permission-filtered tables and accessible detail dialog | Verified | Dialog demonstrates detail UX without claiming cross-source drill-through. |
