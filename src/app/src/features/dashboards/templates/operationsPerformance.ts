@@ -44,7 +44,7 @@ export const operationsPerformanceTemplate: DashboardTemplateDefinition = {
     analytics("total-target", "Total target", "overview", "small", "number_card", "sum", { metricFieldId: "target_value" }),
     analytics("performance-by-module", "Performance by module", "overview", "wide", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "module" }),
     adapter("overview-target", "Actual versus target", "overview", "wide", "target_attainment", { actual: 92, target: 100, unit: "%", tone: "warning", sourceLabel: "Illustrative Operations sample adapter" }),
-    analytics("loss-actual", "Total loss actual", "loss", "small", "number_card", "sum", { metricFieldId: "actual_value", subtitle: "Use Module to narrow the permitted operational facts" }),
+    analytics("loss-actual", "Total loss actual", "loss", "small", "number_card", "sum", { metricFieldId: "actual_value" }),
     analytics("loss-by-metric", "Loss by metric", "loss", "wide", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "metric_key" }),
     adapter("loss-target", "Loss actual and standard", "loss", "wide", "combo", { labels: "Jan|Feb|Mar|Apr|May|Jun", primary: "8|7|9|6|5|6", secondary: "7|7|7|6|6|6", unit: "%", sourceLabel: "Illustrative Operations sample adapter" }),
     analytics("production-by-product", "Production by product", "production", "wide", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "product" }),
