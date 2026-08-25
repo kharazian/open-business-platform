@@ -4720,6 +4720,12 @@ var fixedFilterChart = new ChartWidgetConfigDefinition(
     Limit: 12,
     FixedFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }) });
 AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart).Valid, "Saved chart configs should accept bounded fixed filters over reportable fields.");
+var multiValueFixedFilterChart = fixedFilterChart with
+{
+    FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North", "South" }) }
+};
+AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, multiValueFixedFilterChart).Valid, "Saved chart configs should accept multiple declared values for one fixed choice filter.");
+AssertEqual(24m, ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data", multiValueFixedFilterChart, sampleDashboardSchema, sampleAnalyticsRecords).Series.Single().Value, "Multiple fixed choice values should use OR semantics within one field.");
 AssertTrue(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, fixedFilterChart with
 {
     FixedFilters = new[] { new DashboardAnalyticsFilterDefinition("missing", new[] { "North" }) }

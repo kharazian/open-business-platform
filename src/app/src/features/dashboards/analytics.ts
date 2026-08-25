@@ -68,6 +68,14 @@ export function mergeDashboardAnalyticsFilters(fixedFilters: DashboardAnalyticsF
   return [...fixed, ...runtimeFilters.filter((filter) => !fixedFieldIds.has(filter.fieldId)).map(cloneFilter)];
 }
 
+export function toggleDashboardFixedFilterValue(filter: DashboardAnalyticsFilterValue, value: string, selected: boolean): DashboardAnalyticsFilterValue {
+  const values = filter.values ?? [];
+  return {
+    ...filter,
+    values: selected ? [...new Set([...values, value])] : values.filter((candidate) => candidate !== value)
+  };
+}
+
 function cloneFilter(filter: DashboardAnalyticsFilterValue): DashboardAnalyticsFilterValue {
   return filter.values ? { ...filter, values: [...filter.values] } : { ...filter };
 }

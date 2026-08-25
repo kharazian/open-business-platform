@@ -8,7 +8,8 @@ import {
   getDashboardAnalyticsWidgetLabel,
   getDashboardVisibilityLabel,
   normalizeDashboardSettings,
-  hasRequiredDashboardAnalyticsConfig
+  hasRequiredDashboardAnalyticsConfig,
+  toggleDashboardFixedFilterValue
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
@@ -240,6 +241,15 @@ test("widget property drafts clone nested config and validate permitted fields",
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", values: ["2026-01-01"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["active"], start: "2026-01-01" }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
+});
+
+test("fixed choice filters toggle several values without mutating the saved filter", () => {
+  const saved = { fieldId: "module", values: ["Loss"] };
+  const added = toggleDashboardFixedFilterValue(saved, "Production", true);
+  assert.deepEqual(added, { fieldId: "module", values: ["Loss", "Production"] });
+  assert.deepEqual(saved, { fieldId: "module", values: ["Loss"] });
+  assert.deepEqual(toggleDashboardFixedFilterValue(added, "Loss", false), { fieldId: "module", values: ["Production"] });
+  assert.deepEqual(toggleDashboardFixedFilterValue(added, "Production", true), added);
 });
 
 test("dashboard appearance helpers preserve defaults, palettes, accents, and localized formats", () => {
