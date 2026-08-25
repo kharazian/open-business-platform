@@ -286,21 +286,25 @@ test("KPI conditional formatting evaluates ordered bounded rules with a static f
   assert.equal(appearance.conditionalFormatting.rules[0].value, 100);
 });
 
-test("KPI targets format localized target and percentage or absolute variance", () => {
-  const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 0, kpiTarget: { enabled: true, value: 7000, label: "Monthly target" } });
-  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 6651, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "5.0% below target" });
-  assert.deepEqual(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { enabled: true, value: 0, label: "Zero incidents" } }, 3, "en-CA"), { label: "Zero incidents", target: "$0", variance: "$3 above target" });
-  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 7000, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "On target" });
+test("KPI targets format direction-aware outcome, progress, and variance", () => {
+  const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 0, kpiTarget: { enabled: true, value: 7000, label: "Monthly target", direction: "higher_is_better" } });
+  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 6651, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "5.0% below target", outcome: "needs_attention", progress: 95 });
+  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 7350, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "5.0% above target", outcome: "favorable", progress: 100 });
+  assert.deepEqual(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { enabled: true, value: 0, label: "Zero incidents", direction: "lower_is_better" } }, 3, "en-CA"), { label: "Zero incidents", target: "$0", variance: "$3 above target", outcome: "needs_attention", progress: 0 });
+  assert.deepEqual(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { enabled: true, value: 5, label: "Incident ceiling", direction: "lower_is_better" } }, 3, "en-CA"), { label: "Incident ceiling", target: "$5", variance: "40.0% below target", outcome: "favorable", progress: 100 });
+  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 7000, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "On target", outcome: "on_target", progress: 100 });
+  assert.equal(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { ...appearance.kpiTarget, value: -7000 } }, -6651, "en-CA")?.progress, null);
   assert.equal(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { ...appearance.kpiTarget, enabled: false } }, 6651, "en-CA"), null);
   assert.equal(isDashboardKpiTargetValid(appearance.kpiTarget, "number_card"), true);
   assert.equal(isDashboardKpiTargetValid(appearance.kpiTarget, "choice_breakdown"), false);
   assert.equal(isDashboardKpiTargetValid({ enabled: true, value: Number.POSITIVE_INFINITY, label: "Target" }, "number_card"), false);
   assert.equal(isDashboardKpiTargetValid({ enabled: true, value: 1, label: "" }, "number_card"), false);
   assert.equal(isDashboardKpiTargetValid({ enabled: true, value: 1, label: "x".repeat(81) }, "number_card"), false);
+  assert.equal(isDashboardKpiTargetValid({ enabled: true, value: 1, label: "Target", direction: "unsupported" }, "number_card"), false);
   const cloned = cloneDashboardChartAppearance(appearance);
   cloned.kpiTarget.value = 8000;
   cloned.kpiTarget.label = "Changed target";
-  assert.deepEqual(appearance.kpiTarget, { enabled: true, value: 7000, label: "Monthly target" });
+  assert.deepEqual(appearance.kpiTarget, { enabled: true, value: 7000, label: "Monthly target", direction: "higher_is_better" });
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

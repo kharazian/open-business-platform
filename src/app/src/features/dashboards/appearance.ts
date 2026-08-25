@@ -1,6 +1,6 @@
 import type { ChartWidgetType, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target" } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget } };
@@ -26,10 +26,10 @@ export function isDashboardConditionalFormattingValid(formatting: DashboardCondi
 
 export function isDashboardKpiTargetValid(target: DashboardKpiTarget, widgetType: ChartWidgetType): boolean {
   if (!target.enabled) return true;
-  return widgetType === "number_card" && Number.isFinite(target.value) && Math.abs(target.value) <= 1_000_000_000_000_000 && target.label.trim().length > 0 && target.label.length <= 80;
+  return widgetType === "number_card" && Number.isFinite(target.value) && Math.abs(target.value) <= 1_000_000_000_000_000 && target.label.trim().length > 0 && target.label.length <= 80 && kpiGoalDirections.has(target.direction);
 }
 
-export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string } | null {
+export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string; outcome: "favorable" | "needs_attention" | "on_target"; progress: number | null } | null {
   const config = appearance.kpiTarget;
   if (!config.enabled || actual === null || actual === undefined || !Number.isFinite(actual)) return null;
   const difference = actual - config.value;
@@ -39,7 +39,15 @@ export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearanc
     : config.value === 0
       ? `${formatDashboardValue(Math.abs(difference), appearance, locale)} ${direction} target`
       : `${new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Math.abs(difference) / Math.abs(config.value))} ${direction} target`;
-  return { label: config.label.trim(), target: formatDashboardValue(config.value, appearance, locale), variance };
+  const favorable = config.direction === "lower_is_better" ? actual < config.value : actual > config.value;
+  return { label: config.label.trim(), target: formatDashboardValue(config.value, appearance, locale), variance, outcome: difference === 0 ? "on_target" : favorable ? "favorable" : "needs_attention", progress: getKpiTargetProgress(actual, config.value, config.direction) };
+}
+
+const kpiGoalDirections = new Set(["higher_is_better", "lower_is_better"]);
+function getKpiTargetProgress(actual: number, target: number, direction: DashboardKpiTarget["direction"]): number | null {
+  if (actual < 0 || target < 0) return null;
+  const ratio = direction === "higher_is_better" ? (target === 0 ? (actual >= 0 ? 1 : 0) : actual / target) : actual <= target ? 1 : target === 0 ? 0 : target / actual;
+  return Math.round(Math.max(0, Math.min(1, ratio)) * 1000) / 10;
 }
 
 const conditionalOperators = new Set<DashboardConditionalOperator>(["greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal"]);

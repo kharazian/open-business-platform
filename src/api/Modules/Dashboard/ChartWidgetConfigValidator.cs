@@ -102,6 +102,7 @@ public static class ChartWidgetConfigValidator
         if (Math.Abs(target.Value) > 1_000_000_000_000_000m) errors.Add(new("appearance.kpiTarget.value", "chart.kpi_target.value_range", "KPI target is outside the supported range."));
         if (string.IsNullOrWhiteSpace(target.Label)) errors.Add(new("appearance.kpiTarget.label", "chart.kpi_target.label_required", "Enabled KPI targets require a label."));
         else if (target.Label.Length > 80) errors.Add(new("appearance.kpiTarget.label", "chart.kpi_target.label_invalid", "KPI target label must contain at most 80 characters."));
+        if (!DashboardKpiGoalDirections.Supported.Contains(Normalize(target.Direction))) errors.Add(new("appearance.kpiTarget.direction", "chart.kpi_target.direction_invalid", "KPI goal direction is not supported."));
     }
 
     private static void ValidateConditionalFormatting(DashboardConditionalFormattingDefinition? formatting, string widgetType, ICollection<ChartValidationError> errors)

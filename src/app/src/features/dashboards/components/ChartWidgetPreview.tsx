@@ -50,7 +50,16 @@ function MultiSeriesSummary({ appearance, conditionalResult, series, formatCount
 
 function ConditionalStatus({ accent, label }: { accent?: string; label?: string | null }) { return label ? <span aria-label={`KPI status: ${label}`} className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-bold"><span className="size-2 rounded-full" style={{ background: accent }} />{label}</span> : null; }
 
-function KpiTargetSummary({ value }: { value: ReturnType<typeof getDashboardKpiTargetSummary> }) { return value ? <p aria-label={`${value.label}: ${value.target}. ${value.variance}`} className="mt-2 text-xs font-semibold text-muted-foreground"><span className="text-foreground">{value.label}: {value.target}</span><span aria-hidden="true"> · </span>{value.variance}</p> : null; }
+function KpiTargetSummary({ value }: { value: ReturnType<typeof getDashboardKpiTargetSummary> }) {
+  if (!value) return null;
+  const outcome = value.outcome === "favorable" ? "Favorable" : value.outcome === "on_target" ? "On target" : "Needs attention";
+  const tone = value.outcome === "needs_attention" ? "var(--color-warning)" : "var(--color-success)";
+  return <div aria-label={`${value.label}: ${value.target}. ${value.variance}. ${outcome}`} className="mt-2 grid gap-1.5 text-xs font-semibold text-muted-foreground">
+    <p><span className="text-foreground">{value.label}: {value.target}</span><span aria-hidden="true"> · </span>{value.variance}</p>
+    <p className="flex items-center gap-1.5 font-bold" style={{ color: tone }}><span aria-hidden="true" className="size-2 rounded-full" style={{ background: tone }} />{outcome}</p>
+    {value.progress !== null ? <div aria-label={`Target progress: ${value.progress.toFixed(1)}%`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={value.progress} className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar"><div className="h-full rounded-full" style={{ background: tone, width: `${value.progress}%` }} /></div> : null}
+  </div>;
+}
 
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
   const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);

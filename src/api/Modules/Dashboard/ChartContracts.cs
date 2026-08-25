@@ -71,9 +71,14 @@ public static class DashboardConditionalOperators
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal" };
 }
 
+public static class DashboardKpiGoalDirections
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "higher_is_better", "lower_is_better" };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
-public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target");
+public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
 
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",

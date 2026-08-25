@@ -4535,7 +4535,7 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     ChartWidgetTypes.NumberCard,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("label", "equal", 1m, "success") })))).Errors.Any(error => error.Code == "chart.conditional.label_required"), "Enabled KPI conditional rules should require readable status labels.");
-var targetedKpiAppearance = new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 7000m, "Monthly target"));
+var targetedKpiAppearance = new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 7000m, "Monthly target", "higher_is_better"));
 AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
     ChartWidgetTypes.NumberCard,
     new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"),
@@ -4557,6 +4557,10 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     ChartWidgetTypes.NumberCard,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     Appearance: new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 1m, new string('x', 81))))).Errors.Any(error => error.Code == "chart.kpi_target.label_invalid"), "KPI targets should reject labels longer than 80 characters.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 1m, "Target", "unsupported")))).Errors.Any(error => error.Code == "chart.kpi_target.direction_invalid"), "KPI targets should reject unsupported goal directions.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {
