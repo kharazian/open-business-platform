@@ -30,6 +30,16 @@ public static class DashboardAnalyticsMetricTypes
     };
 }
 
+public static class DashboardKpiComparisonPeriods
+{
+    public static IReadOnlyDictionary<string, int> Days { get; } = new Dictionary<string, int>(StringComparer.Ordinal)
+    {
+        ["last_7_days"] = 7,
+        ["last_30_days"] = 30,
+        ["last_90_days"] = 90
+    };
+}
+
 public sealed record DashboardAnalyticsSourceDefinition(Guid FormId, Guid? ReportId = null);
 
 public sealed record DashboardAnalyticsMetricDefinition(string Type, string? FieldId = null);
@@ -54,7 +64,10 @@ public sealed record DashboardAnalyticsRequest(
     IReadOnlyList<string>? Columns = null,
     int? Limit = null,
     IReadOnlyList<DashboardAnalyticsFilterDefinition>? Filters = null,
-    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null);
+    IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
+    DashboardKpiComparisonDefinition? KpiComparison = null);
+
+public sealed record DashboardKpiComparisonResult(decimal CurrentValue, decimal PreviousValue, decimal? ChangePercent, string Direction, string PeriodLabel);
 
 public sealed record DashboardAnalyticsResponse(
     Guid FormId,
@@ -66,7 +79,8 @@ public sealed record DashboardAnalyticsResponse(
     IReadOnlyList<ChartTableColumnDto> Columns,
     IReadOnlyList<ChartTableRowDto> Rows,
     long TotalCount,
-    IReadOnlyList<DashboardAnalyticsDataSeries>? DataSeries = null);
+    IReadOnlyList<DashboardAnalyticsDataSeries>? DataSeries = null,
+    DashboardKpiComparisonResult? Comparison = null);
 
 public sealed record DashboardAnalyticsValidationError(string Path, string Code, string Message);
 

@@ -4479,6 +4479,11 @@ var analyticsSummaryRequest = analyticsBreakdownRequest with
 AssertTrue(
     DashboardAnalyticsRequestValidator.Validate(reportingSchema, analyticsSummaryRequest).Valid,
     "Dashboard analytics should validate numeric summary metrics.");
+var comparedSummaryRequest = analyticsSummaryRequest with { KpiComparison = new DashboardKpiComparisonDefinition(true, ReportableSystemFields.CreatedAt, "last_30_days") };
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, comparedSummaryRequest).Valid, "Dashboard analytics should accept bounded KPI period comparisons over reportable dates.");
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, comparedSummaryRequest with { WidgetType = DashboardAnalyticsWidgetTypes.Breakdown, GroupByFieldId = "department" }).Errors.Any(error => error.Code == "dashboard.analytics.kpi_comparison.widget_type_invalid"), "Period comparisons should be limited to KPI requests.");
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, comparedSummaryRequest with { KpiComparison = new DashboardKpiComparisonDefinition(true, "department", "last_30_days") }).Errors.Any(error => error.Code == "dashboard.analytics.kpi_comparison.date_field_invalid"), "Period comparisons should require a reportable date field.");
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, comparedSummaryRequest with { KpiComparison = new DashboardKpiComparisonDefinition(true, ReportableSystemFields.CreatedAt, "unsupported") }).Errors.Any(error => error.Code == "dashboard.analytics.kpi_comparison.period_invalid"), "Period comparisons should reject unsupported windows.");
 var multiSeriesRequest = analyticsBreakdownRequest with
 {
     Series = new[]

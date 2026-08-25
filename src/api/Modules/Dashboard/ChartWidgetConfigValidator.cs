@@ -39,8 +39,18 @@ public static class ChartWidgetConfigValidator
         ValidateSeries(config, fieldsById, errors);
         ValidateAppearance(config.Appearance, widgetType, errors);
         ValidateFixedFilters(config.FixedFilters, schema, errors);
+        ValidateKpiComparison(config.KpiComparison, widgetType, fieldsById, errors);
 
         return new ChartValidationResult(errors);
+    }
+
+    private static void ValidateKpiComparison(DashboardKpiComparisonDefinition? comparison, string widgetType, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<ChartValidationError> errors)
+    {
+        if (comparison is null || !comparison.Enabled) return;
+        if (widgetType != ChartWidgetTypes.NumberCard) errors.Add(new("kpiComparison", "chart.kpi_comparison.widget_type_invalid", "Period comparison is supported only for KPI widgets."));
+        var fieldId = Normalize(comparison.DateFieldId);
+        if (!fieldsById.TryGetValue(fieldId, out var field) || field.Type is not (FormFieldTypes.Date or FormFieldTypes.Datetime)) errors.Add(new("kpiComparison.dateFieldId", "chart.kpi_comparison.date_field_invalid", "Period comparison requires a reportable date field."));
+        if (!DashboardKpiComparisonPeriods.Days.ContainsKey(Normalize(comparison.Period))) errors.Add(new("kpiComparison.period", "chart.kpi_comparison.period_invalid", "Choose a supported comparison period."));
     }
 
     private static void ValidateFixedFilters(IReadOnlyList<DashboardAnalyticsFilterDefinition>? filters, FormSchemaDefinition schema, ICollection<ChartValidationError> errors)

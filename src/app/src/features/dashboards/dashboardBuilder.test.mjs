@@ -243,6 +243,14 @@ test("widget property drafts clone nested config and validate permitted fields",
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", values: ["2026-01-01"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["active"], start: "2026-01-01" }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
+  const comparisonWidget = { ...widget, chart: { ...widget.chart, widgetType: "number_card", groupByFieldId: null, kpiComparison: { enabled: true, dateFieldId: "event_date", period: "last_30_days" } } };
+  assert.equal(isDashboardAnalyticsWidgetDraftValid(comparisonWidget, fields), true);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...comparisonWidget, chart: { ...comparisonWidget.chart, kpiComparison: { enabled: true, dateFieldId: "status", period: "last_30_days" } } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...comparisonWidget, chart: { ...comparisonWidget.chart, kpiComparison: { enabled: true, dateFieldId: "event_date", period: "unsupported" } } }, fields), false);
+  assert.deepEqual(buildDashboardAnalyticsRequest("form-1", comparisonWidget.chart).kpiComparison, { enabled: true, dateFieldId: "event_date", period: "last_30_days" });
+  const comparisonClone = cloneDashboardWidgetForEditing(comparisonWidget);
+  comparisonClone.chart.kpiComparison.period = "last_7_days";
+  assert.equal(comparisonWidget.chart.kpiComparison.period, "last_30_days");
 });
 
 test("fixed choice filters toggle several values without mutating the saved filter", () => {

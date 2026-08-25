@@ -58,7 +58,8 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     columns: normalizeColumns(chart.columns),
     limit: chart.limit ?? 10,
     filters: mergeDashboardAnalyticsFilters(chart.fixedFilters, filters),
-    series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null
+    series: chart.series?.map((series) => ({ ...series, metric: { ...series.metric } })) ?? null,
+    kpiComparison: chart.kpiComparison ? { ...chart.kpiComparison } : null
   };
 }
 

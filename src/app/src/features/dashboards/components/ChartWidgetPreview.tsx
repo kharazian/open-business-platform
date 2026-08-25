@@ -17,9 +17,10 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   const targetSummary = getDashboardKpiTargetSummary(appearance, preview.series[0]?.value, effectiveLocale);
   const formatNumber = (value: number) => formatDashboardValue(value, appearance, effectiveLocale);
   const formatCount = (value: number) => new Intl.NumberFormat(effectiveLocale).format(value);
+  const formatMetric = preview.metric.type === "count" ? formatCount : formatNumber;
   if ("dataSeries" in preview && (preview.dataSeries?.length ?? 0) > 1 && preview.widgetType !== "table") {
     return preview.widgetType === "summary"
-      ? <MultiSeriesSummary appearance={appearance} conditionalResult={conditionalResult} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} targetSummary={targetSummary} />
+      ? <MultiSeriesSummary appearance={appearance} comparison={"comparison" in preview ? preview.comparison : null} conditionalResult={conditionalResult} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} targetSummary={targetSummary} />
       : <MultiSeriesChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} />;
   }
   if (preview.widgetType === "table") {
@@ -36,6 +37,7 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
         <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatNumber(point?.value ?? 0)}</p>
         <ConditionalStatus accent={accent} label={conditionalResult?.label} />
         <KpiTargetSummary value={targetSummary} />
+        <KpiComparisonSummary formatValue={formatMetric} value={"comparison" in preview ? preview.comparison : null} />
       </button>
     );
   }
@@ -43,9 +45,9 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   return <SeriesBars appearance={appearance} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} points={preview.series} selectedKey={selectedKey} />;
 }
 
-function MultiSeriesSummary({ appearance, conditionalResult, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey, targetSummary }: { appearance: DashboardChartAppearance; conditionalResult: ReturnType<typeof getDashboardConditionalResult>; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; targetSummary: ReturnType<typeof getDashboardKpiTargetSummary> }) {
+function MultiSeriesSummary({ appearance, comparison, conditionalResult, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey, targetSummary }: { appearance: DashboardChartAppearance; comparison?: DashboardAnalyticsResponse["comparison"]; conditionalResult: ReturnType<typeof getDashboardConditionalResult>; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; targetSummary: ReturnType<typeof getDashboardKpiTargetSummary> }) {
   const accent = conditionalResult ? getDashboardAccentColor(conditionalResult.accent, appearance.palette) : undefined;
-  return <div className="grid gap-3"><ConditionalStatus accent={accent} label={conditionalResult?.label} /><KpiTargetSummary value={targetSummary} /><div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; return <button aria-label={onSelect ? `${interactionLabel}: ${item.label}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{(item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0)}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div></div>;
+  return <div className="grid gap-3"><ConditionalStatus accent={accent} label={conditionalResult?.label} /><KpiTargetSummary value={targetSummary} /><KpiComparisonSummary formatValue={series[0]?.metric.type === "count" ? formatCount : formatNumber} value={comparison} /><div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; return <button aria-label={onSelect ? `${interactionLabel}: ${item.label}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{(item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0)}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div></div>;
 }
 
 function ConditionalStatus({ accent, label }: { accent?: string; label?: string | null }) { return label ? <span aria-label={`KPI status: ${label}`} className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-bold"><span className="size-2 rounded-full" style={{ background: accent }} />{label}</span> : null; }
@@ -59,6 +61,14 @@ function KpiTargetSummary({ value }: { value: ReturnType<typeof getDashboardKpiT
     <p className="flex items-center gap-1.5 font-bold" style={{ color: tone }}><span aria-hidden="true" className="size-2 rounded-full" style={{ background: tone }} />{outcome}</p>
     {value.progress !== null ? <div aria-label={`Target progress: ${value.progress.toFixed(1)}%`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={value.progress} className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar"><div className="h-full rounded-full" style={{ background: tone, width: `${value.progress}%` }} /></div> : null}
   </div>;
+}
+
+function KpiComparisonSummary({ formatValue, value }: { formatValue: (value: number) => string; value?: DashboardAnalyticsResponse["comparison"] }) {
+  if (!value) return null;
+  const direction = value.direction === "up" ? "Up" : value.direction === "down" ? "Down" : "No change";
+  const arrow = value.direction === "up" ? "↑" : value.direction === "down" ? "↓" : "→";
+  const change = value.changePercent === null || value.changePercent === undefined ? direction : value.direction === "unchanged" ? "No change" : `${direction} ${Math.abs(value.changePercent).toFixed(1)}%`;
+  return <div aria-label={`${change} versus ${value.periodLabel}. Previous value ${formatValue(value.previousValue)}`} className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs"><p className="font-bold text-foreground"><span aria-hidden="true">{arrow} </span>{change} vs {value.periodLabel}</p><p className="mt-0.5 text-muted-foreground">Previous: {formatValue(value.previousValue)}</p></div>;
 }
 
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {

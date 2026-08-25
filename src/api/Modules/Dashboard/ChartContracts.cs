@@ -79,6 +79,7 @@ public static class DashboardKpiGoalDirections
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
+public sealed record DashboardKpiComparisonDefinition(bool Enabled = false, string DateFieldId = "", string Period = "last_30_days");
 
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",
@@ -102,7 +103,8 @@ public sealed record ChartWidgetConfigDefinition(
     Guid? ReportId = null,
     IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
     DashboardChartAppearanceDefinition? Appearance = null,
-    IReadOnlyList<DashboardAnalyticsFilterDefinition>? FixedFilters = null);
+    IReadOnlyList<DashboardAnalyticsFilterDefinition>? FixedFilters = null,
+    DashboardKpiComparisonDefinition? KpiComparison = null);
 
 public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
 

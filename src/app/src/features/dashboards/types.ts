@@ -44,6 +44,8 @@ export type DashboardConditionalRule = { id: string; operator: DashboardConditio
 export type DashboardConditionalFormatting = { enabled: boolean; rules: DashboardConditionalRule[] };
 export type DashboardKpiGoalDirection = "higher_is_better" | "lower_is_better";
 export type DashboardKpiTarget = { enabled: boolean; value: number; label: string; direction: DashboardKpiGoalDirection };
+export type DashboardKpiComparisonPeriod = "last_7_days" | "last_30_days" | "last_90_days";
+export type DashboardKpiComparison = { enabled: boolean; dateFieldId: string; period: DashboardKpiComparisonPeriod };
 export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget };
 
 export type ChartWidgetConfig = {
@@ -57,6 +59,7 @@ export type ChartWidgetConfig = {
   series?: DashboardChartSeriesDefinition[] | null;
   appearance?: DashboardChartAppearance | null;
   fixedFilters?: DashboardAnalyticsFilterValue[] | null;
+  kpiComparison?: DashboardKpiComparison | null;
 };
 
 export type ChartSeriesPoint = {
@@ -121,6 +124,7 @@ export type DashboardAnalyticsRequest = {
   limit?: number | null;
   filters?: DashboardAnalyticsFilterValue[];
   series?: DashboardChartSeriesDefinition[] | null;
+  kpiComparison?: DashboardKpiComparison | null;
 };
 
 export type DashboardAnalyticsFilterValue = { fieldId: string; values?: string[]; start?: string | null; end?: string | null };
@@ -148,6 +152,7 @@ export type DashboardAnalyticsResponse = {
   rows: ChartTableRow[];
   totalCount: number;
   dataSeries?: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }> | null;
+  comparison?: { currentValue: number; previousValue: number; changePercent?: number | null; direction: "up" | "down" | "unchanged"; periodLabel: string } | null;
 };
 
 export const dashboardWidgetWidths = ["small", "medium", "wide", "full"] as const;

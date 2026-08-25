@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenBusinessPlatform.Api.Domain.Entities;
@@ -74,6 +75,8 @@ public sealed class DashboardAnalyticsService
             PlatformPermissions.Form.View,
             cancellationToken);
         var records = await scopedRecordsQuery.ToArrayAsync(cancellationToken);
+        var comparisonWindows = BuildComparisonWindows(sanitizedRequest, DateTimeOffset.UtcNow);
+        var effectiveFilters = comparisonWindows?.CurrentFilters ?? sanitizedRequest.Filters;
         var chartConfig = ToChartConfig(sanitizedRequest);
         var chartResult = ChartAggregationEngine.Execute(
             form.Id,
@@ -83,17 +86,31 @@ public sealed class DashboardAnalyticsService
             records,
             sourceReportConfig,
             fieldAccess.HiddenFieldIds,
-            sanitizedRequest.Filters);
+            effectiveFilters);
         var seriesDefinitions = GetEffectiveSeries(sanitizedRequest);
         var dataSeries = seriesDefinitions.Select(series =>
         {
             var result = ChartAggregationEngine.Execute(
                 form.Id, form.Name, ToChartConfig(sanitizedRequest, series.Metric), schema, records,
-                sourceReportConfig, fieldAccess.HiddenFieldIds, sanitizedRequest.Filters);
+                sourceReportConfig, fieldAccess.HiddenFieldIds, effectiveFilters);
             return new DashboardAnalyticsDataSeries(
                 series.Id, series.Label, series.DisplayType, series.Color, series.Axis,
                 new DashboardAnalyticsMetricDefinition(series.Metric.Type, series.Metric.FieldId), result.Series);
         }).ToArray();
+
+        DashboardKpiComparisonResult? comparison = null;
+        if (comparisonWindows is not null)
+        {
+            var previous = ChartAggregationEngine.Execute(
+                form.Id, form.Name, chartConfig, schema, records, sourceReportConfig,
+                fieldAccess.HiddenFieldIds, comparisonWindows.PreviousFilters);
+            var currentValue = chartResult.Series.FirstOrDefault()?.Value ?? 0m;
+            var previousValue = previous.Series.FirstOrDefault()?.Value ?? 0m;
+            var difference = currentValue - previousValue;
+            var direction = difference > 0 ? "up" : difference < 0 ? "down" : "unchanged";
+            decimal? percent = previousValue == 0 ? null : decimal.Round(difference / Math.Abs(previousValue) * 100m, 1);
+            comparison = new DashboardKpiComparisonResult(currentValue, previousValue, percent, direction, comparisonWindows.PeriodLabel);
+        }
 
         return new DashboardAnalyticsResponse(
             chartResult.FormId,
@@ -105,7 +122,8 @@ public sealed class DashboardAnalyticsService
             chartResult.Columns,
             chartResult.Rows,
             chartResult.TotalCount,
-            dataSeries);
+            dataSeries,
+            comparison);
     }
 
     private async Task<ListReportConfigDefinition?> GetSourceReportConfigAsync(
@@ -183,8 +201,9 @@ public sealed class DashboardAnalyticsService
         var hiddenDate = sanitized.DateFieldId is not null && hiddenFieldIds.Contains(sanitized.DateFieldId);
         var hiddenColumn = (sanitized.Columns ?? Array.Empty<string>()).Any(hiddenFieldIds.Contains);
         var hiddenFilter = (sanitized.Filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Any(filter => hiddenFieldIds.Contains(filter.FieldId));
+        var hiddenComparison = sanitized.KpiComparison?.Enabled == true && hiddenFieldIds.Contains(sanitized.KpiComparison.DateFieldId);
 
-        if (hiddenMetric || hiddenSeriesMetric || hiddenGroup || hiddenDate || hiddenColumn || hiddenFilter)
+        if (hiddenMetric || hiddenSeriesMetric || hiddenGroup || hiddenDate || hiddenColumn || hiddenFilter || hiddenComparison)
         {
             throw new DashboardAnalyticsException(StatusCodes.Status403Forbidden, "Dashboard analytics request references a hidden field.");
         }
@@ -222,9 +241,31 @@ public sealed class DashboardAnalyticsService
                 Start = NormalizeOptional(filter.Start),
                 End = NormalizeOptional(filter.End)
             }).ToArray(),
-            Series = normalizedSeries
+            Series = normalizedSeries,
+            KpiComparison = request.KpiComparison is null ? null : request.KpiComparison with
+            {
+                DateFieldId = request.KpiComparison.DateFieldId.Trim(),
+                Period = request.KpiComparison.Period.Trim()
+            }
         };
     }
+
+    private static ComparisonWindows? BuildComparisonWindows(DashboardAnalyticsRequest request, DateTimeOffset now)
+    {
+        var comparison = request.KpiComparison;
+        if (comparison?.Enabled != true || !DashboardKpiComparisonPeriods.Days.TryGetValue(comparison.Period, out var days)) return null;
+        var currentEnd = now.UtcDateTime.Date.AddDays(1);
+        var currentStart = currentEnd.AddDays(-days);
+        var previousStart = currentStart.AddDays(-days);
+        var baseFilters = (request.Filters ?? Array.Empty<DashboardAnalyticsFilterDefinition>()).Where(filter => !string.Equals(filter.FieldId, comparison.DateFieldId, StringComparison.Ordinal)).ToArray();
+        DashboardAnalyticsFilterDefinition Window(DateTime start, DateTime end) => new(comparison.DateFieldId, Start: start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), End: end.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        return new ComparisonWindows(
+            baseFilters.Append(Window(currentStart, currentEnd)).ToArray(),
+            baseFilters.Append(Window(previousStart, currentStart)).ToArray(),
+            $"previous {days} days");
+    }
+
+    private sealed record ComparisonWindows(IReadOnlyList<DashboardAnalyticsFilterDefinition> CurrentFilters, IReadOnlyList<DashboardAnalyticsFilterDefinition> PreviousFilters, string PeriodLabel);
 
     private static IReadOnlyList<DashboardChartSeriesDefinition> GetEffectiveSeries(DashboardAnalyticsRequest request)
     {

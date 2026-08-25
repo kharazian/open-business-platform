@@ -45,8 +45,8 @@ public static class DashboardAnalyticsRequestValidator
         var seriesValidation = ChartWidgetConfigValidator.Validate(schema, new ChartWidgetConfigDefinition(
             request.WidgetType switch { "summary" => ChartWidgetTypes.NumberCard, "breakdown" => ChartWidgetTypes.ChoiceBreakdown, "trend" => ChartWidgetTypes.DateTrend, "table" => ChartWidgetTypes.Table, _ => request.WidgetType },
             new ChartMetricDefinition(request.Metric?.Type ?? string.Empty, request.Metric?.FieldId),
-            request.GroupByFieldId, request.DateFieldId, request.Columns, request.Limit, request.Source?.ReportId, request.Series));
-        foreach (var error in seriesValidation.Errors.Where(error => error.Path.StartsWith("series", StringComparison.Ordinal)))
+            request.GroupByFieldId, request.DateFieldId, request.Columns, request.Limit, request.Source?.ReportId, request.Series, KpiComparison: request.KpiComparison));
+        foreach (var error in seriesValidation.Errors.Where(error => error.Path.StartsWith("series", StringComparison.Ordinal) || error.Path.StartsWith("kpiComparison", StringComparison.Ordinal)))
         {
             errors.Add(new DashboardAnalyticsValidationError(error.Path, error.Code.Replace("chart.", "dashboard.analytics.", StringComparison.Ordinal), error.Message));
         }
