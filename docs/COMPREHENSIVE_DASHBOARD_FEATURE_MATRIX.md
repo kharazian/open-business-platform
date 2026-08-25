@@ -1,6 +1,6 @@
 # Comprehensive Dashboard Feature Matrix
 
-Status: implemented and verified through 2026-08-24 unless marked deferred.
+Status: implemented and verified through 2026-08-25 unless marked deferred.
 
 | Area | Capability | Status | Evidence / boundary |
 |---|---|---|---|
@@ -33,5 +33,5 @@ Status: implemented and verified through 2026-08-24 unless marked deferred.
 | Dashboard library | Search, lifecycle badges, duplication, and archive | Verified | Published directory search is client-bounded; duplication creates an independent draft; archive uses permission-protected audited soft deletion and immediately removes live exposure. |
 | Sharing | Workspace, specific user/role/group audience, private, and unlisted links | Verified | Subject IDs are manager-only metadata; published snapshots enforce OR membership checks and unauthorized reads return 404. |
 | Server adapter registry | Built-in adapter visualization and setting allowlists | Verified | `sample-dashboard` IDs/keys are backend allowlisted; unknown built-in config is rejected while safe scalar legacy adapter definitions remain backward compatible. |
-| Archive restore | User-facing recovery of archived dashboards | Deferred | Archive is a confirmed audited soft delete; a workspace-wide recycle-bin policy is required before exposing restore and retention semantics. |
+| Recycle bin | Search, archive actor/time, safe draft restore, guarded permanent deletion | Verified | Manager-only endpoints and UI enforce concurrency, exact-name confirmation, a configurable 30-day production wait, audit continuity, and no automatic purge. |
 | Cross-source calculations | Joins/formulas across sources | Deferred | Excluded to preserve permissions and avoid arbitrary SQL. |

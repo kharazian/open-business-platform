@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, Copy, Eye, ExternalLink, GitCompare, GripVertical, History, Keyboard, Move, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Save, Trash2, Undo2, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert } from "../../../components/ui/Alert";
@@ -75,6 +75,7 @@ const audienceOptions: Array<{ label: string; value: DashboardAudience }> = [
   { label: "Private — only me and dashboard managers", value: "private" }
 ];
 const emptySharingOptions: DashboardSharingOptions = { users: [], roles: [], groups: [] };
+const DashboardRecycleBinModal = lazy(() => import("../components/DashboardRecycleBinModal").then((module) => ({ default: module.DashboardRecycleBinModal })));
 
 type CanvasSnapshot = { sections: SavedDashboardSection[]; widgets: SavedDashboardWidget[]; filters: DashboardFilterDefinition[]; layout: SavedDashboardWidgetLayout[]; previews: Record<string, DashboardPreviewState | undefined> };
 
@@ -156,6 +157,7 @@ export function DashboardsPage() {
   const [canvasAnnouncement, setCanvasAnnouncement] = useState("");
   const [keyboardGrabbed, setKeyboardGrabbed] = useState<{ kind: "section" | "widget"; id: string } | null>(null);
   const [touchReorderEnabled, setTouchReorderEnabled] = useState(false);
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false);
 
   const draftSignature = JSON.stringify(buildSaveRequest());
   const isDirty = dashboardDetail
@@ -852,6 +854,7 @@ export function DashboardsPage() {
               <Plus className="size-4" />
               New
             </Button>
+            <Button onClick={() => setRecycleBinOpen(true)} variant="outline"><History className="size-4" />Recycle bin</Button>
             <Button disabled={widgets.length === 0} onClick={() => setPreviewOpen(true)} variant="outline">
               <Eye className="size-4" />
               Preview draft
@@ -1141,6 +1144,13 @@ export function DashboardsPage() {
         sections={sections}
         widget={widgets.find((widget) => widget.id === editingWidgetId) ?? null}
       />
+      {recycleBinOpen ? <Suspense fallback={null}>
+        <DashboardRecycleBinModal
+          onClose={() => setRecycleBinOpen(false)}
+          onRestored={(restored) => { setRecycleBinOpen(false); setSelectedDashboardId(restored.id); navigate(`/dashboard-builder/${restored.id}`); setNotice(`“${restored.name}” restored as a draft.`); void listDashboards().then(setDashboards).catch(setRequestError); dispatchDashboardsChanged(); }}
+          open={recycleBinOpen}
+        />
+      </Suspense> : null}
       {previewOpen ? <div className="fixed inset-0 z-50 overflow-auto bg-background">
         <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur sm:px-8">
           <div><div className="flex items-center gap-2"><Badge tone="warning">Draft preview</Badge>{isDirty ? <Badge tone="warning">Unsaved</Badge> : <Badge tone="success">Saved draft</Badge>}</div><p className="mt-1 text-xs text-muted-foreground">This is not the live dashboard. Close preview to continue editing.</p></div>

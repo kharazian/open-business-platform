@@ -27,6 +27,12 @@ public static class DashboardsEndpoints
             return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.GetSharingOptionsAsync(cancellationToken)));
         });
 
+        group.MapGet("/archived", async (DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(new { items = await dashboards.ListArchivedAsync(cancellationToken) }));
+        });
+
         group.MapGet("", async (
             DashboardDefinitionService dashboards,
             PermissionService permissionService,
@@ -142,6 +148,22 @@ public static class DashboardsEndpoints
             return await HandleDashboardRequestAsync(async () =>
             {
                 await dashboards.DeleteAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken);
+                return Results.NoContent();
+            });
+        });
+
+        group.MapPost("/{dashboardId:guid}/restore", async (Guid dashboardId, DashboardPublicationMutationRequest request, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () => Results.Ok(await dashboards.RestoreArchivedAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken)));
+        });
+
+        group.MapDelete("/{dashboardId:guid}/permanent", async (Guid dashboardId, [Microsoft.AspNetCore.Mvc.FromBody] DashboardPermanentDeleteRequest request, DashboardDefinitionService dashboards, PermissionService permissionService, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            if (!await CanManageDashboardsAsync(permissionService, httpContext, cancellationToken)) return Results.Forbid();
+            return await HandleDashboardRequestAsync(async () =>
+            {
+                await dashboards.PermanentlyDeleteAsync(dashboardId, request, GetCurrentUserId(httpContext), cancellationToken);
                 return Results.NoContent();
             });
         });

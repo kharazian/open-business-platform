@@ -135,6 +135,31 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
       return { ok: true, json: async () => null };
     }
 
+    if (input === "/api/dashboards/archived" && init.method === "GET") {
+      return {
+        ok: true,
+        json: async () => ({
+          items: [{
+            id: "dash-1",
+            name: "Team dashboard",
+            widgetCount: 1,
+            archivedAt: "2026-06-02T12:00:00.000Z",
+            concurrencyStamp: "stamp-3",
+            permanentDeleteAvailableAt: "2026-07-02T12:00:00.000Z",
+            canDeletePermanently: false
+          }]
+        })
+      };
+    }
+
+    if (input === "/api/dashboards/dash-1/restore" && init.method === "POST") {
+      return { ok: true, json: async () => ({ id: "dash-1", name: "Team dashboard", concurrencyStamp: "stamp-4", ...request }) };
+    }
+
+    if (input === "/api/dashboards/dash-1/permanent" && init.method === "DELETE") {
+      return { ok: true, json: async () => null };
+    }
+
     return { ok: false, json: async () => ({ message: "Unexpected request." }) };
   };
 
@@ -143,6 +168,9 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
   const created = await api.createDashboard(request, fetcher);
   const updated = await api.updateDashboard("dash-1", { ...request, concurrencyStamp: "stamp-1" }, fetcher);
   await api.deleteDashboard("dash-1", "stamp-2", fetcher);
+  const archived = await api.listArchivedDashboards(fetcher);
+  const restored = await api.restoreArchivedDashboard("dash-1", "stamp-3", fetcher);
+  await api.permanentlyDeleteDashboard("dash-1", "stamp-4", "Team dashboard", fetcher);
 
   assert.equal(summaries[0].widgetCount, 1);
   assert.equal(summaries[0].visibility, "workspace");
@@ -152,11 +180,14 @@ test("dashboard API client maps saved dashboard requests and errors", async () =
   assert.equal(detail.isDefault, true);
   assert.equal(created.id, "dash-1");
   assert.equal(updated.concurrencyStamp, "stamp-2");
+  assert.equal(archived[0].canDeletePermanently, false);
+  assert.equal(restored.concurrencyStamp, "stamp-4");
   assert.equal(calls[0].input, "/api/dashboards");
   assert.equal(calls[2].init.headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(calls[2].init.body), request);
-  assert.equal(calls.at(-1).init.method, "DELETE");
-  assert.deepEqual(JSON.parse(calls.at(-1).init.body), { concurrencyStamp: "stamp-2" });
+  const archiveCall = calls.find((call) => call.input === "/api/dashboards/dash-1" && call.init.method === "DELETE");
+  assert.deepEqual(JSON.parse(archiveCall.init.body), { concurrencyStamp: "stamp-2" });
+  assert.deepEqual(JSON.parse(calls.at(-1).init.body), { concurrencyStamp: "stamp-4", confirmationName: "Team dashboard" });
 
   await assert.rejects(
     () => api.listDashboards(async () => ({ ok: false, json: async () => ({ message: "Dashboard access denied." }) })),

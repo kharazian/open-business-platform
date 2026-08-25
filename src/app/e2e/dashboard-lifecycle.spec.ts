@@ -76,6 +76,9 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
       expect(viewerItem?.name).toBe(originalName);
       expect((await viewerPage.request.get(`/api/dashboards/${dashboardId}/revisions`)).status()).toBe(403);
       expect((await viewerPage.request.get(`/api/dashboards/${dashboardId}/sharing`)).status()).toBe(403);
+      expect((await viewerPage.request.get("/api/dashboards/archived")).status()).toBe(403);
+      expect((await viewerPage.request.post(`/api/dashboards/${dashboardId}/restore`, { data: { concurrencyStamp: "denied" } })).status()).toBe(403);
+      expect((await viewerPage.request.delete(`/api/dashboards/${dashboardId}/permanent`, { data: { concurrencyStamp: "denied", confirmationName: originalName } })).status()).toBe(403);
     } finally {
       await viewerContext.close();
     }
@@ -122,12 +125,54 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
     await page.getByRole("button", { name: "Duplicate", exact: true }).click();
     await expect(page.getByText("Independent dashboard draft created.")).toBeVisible();
     const duplicateId = page.url().split("/").at(-1)!;
+    const duplicateName = `${originalName} copy`;
     expect(duplicateId).not.toBe(dashboardId);
     expect((await page.request.get(`/api/dashboards/${duplicateId}`)).status()).toBe(200);
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Archive" }).click();
     await expect(page.getByText(/archived/)).toBeVisible();
     expect((await page.request.get(`/api/dashboards/${duplicateId}`)).status()).toBe(404);
+
+    await page.getByRole("button", { name: "Recycle bin" }).click();
+    const recycleBin = page.getByRole("dialog", { name: "Dashboard recycle bin" });
+    await expect(recycleBin).toBeVisible();
+    await recycleBin.getByRole("textbox", { name: "Search archived dashboards" }).fill(duplicateName);
+    const archivedCard = recycleBin.getByRole("heading", { name: duplicateName }).locator("xpath=ancestor::div[contains(@class, 'surface')][1]");
+    await expect(archivedCard.getByText(/^Archived /)).toBeVisible();
+    await expect(archivedCard.getByText(/^By /)).toBeVisible();
+    await page.screenshot({ path: "test-results/dashboard-recycle-bin.png" });
+    const archivedResponse = await page.request.get("/api/dashboards/archived");
+    expect(archivedResponse.ok()).toBeTruthy();
+    const archivedDuplicate = ((await archivedResponse.json()).items as Array<{ id: string; concurrencyStamp: string }>).find((item) => item.id === duplicateId)!;
+    expect((await page.request.delete(`/api/dashboards/${duplicateId}/permanent`, {
+      data: { concurrencyStamp: archivedDuplicate.concurrencyStamp, confirmationName: ` ${duplicateName} ` }
+    })).status()).toBe(400);
+    expect((await page.request.delete(`/api/dashboards/${duplicateId}/permanent`, {
+      data: { concurrencyStamp: "stale-concurrency-stamp", confirmationName: duplicateName }
+    })).status()).toBe(409);
+    await archivedCard.getByRole("button", { name: "Restore draft" }).click();
+    await expect(page.getByText(`“${duplicateName}” restored as a draft.`)).toBeVisible();
+    const restoredDuplicate = await expectDashboard(page.request, `/api/dashboards/${duplicateId}`, 200);
+    expect(restoredDuplicate.publication.status).toBe("draft");
+    expect(restoredDuplicate.publication.slug).toBeNull();
+    expect(restoredDuplicate.publication.showInNavigation).toBe(false);
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Archive" }).click();
+    await expect(page.getByText(/archived/)).toBeVisible();
+    await page.getByRole("button", { name: "Recycle bin" }).click();
+    const deleteCard = page.getByRole("dialog", { name: "Dashboard recycle bin" }).getByRole("heading", { name: duplicateName }).locator("xpath=ancestor::div[contains(@class, 'surface')][1]");
+    await deleteCard.getByRole("button", { name: "Delete permanently" }).click();
+    const confirmInput = deleteCard.getByLabel(`Type “${duplicateName}” to confirm`);
+    await confirmInput.fill(` ${duplicateName} `);
+    await expect(deleteCard.getByRole("button", { name: "Permanently delete" })).toBeDisabled();
+    await confirmInput.fill(`${duplicateName} incorrect`);
+    await expect(deleteCard.getByRole("button", { name: "Permanently delete" })).toBeDisabled();
+    await confirmInput.fill(duplicateName);
+    await deleteCard.getByRole("button", { name: "Permanently delete" }).click();
+    await expect(page.getByText(`“${duplicateName}” permanently deleted. Its dashboard revisions cannot be recovered.`)).toBeVisible();
+    expect((await page.request.get(`/api/dashboards/${duplicateId}`)).status()).toBe(404);
+    expect(((await (await page.request.get("/api/dashboards/archived")).json()).items as Array<{ id: string }>).some((item) => item.id === duplicateId)).toBeFalsy();
   } finally {
     if (dashboardId) {
       const detailResponse = await page.request.get(`/api/dashboards/${dashboardId}`);
@@ -136,6 +181,7 @@ test("dashboard draft, publish, revision, permission, and cleanup lifecycle", as
         const deleteResponse = await page.request.delete(`/api/dashboards/${dashboardId}`, { data: { concurrencyStamp: detail.concurrencyStamp } });
         expect(deleteResponse.status()).toBe(204);
       }
+      await permanentlyDeleteArchivedDashboard(page.request, dashboardId);
     }
   }
 });
@@ -159,6 +205,26 @@ async function removeInterruptedTestDashboards(request: APIRequestContext) {
     const deleteResponse = await request.delete(`/api/dashboards/${dashboard.id}`, { data: { concurrencyStamp: dashboard.concurrencyStamp } });
     expect(deleteResponse.status()).toBe(204);
   }
+  const archivedResponse = await request.get("/api/dashboards/archived");
+  expect(archivedResponse.ok()).toBeTruthy();
+  const archived = (await archivedResponse.json()).items as Array<{ id: string; name: string; concurrencyStamp: string }>;
+  for (const dashboard of archived.filter((item) => item.name.startsWith("E2E dashboard "))) {
+    const deleteResponse = await request.delete(`/api/dashboards/${dashboard.id}/permanent`, {
+      data: { concurrencyStamp: dashboard.concurrencyStamp, confirmationName: dashboard.name }
+    });
+    expect(deleteResponse.status()).toBe(204);
+  }
+}
+
+async function permanentlyDeleteArchivedDashboard(request: APIRequestContext, dashboardId: string) {
+  const response = await request.get("/api/dashboards/archived");
+  expect(response.ok()).toBeTruthy();
+  const dashboard = ((await response.json()).items as Array<{ id: string; name: string; concurrencyStamp: string }>).find((item) => item.id === dashboardId);
+  if (!dashboard) return;
+  const deleteResponse = await request.delete(`/api/dashboards/${dashboard.id}/permanent`, {
+    data: { concurrencyStamp: dashboard.concurrencyStamp, confirmationName: dashboard.name }
+  });
+  expect(deleteResponse.status()).toBe(204);
 }
 
 function dashboardRequest(name: string, slug: string, formId: string, viewerRoleId: string) {

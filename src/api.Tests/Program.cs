@@ -4876,11 +4876,21 @@ AssertFalse(DashboardDefinitionAccess.ValidateSettings(new DashboardSettingsDefi
 AssertTrue(DashboardMenuIcons.Approved.Contains("factory"), "Dashboard menus should use approved icon registry keys.");
 AssertTypeAssignable<object, DashboardDefinitionService>();
 AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.DeleteAsync)), "Dashboard management should expose audited soft deletion for lifecycle cleanup.");
+AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.ListArchivedAsync)), "Dashboard management should expose archived dashboards to managers.");
+AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.RestoreArchivedAsync)), "Dashboard management should restore archived dashboards as drafts.");
+AssertNotNull(typeof(DashboardDefinitionService).GetMethod(nameof(DashboardDefinitionService.PermanentlyDeleteAsync)), "Dashboard management should expose guarded permanent deletion.");
+AssertEqual(30, new DashboardRecycleBinOptions().PermanentDeleteMinimumAgeDays, "Production recycle-bin retention should default to 30 days.");
 var dashboardsEndpointsSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Dashboards", "DashboardsEndpoints.cs"));
 AssertTrue(dashboardsEndpointsSource.Contains("MapDelete(\"/{dashboardId:guid}\"", StringComparison.Ordinal), "Dashboard endpoints should expose permission-protected soft deletion.");
+AssertTrue(dashboardsEndpointsSource.Contains("MapGet(\"/archived\"", StringComparison.Ordinal), "Dashboard endpoints should expose a permission-protected recycle-bin list.");
+AssertTrue(dashboardsEndpointsSource.Contains("MapPost(\"/{dashboardId:guid}/restore\"", StringComparison.Ordinal), "Dashboard endpoints should expose permission-protected archive restoration.");
+AssertTrue(dashboardsEndpointsSource.Contains("MapDelete(\"/{dashboardId:guid}/permanent\"", StringComparison.Ordinal), "Dashboard endpoints should expose guarded permanent deletion.");
 var dashboardServiceSource = File.ReadAllText(GetRepositoryFilePath("src", "api", "Modules", "Dashboards", "DashboardDefinitionService.cs"));
 AssertTrue(dashboardServiceSource.Contains("ToSummaryDto(item.Dashboard, item.Snapshot!)", StringComparison.Ordinal), "Normal dashboard lists should project the published snapshot instead of editable draft data.");
 AssertTrue(dashboardServiceSource.Contains("\"dashboard_deleted\"", StringComparison.Ordinal), "Dashboard deletion should write an audit entry.");
+AssertTrue(dashboardServiceSource.Contains("\"dashboard_archive_restored\"", StringComparison.Ordinal), "Dashboard restoration should write an audit entry.");
+AssertTrue(dashboardServiceSource.Contains("\"dashboard_permanently_deleted\"", StringComparison.Ordinal), "Permanent dashboard deletion should retain an audit entry.");
+AssertTrue(dashboardServiceSource.Contains("ExecuteDeleteAsync", StringComparison.Ordinal), "Permanent dashboard deletion should deliberately bypass the soft-delete convention.");
 AssertTypeAssignable<IPlatformApiModule, DashboardsModule>();
 
 static void AssertEqual<T>(T expected, T actual, string message)

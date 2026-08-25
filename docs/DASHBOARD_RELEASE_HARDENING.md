@@ -4,7 +4,7 @@ Status: implemented and automated.
 
 ## Scope
 
-The dashboard release gate covers the highest-risk lifecycle boundary: editable draft state must never become viewer-visible before an explicit publish. It also verifies preview/save behavior, repeated publishing, revision history, restore semantics, unpublishing, manager-only history access, and cleanup.
+The dashboard release gate covers the highest-risk lifecycle boundary: editable draft state must never become viewer-visible before an explicit publish. It also verifies preview/save behavior, repeated publishing, revision history, revision restore semantics, unpublishing, manager-only history and recycle-bin access, archive restoration, confirmation-gated permanent deletion, and cleanup.
 
 ## Run locally
 
@@ -22,7 +22,7 @@ Playwright starts the API and Vite when their configured ports are free. In loca
 
 ## Isolation and cleanup
 
-The test uses a timestamped `E2E dashboard ...` name and slug. It never edits the seeded Business Performance Sample dashboard. A `finally` cleanup calls the permission-protected dashboard soft-delete endpoint with the latest concurrency stamp. Before each run it also removes dashboards left by an interrupted earlier E2E process.
+The test uses a timestamped `E2E dashboard ...` name and slug. It never edits the seeded Business Performance Sample dashboard. It restores and re-archives its duplicate through the interface, proves an incorrect confirmation cannot permanently delete it, and then permanently deletes it. A `finally` cleanup archives and permanently deletes the original with current concurrency stamps. Before each run it also removes active and archived dashboards left by an interrupted earlier E2E process. Development config sets the waiting period to zero; production remains 30 days by default.
 
 ## Release commands
 

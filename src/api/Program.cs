@@ -38,6 +38,7 @@ builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailO
 builder.Services.Configure<PasswordRecoveryOptions>(builder.Configuration.GetSection(PasswordRecoveryOptions.SectionName));
 builder.Services.Configure<AutomationHealthOptions>(builder.Configuration.GetSection(AutomationHealthOptions.SectionName));
 builder.Services.Configure<ProcessingJobOptions>(builder.Configuration.GetSection(ProcessingJobOptions.SectionName));
+builder.Services.Configure<DashboardRecycleBinOptions>(builder.Configuration.GetSection(DashboardRecycleBinOptions.SectionName));
 builder.Services.AddDbContext<OpenBusinessPlatformDbContext>(options =>
 {
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"));

@@ -1,6 +1,7 @@
 import type {
   ChartWidgetConfig,
   ChartWidgetPreview,
+  ArchivedDashboard,
   CreateDashboardRequest,
   DashboardAnalyticsRequest,
   DashboardAnalyticsResponse,
@@ -142,6 +143,22 @@ export async function deleteDashboard(dashboardId: string, concurrencyStamp: str
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ concurrencyStamp })
+  }, fetcher);
+}
+
+export async function listArchivedDashboards(fetcher: DashboardFetcher = defaultFetcher): Promise<ArchivedDashboard[]> {
+  return requestItems<ArchivedDashboard>("/api/dashboards/archived", { method: "GET", credentials: "include" }, fetcher);
+}
+
+export async function restoreArchivedDashboard(dashboardId: string, concurrencyStamp: string, fetcher: DashboardFetcher = defaultFetcher): Promise<DashboardDetail> {
+  return requestJson<DashboardDetail>(`/api/dashboards/${encodeURIComponent(dashboardId)}/restore`, {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concurrencyStamp })
+  }, fetcher);
+}
+
+export async function permanentlyDeleteDashboard(dashboardId: string, concurrencyStamp: string, confirmationName: string, fetcher: DashboardFetcher = defaultFetcher): Promise<void> {
+  await requestJson<null>(`/api/dashboards/${encodeURIComponent(dashboardId)}/permanent`, {
+    method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concurrencyStamp, confirmationName })
   }, fetcher);
 }
 

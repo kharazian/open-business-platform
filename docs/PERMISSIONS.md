@@ -68,7 +68,7 @@ The bootstrap admin and users with the `Admin` role receive all built-in permiss
 Menu visibility:
 
 - `menu.dashboard`
-- `dashboards.manage` — create, edit, publish, unpublish, configure navigation, and select dashboard audiences. Managers can see all dashboards and sharing subject IDs.
+- `dashboards.manage` — create, edit, publish, unpublish, configure navigation, select dashboard audiences, and manage the recycle bin. Managers can see all dashboards and sharing subject IDs; only managers can list archived dashboards, restore them, or permanently delete them after retention and confirmation safeguards.
 - `menu.forms`
 - `menu.reports`
 - `menu.users_access`

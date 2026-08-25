@@ -105,6 +105,19 @@ public sealed record DashboardPublicationSettingsDefinition(
 
 public sealed record DashboardPublicationMutationRequest(string ConcurrencyStamp);
 public sealed record DashboardRevisionRestoreRequest(string ConcurrencyStamp);
+public sealed record DashboardPermanentDeleteRequest(string ConcurrencyStamp, string ConfirmationName);
+
+public sealed record ArchivedDashboardDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    int WidgetCount,
+    DateTimeOffset ArchivedAt,
+    Guid? ArchivedById,
+    string? ArchivedByName,
+    string ConcurrencyStamp,
+    DateTimeOffset PermanentDeleteAvailableAt,
+    bool CanDeletePermanently);
 
 public sealed record DashboardRevisionSnapshotDefinition(
     string Name,

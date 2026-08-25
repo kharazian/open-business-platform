@@ -943,7 +943,19 @@ Updates a saved dashboard definition. Requires authentication and `dashboards.ma
 
 `DELETE /api/dashboards/{dashboardId}`
 
-Soft-deletes a dashboard and removes its draft/published slug and navigation exposure. Requires `dashboards.manage` and `{ "concurrencyStamp": "..." }`; stale stamps return `409`. The action writes `dashboard_deleted` to the audit log. Historical revisions remain database-owned by the soft-deleted dashboard but are no longer reachable through dashboard APIs.
+Archives a dashboard and removes its draft/published slug, published snapshot, default status, and navigation exposure. Requires `dashboards.manage` and `{ "concurrencyStamp": "..." }`; stale stamps return `409`. The action writes `dashboard_deleted` to the audit log. Historical revisions remain database-owned by the archived dashboard but are no longer reachable through normal dashboard APIs.
+
+`GET /api/dashboards/archived`
+
+Lists archived dashboards for recycle-bin management, including the archive actor/time, widget count, current concurrency stamp, and permanent-delete availability. Requires `dashboards.manage`; normal dashboard viewers receive `403`.
+
+`POST /api/dashboards/{dashboardId}/restore`
+
+Restores an archived dashboard as a safe unpublished draft with no slug or navigation exposure. Requires `dashboards.manage` and `{ "concurrencyStamp": "..." }`; stale stamps return `409`. The action writes `dashboard_archive_restored` to the audit log.
+
+`DELETE /api/dashboards/{dashboardId}/permanent`
+
+Permanently deletes an archived dashboard and its revision history. Requires `dashboards.manage`, the current concurrency stamp, and an exact case-sensitive confirmation name: `{ "concurrencyStamp": "...", "confirmationName": "Dashboard name" }`. A production dashboard must remain archived for the configured `DashboardRecycleBin:PermanentDeleteMinimumAgeDays` period (30 days by default); early requests return `409`. Development uses zero days for deterministic lifecycle testing. The transaction writes a metadata-only `dashboard_permanently_deleted` audit event before deliberately bypassing the platform soft-delete convention. This operation cannot be undone, and no automatic purge runs.
 
 Dashboard config stores widget definitions, and dashboard layout stores responsive width/order metadata. Supported widths are `small`, `medium`, `wide`, and `full`. Saved widgets reuse chart widget config values and are validated against source forms, source reports, fields, metrics, and widget types before save.
 

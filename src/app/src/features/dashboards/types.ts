@@ -267,6 +267,19 @@ export type DashboardDetail = DashboardSummaryItem & {
   layout: SavedDashboardLayout;
 };
 
+export type ArchivedDashboard = {
+  id: EntityId;
+  name: string;
+  description?: string | null;
+  widgetCount: number;
+  archivedAt: string;
+  archivedById?: EntityId | null;
+  archivedByName?: string | null;
+  concurrencyStamp: string;
+  permanentDeleteAvailableAt: string;
+  canDeletePermanently: boolean;
+};
+
 export type DashboardRevisionSnapshot = {
   name: string;
   description?: string | null;

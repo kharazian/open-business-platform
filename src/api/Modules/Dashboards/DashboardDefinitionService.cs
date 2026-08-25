@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenBusinessPlatform.Api.Domain.Entities;
 using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
@@ -10,10 +11,12 @@ public sealed class DashboardDefinitionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly OpenBusinessPlatformDbContext dbContext;
+    private readonly DashboardRecycleBinOptions recycleBinOptions;
 
-    public DashboardDefinitionService(OpenBusinessPlatformDbContext dbContext)
+    public DashboardDefinitionService(OpenBusinessPlatformDbContext dbContext, IOptions<DashboardRecycleBinOptions> recycleBinOptions)
     {
         this.dbContext = dbContext;
+        this.recycleBinOptions = recycleBinOptions.Value;
     }
 
     public async Task<IReadOnlyCollection<DashboardSummaryDto>> ListAsync(DashboardAccessContext accessContext, CancellationToken cancellationToken)
@@ -235,6 +238,8 @@ public sealed class DashboardDefinitionService
         dashboard.DeletedAt = DateTimeOffset.UtcNow;
         dashboard.DeletedById = userId;
         dashboard.Status = DashboardPublicationStatuses.Draft;
+        var settings = DashboardDefinitionAccess.ResolveSettings(dashboard);
+        dashboard.ExtraPropertiesJson = DashboardDefinitionAccess.SerializeSettings(settings with { IsDefault = false });
         dashboard.Slug = null;
         dashboard.ShowInNavigation = false;
         dashboard.PublishedSlug = null;
@@ -243,11 +248,79 @@ public sealed class DashboardDefinitionService
         dashboard.PublishedMenuIcon = null;
         dashboard.PublishedMenuOrder = 0;
         dashboard.PublishedViewPermission = null;
+        dashboard.PublishedSnapshotJson = null;
         dashboard.PublishedAt = null;
         dashboard.PublishedById = null;
         dashboard.UpdatedById = userId;
         AddAudit("Dashboard", dashboard.Id, "dashboard_deleted", userId);
         await SaveWithConflictAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<ArchivedDashboardDto>> ListArchivedAsync(CancellationToken cancellationToken)
+    {
+        var dashboards = await dbContext.Dashboards.AsNoTracking()
+            .Where(dashboard => dashboard.IsDeleted)
+            .OrderByDescending(dashboard => dashboard.DeletedAt)
+            .ThenBy(dashboard => dashboard.Name)
+            .ToArrayAsync(cancellationToken);
+        var actorIds = dashboards.Where(item => item.DeletedById.HasValue).Select(item => item.DeletedById!.Value).Distinct().ToArray();
+        var actorNames = await dbContext.Users.AsNoTracking().Where(user => actorIds.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.Name, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        var minimumAge = TimeSpan.FromDays(recycleBinOptions.GetBoundedMinimumAgeDays());
+        return dashboards.Select(dashboard =>
+        {
+            var archivedAt = dashboard.DeletedAt ?? dashboard.UpdatedAt ?? dashboard.CreatedAt;
+            var availableAt = archivedAt.Add(minimumAge);
+            var config = Deserialize<SavedDashboardConfigDefinition>(dashboard.ConfigJson) ?? new(1, Array.Empty<SavedDashboardWidgetDefinition>());
+            return new ArchivedDashboardDto(dashboard.Id, dashboard.Name, dashboard.Description, config.Widgets.Count, archivedAt,
+                dashboard.DeletedById, dashboard.DeletedById.HasValue && actorNames.TryGetValue(dashboard.DeletedById.Value, out var actorName) ? actorName : null,
+                dashboard.ConcurrencyStamp, availableAt, now >= availableAt);
+        }).ToArray();
+    }
+
+    public async Task<DashboardDetailDto> RestoreArchivedAsync(Guid dashboardId, DashboardPublicationMutationRequest request, Guid? userId, CancellationToken cancellationToken)
+    {
+        var dashboard = await FindArchivedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
+        dashboard.IsDeleted = false;
+        dashboard.DeletedAt = null;
+        dashboard.DeletedById = null;
+        dashboard.Status = DashboardPublicationStatuses.Draft;
+        dashboard.Slug = null;
+        dashboard.ShowInNavigation = false;
+        dashboard.UpdatedById = userId;
+        AddAudit("Dashboard", dashboard.Id, "dashboard_archive_restored", userId);
+        await SaveWithConflictAsync(cancellationToken);
+        return ToDetailDto(dashboard);
+    }
+
+    public async Task PermanentlyDeleteAsync(Guid dashboardId, DashboardPermanentDeleteRequest request, Guid? userId, CancellationToken cancellationToken)
+    {
+        var dashboard = await FindArchivedAsync(dashboardId, cancellationToken);
+        EnsureConcurrencyStamp(dashboard, request.ConcurrencyStamp);
+        if (!string.Equals(dashboard.Name, request.ConfirmationName, StringComparison.Ordinal))
+            throw new DashboardDefinitionException(StatusCodes.Status400BadRequest, "Dashboard name confirmation does not match.",
+                new[] { new DashboardValidationError("confirmationName", "dashboard.delete.confirmation_mismatch", "Type the exact dashboard name to permanently delete it.") });
+        var archivedAt = dashboard.DeletedAt ?? dashboard.UpdatedAt ?? dashboard.CreatedAt;
+        var availableAt = archivedAt.AddDays(recycleBinOptions.GetBoundedMinimumAgeDays());
+        if (DateTimeOffset.UtcNow < availableAt)
+            throw new DashboardDefinitionException(StatusCodes.Status409Conflict, $"This dashboard can be permanently deleted after {availableAt:O}.");
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        AddAudit("Dashboard", dashboard.Id, "dashboard_permanently_deleted", userId, Serialize(new
+        {
+            dashboard.Name,
+            ArchivedAt = archivedAt,
+            PermanentlyDeletedAt = DateTimeOffset.UtcNow
+        }));
+        await dbContext.SaveChangesAsync(cancellationToken);
+        var deleted = await dbContext.Dashboards
+            .Where(item => item.Id == dashboard.Id && item.IsDeleted && item.ConcurrencyStamp == request.ConcurrencyStamp)
+            .ExecuteDeleteAsync(cancellationToken);
+        if (deleted != 1)
+            throw new DashboardDefinitionException(StatusCodes.Status409Conflict, "Dashboard changed before permanent deletion. Refresh and try again.");
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<DashboardRevisionSummaryDto>> ListRevisionsAsync(Guid dashboardId, CancellationToken cancellationToken)
@@ -338,6 +411,12 @@ public sealed class DashboardDefinitionService
     {
         var dashboard = await dbContext.Dashboards.FirstOrDefaultAsync(item => item.Id == id && !item.IsDeleted, cancellationToken);
         return dashboard ?? throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Dashboard was not found.");
+    }
+
+    private async Task<DashboardDefinition> FindArchivedAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var dashboard = await dbContext.Dashboards.FirstOrDefaultAsync(item => item.Id == id && item.IsDeleted, cancellationToken);
+        return dashboard ?? throw new DashboardDefinitionException(StatusCodes.Status404NotFound, "Archived dashboard was not found.");
     }
 
     private async Task SaveWithConflictAsync(CancellationToken cancellationToken)
@@ -654,7 +733,7 @@ public sealed class DashboardDefinitionService
     private static DashboardPublicationSettingsDefinition ToPublication(DashboardDefinition dashboard) => new(
         dashboard.Status, dashboard.Slug, dashboard.ShowInNavigation, dashboard.MenuLabel, dashboard.MenuIcon, dashboard.MenuOrder, dashboard.ViewPermission);
 
-    private void AddAudit(string entityType, Guid entityId, string action, Guid? userId = null)
+    private void AddAudit(string entityType, Guid entityId, string action, Guid? userId = null, JsonDocument? metadata = null)
     {
         dbContext.AuditLogs.Add(new AuditLogEntry
         {
@@ -662,7 +741,8 @@ public sealed class DashboardDefinitionService
             EntityType = entityType,
             EntityId = entityId,
             Action = action,
-            UserId = userId
+            UserId = userId,
+            MetadataJson = metadata
         });
     }
 
