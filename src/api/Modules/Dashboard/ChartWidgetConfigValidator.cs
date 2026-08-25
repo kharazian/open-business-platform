@@ -92,6 +92,16 @@ public static class ChartWidgetConfigValidator
         var currencyCode = Normalize(appearance.CurrencyCode);
         if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter)) errors.Add(new("appearance.currencyCode", "chart.appearance.currency_invalid", "Currency code must contain three letters."));
         ValidateConditionalFormatting(appearance.ConditionalFormatting, widgetType, errors);
+        ValidateKpiTarget(appearance.KpiTarget, widgetType, errors);
+    }
+
+    private static void ValidateKpiTarget(DashboardKpiTargetDefinition? target, string widgetType, ICollection<ChartValidationError> errors)
+    {
+        if (target is null || !target.Enabled) return;
+        if (widgetType != ChartWidgetTypes.NumberCard) errors.Add(new("appearance.kpiTarget", "chart.kpi_target.widget_type_invalid", "KPI targets are supported only for KPI widgets."));
+        if (Math.Abs(target.Value) > 1_000_000_000_000_000m) errors.Add(new("appearance.kpiTarget.value", "chart.kpi_target.value_range", "KPI target is outside the supported range."));
+        if (string.IsNullOrWhiteSpace(target.Label)) errors.Add(new("appearance.kpiTarget.label", "chart.kpi_target.label_required", "Enabled KPI targets require a label."));
+        else if (target.Label.Length > 80) errors.Add(new("appearance.kpiTarget.label", "chart.kpi_target.label_invalid", "KPI target label must contain at most 80 characters."));
     }
 
     private static void ValidateConditionalFormatting(DashboardConditionalFormattingDefinition? formatting, string widgetType, ICollection<ChartValidationError> errors)

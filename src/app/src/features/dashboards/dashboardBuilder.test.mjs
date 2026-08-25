@@ -13,7 +13,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardSeriesColor, isDashboardConditionalFormattingValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -284,6 +284,23 @@ test("KPI conditional formatting evaluates ordered bounded rules with a static f
   const cloned = cloneDashboardChartAppearance(appearance);
   cloned.conditionalFormatting.rules[0].value = 120;
   assert.equal(appearance.conditionalFormatting.rules[0].value, 100);
+});
+
+test("KPI targets format localized target and percentage or absolute variance", () => {
+  const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 0, kpiTarget: { enabled: true, value: 7000, label: "Monthly target" } });
+  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 6651, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "5.0% below target" });
+  assert.deepEqual(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { enabled: true, value: 0, label: "Zero incidents" } }, 3, "en-CA"), { label: "Zero incidents", target: "$0", variance: "$3 above target" });
+  assert.deepEqual(getDashboardKpiTargetSummary(appearance, 7000, "en-CA"), { label: "Monthly target", target: "$7,000", variance: "On target" });
+  assert.equal(getDashboardKpiTargetSummary({ ...appearance, kpiTarget: { ...appearance.kpiTarget, enabled: false } }, 6651, "en-CA"), null);
+  assert.equal(isDashboardKpiTargetValid(appearance.kpiTarget, "number_card"), true);
+  assert.equal(isDashboardKpiTargetValid(appearance.kpiTarget, "choice_breakdown"), false);
+  assert.equal(isDashboardKpiTargetValid({ enabled: true, value: Number.POSITIVE_INFINITY, label: "Target" }, "number_card"), false);
+  assert.equal(isDashboardKpiTargetValid({ enabled: true, value: 1, label: "" }, "number_card"), false);
+  assert.equal(isDashboardKpiTargetValid({ enabled: true, value: 1, label: "x".repeat(81) }, "number_card"), false);
+  const cloned = cloneDashboardChartAppearance(appearance);
+  cloned.kpiTarget.value = 8000;
+  cloned.kpiTarget.label = "Changed target";
+  assert.deepEqual(appearance.kpiTarget, { enabled: true, value: 7000, label: "Monthly target" });
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

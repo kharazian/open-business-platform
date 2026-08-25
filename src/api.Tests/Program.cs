@@ -4535,6 +4535,28 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     ChartWidgetTypes.NumberCard,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     Appearance: new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[] { new DashboardConditionalRuleDefinition("label", "equal", 1m, "success") })))).Errors.Any(error => error.Code == "chart.conditional.label_required"), "Enabled KPI conditional rules should require readable status labels.");
+var targetedKpiAppearance = new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 7000m, "Monthly target"));
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"),
+    Appearance: targetedKpiAppearance)).Valid, "KPI widgets should accept a bounded display target.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: targetedKpiAppearance)).Errors.Any(error => error.Code == "chart.kpi_target.widget_type_invalid"), "KPI targets should be limited to KPI widgets.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 1m, "")))).Errors.Any(error => error.Code == "chart.kpi_target.label_required"), "Enabled KPI targets should require a readable label.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 1_000_000_000_000_001m, "Target")))).Errors.Any(error => error.Code == "chart.kpi_target.value_range"), "KPI targets should reject values outside the supported range.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(KpiTarget: new DashboardKpiTargetDefinition(true, 1m, new string('x', 81))))).Errors.Any(error => error.Code == "chart.kpi_target.label_invalid"), "KPI targets should reject labels longer than 80 characters.");
 
 var analyticsTrendRequest = analyticsBreakdownRequest with
 {

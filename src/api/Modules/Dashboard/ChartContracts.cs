@@ -73,6 +73,7 @@ public static class DashboardConditionalOperators
 
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
+public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target");
 
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",
@@ -83,7 +84,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string NumberFormat = "auto",
     string CurrencyCode = "CAD",
     int DecimalPlaces = 0,
-    DashboardConditionalFormattingDefinition? ConditionalFormatting = null);
+    DashboardConditionalFormattingDefinition? ConditionalFormatting = null,
+    DashboardKpiTargetDefinition? KpiTarget = null);
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

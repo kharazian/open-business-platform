@@ -1,9 +1,9 @@
-import type { ChartWidgetType, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target" } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
-  return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] } };
+  return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget } };
 }
 
 export function cloneDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance { return resolveDashboardChartAppearance(value); }
@@ -22,6 +22,24 @@ export function isDashboardConditionalFormattingValid(formatting: DashboardCondi
   if (formatting.rules.length > 5 || (formatting.enabled && (widgetType !== "number_card" || formatting.rules.length < 1))) return false;
   const ids = new Set<string>();
   return formatting.rules.every((rule) => /^[A-Za-z0-9_-]{1,50}$/.test(rule.id) && !ids.has(rule.id) && Boolean(ids.add(rule.id)) && conditionalOperators.has(rule.operator) && Number.isFinite(rule.value) && Math.abs(rule.value) <= 1_000_000_000_000_000 && conditionalAccents.has(rule.accent) && (!formatting.enabled || Boolean(rule.label?.trim())) && (rule.label?.length ?? 0) <= 80);
+}
+
+export function isDashboardKpiTargetValid(target: DashboardKpiTarget, widgetType: ChartWidgetType): boolean {
+  if (!target.enabled) return true;
+  return widgetType === "number_card" && Number.isFinite(target.value) && Math.abs(target.value) <= 1_000_000_000_000_000 && target.label.trim().length > 0 && target.label.length <= 80;
+}
+
+export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string } | null {
+  const config = appearance.kpiTarget;
+  if (!config.enabled || actual === null || actual === undefined || !Number.isFinite(actual)) return null;
+  const difference = actual - config.value;
+  const direction = difference > 0 ? "above" : difference < 0 ? "below" : null;
+  const variance = !direction
+    ? "On target"
+    : config.value === 0
+      ? `${formatDashboardValue(Math.abs(difference), appearance, locale)} ${direction} target`
+      : `${new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Math.abs(difference) / Math.abs(config.value))} ${direction} target`;
+  return { label: config.label.trim(), target: formatDashboardValue(config.value, appearance, locale), variance };
 }
 
 const conditionalOperators = new Set<DashboardConditionalOperator>(["greater_than", "greater_or_equal", "less_than", "less_or_equal", "equal"]);

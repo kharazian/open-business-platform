@@ -42,7 +42,8 @@ export type DashboardCardAccent = "none" | DashboardSeriesColor;
 export type DashboardConditionalOperator = "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "equal";
 export type DashboardConditionalRule = { id: string; operator: DashboardConditionalOperator; value: number; accent: DashboardSeriesColor; label?: string | null };
 export type DashboardConditionalFormatting = { enabled: boolean; rules: DashboardConditionalRule[] };
-export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting };
+export type DashboardKpiTarget = { enabled: boolean; value: number; label: string };
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;
