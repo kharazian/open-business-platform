@@ -1,5 +1,6 @@
 import type { DashboardTemplateDefinition, DashboardTemplateError } from "../templateEngine";
 import { businessPerformanceSampleTemplate } from "./businessPerformanceSample";
+import { operationsPerformanceTemplate } from "./operationsPerformance";
 
 export function createDashboardTemplateCatalog(templates: DashboardTemplateDefinition[]): DashboardTemplateDefinition[] {
   const ids = new Set<string>();
@@ -10,7 +11,7 @@ export function createDashboardTemplateCatalog(templates: DashboardTemplateDefin
   return [...templates].sort((left, right) => left.category.localeCompare(right.category) || left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
 }
 
-export const dashboardTemplateCatalog = createDashboardTemplateCatalog([businessPerformanceSampleTemplate]);
+export const dashboardTemplateCatalog = createDashboardTemplateCatalog([businessPerformanceSampleTemplate, operationsPerformanceTemplate]);
 
 export function validateTemplateFieldCapabilities(
   template: DashboardTemplateDefinition,

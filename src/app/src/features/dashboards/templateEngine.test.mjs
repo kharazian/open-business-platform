@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { instantiateDashboardTemplate, validateDashboardTemplate } from "./templateEngine.ts";
 import { businessPerformanceSampleTemplate } from "./templates/businessPerformanceSample.ts";
-import { createDashboardTemplateCatalog, validateTemplateFieldCapabilities } from "./templates/catalog.ts";
+import { operationsPerformanceTemplate } from "./templates/operationsPerformance.ts";
+import { createDashboardTemplateCatalog, dashboardTemplateCatalog, validateTemplateFieldCapabilities } from "./templates/catalog.ts";
 
 const formId = "11000000-0000-0000-0000-000000000001";
 const operationsFormId = "11000000-0000-0000-0000-000000000011";
@@ -33,6 +34,75 @@ test("Business Performance template creates an independent eleven-section multi-
   first.dashboard.config.widgets[0].title = "Changed instance";
   assert.equal(second.dashboard.config.widgets[0].title, "Total records");
   assert.equal(businessPerformanceSampleTemplate.widgets[0].title, "Total records");
+});
+
+test("Operations Performance template creates an independent seven-section draft", () => {
+  let sequence = 0;
+  const instantiate = () => instantiateDashboardTemplate(
+    operationsPerformanceTemplate,
+    { sources: { operations: { formId: operationsFormId } } },
+    { idGenerator: () => `operations-${++sequence}`, now: () => "2026-08-25T12:00:00.000Z", availableAdapterIds: new Set(["sample-dashboard"]) }
+  );
+  const first = instantiate();
+  const second = instantiate();
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!first.ok || !second.ok) return;
+  assert.equal(first.dashboard.config.sections.length, 7);
+  assert.equal(first.dashboard.config.widgets.length, 24);
+  assert.equal(first.dashboard.config.filters.length, 5);
+  assert.equal(first.dashboard.config.templateProvenance?.templateId, "operations-performance");
+  assert.equal(first.dashboard.config.templateProvenance?.templateVersion, 1);
+  assert.equal(first.dashboard.publication.status, "draft");
+  assert.equal(first.dashboard.settings.visibility, "workspace");
+  assert.notEqual(first.dashboard.config.widgets[0].id, second.dashboard.config.widgets[0].id);
+  first.dashboard.config.widgets[0].title = "Changed instance";
+  assert.equal(second.dashboard.config.widgets[0].title, "Operational facts");
+  assert.equal(operationsPerformanceTemplate.widgets[0].title, "Operational facts");
+});
+
+test("Operations Performance filters resolve only to intended widget ids", () => {
+  let sequence = 0;
+  const result = instantiateDashboardTemplate(
+    operationsPerformanceTemplate,
+    { sources: { operations: { formId: operationsFormId } } },
+    { idGenerator: () => `target-${++sequence}`, availableAdapterIds: new Set(["sample-dashboard"]) }
+  );
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const widgetsByTitle = new Map(result.dashboard.config.widgets.map((widget) => [widget.title, widget.id]));
+  const product = result.dashboard.config.filters.find((filter) => filter.label === "Product / recipe");
+  const equipment = result.dashboard.config.filters.find((filter) => filter.label === "Equipment");
+  const module = result.dashboard.config.filters.find((filter) => filter.label === "Module");
+  assert.deepEqual(product?.applyToWidgetIds, [
+    widgetsByTitle.get("Production by product"), widgetsByTitle.get("Production trend"),
+    widgetsByTitle.get("Inventory by product"), widgetsByTitle.get("Supply-chain KPI families"),
+    widgetsByTitle.get("QA/QC first-time release"), widgetsByTitle.get("Quality metrics"),
+    widgetsByTitle.get("Quality detail"), widgetsByTitle.get("Operational detail")
+  ]);
+  assert.deepEqual(equipment?.applyToWidgetIds, [
+    widgetsByTitle.get("Engineering performance"), widgetsByTitle.get("Utilities and reliability trend"),
+    widgetsByTitle.get("Operational detail")
+  ]);
+  assert.deepEqual(module?.applyToWidgetIds, [
+    widgetsByTitle.get("Operational facts"), widgetsByTitle.get("Total actual"),
+    widgetsByTitle.get("Total target"), widgetsByTitle.get("Performance by module"),
+    widgetsByTitle.get("Operational actual over time"), widgetsByTitle.get("Operational detail")
+  ]);
+});
+
+test("Operations Performance template validates source capabilities and adapter availability", () => {
+  const fields = new Set([
+    "module", "metric_key", "fiscal_year", "period_type", "period_label", "period_number", "period_date",
+    "product", "equipment", "actual_value", "target_value", "budget_value", "numerator", "denominator", "unit", "status"
+  ]);
+  assert.deepEqual(validateDashboardTemplate(operationsPerformanceTemplate), []);
+  assert.deepEqual(validateTemplateFieldCapabilities(operationsPerformanceTemplate, { operations: fields }), []);
+  assert.ok(validateTemplateFieldCapabilities(operationsPerformanceTemplate, { operations: new Set(["status"]) }).length > 0);
+  const unavailable = instantiateDashboardTemplate(operationsPerformanceTemplate, { sources: { operations: { formId: operationsFormId } } }, { availableAdapterIds: new Set() });
+  assert.equal(unavailable.ok, false);
+  if (!unavailable.ok) assert.ok(unavailable.errors.some((error) => error.code === "template.adapter.unavailable"));
+  assert.ok(dashboardTemplateCatalog.some((template) => template.id === "operations-performance"));
 });
 
 test("template instantiation validates source bindings and ids", () => {
