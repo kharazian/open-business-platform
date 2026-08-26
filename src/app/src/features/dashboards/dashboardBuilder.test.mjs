@@ -13,6 +13,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
+import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
@@ -313,6 +314,16 @@ test("KPI targets format direction-aware outcome, progress, and variance", () =>
   cloned.kpiTarget.value = 8000;
   cloned.kpiTarget.label = "Changed target";
   assert.deepEqual(appearance.kpiTarget, { enabled: true, value: 7000, label: "Monthly target", direction: "higher_is_better" });
+});
+
+test("configured single series use the selected chart renderer outside KPI and table widgets", () => {
+  const configured = [{ id: "actual", label: "Actual", metric: { type: "count" }, displayType: "area", color: "primary", axis: "left", points: [{ key: "2026-08", label: "Aug", value: 12 }] }];
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "trend", dataSeries: configured }), true);
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "breakdown", dataSeries: configured }), true);
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "summary", dataSeries: configured }), false);
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "table", dataSeries: configured }), false);
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "trend", dataSeries: [] }), false);
+  assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "trend", dataSeries: [{ ...configured[0], points: [] }] }), false);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

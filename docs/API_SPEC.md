@@ -870,7 +870,7 @@ Request:
 }
 ```
 
-Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field. Non-table requests may include one to four `series` definitions. Each definition has a unique bounded ID and label, its own metric, `bar`/`line`/`area` display type, semantic color, and `left`/`right` axis. Omitting `series` preserves the legacy single-metric behavior. Table requests accept at most one series.
+Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field. Non-table requests may include one to four `series` definitions. Each definition has a unique bounded ID and label, its own metric, `bar`/`line`/`area` display type, semantic color, and `left`/`right` axis. The shared preview/viewer renderer honors this presentation metadata for both a single configured series and multi-series charts. Omitting `series` preserves the legacy single-metric renderer. Table requests accept at most one series.
 
 Response:
 
