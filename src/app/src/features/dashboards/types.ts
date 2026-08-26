@@ -32,7 +32,7 @@ export type ChartMetricDefinition = {
   fieldId?: string | null;
 };
 
-export type DashboardSeriesDisplayType = "bar" | "line" | "area";
+export type DashboardSeriesDisplayType = "bar" | "line" | "area" | "pie" | "donut";
 export type DashboardSeriesColor = "primary" | "info" | "success" | "warning" | "danger" | "violet";
 export type DashboardSeriesAxis = "left" | "right";
 export type DashboardChartSeriesDefinition = { id: string; label: string; metric: ChartMetricDefinition; displayType: DashboardSeriesDisplayType; color: DashboardSeriesColor; axis: DashboardSeriesAxis };

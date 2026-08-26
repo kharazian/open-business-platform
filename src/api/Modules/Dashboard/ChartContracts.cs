@@ -36,7 +36,12 @@ public sealed record ChartMetricDefinition(string Type, string? FieldId = null);
 
 public static class DashboardSeriesDisplayTypes
 {
-    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "bar", "line", "area" };
+    public const string Pie = "pie";
+    public const string Donut = "donut";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "bar", "line", "area", Pie, Donut };
+
+    public static bool IsCircular(string value) => value is Pie or Donut;
 }
 
 public static class DashboardSeriesAxes

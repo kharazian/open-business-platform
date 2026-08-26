@@ -4493,6 +4493,25 @@ var multiSeriesRequest = analyticsBreakdownRequest with
     }
 };
 AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, multiSeriesRequest).Valid, "Dashboard analytics should validate up to four typed series over one source.");
+var circularSeriesRequest = analyticsBreakdownRequest with
+{
+    Series = new[] { new DashboardChartSeriesDefinition("records", "Records", new ChartMetricDefinition(ChartMetricTypes.Count), "donut", "primary", "left") }
+};
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, circularSeriesRequest).Valid, "Dashboard analytics should accept a single donut series for a category breakdown.");
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, circularSeriesRequest with
+{
+    WidgetType = DashboardAnalyticsWidgetTypes.Trend,
+    GroupByFieldId = null,
+    DateFieldId = ReportableSystemFields.CreatedAt
+}).Errors.Any(error => error.Code == "dashboard.analytics.series.circular_widget_type_invalid"), "Dashboard analytics should reject circular displays for trends.");
+AssertTrue(DashboardAnalyticsRequestValidator.Validate(reportingSchema, circularSeriesRequest with
+{
+    Series = new[]
+    {
+        circularSeriesRequest.Series![0],
+        new DashboardChartSeriesDefinition("salary", "Salary", new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"), "bar", "success", "right")
+    }
+}).Errors.Any(error => error.Code == "dashboard.analytics.series.circular_single_series_required"), "Dashboard analytics should reject circular displays mixed with another series.");
 AssertFalse(DashboardAnalyticsRequestValidator.Validate(reportingSchema, multiSeriesRequest with
 {
     Series = Enumerable.Range(0, 5).Select(index => new DashboardChartSeriesDefinition($"series-{index}", $"Series {index}", new ChartMetricDefinition(ChartMetricTypes.Count))).ToArray()

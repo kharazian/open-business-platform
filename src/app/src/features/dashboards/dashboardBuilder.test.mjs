@@ -14,6 +14,7 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
+import { getDashboardCircularSegments, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
 import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
@@ -324,6 +325,31 @@ test("configured single series use the selected chart renderer outside KPI and t
   assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "table", dataSeries: configured }), false);
   assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "trend", dataSeries: [] }), false);
   assert.equal(shouldRenderConfiguredSeriesChart({ widgetType: "trend", dataSeries: [{ ...configured[0], points: [] }] }), false);
+});
+
+test("pie and donut displays are limited to one category-breakdown series", () => {
+  const pie = { id: "records", label: "Records", metric: { type: "count" }, displayType: "pie", color: "primary", axis: "left" };
+  const bar = { ...pie, id: "amount", label: "Amount", displayType: "bar" };
+  assert.equal(isDashboardCircularDisplayType("pie"), true);
+  assert.equal(isDashboardCircularDisplayType("donut"), true);
+  assert.equal(isDashboardCircularDisplayType("area"), false);
+  assert.equal(isDashboardSeriesPresentationValid("choice_breakdown", [pie]), true);
+  assert.equal(isDashboardSeriesPresentationValid("date_trend", [pie]), false);
+  assert.equal(isDashboardSeriesPresentationValid("choice_breakdown", [pie, bar]), false);
+  assert.equal(isDashboardSeriesPresentationValid("choice_breakdown", [bar]), true);
+});
+
+test("circular chart segments preserve category proportions and reject negative values", () => {
+  const segments = getDashboardCircularSegments([
+    { key: "ready", label: "Ready", value: 30 },
+    { key: "pending", label: "Pending", value: 10 },
+    { key: "empty", label: "Empty", value: 0 }
+  ]);
+  assert.equal(segments.length, 2);
+  assert.equal(segments[0].ratio, 0.75);
+  assert.equal(segments[1].ratio, 0.25);
+  assert.equal(segments[1].offset, 0.75);
+  assert.deepEqual(getDashboardCircularSegments([{ key: "loss", label: "Loss", value: -1 }]), []);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

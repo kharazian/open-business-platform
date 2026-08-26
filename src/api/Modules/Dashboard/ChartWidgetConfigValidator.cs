@@ -141,8 +141,12 @@ public static class ChartWidgetConfigValidator
     private static void ValidateSeries(ChartWidgetConfigDefinition config, IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById, ICollection<ChartValidationError> errors)
     {
         var series = config.Series ?? Array.Empty<DashboardChartSeriesDefinition>();
+        var widgetType = Normalize(config.WidgetType);
         if (series.Count > 4) errors.Add(new("series", "chart.series.limit", "A chart supports at most four series."));
-        if (Normalize(config.WidgetType) == ChartWidgetTypes.Table && series.Count > 1) errors.Add(new("series", "chart.series.table_unsupported", "Table widgets support one metric only."));
+        if (widgetType == ChartWidgetTypes.Table && series.Count > 1) errors.Add(new("series", "chart.series.table_unsupported", "Table widgets support one metric only."));
+        var circularSeries = series.Where(item => DashboardSeriesDisplayTypes.IsCircular(Normalize(item.DisplayType))).ToArray();
+        if (circularSeries.Length > 0 && widgetType != ChartWidgetTypes.ChoiceBreakdown) errors.Add(new("series", "chart.series.circular_widget_type_invalid", "Pie and donut displays require a category breakdown widget."));
+        if (circularSeries.Length > 0 && series.Count != 1) errors.Add(new("series", "chart.series.circular_single_series_required", "Pie and donut displays support exactly one series."));
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in series.Select((value, index) => (value, index)))
         {
