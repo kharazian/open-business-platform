@@ -82,6 +82,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   if (circularSeries) return <CircularSeriesChart appearance={appearance} formatValue={circularSeries.metric.type === "count" ? formatCount : formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={circularSeries} />;
   const stacked = appearance.barMode !== "grouped";
   if (stacked && hasDashboardNegativeSeriesValues(series)) return <EmptyState title="Stacked chart unavailable" description="Stacked bars require non-negative values." />;
+  if (appearance.barOrientation === "horizontal") return <HorizontalBarChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={series} />;
   const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const leftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left", appearance.barMode);
@@ -95,7 +96,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   const hasRightAxis = series.some((item) => item.axis === "right") || appearance.referenceLines.some((line) => line.axis === "right");
   return <div className="grid min-w-0 gap-3">
     {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}<span className="font-medium text-muted-foreground">({item.axis})</span></span>)}</div> : null}
-    <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} role="img" viewBox="0 0 640 230">
+    <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation={appearance.barOrientation} role="img" viewBox="0 0 640 230">
       {gridlines.map((ratio) => <line key={ratio} opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left} x2={plot.left + plot.width} y1={plot.top + plot.height - ratio * plot.height} y2={plot.top + plot.height - ratio * plot.height} />)}
       <text fill="currentColor" fontSize="9" x={plot.left} y="11">{axisFormat("left")(leftMaximum)}</text>
       {hasRightAxis ? <text fill="currentColor" fontSize="9" textAnchor="end" x={plot.left + plot.width} y="11">{axisFormat("right")(rightMaximum)}</text> : null}
@@ -145,6 +146,60 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
           return appearance.barMode === "stacked_percent" ? `${item.label}: ${formatted} (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : `${item.label}: ${formatted}`;
         }).join(" · ");
         return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>;
+      }) : null}
+    </svg></div>
+  </div>;
+}
+
+function HorizontalBarChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
+  const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
+  const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
+  const axis = series[0]?.axis ?? "left";
+  const maximum = getDashboardAxisMaximum(series, appearance.referenceLines, axis, appearance.barMode);
+  const stacked = appearance.barMode !== "grouped";
+  const plot = { left: 118, top: 22, width: 492, height: Math.max(170, keys.length * 32) };
+  const chartHeight = plot.top + plot.height + 26;
+  const rowHeight = plot.height / Math.max(keys.length, 1);
+  const x = (value: number) => plot.left + Math.max(0, value) / maximum * plot.width;
+  const y = (index: number) => plot.top + (index + .5) * rowHeight;
+  const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
+  const axisFormat = appearance.barMode === "stacked_percent" ? formatPercentage : series[0]?.metric.type === "count" ? formatCount : formatNumber;
+  const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3 };
+  return <div className="grid min-w-0 gap-3">
+    {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}</span>)}</div> : null}
+    <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation="horizontal" role="img" viewBox={`0 0 640 ${chartHeight}`}>
+      {gridlines.map((ratio) => <g key={ratio}><line opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left + ratio * plot.width} x2={plot.left + ratio * plot.width} y1={plot.top} y2={plot.top + plot.height} />{ratio === 0 || ratio === 1 ? <text fill="currentColor" fontSize="9" textAnchor={ratio === 0 ? "start" : "end"} x={plot.left + ratio * plot.width} y="13">{axisFormat(ratio * maximum)}</text> : null}</g>)}
+      {appearance.referenceLines.filter((line) => line.axis === axis).map((line, index) => {
+        const lineX = x(line.value);
+        const formattedValue = axisFormat(line.value);
+        return <g aria-label={`Reference line ${line.label}: ${formattedValue}`} data-reference-line={line.id} key={line.id}><line stroke={getDashboardSeriesColor(line.color, appearance.palette)} strokeDasharray={getReferenceLineDasharray(line.style)} strokeWidth="2" x1={lineX} x2={lineX} y1={plot.top} y2={plot.top + plot.height}><title>{line.label}: {formattedValue}</title></line><text fill={getDashboardSeriesColor(line.color, appearance.palette)} fontSize="9" fontWeight="700" paintOrder="stroke" stroke="var(--color-card)" strokeWidth="3" textAnchor="end" transform={`rotate(-90 ${lineX - 4} ${plot.top + 8 + index * 11})`} x={lineX - 4} y={plot.top + 8 + index * 11}>{line.label} · {formattedValue}</text></g>;
+      })}
+      {labels.map((label, index) => <text dominantBaseline="middle" fill="currentColor" fontSize="10" key={keys[index]} textAnchor="end" x={plot.left - 8} y={y(index)}>{label.slice(0, 17)}</text>)}
+      {series.map((item, seriesIndex) => {
+        const color = getDashboardSeriesColor(item.color, appearance.palette);
+        const formatter = item.metric.type === "count" ? formatCount : formatNumber;
+        if (stacked) return <g key={item.id}>{keys.map((key, index) => {
+          const segment = getDashboardStackedBarSegment(series, key, seriesIndex, appearance.barMode === "stacked_percent" ? "stacked_percent" : "stacked");
+          const start = x(segment.start);
+          const end = x(segment.end);
+          const label = appearance.barMode === "stacked_percent" ? formatPercentage(segment.percentage) : formatter(segment.value);
+          const tooltip = appearance.barMode === "stacked_percent" ? `${item.label}: ${formatter(segment.value)} (${formatPercentage(segment.percentage)})` : `${item.label}: ${formatter(segment.value)}`;
+          const height = Math.min(22, rowHeight * .68);
+          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - start)} x={start} y={y(index) - height / 2}><title>{tooltip}</title></rect>{appearance.showDataLabels && end > start ? <text {...labelProps} dominantBaseline="middle" textAnchor="middle" x={(start + end) / 2} y={y(index)}>{label}</text> : null}</g>;
+        })}</g>;
+        const height = Math.min(13, rowHeight / Math.max(series.length + 1, 2));
+        return <g key={item.id}>{keys.map((key, index) => {
+          const value = item.points.find((point) => point.key === key)?.value ?? 0;
+          const end = x(value);
+          const barY = y(index) - series.length * height / 2 + seriesIndex * height;
+          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - plot.left)} x={plot.left} y={barY}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline="middle" x={Math.min(end + 4, plot.left + plot.width - 2)} y={barY + height / 2}>{formatter(value)}</text> : null}</g>;
+        })}</g>;
+      })}
+      {onSelect ? keys.map((key, index) => {
+        const point = series.flatMap((item) => item.points).find((item) => item.key === key);
+        const total = series.reduce((sum, item) => sum + Math.max(0, item.points.find((candidate) => candidate.key === key)?.value ?? 0), 0);
+        const tooltip = series.map((item) => { const value = item.points.find((candidate) => candidate.key === key)?.value ?? 0; const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(value); return appearance.barMode === "stacked_percent" ? `${item.label}: ${formatted} (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : `${item.label}: ${formatted}`; }).join(" · ");
+        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={rowHeight} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={plot.width} x={plot.left} y={plot.top + index * rowHeight}><title>{tooltip}</title></rect>;
       }) : null}
     </svg></div>
   </div>;

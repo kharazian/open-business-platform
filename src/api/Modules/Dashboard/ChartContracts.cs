@@ -94,6 +94,13 @@ public static class DashboardBarModes
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Grouped, Stacked, StackedPercent };
 }
 
+public static class DashboardBarOrientations
+{
+    public const string Vertical = "vertical";
+    public const string Horizontal = "horizontal";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Vertical, Horizontal };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
@@ -112,7 +119,8 @@ public sealed record DashboardChartAppearanceDefinition(
     DashboardConditionalFormattingDefinition? ConditionalFormatting = null,
     DashboardKpiTargetDefinition? KpiTarget = null,
     IReadOnlyList<DashboardReferenceLineDefinition>? ReferenceLines = null,
-    string BarMode = "grouped");
+    string BarMode = "grouped",
+    string BarOrientation = "vertical");
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

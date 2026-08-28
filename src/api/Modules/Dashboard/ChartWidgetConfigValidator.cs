@@ -105,6 +105,18 @@ public static class ChartWidgetConfigValidator
         ValidateKpiTarget(appearance.KpiTarget, widgetType, errors);
         ValidateReferenceLines(appearance.ReferenceLines, widgetType, series, errors);
         ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
+        ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
+    }
+
+    private static void ValidateBarOrientation(string? orientationInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, ICollection<ChartValidationError> errors)
+    {
+        var orientation = Normalize(orientationInput);
+        if (!DashboardBarOrientations.Supported.Contains(orientation)) { errors.Add(new("appearance.barOrientation", "chart.bar_orientation.invalid", "Bar direction is not supported.")); return; }
+        if (orientation == DashboardBarOrientations.Vertical) return;
+        var series = seriesInput ?? Array.Empty<DashboardChartSeriesDefinition>();
+        if (widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown)) errors.Add(new("appearance.barOrientation", "chart.bar_orientation.widget_type_invalid", "Horizontal bars are supported only for category breakdown charts."));
+        if (series.Count == 0 || series.Any(item => Normalize(item.DisplayType) != "bar")) errors.Add(new("appearance.barOrientation", "chart.bar_orientation.bar_series_required", "Horizontal charts require Bar series."));
+        if (series.Select(item => Normalize(item.Axis)).Distinct(StringComparer.Ordinal).Count() > 1) errors.Add(new("appearance.barOrientation", "chart.bar_orientation.axis_mismatch", "Horizontal Bar series must use the same axis."));
     }
 
     private static void ValidateBarMode(string? barModeInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, ICollection<ChartValidationError> errors)

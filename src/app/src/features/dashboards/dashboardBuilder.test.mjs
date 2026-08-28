@@ -15,7 +15,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -390,6 +390,20 @@ test("stacked bar modes require compatible series and calculate normal and perce
   assert.equal(getDashboardAxisMaximum(series, [], "left", "stacked_percent"), 100);
   assert.equal(hasDashboardNegativeSeriesValues(series), false);
   assert.equal(hasDashboardNegativeSeriesValues([{ ...series[0], points: [{ key: "aug", label: "Aug", value: -1 }] }]), true);
+});
+
+test("horizontal bars are limited to compatible category series", () => {
+  const series = [
+    { id: "actual", label: "Actual", metric: { type: "count" }, displayType: "bar", color: "primary", axis: "left" },
+    { id: "target", label: "Target", metric: { type: "count" }, displayType: "bar", color: "success", axis: "left" }
+  ];
+  assert.equal(defaultDashboardChartAppearance.barOrientation, "vertical");
+  assert.equal(isDashboardBarOrientationValid("vertical", "date_trend", series), true);
+  assert.equal(isDashboardBarOrientationValid("horizontal", "choice_breakdown", series), true);
+  assert.equal(isDashboardBarOrientationValid("horizontal", "date_trend", series), false);
+  assert.equal(isDashboardBarOrientationValid("horizontal", "choice_breakdown", [{ ...series[0], displayType: "line" }]), false);
+  assert.equal(isDashboardBarOrientationValid("horizontal", "choice_breakdown", [series[0], { ...series[1], axis: "right" }]), false);
+  assert.equal(isDashboardBarOrientationValid("diagonal", "choice_breakdown", series), false);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

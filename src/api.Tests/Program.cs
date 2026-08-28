@@ -4599,6 +4599,30 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Series: stackedSeries,
     Appearance: referenceLineAppearance with { BarMode = "stacked_percent" })).Errors.Any(error => error.Code == "chart.bar_mode.percent_reference_invalid"), "100 percent stacking should reject ambiguous reference lines.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(BarOrientation: "horizontal"))).Valid, "Category Bar series should support horizontal presentation.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(BarOrientation: "horizontal"))).Errors.Any(error => error.Code == "chart.bar_orientation.widget_type_invalid"), "Trend charts should reject horizontal bars.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: new[] { stackedSeries[0], stackedSeries[1] with { DisplayType = "line" } },
+    Appearance: new DashboardChartAppearanceDefinition(BarOrientation: "horizontal"))).Errors.Any(error => error.Code == "chart.bar_orientation.bar_series_required"), "Horizontal charts should reject mixed display types.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: new[] { stackedSeries[0], stackedSeries[1] with { Axis = "right" } },
+    Appearance: new DashboardChartAppearanceDefinition(BarOrientation: "horizontal"))).Errors.Any(error => error.Code == "chart.bar_orientation.axis_mismatch"), "Horizontal charts should require a shared axis.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

@@ -13,10 +13,10 @@ import { listReports } from "../../reports/api";
 import type { ListReportSummary } from "../../reports/types";
 import { runDashboardAnalytics } from "../api";
 import { buildDashboardAnalyticsRequest, toDashboardAnalyticsWidgetType, toggleDashboardFixedFilterValue } from "../analytics";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, getDashboardAccentColor, getDashboardEffectiveCardAccent, isDashboardBarModeValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "../appearance";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, getDashboardAccentColor, getDashboardEffectiveCardAccent, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "../appearance";
 import { createDashboardAdapterWidget, isDashboardAdapterWidgetConfigured } from "../adapters";
 import { isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "../chartPresentation";
-import type { DashboardAdapterRegistration, DashboardAnalyticsFilterValue, DashboardAnalyticsResponse, DashboardAnalyticsWidgetType, DashboardBarMode, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardInteractionDestination, DashboardKpiComparison, DashboardNumberFormat, DashboardSeriesAxis, DashboardSeriesColor, DashboardSeriesDisplayType, DashboardWidgetWidth, SavedDashboardSection, SavedDashboardWidget, SavedDashboardWidgetLayout } from "../types";
+import type { DashboardAdapterRegistration, DashboardAnalyticsFilterValue, DashboardAnalyticsResponse, DashboardAnalyticsWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardInteractionDestination, DashboardKpiComparison, DashboardNumberFormat, DashboardSeriesAxis, DashboardSeriesColor, DashboardSeriesDisplayType, DashboardWidgetWidth, SavedDashboardSection, SavedDashboardWidget, SavedDashboardWidgetLayout } from "../types";
 import { ChartWidgetPreview } from "./ChartWidgetPreview";
 import { DashboardAdapterSettingsEditor } from "./DashboardAdapterSettingsEditor";
 import { DashboardConditionalFormattingEditor } from "./DashboardConditionalFormattingEditor";
@@ -37,6 +37,7 @@ const displayTypes: Array<{ label: string; value: DashboardSeriesDisplayType }> 
 const seriesColors = [{ label: "Blue", value: "primary" }, { label: "Cyan", value: "info" }, { label: "Green", value: "success" }, { label: "Amber", value: "warning" }, { label: "Red", value: "danger" }, { label: "Violet", value: "violet" }];
 const seriesAxes = [{ label: "Left axis", value: "left" }, { label: "Right axis", value: "right" }];
 const barModes: Array<{ label: string; value: DashboardBarMode }> = [{ label: "Grouped", value: "grouped" }, { label: "Stacked", value: "stacked" }, { label: "100% stacked", value: "stacked_percent" }];
+const barOrientations: Array<{ label: string; value: DashboardBarOrientation }> = [{ label: "Vertical", value: "vertical" }, { label: "Horizontal", value: "horizontal" }];
 const palettes = [{ label: "Follow app theme", value: "theme" }, { label: "Cool", value: "cool" }, { label: "Warm", value: "warm" }, { label: "Monochrome", value: "mono" }];
 const numberFormats = [{ label: "Automatic", value: "auto" }, { label: "Number", value: "number" }, { label: "Currency", value: "currency" }, { label: "Percent", value: "percent" }];
 const cardAccents = [{ label: "None", value: "none" }, ...seriesColors];
@@ -73,10 +74,13 @@ export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApp
   const dateFields = fields.filter((field) => field.type === "date" || field.type === "datetime");
   const fixedFilterFields = fields.filter((field) => field.filterable && (field.options.length > 0 || isDateFilterField(field)));
   const adapter = draft?.adapter ? adapters.find((item) => item.id === draft.adapter?.adapterId) : undefined;
+  const analyticsType = useMemo(() => draft?.chart ? toDashboardAnalyticsWidgetType(draft.chart.widgetType) : null, [draft?.chart]);
   const effectiveSeries = useMemo(() => getEffectiveSeries(draft), [draft]);
   const appearance = useMemo(() => resolveDashboardChartAppearance(draft?.chart?.appearance), [draft?.chart?.appearance]);
   const allSeriesAreBars = effectiveSeries.length > 0 && effectiveSeries.every((series) => series.displayType === "bar");
-  const canStackBars = effectiveSeries.length >= 2 && allSeriesAreBars && new Set(effectiveSeries.map((series) => series.axis)).size === 1;
+  const barsShareAxis = new Set(effectiveSeries.map((series) => series.axis)).size === 1;
+  const canStackBars = effectiveSeries.length >= 2 && allSeriesAreBars && barsShareAxis;
+  const canUseHorizontalBars = analyticsType === "breakdown" && allSeriesAreBars && barsShareAxis;
   const interactionValid = !draft?.interaction || draft.interaction.destination === "records" || Boolean(draft.interaction.reportId && reports.some((report) => report.id === draft.interaction?.reportId));
   const valid = Boolean(draft?.title.trim() && draft.sectionId && interactionValid && (draft.chart ? draft.sourceFormId && !loadingSource && isDashboardAnalyticsWidgetDraftValid(draft, fields) : isDashboardAdapterWidgetConfigured(adapter, draft?.adapter ?? null)));
 
@@ -99,7 +103,6 @@ export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApp
     window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close);
   });
 
-  const analyticsType = useMemo(() => draft?.chart ? toDashboardAnalyticsWidgetType(draft.chart.widgetType) : null, [draft?.chart]);
   if (!open || !draft || !widget) return null;
   const activeDraft = draft;
 
@@ -121,12 +124,17 @@ export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApp
     const nextSeries = next === "table" ? null : activeDraft.chart.series?.map((series) => next !== "breakdown" && isDashboardCircularDisplayType(series.displayType) ? { ...series, displayType: "bar" as const } : series) ?? null;
     const nextReferenceLines = next === "summary" || next === "table" ? [] : appearance.referenceLines;
     const nextBarMode = nextSeries && isDashboardBarModeValid(appearance.barMode, nextWidgetType, nextSeries, nextReferenceLines) ? appearance.barMode : "grouped";
-    updateChart({ widgetType: nextWidgetType, groupByFieldId: next === "breakdown" ? (activeDraft.chart.groupByFieldId || groupFields[0]?.id || null) : null, dateFieldId: next === "trend" ? (activeDraft.chart.dateFieldId || dateFields[0]?.id || null) : null, columns: next === "table" ? (activeDraft.chart.columns?.length ? activeDraft.chart.columns : fields.slice(0, 5).map((field) => field.id)) : [], series: nextSeries, kpiComparison: next === "summary" ? activeDraft.chart.kpiComparison : activeDraft.chart.kpiComparison ? { ...activeDraft.chart.kpiComparison, enabled: false } : null, appearance: next === "summary" ? { ...appearance, referenceLines: [], barMode: nextBarMode } : { ...appearance, conditionalFormatting: { ...appearance.conditionalFormatting, enabled: false }, kpiTarget: { ...appearance.kpiTarget, enabled: false }, referenceLines: nextReferenceLines, barMode: nextBarMode } });
+    const nextBarOrientation = nextSeries && isDashboardBarOrientationValid(appearance.barOrientation, nextWidgetType, nextSeries) ? appearance.barOrientation : "vertical";
+    updateChart({ widgetType: nextWidgetType, groupByFieldId: next === "breakdown" ? (activeDraft.chart.groupByFieldId || groupFields[0]?.id || null) : null, dateFieldId: next === "trend" ? (activeDraft.chart.dateFieldId || dateFields[0]?.id || null) : null, columns: next === "table" ? (activeDraft.chart.columns?.length ? activeDraft.chart.columns : fields.slice(0, 5).map((field) => field.id)) : [], series: nextSeries, kpiComparison: next === "summary" ? activeDraft.chart.kpiComparison : activeDraft.chart.kpiComparison ? { ...activeDraft.chart.kpiComparison, enabled: false } : null, appearance: next === "summary" ? { ...appearance, referenceLines: [], barMode: nextBarMode, barOrientation: nextBarOrientation } : { ...appearance, conditionalFormatting: { ...appearance.conditionalFormatting, enabled: false }, kpiTarget: { ...appearance.kpiTarget, enabled: false }, referenceLines: nextReferenceLines, barMode: nextBarMode, barOrientation: nextBarOrientation } });
   }
   function changeAdapterVisualization(visualizationId: string) { if (!adapter) return; const next = createDashboardAdapterWidget(adapter, visualizationId); if (next) update({ adapter: next }); }
   function toggleColumn(fieldId: string, selected: boolean) { const current = activeDraft.chart?.columns ?? []; updateChart({ columns: selected ? [...new Set([...current, fieldId])] : current.filter((id) => id !== fieldId) }); }
   function setSeries(series: DashboardChartSeriesDefinition[]) {
-    const nextAppearance = isDashboardBarModeValid(appearance.barMode, activeDraft.chart!.widgetType, series, appearance.referenceLines) ? appearance : { ...appearance, barMode: "grouped" as const };
+    const nextAppearance = {
+      ...appearance,
+      barMode: isDashboardBarModeValid(appearance.barMode, activeDraft.chart!.widgetType, series, appearance.referenceLines) ? appearance.barMode : "grouped" as const,
+      barOrientation: isDashboardBarOrientationValid(appearance.barOrientation, activeDraft.chart!.widgetType, series) ? appearance.barOrientation : "vertical" as const
+    };
     updateChart({ series, metric: { ...series[0].metric }, appearance: nextAppearance });
   }
   function updateSeries(index: number, next: Partial<DashboardChartSeriesDefinition>) { setSeries(effectiveSeries.map((series, current) => current === index ? { ...series, ...next, metric: next.metric ? { ...next.metric } : series.metric } : series)); }
@@ -134,9 +142,11 @@ export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApp
     const next = effectiveSeries.map((series, current) => current === index ? { ...series, displayType } : series);
     const nextReferenceLines = isDashboardCircularDisplayType(displayType) ? [] : appearance.referenceLines;
     const nextBarMode = isDashboardBarModeValid(appearance.barMode, activeDraft.chart!.widgetType, next, nextReferenceLines) ? appearance.barMode : "grouped";
-    updateChart({ series: next, metric: { ...next[0].metric }, appearance: { ...appearance, referenceLines: nextReferenceLines, barMode: nextBarMode } });
+    const nextBarOrientation = isDashboardBarOrientationValid(appearance.barOrientation, activeDraft.chart!.widgetType, next) ? appearance.barOrientation : "vertical";
+    updateChart({ series: next, metric: { ...next[0].metric }, appearance: { ...appearance, referenceLines: nextReferenceLines, barMode: nextBarMode, barOrientation: nextBarOrientation } });
   }
   function changeBarMode(barMode: DashboardBarMode) { updateAppearance({ barMode, referenceLines: barMode === "stacked_percent" ? [] : appearance.referenceLines }); }
+  function changeBarOrientation(barOrientation: DashboardBarOrientation) { updateAppearance({ barOrientation }); }
   function addSeries() { if (effectiveSeries.length >= 4 || !activeDraft.chart || effectiveSeries.some((series) => isDashboardCircularDisplayType(series.displayType))) return; const index = effectiveSeries.length; setSeries([...effectiveSeries, { id: `series-${Date.now()}`, label: `Series ${index + 1}`, metric: { type: "count", fieldId: null }, displayType: index % 2 ? "line" : "bar", color: (["primary", "info", "success", "warning"] as DashboardSeriesColor[])[index], axis: "left" }]); }
   function removeSeries(index: number) { if (effectiveSeries.length <= 1) return; setSeries(effectiveSeries.filter((_, current) => current !== index)); }
   function moveSeries(index: number, direction: -1 | 1) { const target = index + direction; if (target < 0 || target >= effectiveSeries.length) return; const next = [...effectiveSeries]; [next[index], next[target]] = [next[target], next[index]]; setSeries(next); }
@@ -173,6 +183,7 @@ export function DashboardWidgetPropertiesDrawer({ adapters, forms, layout, onApp
               {appearance.numberFormat === "currency" ? <Select label="Currency" onChange={(event) => updateAppearance({ currencyCode: event.target.value })} options={currencies} value={appearance.currencyCode} /> : null}
               {appearance.numberFormat !== "auto" ? <Input label="Decimal places" max={4} min={0} onChange={(event) => updateAppearance({ decimalPlaces: Math.max(0, Math.min(4, Number(event.target.value) || 0)) })} type="number" value={appearance.decimalPlaces} /> : null}
               {(analyticsType === "breakdown" || analyticsType === "trend") && allSeriesAreBars ? <Select help={canStackBars ? "Choose side-by-side bars, cumulative totals, or percentage composition." : "Add at least two Bar series on the same axis to enable stacking."} label="Bar layout" onChange={(event) => changeBarMode(event.target.value as DashboardBarMode)} value={appearance.barMode}>{barModes.map((mode) => <option disabled={mode.value !== "grouped" && !canStackBars} key={mode.value} value={mode.value}>{mode.label}</option>)}</Select> : null}
+              {analyticsType === "breakdown" && allSeriesAreBars ? <Select help={canUseHorizontalBars ? "Horizontal bars improve comparisons when category labels are long." : "Horizontal bars require Bar series on one shared axis."} label="Bar direction" onChange={(event) => changeBarOrientation(event.target.value as DashboardBarOrientation)} value={appearance.barOrientation}>{barOrientations.map((orientation) => <option disabled={orientation.value === "horizontal" && !canUseHorizontalBars} key={orientation.value} value={orientation.value}>{orientation.label}</option>)}</Select> : null}
             </div>
             <div className="grid gap-2 sm:grid-cols-3"><Checkbox checked={appearance.showLegend} label="Show legend" onChange={(event) => updateAppearance({ showLegend: event.target.checked })} /><Checkbox checked={appearance.showDataLabels} label="Show data labels" onChange={(event) => updateAppearance({ showDataLabels: event.target.checked })} /><Checkbox checked={appearance.showGridlines} label="Show gridlines" onChange={(event) => updateAppearance({ showGridlines: event.target.checked })} /></div>
           </div> : null}
@@ -222,7 +233,7 @@ export function isDashboardAnalyticsWidgetDraftValid(widget: SavedDashboardWidge
   });
   const appearance = resolveDashboardChartAppearance(chart.appearance);
   const comparisonValid = !chart.kpiComparison?.enabled || chart.widgetType === "number_card" && ["last_7_days", "last_30_days", "last_90_days"].includes(chart.kpiComparison.period) && fields.some((field) => isDateFilterField(field) && field.id === chart.kpiComparison?.dateFieldId);
-  return validSeries && isDashboardSeriesPresentationValid(chart.widgetType, series) && isDashboardReferenceLinesValid(appearance.referenceLines, chart.widgetType, series) && isDashboardBarModeValid(appearance.barMode, chart.widgetType, series, appearance.referenceLines) && validFixedFilters && comparisonValid && isDashboardConditionalFormattingValid(appearance.conditionalFormatting, chart.widgetType) && isDashboardKpiTargetValid(appearance.kpiTarget, chart.widgetType) && (type !== "table" || series.length === 1) && (chart.metric.type === "count" || Boolean(chart.metric.fieldId && ids.has(chart.metric.fieldId))) && (type !== "breakdown" || Boolean(chart.groupByFieldId && ids.has(chart.groupByFieldId))) && (type !== "trend" || Boolean(chart.dateFieldId && ids.has(chart.dateFieldId))) && (type !== "table" || Boolean(chart.columns?.length && chart.columns.every((id) => ids.has(id))));
+  return validSeries && isDashboardSeriesPresentationValid(chart.widgetType, series) && isDashboardReferenceLinesValid(appearance.referenceLines, chart.widgetType, series) && isDashboardBarModeValid(appearance.barMode, chart.widgetType, series, appearance.referenceLines) && isDashboardBarOrientationValid(appearance.barOrientation, chart.widgetType, series) && validFixedFilters && comparisonValid && isDashboardConditionalFormattingValid(appearance.conditionalFormatting, chart.widgetType) && isDashboardKpiTargetValid(appearance.kpiTarget, chart.widgetType) && (type !== "table" || series.length === 1) && (chart.metric.type === "count" || Boolean(chart.metric.fieldId && ids.has(chart.metric.fieldId))) && (type !== "breakdown" || Boolean(chart.groupByFieldId && ids.has(chart.groupByFieldId))) && (type !== "trend" || Boolean(chart.dateFieldId && ids.has(chart.dateFieldId))) && (type !== "table" || Boolean(chart.columns?.length && chart.columns.every((id) => ids.has(id))));
 }
 function getEffectiveSeries(widget: SavedDashboardWidget | null): DashboardChartSeriesDefinition[] { if (!widget?.chart) return []; return widget.chart.series?.length ? widget.chart.series : [{ id: "primary", label: "Primary", metric: { ...widget.chart.metric }, displayType: "bar", color: "primary", axis: "left" }]; }
 
