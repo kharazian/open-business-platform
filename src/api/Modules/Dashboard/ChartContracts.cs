@@ -112,6 +112,8 @@ public sealed record DashboardConditionalFormattingDefinition(bool Enabled = fal
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
 public sealed record DashboardKpiComparisonDefinition(bool Enabled = false, string DateFieldId = "", string Period = "last_30_days");
 public sealed record DashboardReferenceLineDefinition(string Id, string Label, decimal Value, string Color = "warning", string Style = "dashed", string Axis = "left");
+public sealed record DashboardAxisAppearanceDefinition(string Title = "", decimal? Maximum = null);
+public sealed record DashboardChartAxesDefinition(DashboardAxisAppearanceDefinition? Left = null, DashboardAxisAppearanceDefinition? Right = null);
 
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",
@@ -127,7 +129,8 @@ public sealed record DashboardChartAppearanceDefinition(
     IReadOnlyList<DashboardReferenceLineDefinition>? ReferenceLines = null,
     string BarMode = "grouped",
     string BarOrientation = "vertical",
-    string CategorySort = "source");
+    string CategorySort = "source",
+    DashboardChartAxesDefinition? Axes = null);
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

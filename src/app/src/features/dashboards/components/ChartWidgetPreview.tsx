@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType } from "../chartPresentation";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -85,11 +85,13 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   if (appearance.barOrientation === "horizontal") return <HorizontalBarChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={series} />;
   const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
-  const leftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left", appearance.barMode);
-  const rightMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "right", appearance.barMode);
-  const plot = { left: 42, top: 16, width: 570, height: 170 };
+  const automaticLeftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left", appearance.barMode);
+  const automaticRightMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "right", appearance.barMode);
+  const leftMaximum = resolveDashboardAxisMaximum(automaticLeftMaximum, appearance.axes.left.maximum);
+  const rightMaximum = resolveDashboardAxisMaximum(automaticRightMaximum, appearance.axes.right.maximum);
+  const plot = { left: 52, top: 16, width: 548, height: 170 };
   const x = (index: number) => plot.left + (index + .5) * plot.width / Math.max(keys.length, 1);
-  const y = (value: number, axis: "left" | "right") => plot.top + plot.height - Math.max(0, value) / (axis === "right" ? rightMaximum : leftMaximum) * plot.height;
+  const y = (value: number, axis: "left" | "right") => plot.top + plot.height - Math.min(1, Math.max(0, value) / (axis === "right" ? rightMaximum : leftMaximum)) * plot.height;
   const barSeries = series.filter((item) => item.displayType === "bar");
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = (axis: "left" | "right") => appearance.barMode === "stacked_percent" ? formatPercentage : series.find((item) => item.axis === axis)?.metric.type === "count" ? formatCount : formatNumber;
@@ -100,6 +102,8 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
       {gridlines.map((ratio) => <line key={ratio} opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left} x2={plot.left + plot.width} y1={plot.top + plot.height - ratio * plot.height} y2={plot.top + plot.height - ratio * plot.height} />)}
       <text fill="currentColor" fontSize="9" x={plot.left} y="11">{axisFormat("left")(leftMaximum)}</text>
       {hasRightAxis ? <text fill="currentColor" fontSize="9" textAnchor="end" x={plot.left + plot.width} y="11">{axisFormat("right")(rightMaximum)}</text> : null}
+      {appearance.axes.left.title.trim() ? <text fill="currentColor" fontSize="10" fontWeight="700" textAnchor="middle" transform="rotate(-90 13 101)" x="13" y="101">{appearance.axes.left.title.trim()}</text> : null}
+      {hasRightAxis && appearance.axes.right.title.trim() ? <text fill="currentColor" fontSize="10" fontWeight="700" textAnchor="middle" transform="rotate(90 627 101)" x="627" y="101">{appearance.axes.right.title.trim()}</text> : null}
       {appearance.referenceLines.map((line, index) => {
         const lineY = y(line.value, line.axis);
         const formattedValue = axisFormat(line.axis)(line.value);
@@ -148,6 +152,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
         return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>;
       }) : null}
     </svg></div>
+    <AxisClippingWarning axes={[...(isDashboardAxisClipped(automaticLeftMaximum, appearance.axes.left.maximum) ? ["left"] : []), ...(hasRightAxis && isDashboardAxisClipped(automaticRightMaximum, appearance.axes.right.maximum) ? ["right"] : [])]} />
   </div>;
 }
 
@@ -155,12 +160,13 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
   const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const axis = series[0]?.axis ?? "left";
-  const maximum = getDashboardAxisMaximum(series, appearance.referenceLines, axis, appearance.barMode);
+  const automaticMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, axis, appearance.barMode);
+  const maximum = resolveDashboardAxisMaximum(automaticMaximum, appearance.axes[axis].maximum);
   const stacked = appearance.barMode !== "grouped";
-  const plot = { left: 118, top: 22, width: 492, height: Math.max(170, keys.length * 32) };
+  const plot = { left: 118, top: 34, width: 492, height: Math.max(170, keys.length * 32) };
   const chartHeight = plot.top + plot.height + 26;
   const rowHeight = plot.height / Math.max(keys.length, 1);
-  const x = (value: number) => plot.left + Math.max(0, value) / maximum * plot.width;
+  const x = (value: number) => plot.left + Math.min(1, Math.max(0, value) / maximum) * plot.width;
   const y = (index: number) => plot.top + (index + .5) * rowHeight;
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = appearance.barMode === "stacked_percent" ? formatPercentage : series[0]?.metric.type === "count" ? formatCount : formatNumber;
@@ -169,6 +175,7 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
     {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}</span>)}</div> : null}
     <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation="horizontal" role="img" viewBox={`0 0 640 ${chartHeight}`}>
       {gridlines.map((ratio) => <g key={ratio}><line opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left + ratio * plot.width} x2={plot.left + ratio * plot.width} y1={plot.top} y2={plot.top + plot.height} />{ratio === 0 || ratio === 1 ? <text fill="currentColor" fontSize="9" textAnchor={ratio === 0 ? "start" : "end"} x={plot.left + ratio * plot.width} y="13">{axisFormat(ratio * maximum)}</text> : null}</g>)}
+      {appearance.axes[axis].title.trim() ? <text fill="currentColor" fontSize="10" fontWeight="700" textAnchor="middle" x={plot.left + plot.width / 2} y="27">{appearance.axes[axis].title.trim()}</text> : null}
       {appearance.referenceLines.filter((line) => line.axis === axis).map((line, index) => {
         const lineX = x(line.value);
         const formattedValue = axisFormat(line.value);
@@ -202,7 +209,13 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
         return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={rowHeight} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={plot.width} x={plot.left} y={plot.top + index * rowHeight}><title>{tooltip}</title></rect>;
       }) : null}
     </svg></div>
+    <AxisClippingWarning axes={isDashboardAxisClipped(automaticMaximum, appearance.axes[axis].maximum) ? [axis] : []} />
   </div>;
+}
+
+function AxisClippingWarning({ axes }: { axes: string[] }) {
+  if (axes.length === 0) return null;
+  return <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning" role="status">Manual {axes.join(" and ")} axis maximum clips values above the configured scale.</p>;
 }
 
 function formatPercentage(value: number): string { return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`; }

@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -420,6 +420,26 @@ test("category sorting is breakdown-only and uses combined series values", () =>
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "value_asc"), ["c", "a", "b"]);
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_asc"), ["a", "b", "c"]);
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_desc"), ["c", "b", "a"]);
+});
+
+test("axis titles and manual maximums are bounded and normalized", () => {
+  const series = [{ id: "actual", label: "Actual", metric: { type: "count" }, displayType: "bar", color: "primary", axis: "left" }];
+  const axes = { left: { title: "Records", maximum: 75 }, right: { title: "", maximum: null } };
+  assert.deepEqual(defaultDashboardChartAppearance.axes, { left: { title: "", maximum: null }, right: { title: "", maximum: null } });
+  assert.equal(isDashboardChartAxesValid(axes, "choice_breakdown", series, [], "grouped"), true);
+  assert.equal(isDashboardChartAxesValid({ ...axes, left: { ...axes.left, maximum: 0 } }, "choice_breakdown", series, [], "grouped"), false);
+  assert.equal(isDashboardChartAxesValid({ ...axes, left: { ...axes.left, title: "x".repeat(81) } }, "choice_breakdown", series, [], "grouped"), false);
+  assert.equal(isDashboardChartAxesValid(axes, "number_card", series, [], "grouped"), false);
+  assert.deepEqual(normalizeDashboardChartAxes(axes, "choice_breakdown", series, [], "stacked_percent"), { left: { title: "Records", maximum: null }, right: { title: "", maximum: null } });
+  assert.deepEqual(normalizeDashboardChartAxes(axes, "number_card", series, [], "grouped"), defaultDashboardChartAppearance.axes);
+  assert.equal(resolveDashboardAxisMaximum(100, 75), 75);
+  assert.equal(resolveDashboardAxisMaximum(100, null), 100);
+  assert.equal(isDashboardAxisClipped(100, 75), true);
+  assert.equal(isDashboardAxisClipped(75, 100), false);
+  const resolved = resolveDashboardChartAppearance({ axes: { left: { title: "Amount", maximum: 500 }, right: { title: "", maximum: null } } });
+  const clone = cloneDashboardChartAppearance(resolved);
+  clone.axes.left.title = "Changed";
+  assert.equal(resolved.axes.left.title, "Amount");
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

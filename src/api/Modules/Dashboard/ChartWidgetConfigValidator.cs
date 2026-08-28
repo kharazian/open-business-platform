@@ -107,7 +107,34 @@ public static class ChartWidgetConfigValidator
         ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
         ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
         ValidateCategorySort(appearance.CategorySort, widgetType, errors);
+        ValidateAxes(appearance.Axes, widgetType, series, appearance.ReferenceLines, appearance.BarMode, errors);
     }
+
+    private static void ValidateAxes(DashboardChartAxesDefinition? axesInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, string? barModeInput, ICollection<ChartValidationError> errors)
+    {
+        if (axesInput is null) return;
+        var left = axesInput.Left ?? new DashboardAxisAppearanceDefinition();
+        var right = axesInput.Right ?? new DashboardAxisAppearanceDefinition();
+        var series = seriesInput ?? Array.Empty<DashboardChartSeriesDefinition>();
+        var cartesian = widgetType is ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown or ChartWidgetTypes.DateTrend;
+        if (series.Any(item => DashboardSeriesDisplayTypes.IsCircular(Normalize(item.DisplayType)))) cartesian = false;
+        if (!cartesian && (!IsDefaultAxis(left) || !IsDefaultAxis(right))) errors.Add(new("appearance.axes", "chart.axes.widget_type_invalid", "Axis settings are supported only for cartesian charts."));
+        var leftActive = series.Count == 0 || series.Any(item => Normalize(item.Axis) == "left") || (referenceLines ?? Array.Empty<DashboardReferenceLineDefinition>()).Any(line => Normalize(line.Axis) == "left");
+        var rightActive = series.Any(item => Normalize(item.Axis) == "right") || (referenceLines ?? Array.Empty<DashboardReferenceLineDefinition>()).Any(line => Normalize(line.Axis) == "right");
+        if (!leftActive && !IsDefaultAxis(left)) errors.Add(new("appearance.axes.left", "chart.axes.left_inactive", "Left-axis settings require a left-axis series or reference line."));
+        if (!rightActive && !IsDefaultAxis(right)) errors.Add(new("appearance.axes.right", "chart.axes.right_inactive", "Right-axis settings require a right-axis series or reference line."));
+        if (Normalize(barModeInput) == DashboardBarModes.StackedPercent && (left.Maximum is not null || right.Maximum is not null)) errors.Add(new("appearance.axes", "chart.axes.percent_maximum_invalid", "100% stacked charts use a fixed automatic maximum."));
+        ValidateAxis(left, "left", errors);
+        ValidateAxis(right, "right", errors);
+    }
+
+    private static void ValidateAxis(DashboardAxisAppearanceDefinition axis, string name, ICollection<ChartValidationError> errors)
+    {
+        if ((axis.Title?.Length ?? 0) > 80) errors.Add(new($"appearance.axes.{name}.title", "chart.axes.title_invalid", "Axis titles may contain at most 80 characters."));
+        if (axis.Maximum is <= 0 or > 1_000_000_000_000_000m) errors.Add(new($"appearance.axes.{name}.maximum", "chart.axes.maximum_invalid", "Manual axis maximum must be greater than zero and within the supported numeric range."));
+    }
+
+    private static bool IsDefaultAxis(DashboardAxisAppearanceDefinition axis) => string.IsNullOrEmpty(axis.Title) && axis.Maximum is null;
 
     private static void ValidateCategorySort(string? sortInput, string widgetType, ICollection<ChartValidationError> errors)
     {

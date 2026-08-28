@@ -39,6 +39,14 @@ export function getDashboardAxisMaximum(series: Array<DashboardChartSeriesDefini
   return Math.max(1, ...values, ...references);
 }
 
+export function resolveDashboardAxisMaximum(automaticMaximum: number, configuredMaximum: number | null): number {
+  return configuredMaximum !== null && Number.isFinite(configuredMaximum) && configuredMaximum > 0 ? configuredMaximum : automaticMaximum;
+}
+
+export function isDashboardAxisClipped(automaticMaximum: number, configuredMaximum: number | null): boolean {
+  return configuredMaximum !== null && automaticMaximum > configuredMaximum;
+}
+
 export type DashboardStackedBarSegment = { start: number; end: number; percentage: number; total: number; value: number };
 
 export function getDashboardStackedBarSegment(series: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>, key: string, seriesIndex: number, barMode: Exclude<DashboardBarMode, "grouped">): DashboardStackedBarSegment {

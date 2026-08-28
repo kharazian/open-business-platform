@@ -1,10 +1,10 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
-import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source" };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
-  return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [] };
+  return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [], axes: { left: { ...defaultDashboardChartAppearance.axes.left, ...value?.axes?.left }, right: { ...defaultDashboardChartAppearance.axes.right, ...value?.axes?.right } } };
 }
 
 export function cloneDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance { return resolveDashboardChartAppearance(value); }
@@ -58,6 +58,22 @@ export function isDashboardBarOrientationValid(orientation: DashboardBarOrientat
 
 export function isDashboardCategorySortValid(sort: DashboardCategorySort | string, widgetType: ChartWidgetType): boolean {
   return categorySorts.has(sort) && (sort === "source" || ["bar_chart", "choice_breakdown"].includes(widgetType));
+}
+
+export function normalizeDashboardChartAxes(axesInput: DashboardChartAxes, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "displayType" | "axis">>, referenceLines: DashboardReferenceLine[], barMode: DashboardBarMode): DashboardChartAxes {
+  const axes = { left: { ...axesInput.left }, right: { ...axesInput.right } };
+  const cartesian = ["bar_chart", "choice_breakdown", "date_trend"].includes(widgetType) && !series.some((item) => isDashboardCircularDisplayType(item.displayType));
+  if (!cartesian) return { left: { ...defaultDashboardChartAppearance.axes.left }, right: { ...defaultDashboardChartAppearance.axes.right } };
+  if (series.length > 0 && !series.some((item) => item.axis === "left") && !referenceLines.some((line) => line.axis === "left")) axes.left = { ...defaultDashboardChartAppearance.axes.left };
+  if (!series.some((item) => item.axis === "right") && !referenceLines.some((line) => line.axis === "right")) axes.right = { ...defaultDashboardChartAppearance.axes.right };
+  if (barMode === "stacked_percent") { axes.left.maximum = null; axes.right.maximum = null; }
+  return axes;
+}
+
+export function isDashboardChartAxesValid(axes: DashboardChartAxes, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "displayType" | "axis">>, referenceLines: DashboardReferenceLine[], barMode: DashboardBarMode): boolean {
+  const normalized = normalizeDashboardChartAxes(axes, widgetType, series, referenceLines, barMode);
+  if (JSON.stringify(normalized) !== JSON.stringify(axes)) return false;
+  return [axes.left, axes.right].every((axis) => axis.title.length <= 80 && (axis.maximum === null || Number.isFinite(axis.maximum) && axis.maximum > 0 && axis.maximum <= 1_000_000_000_000_000));
 }
 
 export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string; outcome: "favorable" | "needs_attention" | "on_target"; progress: number | null } | null {

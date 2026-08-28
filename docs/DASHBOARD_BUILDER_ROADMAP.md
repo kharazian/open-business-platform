@@ -15,7 +15,7 @@ Implement and verify these increments in order. Each increment must preserve bac
    - Backend validation/execution with field permissions checked for every series
    - Bar, line, area, and combo rendering with independent left/right scales; compatible category Bar series support vertical/horizontal direction plus grouped, stacked, and 100% stacked layouts; single category-breakdown series also support pie and donut presentation, without arbitrary formulas or SQL
 4. **Appearance and color controls — implemented**
-   - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting, and deterministic breakdown category ordering
+   - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting, deterministic breakdown category ordering, and bounded axis titles/manual maxima with clipping disclosure
    - Bounded accessible color presets, reset-to-theme behavior, and up to four labeled axis-aware reference/target lines for cartesian charts
 5. **Improved add-widget experience — implemented**
    - Searchable visualization gallery, recommended chart hints, source-first wizard, sample preview, recent choices

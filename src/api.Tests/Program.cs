@@ -4638,6 +4638,37 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     new ChartMetricDefinition(ChartMetricTypes.Count),
     "status",
     Appearance: new DashboardChartAppearanceDefinition(CategorySort: "random"))).Errors.Any(error => error.Code == "chart.category_sort.invalid"), "Charts should reject unsupported category ordering.");
+var axisAppearance = new DashboardChartAppearanceDefinition(Axes: new DashboardChartAxesDefinition(
+    new DashboardAxisAppearanceDefinition("Records", 75m),
+    new DashboardAxisAppearanceDefinition()));
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: axisAppearance)).Valid, "Cartesian charts should accept bounded axis titles and manual maximums.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: axisAppearance)).Errors.Any(error => error.Code == "chart.axes.widget_type_invalid"), "KPI widgets should reject visible axis settings.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: axisAppearance with { BarMode = "stacked_percent" })).Errors.Any(error => error.Code == "chart.axes.percent_maximum_invalid"), "100 percent stacked charts should reject manual maxima.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(Axes: new DashboardChartAxesDefinition(new DashboardAxisAppearanceDefinition("x", 0m))))).Errors.Any(error => error.Code == "chart.axes.maximum_invalid"), "Manual axis maxima should be positive.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(Axes: new DashboardChartAxesDefinition(Right: new DashboardAxisAppearanceDefinition("Unused", 10m))))).Errors.Any(error => error.Code == "chart.axes.right_inactive"), "Unused right-axis settings should be rejected.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),
