@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -370,6 +370,26 @@ test("reference lines are bounded, cartesian-only, cloned, and included in axis 
   const clone = cloneDashboardChartAppearance(appearance);
   clone.referenceLines[0].value = 120;
   assert.equal(appearance.referenceLines[0].value, 100);
+});
+
+test("stacked bar modes require compatible series and calculate normal and percentage segments", () => {
+  const series = [
+    { id: "actual", label: "Actual", metric: { type: "count" }, displayType: "bar", color: "primary", axis: "left", points: [{ key: "aug", label: "Aug", value: 80 }] },
+    { id: "target", label: "Target", metric: { type: "count" }, displayType: "bar", color: "success", axis: "left", points: [{ key: "aug", label: "Aug", value: 20 }] }
+  ];
+  assert.equal(isDashboardBarModeValid("grouped", "choice_breakdown", series, []), true);
+  assert.equal(isDashboardBarModeValid("stacked", "choice_breakdown", series, []), true);
+  assert.equal(isDashboardBarModeValid("stacked_percent", "date_trend", series, []), true);
+  assert.equal(isDashboardBarModeValid("stacked", "number_card", series, []), false);
+  assert.equal(isDashboardBarModeValid("stacked", "choice_breakdown", [{ ...series[0], displayType: "line" }, series[1]], []), false);
+  assert.equal(isDashboardBarModeValid("stacked", "choice_breakdown", [series[0], { ...series[1], axis: "right" }], []), false);
+  assert.equal(isDashboardBarModeValid("stacked_percent", "choice_breakdown", series, [{ id: "target", label: "Target", value: 80, color: "success", style: "dashed", axis: "left" }]), false);
+  assert.deepEqual(getDashboardStackedBarSegment(series, "aug", 1, "stacked"), { start: 80, end: 100, percentage: 20, total: 100, value: 20 });
+  assert.deepEqual(getDashboardStackedBarSegment(series, "aug", 1, "stacked_percent"), { start: 80, end: 100, percentage: 20, total: 100, value: 20 });
+  assert.equal(getDashboardAxisMaximum(series, [], "left", "stacked"), 100);
+  assert.equal(getDashboardAxisMaximum(series, [], "left", "stacked_percent"), 100);
+  assert.equal(hasDashboardNegativeSeriesValues(series), false);
+  assert.equal(hasDashboardNegativeSeriesValues([{ ...series[0], points: [{ key: "aug", label: "Aug", value: -1 }] }]), true);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

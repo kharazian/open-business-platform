@@ -1,4 +1,4 @@
-import type { ChartSeriesPoint, ChartWidgetType, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
+import type { ChartSeriesPoint, ChartWidgetType, DashboardBarMode, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
 
 const circularDisplayTypes = new Set<DashboardSeriesDisplayType>(["pie", "donut"]);
 
@@ -27,8 +27,31 @@ export function getDashboardCircularSegments(points: ChartSeriesPoint[]): Dashbo
   });
 }
 
-export function getDashboardAxisMaximum(series: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>, referenceLines: DashboardReferenceLine[], axis: DashboardSeriesAxis): number {
+export function getDashboardAxisMaximum(series: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>, referenceLines: DashboardReferenceLine[], axis: DashboardSeriesAxis, barMode: DashboardBarMode = "grouped"): number {
   const values = series.filter((item) => item.axis === axis).flatMap((item) => item.points.map((point) => Math.max(0, point.value)));
   const references = referenceLines.filter((line) => line.axis === axis).map((line) => line.value);
+  if (barMode === "stacked_percent" && series.some((item) => item.axis === axis)) return 100;
+  if (barMode === "stacked") {
+    const keys = new Set(series.filter((item) => item.axis === axis).flatMap((item) => item.points.map((point) => point.key)));
+    const totals = [...keys].map((key) => series.filter((item) => item.axis === axis).reduce((sum, item) => sum + Math.max(0, item.points.find((point) => point.key === key)?.value ?? 0), 0));
+    return Math.max(1, ...totals, ...references);
+  }
   return Math.max(1, ...values, ...references);
+}
+
+export type DashboardStackedBarSegment = { start: number; end: number; percentage: number; total: number; value: number };
+
+export function getDashboardStackedBarSegment(series: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>, key: string, seriesIndex: number, barMode: Exclude<DashboardBarMode, "grouped">): DashboardStackedBarSegment {
+  const values = series.map((item) => Math.max(0, item.points.find((point) => point.key === key)?.value ?? 0));
+  const value = values[seriesIndex] ?? 0;
+  const total = values.reduce((sum, item) => sum + item, 0);
+  const startValue = values.slice(0, seriesIndex).reduce((sum, item) => sum + item, 0);
+  const percentage = total > 0 ? value / total * 100 : 0;
+  return barMode === "stacked_percent"
+    ? { start: total > 0 ? startValue / total * 100 : 0, end: total > 0 ? (startValue + value) / total * 100 : 0, percentage, total, value }
+    : { start: startValue, end: startValue + value, percentage, total, value };
+}
+
+export function hasDashboardNegativeSeriesValues(series: Array<{ points: ChartSeriesPoint[] }>): boolean {
+  return series.some((item) => item.points.some((point) => point.value < 0));
 }

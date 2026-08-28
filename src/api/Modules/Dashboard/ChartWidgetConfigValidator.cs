@@ -104,6 +104,20 @@ public static class ChartWidgetConfigValidator
         ValidateConditionalFormatting(appearance.ConditionalFormatting, widgetType, errors);
         ValidateKpiTarget(appearance.KpiTarget, widgetType, errors);
         ValidateReferenceLines(appearance.ReferenceLines, widgetType, series, errors);
+        ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
+    }
+
+    private static void ValidateBarMode(string? barModeInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, ICollection<ChartValidationError> errors)
+    {
+        var barMode = Normalize(barModeInput);
+        if (!DashboardBarModes.Supported.Contains(barMode)) { errors.Add(new("appearance.barMode", "chart.bar_mode.invalid", "Bar layout is not supported.")); return; }
+        if (barMode == DashboardBarModes.Grouped) return;
+        var series = seriesInput ?? Array.Empty<DashboardChartSeriesDefinition>();
+        if (widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown or ChartWidgetTypes.DateTrend)) errors.Add(new("appearance.barMode", "chart.bar_mode.widget_type_invalid", "Stacked bars are supported only for breakdown and trend charts."));
+        if (series.Count < 2) errors.Add(new("appearance.barMode", "chart.bar_mode.series_required", "Stacked bars require at least two series."));
+        if (series.Any(item => Normalize(item.DisplayType) != "bar")) errors.Add(new("appearance.barMode", "chart.bar_mode.bar_series_required", "Every stacked series must use the Bar display type."));
+        if (series.Select(item => Normalize(item.Axis)).Distinct(StringComparer.Ordinal).Count() > 1) errors.Add(new("appearance.barMode", "chart.bar_mode.axis_mismatch", "Stacked series must use the same axis."));
+        if (barMode == DashboardBarModes.StackedPercent && (referenceLines?.Count ?? 0) > 0) errors.Add(new("appearance.barMode", "chart.bar_mode.percent_reference_invalid", "100% stacked bars do not support reference lines."));
     }
 
     private static void ValidateReferenceLines(IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)

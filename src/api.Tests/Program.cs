@@ -4558,6 +4558,47 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     new ChartMetricDefinition(ChartMetricTypes.Count),
     DateFieldId: ReportableSystemFields.CreatedAt,
     Appearance: new DashboardChartAppearanceDefinition(ReferenceLines: new[] { new DashboardReferenceLineDefinition("bad", "", -1m, "unsafe", "wave", "middle") }))).Errors.Any(error => error.Code.StartsWith("chart.reference_line.", StringComparison.Ordinal)), "Charts should reject invalid reference-line labels, values, colors, styles, and axes.");
+var stackedSeries = new[]
+{
+    new DashboardChartSeriesDefinition("records", "Records", new ChartMetricDefinition(ChartMetricTypes.Count), "bar", "primary", "left"),
+    new DashboardChartSeriesDefinition("salary", "Salary", new ChartMetricDefinition(ChartMetricTypes.Sum, "salary"), "bar", "success", "left")
+};
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked"))).Valid, "Compatible bar series should support normal stacking.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked_percent"))).Valid, "Compatible bar series should support 100 percent stacking.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries[..1],
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked"))).Errors.Any(error => error.Code == "chart.bar_mode.series_required"), "Stacking should require at least two series.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: new[] { stackedSeries[0], stackedSeries[1] with { DisplayType = "line" } },
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked"))).Errors.Any(error => error.Code == "chart.bar_mode.bar_series_required"), "Stacking should reject mixed display types.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: new[] { stackedSeries[0], stackedSeries[1] with { Axis = "right" } },
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked"))).Errors.Any(error => error.Code == "chart.bar_mode.axis_mismatch"), "Stacking should require one shared axis.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: referenceLineAppearance with { BarMode = "stacked_percent" })).Errors.Any(error => error.Code == "chart.bar_mode.percent_reference_invalid"), "100 percent stacking should reject ambiguous reference lines.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

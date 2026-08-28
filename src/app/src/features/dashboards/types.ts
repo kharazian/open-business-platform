@@ -38,6 +38,7 @@ export type DashboardSeriesAxis = "left" | "right";
 export type DashboardChartSeriesDefinition = { id: string; label: string; metric: ChartMetricDefinition; displayType: DashboardSeriesDisplayType; color: DashboardSeriesColor; axis: DashboardSeriesAxis };
 export type DashboardReferenceLineStyle = "solid" | "dashed" | "dotted";
 export type DashboardReferenceLine = { id: string; label: string; value: number; color: DashboardSeriesColor; style: DashboardReferenceLineStyle; axis: DashboardSeriesAxis };
+export type DashboardBarMode = "grouped" | "stacked" | "stacked_percent";
 export type DashboardChartPalette = "theme" | "cool" | "warm" | "mono";
 export type DashboardNumberFormat = "auto" | "number" | "currency" | "percent";
 export type DashboardCardAccent = "none" | DashboardSeriesColor;
@@ -48,7 +49,7 @@ export type DashboardKpiGoalDirection = "higher_is_better" | "lower_is_better";
 export type DashboardKpiTarget = { enabled: boolean; value: number; label: string; direction: DashboardKpiGoalDirection };
 export type DashboardKpiComparisonPeriod = "last_7_days" | "last_30_days" | "last_90_days";
 export type DashboardKpiComparison = { enabled: boolean; dateFieldId: string; period: DashboardKpiComparisonPeriod };
-export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[] };
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[]; barMode: DashboardBarMode };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;

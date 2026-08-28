@@ -13,7 +13,7 @@ Implement and verify these increments in order. Each increment must preserve bac
 3. **Multi-series analytics contract — implemented**
    - Bounded series collection with label, metric, aggregation, field, color, axis, and display type
    - Backend validation/execution with field permissions checked for every series
-   - Bar, line, area, and combo rendering with independent left/right scales; single category-breakdown series also support pie and donut presentation, without arbitrary formulas or SQL
+   - Bar, line, area, and combo rendering with independent left/right scales; compatible Bar series support grouped, stacked, and 100% stacked layouts; single category-breakdown series also support pie and donut presentation, without arbitrary formulas or SQL
 4. **Appearance and color controls — implemented**
    - Theme-safe palette presets, per-series semantic colors, legend, labels, gridlines, card accent, number/currency/percent formatting
    - Bounded accessible color presets, reset-to-theme behavior, and up to four labeled axis-aware reference/target lines for cartesian charts

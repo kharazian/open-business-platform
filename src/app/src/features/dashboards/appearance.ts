@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
-import type { ChartWidgetType, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardBarMode, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [] };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped" };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [] };
@@ -37,6 +37,16 @@ export function isDashboardReferenceLinesValid(lines: DashboardReferenceLine[], 
   return lines.every((line) => /^[A-Za-z0-9_-]{1,50}$/.test(line.id) && !ids.has(line.id) && Boolean(ids.add(line.id)) && line.label.trim().length > 0 && line.label.length <= 80 && Number.isFinite(line.value) && line.value >= 0 && line.value <= 1_000_000_000_000_000 && conditionalAccents.has(line.color) && referenceLineStyles.has(line.style) && referenceLineAxes.has(line.axis));
 }
 
+export function isDashboardBarModeValid(barMode: DashboardBarMode | string, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "displayType" | "axis">>, referenceLines: DashboardReferenceLine[]): boolean {
+  if (!barModes.has(barMode)) return false;
+  if (barMode === "grouped") return true;
+  return ["bar_chart", "choice_breakdown", "date_trend"].includes(widgetType)
+    && series.length >= 2
+    && series.every((item) => item.displayType === "bar")
+    && new Set(series.map((item) => item.axis)).size === 1
+    && (barMode !== "stacked_percent" || referenceLines.length === 0);
+}
+
 export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string; outcome: "favorable" | "needs_attention" | "on_target"; progress: number | null } | null {
   const config = appearance.kpiTarget;
   if (!config.enabled || actual === null || actual === undefined || !Number.isFinite(actual)) return null;
@@ -62,6 +72,7 @@ const conditionalOperators = new Set<DashboardConditionalOperator>(["greater_tha
 const conditionalAccents = new Set<DashboardSeriesColor>(["primary", "info", "success", "warning", "danger", "violet"]);
 const referenceLineStyles = new Set(["solid", "dashed", "dotted"]);
 const referenceLineAxes = new Set(["left", "right"]);
+const barModes = new Set(["grouped", "stacked", "stacked_percent"]);
 function matchesConditionalRule(actual: number, operator: DashboardConditionalOperator, threshold: number): boolean {
   if (operator === "greater_than") return actual > threshold;
   if (operator === "greater_or_equal") return actual >= threshold;
