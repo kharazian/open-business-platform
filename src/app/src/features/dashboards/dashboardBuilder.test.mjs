@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardCircularSegments, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -350,6 +350,26 @@ test("circular chart segments preserve category proportions and reject negative 
   assert.equal(segments[1].ratio, 0.25);
   assert.equal(segments[1].offset, 0.75);
   assert.deepEqual(getDashboardCircularSegments([{ key: "loss", label: "Loss", value: -1 }]), []);
+});
+
+test("reference lines are bounded, cartesian-only, cloned, and included in axis scaling", () => {
+  const lines = [
+    { id: "target", label: "Target", value: 100, color: "success", style: "dashed", axis: "left" },
+    { id: "ceiling", label: "Ceiling", value: 250, color: "danger", style: "dotted", axis: "right" }
+  ];
+  const series = [{ id: "actual", label: "Actual", metric: { type: "count" }, displayType: "line", color: "primary", axis: "left", points: [{ key: "aug", label: "Aug", value: 80 }] }];
+  assert.equal(isDashboardReferenceLinesValid(lines, "date_trend", series), true);
+  assert.equal(isDashboardReferenceLinesValid(lines, "number_card", series), false);
+  assert.equal(isDashboardReferenceLinesValid(lines, "choice_breakdown", [{ ...series[0], displayType: "pie" }]), false);
+  assert.equal(isDashboardReferenceLinesValid([...lines, ...lines.map((line, index) => ({ ...line, id: `extra-${index}` }))], "date_trend", series), true);
+  assert.equal(isDashboardReferenceLinesValid([...lines, { ...lines[0], id: "fifth-1" }, { ...lines[0], id: "fifth-2" }, { ...lines[0], id: "fifth-3" }], "date_trend", series), false);
+  assert.equal(isDashboardReferenceLinesValid([{ ...lines[0], value: -1 }], "date_trend", series), false);
+  assert.equal(getDashboardAxisMaximum(series, lines, "left"), 100);
+  assert.equal(getDashboardAxisMaximum(series, lines, "right"), 250);
+  const appearance = resolveDashboardChartAppearance({ ...defaultDashboardChartAppearance, referenceLines: lines });
+  const clone = cloneDashboardChartAppearance(appearance);
+  clone.referenceLines[0].value = 120;
+  assert.equal(appearance.referenceLines[0].value, 100);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

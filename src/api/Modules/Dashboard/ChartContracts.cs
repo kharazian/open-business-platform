@@ -81,10 +81,16 @@ public static class DashboardKpiGoalDirections
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "higher_is_better", "lower_is_better" };
 }
 
+public static class DashboardReferenceLineStyles
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "solid", "dashed", "dotted" };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
 public sealed record DashboardKpiComparisonDefinition(bool Enabled = false, string DateFieldId = "", string Period = "last_30_days");
+public sealed record DashboardReferenceLineDefinition(string Id, string Label, decimal Value, string Color = "warning", string Style = "dashed", string Axis = "left");
 
 public sealed record DashboardChartAppearanceDefinition(
     string Palette = "theme",
@@ -96,7 +102,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string CurrencyCode = "CAD",
     int DecimalPlaces = 0,
     DashboardConditionalFormattingDefinition? ConditionalFormatting = null,
-    DashboardKpiTargetDefinition? KpiTarget = null);
+    DashboardKpiTargetDefinition? KpiTarget = null,
+    IReadOnlyList<DashboardReferenceLineDefinition>? ReferenceLines = null);
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

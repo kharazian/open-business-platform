@@ -4528,6 +4528,36 @@ AssertFalse(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidget
     "status",
     Appearance: new DashboardChartAppearanceDefinition("unsafe", DecimalPlaces: 8))).Valid,
     "Dashboard chart config should reject unsupported palettes and excessive decimals.");
+var referenceLineAppearance = new DashboardChartAppearanceDefinition(ReferenceLines: new[]
+{
+    new DashboardReferenceLineDefinition("target", "Target", 100m, "success", "dashed", "left"),
+    new DashboardReferenceLineDefinition("ceiling", "Critical ceiling", 250m, "danger", "dotted", "right")
+});
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: referenceLineAppearance)).Valid, "Cartesian charts should accept bounded reference lines.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: referenceLineAppearance)).Errors.Any(error => error.Code == "chart.reference_line.widget_type_invalid"), "KPI widgets should reject reference lines.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: new[] { new DashboardChartSeriesDefinition("records", "Records", new ChartMetricDefinition(ChartMetricTypes.Count), "donut") },
+    Appearance: referenceLineAppearance)).Errors.Any(error => error.Code == "chart.reference_line.circular_invalid"), "Circular charts should reject reference lines.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(ReferenceLines: Enumerable.Range(0, 5).Select(index => new DashboardReferenceLineDefinition($"line-{index}", $"Line {index}", index)).ToArray()))).Errors.Any(error => error.Code == "chart.reference_line.limit"), "Charts should reject more than four reference lines.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(ReferenceLines: new[] { new DashboardReferenceLineDefinition("bad", "", -1m, "unsafe", "wave", "middle") }))).Errors.Any(error => error.Code.StartsWith("chart.reference_line.", StringComparison.Ordinal)), "Charts should reject invalid reference-line labels, values, colors, styles, and axes.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

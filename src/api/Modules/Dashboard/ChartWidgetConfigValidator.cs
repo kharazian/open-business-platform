@@ -37,7 +37,7 @@ public static class ChartWidgetConfigValidator
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);
-        ValidateAppearance(config.Appearance, widgetType, errors);
+        ValidateAppearance(config.Appearance, widgetType, config.Series, errors);
         ValidateFixedFilters(config.FixedFilters, schema, errors);
         ValidateKpiComparison(config.KpiComparison, widgetType, fieldsById, errors);
 
@@ -92,7 +92,7 @@ public static class ChartWidgetConfigValidator
         }
     }
 
-    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, string widgetType, ICollection<ChartValidationError> errors)
+    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)
     {
         if (appearance is null) return;
         if (!DashboardChartPalettes.Supported.Contains(Normalize(appearance.Palette))) errors.Add(new("appearance.palette", "chart.appearance.palette_invalid", "Chart palette is not supported."));
@@ -103,6 +103,29 @@ public static class ChartWidgetConfigValidator
         if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter)) errors.Add(new("appearance.currencyCode", "chart.appearance.currency_invalid", "Currency code must contain three letters."));
         ValidateConditionalFormatting(appearance.ConditionalFormatting, widgetType, errors);
         ValidateKpiTarget(appearance.KpiTarget, widgetType, errors);
+        ValidateReferenceLines(appearance.ReferenceLines, widgetType, series, errors);
+    }
+
+    private static void ValidateReferenceLines(IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)
+    {
+        var lines = referenceLines ?? Array.Empty<DashboardReferenceLineDefinition>();
+        if (lines.Count == 0) return;
+        if (widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown or ChartWidgetTypes.DateTrend)) errors.Add(new("appearance.referenceLines", "chart.reference_line.widget_type_invalid", "Reference lines are supported only for bar, line, and area charts."));
+        if ((series ?? Array.Empty<DashboardChartSeriesDefinition>()).Any(item => DashboardSeriesDisplayTypes.IsCircular(Normalize(item.DisplayType)))) errors.Add(new("appearance.referenceLines", "chart.reference_line.circular_invalid", "Pie and donut charts do not support reference lines."));
+        if (lines.Count > 4) errors.Add(new("appearance.referenceLines", "chart.reference_line.limit", "A chart supports at most four reference lines."));
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in lines.Select((line, index) => (line, index)))
+        {
+            var path = $"appearance.referenceLines[{item.index}]";
+            var id = Normalize(item.line.Id);
+            if (id.Length is < 1 or > 50 || !id.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_')) errors.Add(new($"{path}.id", "chart.reference_line.id_invalid", "Reference line id must contain 1-50 letters, numbers, hyphens, or underscores."));
+            else if (!ids.Add(id)) errors.Add(new("appearance.referenceLines", "chart.reference_line.duplicate_id", "Reference line ids must be unique."));
+            if (string.IsNullOrWhiteSpace(item.line.Label) || item.line.Label.Length > 80) errors.Add(new($"{path}.label", "chart.reference_line.label_invalid", "Reference line label must contain 1-80 characters."));
+            if (item.line.Value < 0 || item.line.Value > 1_000_000_000_000_000m) errors.Add(new($"{path}.value", "chart.reference_line.value_range", "Reference line value must be between zero and the supported maximum."));
+            if (!DashboardSeriesColors.Supported.Contains(Normalize(item.line.Color))) errors.Add(new($"{path}.color", "chart.reference_line.color_invalid", "Reference line color is not supported."));
+            if (!DashboardReferenceLineStyles.Supported.Contains(Normalize(item.line.Style))) errors.Add(new($"{path}.style", "chart.reference_line.style_invalid", "Reference line style is not supported."));
+            if (!DashboardSeriesAxes.Supported.Contains(Normalize(item.line.Axis))) errors.Add(new($"{path}.axis", "chart.reference_line.axis_invalid", "Reference line axis is not supported."));
+        }
     }
 
     private static void ValidateKpiTarget(DashboardKpiTargetDefinition? target, string widgetType, ICollection<ChartValidationError> errors)

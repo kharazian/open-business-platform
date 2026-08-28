@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
-import { getDashboardCircularSegments, isDashboardCircularDisplayType } from "../chartPresentation";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, isDashboardCircularDisplayType } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -82,16 +82,58 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   if (circularSeries) return <CircularSeriesChart appearance={appearance} formatValue={circularSeries.metric.type === "count" ? formatCount : formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={circularSeries} />;
   const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
-  const axisMaximum = (axis: "left" | "right") => Math.max(1, ...series.filter((item) => item.axis === axis).flatMap((item) => item.points.map((point) => Math.max(0, point.value))));
-  const leftMaximum = axisMaximum("left");
-  const rightMaximum = axisMaximum("right");
+  const leftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left");
+  const rightMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "right");
   const plot = { left: 42, top: 16, width: 570, height: 170 };
   const x = (index: number) => plot.left + (index + .5) * plot.width / Math.max(keys.length, 1);
   const y = (value: number, axis: "left" | "right") => plot.top + plot.height - Math.max(0, value) / (axis === "right" ? rightMaximum : leftMaximum) * plot.height;
   const barSeries = series.filter((item) => item.displayType === "bar");
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = (axis: "left" | "right") => series.find((item) => item.axis === axis)?.metric.type === "count" ? formatCount : formatNumber;
-  return <div className="grid min-w-0 gap-3">{appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}<span className="font-medium text-muted-foreground">({item.axis})</span></span>)}</div> : null}<div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" role="img" viewBox="0 0 640 230">{gridlines.map((ratio) => <line key={ratio} opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left} x2={plot.left + plot.width} y1={plot.top + plot.height - ratio * plot.height} y2={plot.top + plot.height - ratio * plot.height} />)}<text fill="currentColor" fontSize="9" x={plot.left} y="11">{axisFormat("left")(leftMaximum)}</text>{series.some((item) => item.axis === "right") ? <text fill="currentColor" fontSize="9" textAnchor="end" x={plot.left + plot.width} y="11">{axisFormat("right")(rightMaximum)}</text> : null}{series.map((item, seriesIndex) => { const values = keys.map((key) => item.points.find((point) => point.key === key)?.value ?? 0); const points = values.map((value, index) => `${x(index)},${y(value, item.axis)}`).join(" "); const color = getDashboardSeriesColor(item.color, appearance.palette); const formatter = item.metric.type === "count" ? formatCount : formatNumber; const labelY = (value: number) => Math.max(28 + seriesIndex * 12, y(value, item.axis) - 5); const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3, textAnchor: "middle" as const }; if (item.displayType === "bar") { const barIndex = barSeries.findIndex((seriesItem) => seriesItem.id === item.id); const width = Math.min(28, plot.width / Math.max(keys.length, 1) / Math.max(barSeries.length + 1, 2)); return <g key={item.id}>{values.map((value, index) => <g key={keys[index]}><rect fill={color} height={plot.top + plot.height - y(value, item.axis)} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={y(value, item.axis)}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={labelY(value)}>{formatter(value)}</text> : null}</g>)}</g>; } if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>; return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>; })}{labels.map((label, index) => <text fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}{onSelect ? keys.map((key, index) => { const point = series.flatMap((item) => item.points).find((item) => item.key === key); const width = plot.width / Math.max(keys.length, 1); const tooltip = series.map((item) => `${item.label}: ${(item.metric.type === "count" ? formatCount : formatNumber)(item.points.find((candidate) => candidate.key === key)?.value ?? 0)}`).join(" · "); return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>; }) : null}</svg></div></div>;
+  const hasRightAxis = series.some((item) => item.axis === "right") || appearance.referenceLines.some((line) => line.axis === "right");
+  return <div className="grid min-w-0 gap-3">
+    {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}<span className="font-medium text-muted-foreground">({item.axis})</span></span>)}</div> : null}
+    <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" role="img" viewBox="0 0 640 230">
+      {gridlines.map((ratio) => <line key={ratio} opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left} x2={plot.left + plot.width} y1={plot.top + plot.height - ratio * plot.height} y2={plot.top + plot.height - ratio * plot.height} />)}
+      <text fill="currentColor" fontSize="9" x={plot.left} y="11">{axisFormat("left")(leftMaximum)}</text>
+      {hasRightAxis ? <text fill="currentColor" fontSize="9" textAnchor="end" x={plot.left + plot.width} y="11">{axisFormat("right")(rightMaximum)}</text> : null}
+      {appearance.referenceLines.map((line, index) => {
+        const lineY = y(line.value, line.axis);
+        const formattedValue = axisFormat(line.axis)(line.value);
+        const tooltip = `${line.label}: ${formattedValue}`;
+        return <g aria-label={`Reference line ${tooltip}`} data-reference-line={line.id} key={line.id}>
+          <line stroke={getDashboardSeriesColor(line.color, appearance.palette)} strokeDasharray={getReferenceLineDasharray(line.style)} strokeWidth="2" x1={plot.left} x2={plot.left + plot.width} y1={lineY} y2={lineY}><title>{tooltip}</title></line>
+          <text fill={getDashboardSeriesColor(line.color, appearance.palette)} fontSize="9" fontWeight="700" paintOrder="stroke" stroke="var(--color-card)" strokeWidth="3" textAnchor="end" x={plot.left + plot.width - 4} y={Math.max(plot.top + 11 + index * 11, lineY - 4)}>{line.label} · {formattedValue}</text>
+        </g>;
+      })}
+      {series.map((item, seriesIndex) => {
+        const values = keys.map((key) => item.points.find((point) => point.key === key)?.value ?? 0);
+        const points = values.map((value, index) => `${x(index)},${y(value, item.axis)}`).join(" ");
+        const color = getDashboardSeriesColor(item.color, appearance.palette);
+        const formatter = item.metric.type === "count" ? formatCount : formatNumber;
+        const labelY = (value: number) => Math.max(28 + seriesIndex * 12, y(value, item.axis) - 5);
+        const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3, textAnchor: "middle" as const };
+        if (item.displayType === "bar") {
+          const barIndex = barSeries.findIndex((seriesItem) => seriesItem.id === item.id);
+          const width = Math.min(28, plot.width / Math.max(keys.length, 1) / Math.max(barSeries.length + 1, 2));
+          return <g key={item.id}>{values.map((value, index) => <g key={keys[index]}><rect fill={color} height={plot.top + plot.height - y(value, item.axis)} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={y(value, item.axis)}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={labelY(value)}>{formatter(value)}</text> : null}</g>)}</g>;
+        }
+        if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>;
+        return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>;
+      })}
+      {labels.map((label, index) => <text fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}
+      {onSelect ? keys.map((key, index) => {
+        const point = series.flatMap((item) => item.points).find((item) => item.key === key);
+        const width = plot.width / Math.max(keys.length, 1);
+        const tooltip = series.map((item) => `${item.label}: ${(item.metric.type === "count" ? formatCount : formatNumber)(item.points.find((candidate) => candidate.key === key)?.value ?? 0)}`).join(" · ");
+        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>;
+      }) : null}
+    </svg></div>
+  </div>;
+}
+
+function getReferenceLineDasharray(style: DashboardChartAppearance["referenceLines"][number]["style"]): string | undefined {
+  return style === "dashed" ? "8 5" : style === "dotted" ? "2 4" : undefined;
 }
 
 const circularColorOrder: DashboardSeriesColor[] = ["primary", "info", "success", "warning", "danger", "violet"];

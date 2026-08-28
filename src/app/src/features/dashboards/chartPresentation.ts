@@ -1,4 +1,4 @@
-import type { ChartSeriesPoint, ChartWidgetType, DashboardChartSeriesDefinition, DashboardSeriesDisplayType } from "./types";
+import type { ChartSeriesPoint, ChartWidgetType, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
 
 const circularDisplayTypes = new Set<DashboardSeriesDisplayType>(["pie", "donut"]);
 
@@ -25,4 +25,10 @@ export function getDashboardCircularSegments(points: ChartSeriesPoint[]): Dashbo
     offset += ratio;
     return segment;
   });
+}
+
+export function getDashboardAxisMaximum(series: Array<DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>, referenceLines: DashboardReferenceLine[], axis: DashboardSeriesAxis): number {
+  const values = series.filter((item) => item.axis === axis).flatMap((item) => item.points.map((point) => Math.max(0, point.value)));
+  const references = referenceLines.filter((line) => line.axis === axis).map((line) => line.value);
+  return Math.max(1, ...values, ...references);
 }
