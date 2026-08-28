@@ -106,6 +106,14 @@ public static class ChartWidgetConfigValidator
         ValidateReferenceLines(appearance.ReferenceLines, widgetType, series, errors);
         ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
         ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
+        ValidateCategorySort(appearance.CategorySort, widgetType, errors);
+    }
+
+    private static void ValidateCategorySort(string? sortInput, string widgetType, ICollection<ChartValidationError> errors)
+    {
+        var sort = Normalize(sortInput);
+        if (!DashboardCategorySorts.Supported.Contains(sort)) { errors.Add(new("appearance.categorySort", "chart.category_sort.invalid", "Category order is not supported.")); return; }
+        if (sort != DashboardCategorySorts.Source && widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown)) errors.Add(new("appearance.categorySort", "chart.category_sort.widget_type_invalid", "Category sorting is supported only for breakdown charts."));
     }
 
     private static void ValidateBarOrientation(string? orientationInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, ICollection<ChartValidationError> errors)

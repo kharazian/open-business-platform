@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -404,6 +404,22 @@ test("horizontal bars are limited to compatible category series", () => {
   assert.equal(isDashboardBarOrientationValid("horizontal", "choice_breakdown", [{ ...series[0], displayType: "line" }]), false);
   assert.equal(isDashboardBarOrientationValid("horizontal", "choice_breakdown", [series[0], { ...series[1], axis: "right" }]), false);
   assert.equal(isDashboardBarOrientationValid("diagonal", "choice_breakdown", series), false);
+});
+
+test("category sorting is breakdown-only and uses combined series values", () => {
+  const series = [
+    { points: [{ key: "b", label: "Beta", value: 10 }, { key: "a", label: "Alpha", value: 30 }, { key: "c", label: "Charlie", value: 20 }] },
+    { points: [{ key: "b", label: "Beta", value: 25 }, { key: "a", label: "Alpha", value: 1 }, { key: "c", label: "Charlie", value: 5 }] }
+  ];
+  assert.equal(defaultDashboardChartAppearance.categorySort, "source");
+  assert.equal(isDashboardCategorySortValid("value_desc", "choice_breakdown"), true);
+  assert.equal(isDashboardCategorySortValid("value_desc", "date_trend"), false);
+  assert.equal(isDashboardCategorySortValid("unsupported", "choice_breakdown"), false);
+  assert.deepEqual(getDashboardOrderedCategoryKeys(series, "source"), ["b", "a", "c"]);
+  assert.deepEqual(getDashboardOrderedCategoryKeys(series, "value_desc"), ["b", "a", "c"]);
+  assert.deepEqual(getDashboardOrderedCategoryKeys(series, "value_asc"), ["c", "a", "b"]);
+  assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_asc"), ["a", "b", "c"]);
+  assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_desc"), ["c", "b", "a"]);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

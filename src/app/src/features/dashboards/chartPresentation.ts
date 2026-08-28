@@ -1,4 +1,4 @@
-import type { ChartSeriesPoint, ChartWidgetType, DashboardBarMode, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
+import type { ChartSeriesPoint, ChartWidgetType, DashboardBarMode, DashboardCategorySort, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
 
 const circularDisplayTypes = new Set<DashboardSeriesDisplayType>(["pie", "donut"]);
 
@@ -54,4 +54,19 @@ export function getDashboardStackedBarSegment(series: Array<DashboardChartSeries
 
 export function hasDashboardNegativeSeriesValues(series: Array<{ points: ChartSeriesPoint[] }>): boolean {
   return series.some((item) => item.points.some((point) => point.value < 0));
+}
+
+export function getDashboardOrderedCategoryKeys(series: Array<{ points: ChartSeriesPoint[] }>, sort: DashboardCategorySort): string[] {
+  const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))];
+  if (sort === "source") return keys;
+  const label = (key: string) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key;
+  const value = (key: string) => series.reduce((sum, item) => sum + (item.points.find((point) => point.key === key)?.value ?? 0), 0);
+  return [...keys].sort((left, right) => {
+    if (sort === "label_asc" || sort === "label_desc") {
+      const comparison = label(left).localeCompare(label(right), undefined, { sensitivity: "base" });
+      return sort === "label_asc" ? comparison : -comparison;
+    }
+    const comparison = value(left) - value(right);
+    return sort === "value_asc" ? comparison : -comparison;
+  });
 }

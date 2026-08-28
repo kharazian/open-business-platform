@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType } from "../chartPresentation";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardCircularDisplayType } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -83,7 +83,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   const stacked = appearance.barMode !== "grouped";
   if (stacked && hasDashboardNegativeSeriesValues(series)) return <EmptyState title="Stacked chart unavailable" description="Stacked bars require non-negative values." />;
   if (appearance.barOrientation === "horizontal") return <HorizontalBarChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={series} />;
-  const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
+  const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const leftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left", appearance.barMode);
   const rightMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "right", appearance.barMode);
@@ -152,7 +152,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
 }
 
 function HorizontalBarChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
-  const keys = [...new Set(series.flatMap((item) => item.points.map((point) => point.key)))].slice(0, 12);
+  const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const axis = series[0]?.axis ?? "left";
   const maximum = getDashboardAxisMaximum(series, appearance.referenceLines, axis, appearance.barMode);
@@ -214,7 +214,8 @@ function getReferenceLineDasharray(style: DashboardChartAppearance["referenceLin
 const circularColorOrder: DashboardSeriesColor[] = ["primary", "info", "success", "warning", "danger", "violet"];
 
 function CircularSeriesChart({ appearance, formatValue, interactionLabel, onSelect, selectedKey, series }: { appearance: DashboardChartAppearance; formatValue: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>[number] }) {
-  const segments = getDashboardCircularSegments(series.points);
+  const orderedPoints = getDashboardOrderedCategoryKeys([series], appearance.categorySort).map((key) => series.points.find((point) => point.key === key)).filter((point): point is NonNullable<typeof point> => Boolean(point));
+  const segments = getDashboardCircularSegments(orderedPoints);
   if (segments.length === 0) return <EmptyState title="Circular chart unavailable" description={series.points.some((point) => point.value < 0) ? "Pie and donut charts require non-negative values." : "The selected source did not produce positive values."} />;
   const radius = series.displayType === "donut" ? 70 : 50;
   const circumference = 2 * Math.PI * radius;

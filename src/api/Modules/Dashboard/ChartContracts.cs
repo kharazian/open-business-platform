@@ -101,6 +101,12 @@ public static class DashboardBarOrientations
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Vertical, Horizontal };
 }
 
+public static class DashboardCategorySorts
+{
+    public const string Source = "source";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Source, "value_desc", "value_asc", "label_asc", "label_desc" };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
@@ -120,7 +126,8 @@ public sealed record DashboardChartAppearanceDefinition(
     DashboardKpiTargetDefinition? KpiTarget = null,
     IReadOnlyList<DashboardReferenceLineDefinition>? ReferenceLines = null,
     string BarMode = "grouped",
-    string BarOrientation = "vertical");
+    string BarOrientation = "vertical",
+    string CategorySort = "source");
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

@@ -4623,6 +4623,21 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Series: new[] { stackedSeries[0], stackedSeries[1] with { Axis = "right" } },
     Appearance: new DashboardChartAppearanceDefinition(BarOrientation: "horizontal"))).Errors.Any(error => error.Code == "chart.bar_orientation.axis_mismatch"), "Horizontal charts should require a shared axis.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(CategorySort: "value_desc"))).Valid, "Breakdown charts should accept bounded category ordering.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(CategorySort: "value_desc"))).Errors.Any(error => error.Code == "chart.category_sort.widget_type_invalid"), "Trend charts should preserve chronological source order.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(CategorySort: "random"))).Errors.Any(error => error.Code == "chart.category_sort.invalid"), "Charts should reject unsupported category ordering.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

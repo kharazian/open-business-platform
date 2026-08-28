@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
-import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical" };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source" };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [] };
@@ -56,6 +56,10 @@ export function isDashboardBarOrientationValid(orientation: DashboardBarOrientat
     && new Set(series.map((item) => item.axis)).size === 1;
 }
 
+export function isDashboardCategorySortValid(sort: DashboardCategorySort | string, widgetType: ChartWidgetType): boolean {
+  return categorySorts.has(sort) && (sort === "source" || ["bar_chart", "choice_breakdown"].includes(widgetType));
+}
+
 export function getDashboardKpiTargetSummary(appearance: DashboardChartAppearance, actual?: number | null, locale = "en"): { label: string; target: string; variance: string; outcome: "favorable" | "needs_attention" | "on_target"; progress: number | null } | null {
   const config = appearance.kpiTarget;
   if (!config.enabled || actual === null || actual === undefined || !Number.isFinite(actual)) return null;
@@ -83,6 +87,7 @@ const referenceLineStyles = new Set(["solid", "dashed", "dotted"]);
 const referenceLineAxes = new Set(["left", "right"]);
 const barModes = new Set(["grouped", "stacked", "stacked_percent"]);
 const barOrientations = new Set(["vertical", "horizontal"]);
+const categorySorts = new Set(["source", "value_desc", "value_asc", "label_asc", "label_desc"]);
 function matchesConditionalRule(actual: number, operator: DashboardConditionalOperator, threshold: number): boolean {
   if (operator === "greater_than") return actual > threshold;
   if (operator === "greater_or_equal") return actual >= threshold;
