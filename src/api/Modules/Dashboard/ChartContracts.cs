@@ -113,6 +113,21 @@ public static class DashboardLegendPositions
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Top, "bottom", "left", "right" };
 }
 
+public static class DashboardDataLabelContents
+{
+    public const string Auto = "auto";
+    public const string Value = "value";
+    public const string Percentage = "percentage";
+    public const string ValueAndPercentage = "value_and_percentage";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Auto, Value, Percentage, ValueAndPercentage };
+}
+
+public static class DashboardDataLabelPositions
+{
+    public const string Auto = "auto";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Auto, "inside", "outside" };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
@@ -137,6 +152,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string BarOrientation = "vertical",
     string CategorySort = "source",
     string LegendPosition = "top",
+    string DataLabelContent = "auto",
+    string DataLabelPosition = "auto",
     DashboardChartAxesDefinition? Axes = null);
 
 public sealed record ChartWidgetConfigDefinition(

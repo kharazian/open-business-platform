@@ -42,6 +42,8 @@ export type DashboardBarMode = "grouped" | "stacked" | "stacked_percent";
 export type DashboardBarOrientation = "vertical" | "horizontal";
 export type DashboardCategorySort = "source" | "value_desc" | "value_asc" | "label_asc" | "label_desc";
 export type DashboardLegendPosition = "top" | "bottom" | "left" | "right";
+export type DashboardDataLabelContent = "auto" | "value" | "percentage" | "value_and_percentage";
+export type DashboardDataLabelPosition = "auto" | "inside" | "outside";
 export type DashboardAxisAppearance = { title: string; maximum: number | null };
 export type DashboardChartAxes = { left: DashboardAxisAppearance; right: DashboardAxisAppearance };
 export type DashboardChartPalette = "theme" | "cool" | "warm" | "mono";
@@ -54,7 +56,7 @@ export type DashboardKpiGoalDirection = "higher_is_better" | "lower_is_better";
 export type DashboardKpiTarget = { enabled: boolean; value: number; label: string; direction: DashboardKpiGoalDirection };
 export type DashboardKpiComparisonPeriod = "last_7_days" | "last_30_days" | "last_90_days";
 export type DashboardKpiComparison = { enabled: boolean; dateFieldId: string; period: DashboardKpiComparisonPeriod };
-export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[]; barMode: DashboardBarMode; barOrientation: DashboardBarOrientation; categorySort: DashboardCategorySort; legendPosition: DashboardLegendPosition; axes: DashboardChartAxes };
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[]; barMode: DashboardBarMode; barOrientation: DashboardBarOrientation; categorySort: DashboardCategorySort; legendPosition: DashboardLegendPosition; dataLabelContent: DashboardDataLabelContent; dataLabelPosition: DashboardDataLabelPosition; axes: DashboardChartAxes };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;

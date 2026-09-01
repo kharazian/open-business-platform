@@ -108,7 +108,23 @@ public static class ChartWidgetConfigValidator
         ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
         ValidateCategorySort(appearance.CategorySort, widgetType, errors);
         ValidateLegendPosition(appearance.LegendPosition, widgetType, errors);
+        ValidateDataLabels(appearance.DataLabelContent, appearance.DataLabelPosition, widgetType, series, appearance.BarMode, errors);
         ValidateAxes(appearance.Axes, widgetType, series, appearance.ReferenceLines, appearance.BarMode, errors);
+    }
+
+    private static void ValidateDataLabels(string? contentInput, string? positionInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, string? barModeInput, ICollection<ChartValidationError> errors)
+    {
+        var content = Normalize(contentInput);
+        var position = Normalize(positionInput);
+        if (!DashboardDataLabelContents.Supported.Contains(content)) errors.Add(new("appearance.dataLabelContent", "chart.data_label.content_invalid", "Data label content is not supported."));
+        if (!DashboardDataLabelPositions.Supported.Contains(position)) errors.Add(new("appearance.dataLabelPosition", "chart.data_label.position_invalid", "Data label position is not supported."));
+        if (!DashboardDataLabelContents.Supported.Contains(content) || !DashboardDataLabelPositions.Supported.Contains(position)) return;
+        var chart = widgetType is ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown or ChartWidgetTypes.DateTrend;
+        if (!chart && (content != DashboardDataLabelContents.Auto || position != DashboardDataLabelPositions.Auto)) errors.Add(new("appearance.dataLabels", "chart.data_label.widget_type_invalid", "Custom data labels are supported only for charts."));
+        var circular = (seriesInput ?? Array.Empty<DashboardChartSeriesDefinition>()).Any(item => DashboardSeriesDisplayTypes.IsCircular(Normalize(item.DisplayType)));
+        if (position != DashboardDataLabelPositions.Auto && circular) errors.Add(new("appearance.dataLabelPosition", "chart.data_label.circular_position_invalid", "Pie and donut labels use the collision-safe label list."));
+        var percentageContent = content is DashboardDataLabelContents.Percentage or DashboardDataLabelContents.ValueAndPercentage;
+        if (percentageContent && !circular && Normalize(barModeInput) != DashboardBarModes.StackedPercent) errors.Add(new("appearance.dataLabelContent", "chart.data_label.percentage_invalid", "Percentage labels require a pie, donut, or 100% stacked chart."));
     }
 
     private static void ValidateLegendPosition(string? positionInput, string widgetType, ICollection<ChartValidationError> errors)

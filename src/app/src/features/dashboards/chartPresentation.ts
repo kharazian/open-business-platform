@@ -1,4 +1,4 @@
-import type { ChartSeriesPoint, ChartWidgetType, DashboardBarMode, DashboardCategorySort, DashboardChartSeriesDefinition, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
+import type { ChartSeriesPoint, ChartWidgetType, DashboardBarMode, DashboardCategorySort, DashboardChartSeriesDefinition, DashboardDataLabelContent, DashboardReferenceLine, DashboardSeriesAxis, DashboardSeriesDisplayType } from "./types";
 
 const circularDisplayTypes = new Set<DashboardSeriesDisplayType>(["pie", "donut"]);
 
@@ -77,4 +77,13 @@ export function getDashboardOrderedCategoryKeys(series: Array<{ points: ChartSer
     const comparison = value(left) - value(right);
     return sort === "value_asc" ? comparison : -comparison;
   });
+}
+
+export function getDashboardDataLabelText(content: DashboardDataLabelContent, value: number, percentage: number | null, formatValue: (value: number) => string): string {
+  const formattedValue = formatValue(value);
+  const formattedPercentage = percentage === null ? null : `${Number.isInteger(percentage) ? percentage.toFixed(0) : percentage.toFixed(1)}%`;
+  if (content === "percentage") return formattedPercentage ?? formattedValue;
+  if (content === "value_and_percentage") return formattedPercentage ? `${formattedValue} · ${formattedPercentage}` : formattedValue;
+  if (content === "auto" && formattedPercentage) return formattedPercentage;
+  return formattedValue;
 }

@@ -4688,6 +4688,33 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     new ChartMetricDefinition(ChartMetricTypes.Count),
     "status",
     Appearance: new DashboardChartAppearanceDefinition(LegendPosition: "floating"))).Errors.Any(error => error.Code == "chart.legend_position.invalid"), "Charts should reject unsupported legend positions.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(BarMode: "stacked_percent", DataLabelContent: "value_and_percentage", DataLabelPosition: "inside"))).Valid, "Percentage stacks should accept value-and-percentage labels with bounded placement.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: stackedSeries,
+    Appearance: new DashboardChartAppearanceDefinition(DataLabelContent: "percentage"))).Errors.Any(error => error.Code == "chart.data_label.percentage_invalid"), "Grouped charts should reject percentage labels without percentage semantics.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Series: circularSeriesRequest.Series,
+    Appearance: new DashboardChartAppearanceDefinition(DataLabelContent: "percentage", DataLabelPosition: "inside"))).Errors.Any(error => error.Code == "chart.data_label.circular_position_invalid"), "Circular charts should reject collision-prone inside/outside label placement.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(DataLabelContent: "value"))).Errors.Any(error => error.Code == "chart.data_label.widget_type_invalid"), "Non-chart widgets should reject custom data-label settings.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(DataLabelContent: "formula", DataLabelPosition: "floating"))).Errors.Any(error => error.Code is "chart.data_label.content_invalid" or "chart.data_label.position_invalid"), "Charts should reject unsupported data-label settings.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

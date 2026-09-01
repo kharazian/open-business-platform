@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -451,6 +451,21 @@ test("legend positions are bounded to chart widgets and default safely", () => {
   assert.equal(isDashboardLegendPositionValid("right", "bar_chart"), true);
   assert.equal(isDashboardLegendPositionValid("right", "table"), false);
   assert.equal(isDashboardLegendPositionValid("floating", "choice_breakdown"), false);
+});
+
+test("data label content and placement are bounded and preserve legacy defaults", () => {
+  const bars = [{ displayType: "bar" }, { displayType: "bar" }];
+  assert.equal(defaultDashboardChartAppearance.dataLabelContent, "auto");
+  assert.equal(defaultDashboardChartAppearance.dataLabelPosition, "auto");
+  assert.deepEqual(normalizeDashboardDataLabelSettings("percentage", "inside", "choice_breakdown", bars, "stacked_percent"), { content: "percentage", position: "inside" });
+  assert.deepEqual(normalizeDashboardDataLabelSettings("percentage", "outside", "choice_breakdown", bars, "grouped"), { content: "auto", position: "outside" });
+  assert.deepEqual(normalizeDashboardDataLabelSettings("value_and_percentage", "inside", "choice_breakdown", [{ displayType: "donut" }], "grouped"), { content: "value_and_percentage", position: "auto" });
+  assert.deepEqual(normalizeDashboardDataLabelSettings("value", "outside", "number_card", bars, "grouped"), { content: "auto", position: "auto" });
+  assert.equal(isDashboardDataLabelSettingsValid("value_and_percentage", "outside", "choice_breakdown", bars, "stacked_percent"), true);
+  assert.equal(isDashboardDataLabelSettingsValid("percentage", "auto", "date_trend", bars, "grouped"), false);
+  assert.equal(getDashboardDataLabelText("auto", 25, null, String), "25");
+  assert.equal(getDashboardDataLabelText("auto", 25, 12.5, String), "12.5%");
+  assert.equal(getDashboardDataLabelText("value_and_percentage", 25, 12.5, String), "25 · 12.5%");
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

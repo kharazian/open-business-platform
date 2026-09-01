@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardLegendPosition, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -130,8 +130,8 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
         const points = values.map((value, index) => `${x(index)},${y(value, item.axis)}`).join(" ");
         const color = getDashboardSeriesColor(item.color, appearance.palette);
         const formatter = item.metric.type === "count" ? formatCount : formatNumber;
-        const labelY = (value: number) => Math.max(28 + seriesIndex * 12, y(value, item.axis) - 5);
-        const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3, textAnchor: "middle" as const };
+        const pointLabelY = (value: number) => appearance.dataLabelPosition === "inside" ? Math.min(plot.top + plot.height - 4, y(value, item.axis) + 12) : Math.max(28 + seriesIndex * 12, y(value, item.axis) - 5);
+        const labelProps = { "data-data-label-content": appearance.dataLabelContent, "data-data-label-position": appearance.dataLabelPosition, fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3, textAnchor: "middle" as const };
         if (item.displayType === "bar") {
           if (stacked) {
             const width = Math.min(42, plot.width / Math.max(keys.length, 1) * .64);
@@ -139,17 +139,19 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
               const segment = getDashboardStackedBarSegment(series, keys[index], seriesIndex, appearance.barMode === "stacked_percent" ? "stacked_percent" : "stacked");
               const top = y(segment.end, item.axis);
               const bottom = y(segment.start, item.axis);
-              const label = appearance.barMode === "stacked_percent" ? formatPercentage(segment.percentage) : formatter(value);
+              const label = getDashboardDataLabelText(appearance.dataLabelContent, value, appearance.barMode === "stacked_percent" ? segment.percentage : null, formatter);
               const tooltip = appearance.barMode === "stacked_percent" ? `${item.label}: ${formatter(value)} (${formatPercentage(segment.percentage)})` : `${item.label}: ${formatter(value)}`;
-              return <g key={keys[index]}><rect data-series-id={item.id} fill={color} height={Math.max(0, bottom - top)} rx="2" width={width} x={x(index) - width / 2} y={top}><title>{tooltip}</title></rect>{appearance.showDataLabels && segment.end > segment.start ? <text {...labelProps} dominantBaseline="middle" x={x(index)} y={(top + bottom) / 2}>{label}</text> : null}</g>;
+              const inside = appearance.dataLabelPosition === "inside" || appearance.dataLabelPosition === "auto";
+              const combined = appearance.dataLabelContent === "value_and_percentage" && appearance.barMode === "stacked_percent";
+              return <g key={keys[index]}><rect data-series-id={item.id} fill={color} height={Math.max(0, bottom - top)} rx="2" width={width} x={x(index) - width / 2} y={top}><title>{tooltip}</title></rect>{appearance.showDataLabels && segment.end > segment.start ? <text {...labelProps} dominantBaseline={inside ? "middle" : undefined} fontSize={combined ? 8 : labelProps.fontSize} x={x(index)} y={inside ? (top + bottom) / 2 : Math.max(28 + seriesIndex * 12, top - 5)}>{combined ? <><tspan x={x(index)} dy="-0.45em">{formatter(value)}</tspan><tspan x={x(index)} dy="1.1em">{formatPercentage(segment.percentage)}</tspan></> : label}</text> : null}</g>;
             })}</g>;
           }
           const barIndex = barSeries.findIndex((seriesItem) => seriesItem.id === item.id);
           const width = Math.min(28, plot.width / Math.max(keys.length, 1) / Math.max(barSeries.length + 1, 2));
-          return <g key={item.id}>{values.map((value, index) => <g key={keys[index]}><rect fill={color} height={plot.top + plot.height - y(value, item.axis)} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={y(value, item.axis)}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={labelY(value)}>{formatter(value)}</text> : null}</g>)}</g>;
+          return <g key={item.id}>{values.map((value, index) => { const top = y(value, item.axis); const bottom = plot.top + plot.height; const inside = appearance.dataLabelPosition === "inside"; return <g key={keys[index]}><rect fill={color} height={bottom - top} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={top}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline={inside ? "middle" : undefined} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={inside ? (top + bottom) / 2 : pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text> : null}</g>; })}</g>;
         }
-        if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>;
-        return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={labelY(value)}>{formatter(value)}</text>) : null}</g>;
+        if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
+        return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
       })}
       {labels.map((label, index) => <text fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}
       {onSelect ? keys.map((key, index) => {
@@ -183,7 +185,7 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
   const y = (index: number) => plot.top + (index + .5) * rowHeight;
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = appearance.barMode === "stacked_percent" ? formatPercentage : series[0]?.metric.type === "count" ? formatCount : formatNumber;
-  const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3 };
+  const labelProps = { "data-data-label-content": appearance.dataLabelContent, "data-data-label-position": appearance.dataLabelPosition, fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3 };
   const legend = appearance.showLegend ? <SeriesLegend appearance={appearance} series={series} /> : null;
   const chart = <div className="grid min-w-0 gap-3">
     <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation="horizontal" role="img" viewBox={`0 0 640 ${chartHeight}`}>
@@ -202,17 +204,23 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
           const segment = getDashboardStackedBarSegment(series, key, seriesIndex, appearance.barMode === "stacked_percent" ? "stacked_percent" : "stacked");
           const start = x(segment.start);
           const end = x(segment.end);
-          const label = appearance.barMode === "stacked_percent" ? formatPercentage(segment.percentage) : formatter(segment.value);
+          const label = getDashboardDataLabelText(appearance.dataLabelContent, segment.value, appearance.barMode === "stacked_percent" ? segment.percentage : null, formatter);
           const tooltip = appearance.barMode === "stacked_percent" ? `${item.label}: ${formatter(segment.value)} (${formatPercentage(segment.percentage)})` : `${item.label}: ${formatter(segment.value)}`;
           const height = Math.min(22, rowHeight * .68);
-          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - start)} x={start} y={y(index) - height / 2}><title>{tooltip}</title></rect>{appearance.showDataLabels && end > start ? <text {...labelProps} dominantBaseline="middle" textAnchor="middle" x={(start + end) / 2} y={y(index)}>{label}</text> : null}</g>;
+          const inside = appearance.dataLabelPosition === "inside" || appearance.dataLabelPosition === "auto";
+          const outsideX = Math.min(end + 4, plot.left + plot.width - 2);
+          const combined = appearance.dataLabelContent === "value_and_percentage" && appearance.barMode === "stacked_percent";
+          const labelX = inside ? (start + end) / 2 : outsideX;
+          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - start)} x={start} y={y(index) - height / 2}><title>{tooltip}</title></rect>{appearance.showDataLabels && end > start ? <text {...labelProps} dominantBaseline="middle" fontSize={combined ? 8 : labelProps.fontSize} textAnchor={inside ? "middle" : outsideX >= plot.left + plot.width - 2 ? "end" : "start"} x={labelX} y={y(index)}>{combined ? <><tspan x={labelX} dy="-0.45em">{formatter(segment.value)}</tspan><tspan x={labelX} dy="1.1em">{formatPercentage(segment.percentage)}</tspan></> : label}</text> : null}</g>;
         })}</g>;
         const height = Math.min(13, rowHeight / Math.max(series.length + 1, 2));
         return <g key={item.id}>{keys.map((key, index) => {
           const value = item.points.find((point) => point.key === key)?.value ?? 0;
           const end = x(value);
           const barY = y(index) - series.length * height / 2 + seriesIndex * height;
-          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - plot.left)} x={plot.left} y={barY}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline="middle" x={Math.min(end + 4, plot.left + plot.width - 2)} y={barY + height / 2}>{formatter(value)}</text> : null}</g>;
+          const inside = appearance.dataLabelPosition === "inside";
+          const labelX = inside ? (plot.left + end) / 2 : Math.min(end + 4, plot.left + plot.width - 2);
+          return <g key={key}><rect data-series-id={item.id} fill={color} height={height} rx="2" width={Math.max(0, end - plot.left)} x={plot.left} y={barY}><title>{item.label}: {formatter(value)}</title></rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline="middle" textAnchor={inside ? "middle" : labelX >= plot.left + plot.width - 2 ? "end" : "start"} x={labelX} y={barY + height / 2}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text> : null}</g>;
         })}</g>;
       })}
       {onSelect ? keys.map((key, index) => {
@@ -253,13 +261,20 @@ function CircularSeriesChart({ appearance, formatValue, interactionLabel, onSele
     const segment = segments[index];
     return `${segment.point.label}: ${formatValue(segment.point.value)}, ${(segment.ratio * 100).toFixed(1)}%`;
   };
+  const summary = (index: number) => {
+    const value = formatValue(segments[index].point.value);
+    if (!appearance.showDataLabels) return appearance.showLegend ? value : "";
+    const dataLabel = getDashboardDataLabelText(appearance.dataLabelContent, segments[index].point.value, segments[index].ratio * 100, formatValue);
+    if (!appearance.showLegend || appearance.dataLabelContent === "value" || appearance.dataLabelContent === "value_and_percentage") return dataLabel;
+    return `${value} · ${dataLabel}`;
+  };
   const selectSegment = (index: number) => onSelect?.(segments[index].point);
   const chart = <svg aria-label={`${series.displayType === "donut" ? "Donut" : "Pie"} chart for ${series.label}`} className="mx-auto h-auto w-full max-w-[19rem]" role="img" viewBox="0 0 260 220">
       <g transform="rotate(-90 130 105)">{segments.map((segment, index) => <circle aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : label(index)} className={onSelect ? "cursor-pointer outline-none focus-visible:stroke-[var(--color-foreground)]" : undefined} cx="130" cy="105" fill="none" key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); selectSegment(index); } }} r={radius} role={onSelect ? "button" : undefined} stroke={color(index)} strokeDasharray={`${segment.ratio * circumference} ${circumference}`} strokeDashoffset={-segment.offset * circumference} strokeWidth={series.displayType === "donut" ? 38 : 100} tabIndex={onSelect ? 0 : undefined}><title>{label(index)}</title></circle>)}</g>
       {series.displayType === "donut" ? <><text fill="currentColor" fontSize="12" fontWeight="700" textAnchor="middle" x="130" y="101">Total</text><text fill="currentColor" fontSize="18" fontWeight="800" textAnchor="middle" x="130" y="124">{formatValue(total)}</text></> : null}
       {selectedKey ? <circle cx="130" cy="105" fill="none" pointerEvents="none" r={series.displayType === "donut" ? 91 : 102} stroke="var(--color-foreground)" strokeDasharray="4 5" strokeWidth="2" /> : null}
     </svg>;
-  const legend = appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 min-w-0 gap-1.5 overflow-y-auto pr-1" data-legend-position={appearance.legendPosition}>{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold" title={segment.point.label}>{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground">{appearance.showLegend ? formatValue(segment.point.value) : null}{appearance.showLegend && appearance.showDataLabels ? " · " : null}{appearance.showDataLabels ? `${(segment.ratio * 100).toFixed(1)}%` : null}</span></button>)}</div> : null;
+  const legend = appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 min-w-0 gap-1.5 overflow-y-auto pr-1" data-legend-position={appearance.legendPosition}>{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold" title={segment.point.label}>{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground" data-data-label-content={appearance.dataLabelContent} data-data-label-position="auto">{summary(index)}</span></button>)}</div> : null;
   return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 
