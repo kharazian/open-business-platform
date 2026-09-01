@@ -3,7 +3,7 @@ import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
-import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardSeriesColor } from "../types";
+import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardLegendPosition, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
 type WidgetPreviewData = ChartWidgetPreviewData | DashboardAnalyticsResponse;
@@ -77,6 +77,18 @@ function KpiComparisonSummary({ formatValue, value }: { formatValue: (value: num
   return <div aria-label={`${change} versus ${value.periodLabel}. Previous value ${formatValue(value.previousValue)}`} className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs"><p className="font-bold text-foreground"><span aria-hidden="true">{arrow} </span>{change} vs {value.periodLabel}</p><p className="mt-0.5 text-muted-foreground">Previous: {formatValue(value.previousValue)}</p></div>;
 }
 
+function PositionedChartLayout({ chart, legend, position }: { chart: ReactNode; legend: ReactNode; position: DashboardLegendPosition }) {
+  if (!legend) return <div className="min-w-0">{chart}</div>;
+  if (position === "left") return <div className="grid min-w-0 items-start gap-4 sm:grid-cols-[minmax(9rem,0.28fr)_minmax(0,1fr)]">{legend}<div className="min-w-0">{chart}</div></div>;
+  if (position === "right") return <div className="grid min-w-0 items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.28fr)]"><div className="order-2 min-w-0 sm:order-1">{chart}</div><div className="order-1 min-w-0 sm:order-2">{legend}</div></div>;
+  return <div className="grid min-w-0 gap-3">{position === "top" ? legend : null}<div className="min-w-0">{chart}</div>{position === "bottom" ? legend : null}</div>;
+}
+
+function SeriesLegend({ appearance, series }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]> }) {
+  const sidePosition = appearance.legendPosition === "left" || appearance.legendPosition === "right";
+  return <div aria-label="Chart legend" className={sidePosition ? "grid max-h-64 min-w-0 gap-2 overflow-y-auto pr-1" : "flex min-w-0 flex-wrap gap-3"} data-legend-position={appearance.legendPosition}>{series.map((item) => <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold" key={item.id} title={item.label}><span className="size-2.5 shrink-0 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><span className="min-w-0 truncate">{item.label}</span><span className="shrink-0 font-medium text-muted-foreground">({item.axis})</span></span>)}</div>;
+}
+
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
   const circularSeries = series.length === 1 && isDashboardCircularDisplayType(series[0].displayType) ? series[0] : null;
   if (circularSeries) return <CircularSeriesChart appearance={appearance} formatValue={circularSeries.metric.type === "count" ? formatCount : formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={circularSeries} />;
@@ -96,8 +108,8 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = (axis: "left" | "right") => appearance.barMode === "stacked_percent" ? formatPercentage : series.find((item) => item.axis === axis)?.metric.type === "count" ? formatCount : formatNumber;
   const hasRightAxis = series.some((item) => item.axis === "right") || appearance.referenceLines.some((line) => line.axis === "right");
-  return <div className="grid min-w-0 gap-3">
-    {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}<span className="font-medium text-muted-foreground">({item.axis})</span></span>)}</div> : null}
+  const legend = appearance.showLegend ? <SeriesLegend appearance={appearance} series={series} /> : null;
+  const chart = <div className="grid min-w-0 gap-3">
     <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation={appearance.barOrientation} role="img" viewBox="0 0 640 230">
       {gridlines.map((ratio) => <line key={ratio} opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left} x2={plot.left + plot.width} y1={plot.top + plot.height - ratio * plot.height} y2={plot.top + plot.height - ratio * plot.height} />)}
       <text fill="currentColor" fontSize="9" x={plot.left} y="11">{axisFormat("left")(leftMaximum)}</text>
@@ -154,6 +166,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
     </svg></div>
     <AxisClippingWarning axes={[...(isDashboardAxisClipped(automaticLeftMaximum, appearance.axes.left.maximum) ? ["left"] : []), ...(hasRightAxis && isDashboardAxisClipped(automaticRightMaximum, appearance.axes.right.maximum) ? ["right"] : [])]} />
   </div>;
+  return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 
 function HorizontalBarChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
@@ -171,8 +184,8 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
   const gridlines = appearance.showGridlines ? [0, .25, .5, .75, 1] : [0];
   const axisFormat = appearance.barMode === "stacked_percent" ? formatPercentage : series[0]?.metric.type === "count" ? formatCount : formatNumber;
   const labelProps = { fill: "currentColor", fontSize: 9, paintOrder: "stroke" as const, stroke: "var(--color-card)", strokeWidth: 3 };
-  return <div className="grid min-w-0 gap-3">
-    {appearance.showLegend ? <div className="flex flex-wrap gap-3" aria-label="Chart legend">{series.map((item) => <span className="flex items-center gap-1.5 text-xs font-bold" key={item.id}><span className="size-2.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} />{item.label}</span>)}</div> : null}
+  const legend = appearance.showLegend ? <SeriesLegend appearance={appearance} series={series} /> : null;
+  const chart = <div className="grid min-w-0 gap-3">
     <div className="max-w-full overflow-x-auto"><svg aria-label="Configured series chart" className="min-w-[38rem]" data-bar-mode={appearance.barMode} data-bar-orientation="horizontal" role="img" viewBox={`0 0 640 ${chartHeight}`}>
       {gridlines.map((ratio) => <g key={ratio}><line opacity={ratio === 0 ? 1 : .65} stroke="var(--color-border)" x1={plot.left + ratio * plot.width} x2={plot.left + ratio * plot.width} y1={plot.top} y2={plot.top + plot.height} />{ratio === 0 || ratio === 1 ? <text fill="currentColor" fontSize="9" textAnchor={ratio === 0 ? "start" : "end"} x={plot.left + ratio * plot.width} y="13">{axisFormat(ratio * maximum)}</text> : null}</g>)}
       {appearance.axes[axis].title.trim() ? <text fill="currentColor" fontSize="10" fontWeight="700" textAnchor="middle" x={plot.left + plot.width / 2} y="27">{appearance.axes[axis].title.trim()}</text> : null}
@@ -211,6 +224,7 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
     </svg></div>
     <AxisClippingWarning axes={isDashboardAxisClipped(automaticMaximum, appearance.axes[axis].maximum) ? [axis] : []} />
   </div>;
+  return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 
 function AxisClippingWarning({ axes }: { axes: string[] }) {
@@ -240,14 +254,13 @@ function CircularSeriesChart({ appearance, formatValue, interactionLabel, onSele
     return `${segment.point.label}: ${formatValue(segment.point.value)}, ${(segment.ratio * 100).toFixed(1)}%`;
   };
   const selectSegment = (index: number) => onSelect?.(segments[index].point);
-  return <div className={`grid items-center gap-4 ${appearance.showLegend || appearance.showDataLabels ? "sm:grid-cols-[minmax(14rem,1fr)_minmax(12rem,0.8fr)]" : ""}`}>
-    <svg aria-label={`${series.displayType === "donut" ? "Donut" : "Pie"} chart for ${series.label}`} className="mx-auto h-auto w-full max-w-[19rem]" role="img" viewBox="0 0 260 220">
+  const chart = <svg aria-label={`${series.displayType === "donut" ? "Donut" : "Pie"} chart for ${series.label}`} className="mx-auto h-auto w-full max-w-[19rem]" role="img" viewBox="0 0 260 220">
       <g transform="rotate(-90 130 105)">{segments.map((segment, index) => <circle aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : label(index)} className={onSelect ? "cursor-pointer outline-none focus-visible:stroke-[var(--color-foreground)]" : undefined} cx="130" cy="105" fill="none" key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); selectSegment(index); } }} r={radius} role={onSelect ? "button" : undefined} stroke={color(index)} strokeDasharray={`${segment.ratio * circumference} ${circumference}`} strokeDashoffset={-segment.offset * circumference} strokeWidth={series.displayType === "donut" ? 38 : 100} tabIndex={onSelect ? 0 : undefined}><title>{label(index)}</title></circle>)}</g>
       {series.displayType === "donut" ? <><text fill="currentColor" fontSize="12" fontWeight="700" textAnchor="middle" x="130" y="101">Total</text><text fill="currentColor" fontSize="18" fontWeight="800" textAnchor="middle" x="130" y="124">{formatValue(total)}</text></> : null}
       {selectedKey ? <circle cx="130" cy="105" fill="none" pointerEvents="none" r={series.displayType === "donut" ? 91 : 102} stroke="var(--color-foreground)" strokeDasharray="4 5" strokeWidth="2" /> : null}
-    </svg>
-    {appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 gap-1.5 overflow-y-auto pr-1">{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold">{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground">{appearance.showLegend ? formatValue(segment.point.value) : null}{appearance.showLegend && appearance.showDataLabels ? " · " : null}{appearance.showDataLabels ? `${(segment.ratio * 100).toFixed(1)}%` : null}</span></button>)}</div> : null}
-  </div>;
+    </svg>;
+  const legend = appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 min-w-0 gap-1.5 overflow-y-auto pr-1" data-legend-position={appearance.legendPosition}>{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold" title={segment.point.label}>{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground">{appearance.showLegend ? formatValue(segment.point.value) : null}{appearance.showLegend && appearance.showDataLabels ? " · " : null}{appearance.showDataLabels ? `${(segment.ratio * 100).toFixed(1)}%` : null}</span></button>)}</div> : null;
+  return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 
 function SeriesBars({ appearance, points, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; points: WidgetPreviewData["series"]; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
@@ -295,4 +308,4 @@ function ChartTable({ interactionLabel, onSelect, preview, selectedKey }: { inte
     <EmptyState title="No table rows" description="The selected source did not return records for this table widget." />
   );
 }
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";

@@ -107,6 +107,12 @@ public static class DashboardCategorySorts
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Source, "value_desc", "value_asc", "label_asc", "label_desc" };
 }
 
+public static class DashboardLegendPositions
+{
+    public const string Top = "top";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Top, "bottom", "left", "right" };
+}
+
 public sealed record DashboardConditionalRuleDefinition(string Id, string Operator, decimal Value, string Accent, string? Label = null);
 public sealed record DashboardConditionalFormattingDefinition(bool Enabled = false, IReadOnlyList<DashboardConditionalRuleDefinition>? Rules = null);
 public sealed record DashboardKpiTargetDefinition(bool Enabled = false, decimal Value = 0, string Label = "Target", string Direction = "higher_is_better");
@@ -130,6 +136,7 @@ public sealed record DashboardChartAppearanceDefinition(
     string BarMode = "grouped",
     string BarOrientation = "vertical",
     string CategorySort = "source",
+    string LegendPosition = "top",
     DashboardChartAxesDefinition? Axes = null);
 
 public sealed record ChartWidgetConfigDefinition(

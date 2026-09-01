@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
-import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardReferenceLine, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardKpiTarget, DashboardLegendPosition, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", legendPosition: "top", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [], axes: { left: { ...defaultDashboardChartAppearance.axes.left, ...value?.axes?.left }, right: { ...defaultDashboardChartAppearance.axes.right, ...value?.axes?.right } } };
@@ -60,6 +60,10 @@ export function isDashboardCategorySortValid(sort: DashboardCategorySort | strin
   return categorySorts.has(sort) && (sort === "source" || ["bar_chart", "choice_breakdown"].includes(widgetType));
 }
 
+export function isDashboardLegendPositionValid(position: DashboardLegendPosition | string, widgetType: ChartWidgetType): boolean {
+  return legendPositions.has(position) && (position === "top" || ["bar_chart", "choice_breakdown", "date_trend"].includes(widgetType));
+}
+
 export function normalizeDashboardChartAxes(axesInput: DashboardChartAxes, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "displayType" | "axis">>, referenceLines: DashboardReferenceLine[], barMode: DashboardBarMode): DashboardChartAxes {
   const axes = { left: { ...axesInput.left }, right: { ...axesInput.right } };
   const cartesian = ["bar_chart", "choice_breakdown", "date_trend"].includes(widgetType) && !series.some((item) => isDashboardCircularDisplayType(item.displayType));
@@ -104,6 +108,7 @@ const referenceLineAxes = new Set(["left", "right"]);
 const barModes = new Set(["grouped", "stacked", "stacked_percent"]);
 const barOrientations = new Set(["vertical", "horizontal"]);
 const categorySorts = new Set(["source", "value_desc", "value_asc", "label_asc", "label_desc"]);
+const legendPositions = new Set(["top", "bottom", "left", "right"]);
 function matchesConditionalRule(actual: number, operator: DashboardConditionalOperator, threshold: number): boolean {
   if (operator === "greater_than") return actual > threshold;
   if (operator === "greater_or_equal") return actual >= threshold;

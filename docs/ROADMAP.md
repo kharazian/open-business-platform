@@ -216,7 +216,7 @@ Features:
 - Dashboard widget builder upgrade implemented in V7 task 002
 - Dashboard viewer refresh implemented in V7 task 003 with per-widget refresh, loading, error, permission, and stale-source states
 - Dashboard sharing/default foundation implemented in V7 task 004 with backend-enforced workspace/private visibility and shared default metadata
-- Richer charts, including vertical/horizontal grouped, stacked, and 100% stacked Bar series, deterministic category ordering, and bounded axis titles/manual scaling
+- Richer charts, including vertical/horizontal grouped, stacked, and 100% stacked Bar series, deterministic category ordering, responsive legend placement, and bounded axis titles/manual scaling
 - Advanced dashboard builder
 - Number cards
 - Pending approvals

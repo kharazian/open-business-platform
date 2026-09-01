@@ -15,7 +15,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -440,6 +440,17 @@ test("axis titles and manual maximums are bounded and normalized", () => {
   const clone = cloneDashboardChartAppearance(resolved);
   clone.axes.left.title = "Changed";
   assert.equal(resolved.axes.left.title, "Amount");
+});
+
+test("legend positions are bounded to chart widgets and default safely", () => {
+  assert.equal(defaultDashboardChartAppearance.legendPosition, "top");
+  assert.equal(resolveDashboardChartAppearance({}).legendPosition, "top");
+  assert.equal(isDashboardLegendPositionValid("top", "number_card"), true);
+  assert.equal(isDashboardLegendPositionValid("bottom", "choice_breakdown"), true);
+  assert.equal(isDashboardLegendPositionValid("left", "date_trend"), true);
+  assert.equal(isDashboardLegendPositionValid("right", "bar_chart"), true);
+  assert.equal(isDashboardLegendPositionValid("right", "table"), false);
+  assert.equal(isDashboardLegendPositionValid("floating", "choice_breakdown"), false);
 });
 
 test("add-widget wizard filters visualizations, recommends compatible charts, and bounds recent choices", () => {

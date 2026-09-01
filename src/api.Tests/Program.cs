@@ -4669,6 +4669,25 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Series: stackedSeries,
     Appearance: new DashboardChartAppearanceDefinition(Axes: new DashboardChartAxesDefinition(Right: new DashboardAxisAppearanceDefinition("Unused", 10m))))).Errors.Any(error => error.Code == "chart.axes.right_inactive"), "Unused right-axis settings should be rejected.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(LegendPosition: "right"))).Valid, "Breakdown charts should accept bounded legend positions.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(LegendPosition: "bottom"))).Valid, "Trend charts should accept bounded legend positions.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.NumberCard,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    Appearance: new DashboardChartAppearanceDefinition(LegendPosition: "right"))).Errors.Any(error => error.Code == "chart.legend_position.widget_type_invalid"), "Non-chart widgets should reject non-default legend positions.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(LegendPosition: "floating"))).Errors.Any(error => error.Code == "chart.legend_position.invalid"), "Charts should reject unsupported legend positions.");
 var conditionalKpiAppearance = new DashboardChartAppearanceDefinition(ConditionalFormatting: new DashboardConditionalFormattingDefinition(true, new[]
 {
     new DashboardConditionalRuleDefinition("target", "greater_or_equal", 100m, "success", "On target"),

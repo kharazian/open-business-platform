@@ -107,7 +107,15 @@ public static class ChartWidgetConfigValidator
         ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
         ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
         ValidateCategorySort(appearance.CategorySort, widgetType, errors);
+        ValidateLegendPosition(appearance.LegendPosition, widgetType, errors);
         ValidateAxes(appearance.Axes, widgetType, series, appearance.ReferenceLines, appearance.BarMode, errors);
+    }
+
+    private static void ValidateLegendPosition(string? positionInput, string widgetType, ICollection<ChartValidationError> errors)
+    {
+        var position = Normalize(positionInput);
+        if (!DashboardLegendPositions.Supported.Contains(position)) { errors.Add(new("appearance.legendPosition", "chart.legend_position.invalid", "Legend position is not supported.")); return; }
+        if (position != DashboardLegendPositions.Top && widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown or ChartWidgetTypes.DateTrend)) errors.Add(new("appearance.legendPosition", "chart.legend_position.widget_type_invalid", "Legend positioning is supported only for charts."));
     }
 
     private static void ValidateAxes(DashboardChartAxesDefinition? axesInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, IReadOnlyList<DashboardReferenceLineDefinition>? referenceLines, string? barModeInput, ICollection<ChartValidationError> errors)
