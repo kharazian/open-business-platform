@@ -2,7 +2,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
 import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardLegendPosition, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
 
@@ -90,12 +90,14 @@ function SeriesLegend({ appearance, series }: { appearance: DashboardChartAppear
 }
 
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
+  const presentation = getDashboardPresentedSeries(series, appearance.categorySort, appearance.categoryLimit, appearance.groupRemainingCategories);
+  series = presentation.series;
   const circularSeries = series.length === 1 && isDashboardCircularDisplayType(series[0].displayType) ? series[0] : null;
-  if (circularSeries) return <CircularSeriesChart appearance={appearance} formatValue={circularSeries.metric.type === "count" ? formatCount : formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={circularSeries} />;
+  if (circularSeries) return <CircularSeriesChart aggregateKey={presentation.aggregateKey} appearance={appearance} formatValue={circularSeries.metric.type === "count" ? formatCount : formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={circularSeries} />;
   const stacked = appearance.barMode !== "grouped";
   if (stacked && hasDashboardNegativeSeriesValues(series)) return <EmptyState title="Stacked chart unavailable" description="Stacked bars require non-negative values." />;
-  if (appearance.barOrientation === "horizontal") return <HorizontalBarChart appearance={appearance} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={series} />;
-  const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
+  if (appearance.barOrientation === "horizontal") return <HorizontalBarChart aggregateKey={presentation.aggregateKey} appearance={appearance} categoryKeys={presentation.categoryKeys} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect} selectedKey={selectedKey} series={series} />;
+  const keys = presentation.categoryKeys;
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const automaticLeftMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "left", appearance.barMode);
   const automaticRightMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, "right", appearance.barMode);
@@ -153,7 +155,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
         if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
         return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
       })}
-      {labels.map((label, index) => <text fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}
+      {labels.map((label, index) => <text data-aggregate-category={keys[index] === presentation.aggregateKey ? "true" : undefined} data-category-key={keys[index]} fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}
       {onSelect ? keys.map((key, index) => {
         const point = series.flatMap((item) => item.points).find((item) => item.key === key);
         const width = plot.width / Math.max(keys.length, 1);
@@ -163,7 +165,8 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
           const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(value);
           return appearance.barMode === "stacked_percent" ? `${item.label}: ${formatted} (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : `${item.label}: ${formatted}`;
         }).join(" · ");
-        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>;
+        const selection = { key, label: labels[index], value: point?.value ?? 0, aggregate: key === presentation.aggregateKey };
+        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect(selection)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(selection); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}><title>{tooltip}</title></rect>;
       }) : null}
     </svg></div>
     <AxisClippingWarning axes={[...(isDashboardAxisClipped(automaticLeftMaximum, appearance.axes.left.maximum) ? ["left"] : []), ...(hasRightAxis && isDashboardAxisClipped(automaticRightMaximum, appearance.axes.right.maximum) ? ["right"] : [])]} />
@@ -171,8 +174,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
   return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 
-function HorizontalBarChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
-  const keys = getDashboardOrderedCategoryKeys(series, appearance.categorySort).slice(0, 12);
+function HorizontalBarChart({ aggregateKey, appearance, categoryKeys: keys, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { aggregateKey: string | null; appearance: DashboardChartAppearance; categoryKeys: string[]; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
   const labels = keys.map((key) => series.flatMap((item) => item.points).find((point) => point.key === key)?.label ?? key);
   const axis = series[0]?.axis ?? "left";
   const automaticMaximum = getDashboardAxisMaximum(series, appearance.referenceLines, axis, appearance.barMode);
@@ -196,7 +198,7 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
         const formattedValue = axisFormat(line.value);
         return <g aria-label={`Reference line ${line.label}: ${formattedValue}`} data-reference-line={line.id} key={line.id}><line stroke={getDashboardSeriesColor(line.color, appearance.palette)} strokeDasharray={getReferenceLineDasharray(line.style)} strokeWidth="2" x1={lineX} x2={lineX} y1={plot.top} y2={plot.top + plot.height}><title>{line.label}: {formattedValue}</title></line><text fill={getDashboardSeriesColor(line.color, appearance.palette)} fontSize="9" fontWeight="700" paintOrder="stroke" stroke="var(--color-card)" strokeWidth="3" textAnchor="end" transform={`rotate(-90 ${lineX - 4} ${plot.top + 8 + index * 11})`} x={lineX - 4} y={plot.top + 8 + index * 11}>{line.label} · {formattedValue}</text></g>;
       })}
-      {labels.map((label, index) => <text dominantBaseline="middle" fill="currentColor" fontSize="10" key={keys[index]} textAnchor="end" x={plot.left - 8} y={y(index)}>{label.slice(0, 17)}</text>)}
+      {labels.map((label, index) => <text data-aggregate-category={keys[index] === aggregateKey ? "true" : undefined} data-category-key={keys[index]} dominantBaseline="middle" fill="currentColor" fontSize="10" key={keys[index]} textAnchor="end" x={plot.left - 8} y={y(index)}>{label.slice(0, 17)}</text>)}
       {series.map((item, seriesIndex) => {
         const color = getDashboardSeriesColor(item.color, appearance.palette);
         const formatter = item.metric.type === "count" ? formatCount : formatNumber;
@@ -227,7 +229,8 @@ function HorizontalBarChart({ appearance, series, formatCount, formatNumber, int
         const point = series.flatMap((item) => item.points).find((item) => item.key === key);
         const total = series.reduce((sum, item) => sum + Math.max(0, item.points.find((candidate) => candidate.key === key)?.value ?? 0), 0);
         const tooltip = series.map((item) => { const value = item.points.find((candidate) => candidate.key === key)?.value ?? 0; const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(value); return appearance.barMode === "stacked_percent" ? `${item.label}: ${formatted} (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : `${item.label}: ${formatted}`; }).join(" · ");
-        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={rowHeight} key={`interaction-${key}`} onClick={() => onSelect({ key, label: labels[index], value: point?.value ?? 0 })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect({ key, label: labels[index], value: point?.value ?? 0 }); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={plot.width} x={plot.left} y={plot.top + index * rowHeight}><title>{tooltip}</title></rect>;
+        const selection = { key, label: labels[index], value: point?.value ?? 0, aggregate: key === aggregateKey };
+        return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${tooltip}`} fill="transparent" height={rowHeight} key={`interaction-${key}`} onClick={() => onSelect(selection)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(selection); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={plot.width} x={plot.left} y={plot.top + index * rowHeight}><title>{tooltip}</title></rect>;
       }) : null}
     </svg></div>
     <AxisClippingWarning axes={isDashboardAxisClipped(automaticMaximum, appearance.axes[axis].maximum) ? [axis] : []} />
@@ -248,8 +251,8 @@ function getReferenceLineDasharray(style: DashboardChartAppearance["referenceLin
 
 const circularColorOrder: DashboardSeriesColor[] = ["primary", "info", "success", "warning", "danger", "violet"];
 
-function CircularSeriesChart({ appearance, formatValue, interactionLabel, onSelect, selectedKey, series }: { appearance: DashboardChartAppearance; formatValue: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>[number] }) {
-  const orderedPoints = getDashboardOrderedCategoryKeys([series], appearance.categorySort).map((key) => series.points.find((point) => point.key === key)).filter((point): point is NonNullable<typeof point> => Boolean(point));
+function CircularSeriesChart({ aggregateKey, appearance, formatValue, interactionLabel, onSelect, selectedKey, series }: { aggregateKey: string | null; appearance: DashboardChartAppearance; formatValue: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>[number] }) {
+  const orderedPoints = series.points;
   const segments = getDashboardCircularSegments(orderedPoints);
   if (segments.length === 0) return <EmptyState title="Circular chart unavailable" description={series.points.some((point) => point.value < 0) ? "Pie and donut charts require non-negative values." : "The selected source did not produce positive values."} />;
   const radius = series.displayType === "donut" ? 70 : 50;
@@ -268,13 +271,13 @@ function CircularSeriesChart({ appearance, formatValue, interactionLabel, onSele
     if (!appearance.showLegend || appearance.dataLabelContent === "value" || appearance.dataLabelContent === "value_and_percentage") return dataLabel;
     return `${value} · ${dataLabel}`;
   };
-  const selectSegment = (index: number) => onSelect?.(segments[index].point);
+  const selectSegment = (index: number) => onSelect?.({ ...segments[index].point, aggregate: segments[index].point.key === aggregateKey });
   const chart = <svg aria-label={`${series.displayType === "donut" ? "Donut" : "Pie"} chart for ${series.label}`} className="mx-auto h-auto w-full max-w-[19rem]" role="img" viewBox="0 0 260 220">
       <g transform="rotate(-90 130 105)">{segments.map((segment, index) => <circle aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : label(index)} className={onSelect ? "cursor-pointer outline-none focus-visible:stroke-[var(--color-foreground)]" : undefined} cx="130" cy="105" fill="none" key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} onKeyDown={(event) => { if (onSelect && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); selectSegment(index); } }} r={radius} role={onSelect ? "button" : undefined} stroke={color(index)} strokeDasharray={`${segment.ratio * circumference} ${circumference}`} strokeDashoffset={-segment.offset * circumference} strokeWidth={series.displayType === "donut" ? 38 : 100} tabIndex={onSelect ? 0 : undefined}><title>{label(index)}</title></circle>)}</g>
       {series.displayType === "donut" ? <><text fill="currentColor" fontSize="12" fontWeight="700" textAnchor="middle" x="130" y="101">Total</text><text fill="currentColor" fontSize="18" fontWeight="800" textAnchor="middle" x="130" y="124">{formatValue(total)}</text></> : null}
       {selectedKey ? <circle cx="130" cy="105" fill="none" pointerEvents="none" r={series.displayType === "donut" ? 91 : 102} stroke="var(--color-foreground)" strokeDasharray="4 5" strokeWidth="2" /> : null}
     </svg>;
-  const legend = appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 min-w-0 gap-1.5 overflow-y-auto pr-1" data-legend-position={appearance.legendPosition}>{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold" title={segment.point.label}>{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground" data-data-label-content={appearance.dataLabelContent} data-data-label-position="auto">{summary(index)}</span></button>)}</div> : null;
+  const legend = appearance.showLegend || appearance.showDataLabels ? <div aria-label="Chart legend" className="grid max-h-64 min-w-0 gap-1.5 overflow-y-auto pr-1" data-legend-position={appearance.legendPosition}>{segments.map((segment, index) => <button aria-label={onSelect ? `${interactionLabel}: ${label(index)}` : undefined} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === segment.point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} data-aggregate-category={segment.point.key === aggregateKey ? "true" : undefined} data-category-key={segment.point.key} disabled={!onSelect} key={segment.point.key || segment.point.label} onClick={() => selectSegment(index)} type="button"><span className="size-3 rounded-sm" style={{ background: color(index) }} /><span className="min-w-0 truncate font-bold" title={segment.point.label}>{segment.point.label}</span><span className="text-right font-semibold tabular-nums text-muted-foreground" data-data-label-content={appearance.dataLabelContent} data-data-label-position="auto">{summary(index)}</span></button>)}</div> : null;
   return <PositionedChartLayout chart={chart} legend={legend} position={appearance.legendPosition} />;
 }
 

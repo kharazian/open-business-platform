@@ -79,6 +79,31 @@ export function getDashboardOrderedCategoryKeys(series: Array<{ points: ChartSer
   });
 }
 
+export type DashboardPresentedSeries<T> = { series: T[]; categoryKeys: string[]; aggregateKey: string | null };
+
+export function getDashboardPresentedSeries<T extends DashboardChartSeriesDefinition & { points: ChartSeriesPoint[] }>(series: T[], sort: DashboardCategorySort, categoryLimit: number | null, groupRemaining: boolean): DashboardPresentedSeries<T> {
+  const orderedKeys = getDashboardOrderedCategoryKeys(series, sort);
+  const visibleCount = categoryLimit ?? 12;
+  const visibleKeys = orderedKeys.slice(0, visibleCount);
+  const remainingKeys = orderedKeys.slice(visibleCount);
+  if (categoryLimit === null || !groupRemaining || remainingKeys.length === 0) {
+    return { series: series.map((item) => ({ ...item, points: visibleKeys.map((key) => item.points.find((point) => point.key === key)).filter((point): point is ChartSeriesPoint => Boolean(point)) })), categoryKeys: visibleKeys, aggregateKey: null };
+  }
+  let aggregateKey = "__obp_other_categories__";
+  while (orderedKeys.includes(aggregateKey)) aggregateKey += "_";
+  return {
+    series: series.map((item) => ({
+      ...item,
+      points: [
+        ...visibleKeys.map((key) => item.points.find((point) => point.key === key)).filter((point): point is ChartSeriesPoint => Boolean(point)),
+        { key: aggregateKey, label: "Other", value: remainingKeys.reduce((sum, key) => sum + (item.points.find((point) => point.key === key)?.value ?? 0), 0) }
+      ]
+    })),
+    categoryKeys: [...visibleKeys, aggregateKey],
+    aggregateKey
+  };
+}
+
 export function getDashboardDataLabelText(content: DashboardDataLabelContent, value: number, percentage: number | null, formatValue: (value: number) => string): string {
   const formattedValue = formatValue(value);
   const formattedPercentage = percentage === null ? null : `${Number.isInteger(percentage) ? percentage.toFixed(0) : percentage.toFixed(1)}%`;

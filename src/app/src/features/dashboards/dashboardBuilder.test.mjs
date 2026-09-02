@@ -14,8 +14,8 @@ import {
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
-import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
+import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -420,6 +420,29 @@ test("category sorting is breakdown-only and uses combined series values", () =>
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "value_asc"), ["c", "a", "b"]);
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_asc"), ["a", "b", "c"]);
   assert.deepEqual(getDashboardOrderedCategoryKeys(series, "label_desc"), ["c", "b", "a"]);
+});
+
+test("Top-N categories optionally aggregate the remaining returned points", () => {
+  const series = [
+    { id: "count", label: "Count", metric: { type: "count" }, displayType: "bar", color: "primary", axis: "left", points: [{ key: "a", label: "Alpha", value: 100 }, { key: "b", label: "Beta", value: 60 }, { key: "c", label: "Charlie", value: 20 }, { key: "d", label: "Delta", value: 10 }] },
+    { id: "amount", label: "Amount", metric: { type: "sum", fieldId: "amount" }, displayType: "line", color: "success", axis: "right", points: [{ key: "a", label: "Alpha", value: 5 }, { key: "b", label: "Beta", value: 30 }, { key: "c", label: "Charlie", value: 40 }, { key: "d", label: "Delta", value: 5 }] }
+  ];
+  const result = getDashboardPresentedSeries(series, "value_desc", 2, true);
+  assert.deepEqual(result.categoryKeys.slice(0, 2), ["a", "b"]);
+  assert.equal(result.categoryKeys[2], result.aggregateKey);
+  assert.deepEqual(result.series[0].points.map((point) => [point.label, point.value]), [["Alpha", 100], ["Beta", 60], ["Other", 30]]);
+  assert.deepEqual(result.series[1].points.map((point) => [point.label, point.value]), [["Alpha", 5], ["Beta", 30], ["Other", 45]]);
+  const limited = getDashboardPresentedSeries(series, "source", 2, false);
+  assert.equal(limited.aggregateKey, null);
+  assert.deepEqual(limited.categoryKeys, ["a", "b"]);
+  assert.deepEqual(normalizeDashboardCategoryLimit(4, true, "choice_breakdown"), { limit: 4, groupRemaining: true });
+  assert.deepEqual(normalizeDashboardCategoryLimit(4, true, "date_trend"), { limit: null, groupRemaining: false });
+  const averageSeries = [{ metric: { type: "average", fieldId: "amount" } }];
+  assert.deepEqual(normalizeDashboardCategoryLimit(4, true, "choice_breakdown", averageSeries), { limit: 4, groupRemaining: false });
+  assert.equal(isDashboardCategoryLimitValid(4, true, "choice_breakdown", averageSeries), false);
+  assert.equal(isDashboardCategoryLimitValid(12, false, "bar_chart"), true);
+  assert.equal(isDashboardCategoryLimitValid(13, false, "choice_breakdown"), false);
+  assert.equal(isDashboardCategoryLimitValid(null, true, "choice_breakdown"), false);
 });
 
 test("axis titles and manual maximums are bounded and normalized", () => {

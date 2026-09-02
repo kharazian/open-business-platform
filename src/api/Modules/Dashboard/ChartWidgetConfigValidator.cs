@@ -37,7 +37,7 @@ public static class ChartWidgetConfigValidator
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);
-        ValidateAppearance(config.Appearance, widgetType, config.Series, errors);
+        ValidateAppearance(config.Appearance, widgetType, config.Metric, config.Series, errors);
         ValidateFixedFilters(config.FixedFilters, schema, errors);
         ValidateKpiComparison(config.KpiComparison, widgetType, fieldsById, errors);
 
@@ -92,7 +92,7 @@ public static class ChartWidgetConfigValidator
         }
     }
 
-    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)
+    private static void ValidateAppearance(DashboardChartAppearanceDefinition? appearance, string widgetType, ChartMetricDefinition? primaryMetric, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)
     {
         if (appearance is null) return;
         if (!DashboardChartPalettes.Supported.Contains(Normalize(appearance.Palette))) errors.Add(new("appearance.palette", "chart.appearance.palette_invalid", "Chart palette is not supported."));
@@ -107,9 +107,21 @@ public static class ChartWidgetConfigValidator
         ValidateBarMode(appearance.BarMode, widgetType, series, appearance.ReferenceLines, errors);
         ValidateBarOrientation(appearance.BarOrientation, widgetType, series, errors);
         ValidateCategorySort(appearance.CategorySort, widgetType, errors);
+        ValidateCategoryLimit(appearance.CategoryLimit, appearance.GroupRemainingCategories, widgetType, primaryMetric, series, errors);
         ValidateLegendPosition(appearance.LegendPosition, widgetType, errors);
         ValidateDataLabels(appearance.DataLabelContent, appearance.DataLabelPosition, widgetType, series, appearance.BarMode, errors);
         ValidateAxes(appearance.Axes, widgetType, series, appearance.ReferenceLines, appearance.BarMode, errors);
+    }
+
+    private static void ValidateCategoryLimit(int? limit, bool groupRemaining, string widgetType, ChartMetricDefinition? primaryMetric, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)
+    {
+        if (limit is < 1 or > 12) errors.Add(new("appearance.categoryLimit", "chart.category_limit.range", "Visible category limit must be between 1 and 12."));
+        if (widgetType is not (ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown) && (limit is not null || groupRemaining)) errors.Add(new("appearance.categoryLimit", "chart.category_limit.widget_type_invalid", "Top categories are supported only for breakdown charts."));
+        if (groupRemaining && limit is null) errors.Add(new("appearance.groupRemainingCategories", "chart.category_limit.other_requires_limit", "Other grouping requires a visible category limit."));
+        var usesAverage = series is { Count: > 0 }
+            ? series.Any(item => Normalize(item.Metric.Type) == ChartMetricTypes.Average)
+            : Normalize(primaryMetric?.Type) == ChartMetricTypes.Average;
+        if (groupRemaining && usesAverage) errors.Add(new("appearance.groupRemainingCategories", "chart.category_limit.other_average_invalid", "Other grouping cannot sum category averages."));
     }
 
     private static void ValidateDataLabels(string? contentInput, string? positionInput, string widgetType, IReadOnlyList<DashboardChartSeriesDefinition>? seriesInput, string? barModeInput, ICollection<ChartValidationError> errors)

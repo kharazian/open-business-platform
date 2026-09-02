@@ -151,6 +151,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string BarMode = "grouped",
     string BarOrientation = "vertical",
     string CategorySort = "source",
+    int? CategoryLimit = null,
+    bool GroupRemainingCategories = false,
     string LegendPosition = "top",
     string DataLabelContent = "auto",
     string DataLabelPosition = "auto",

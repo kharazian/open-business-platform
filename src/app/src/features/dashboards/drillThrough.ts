@@ -1,6 +1,6 @@
 import type { DashboardAnalyticsFilterValue, DashboardFilterDefinition, SavedDashboardWidget } from "./types";
 
-export type DashboardPointSelection = { key: string; label: string; value: number; recordId?: string };
+export type DashboardPointSelection = { key: string; label: string; value: number; recordId?: string; aggregate?: boolean };
 export type DashboardDrillFilters = Record<string, string>;
 
 export function buildDashboardDrillThroughPath(
@@ -12,6 +12,7 @@ export function buildDashboardDrillThroughPath(
   const interaction = widget.interaction;
   if (!interaction || !widget.sourceFormId) return null;
   if (interaction.destination === "records" && point?.recordId) return `/records/${encodeURIComponent(point.recordId)}`;
+  if (point?.aggregate && interaction.includePointFilter !== false) return null;
 
   const params = new URLSearchParams({ drill: "1" });
   if (interaction.includeDashboardFilters !== false) {

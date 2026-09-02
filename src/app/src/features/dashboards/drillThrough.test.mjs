@@ -17,3 +17,11 @@ test("drill-through builds typed record and report destinations with bounded sca
 test("table row selections open typed record detail destinations", () => {
   assert.equal(buildDashboardDrillThroughPath(widget, [], {}, { key: "record-1", label: "Record", value: 0, recordId: "record-1" }), "/records/record-1");
 });
+
+test("aggregate Other selections do not create a misleading scalar drill filter", () => {
+  const other = { key: "__other__", label: "Other", value: 7, aggregate: true };
+  assert.equal(buildDashboardDrillThroughPath(widget, definitions, {}, other), null);
+  const unfiltered = buildDashboardDrillThroughPath({ ...widget, interaction: { ...widget.interaction, includePointFilter: false } }, definitions, { status: { fieldId: "status", values: ["active"] } }, other);
+  assert.ok(unfiltered.startsWith("/forms/form-1/records?"));
+  assert.deepEqual(readDashboardDrillFilters(new URLSearchParams(unfiltered.split("?")[1])), { status: "active" });
+});

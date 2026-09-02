@@ -4638,6 +4638,31 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     new ChartMetricDefinition(ChartMetricTypes.Count),
     "status",
     Appearance: new DashboardChartAppearanceDefinition(CategorySort: "random"))).Errors.Any(error => error.Code == "chart.category_sort.invalid"), "Charts should reject unsupported category ordering.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(CategoryLimit: 4, GroupRemainingCategories: true))).Valid, "Breakdown charts should accept bounded Top-N categories with Other grouping.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    DateFieldId: ReportableSystemFields.CreatedAt,
+    Appearance: new DashboardChartAppearanceDefinition(CategoryLimit: 4))).Errors.Any(error => error.Code == "chart.category_limit.widget_type_invalid"), "Trend charts should reject category limiting.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(CategoryLimit: 13))).Errors.Any(error => error.Code == "chart.category_limit.range"), "Top-N category limits should be bounded to twelve.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(GroupRemainingCategories: true))).Errors.Any(error => error.Code == "chart.category_limit.other_requires_limit"), "Other grouping should require a category limit.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Average, "amount"),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(CategoryLimit: 4, GroupRemainingCategories: true))).Errors.Any(error => error.Code == "chart.category_limit.other_average_invalid"), "Other grouping should reject non-additive category averages.");
 var axisAppearance = new DashboardChartAppearanceDefinition(Axes: new DashboardChartAxesDefinition(
     new DashboardAxisAppearanceDefinition("Records", 75m),
     new DashboardAxisAppearanceDefinition()));

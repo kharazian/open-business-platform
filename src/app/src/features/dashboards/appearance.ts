@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
 import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardDataLabelContent, DashboardDataLabelPosition, DashboardKpiTarget, DashboardLegendPosition, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", categoryLimit: null, groupRemainingCategories: false, legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [], axes: { left: { ...defaultDashboardChartAppearance.axes.left, ...value?.axes?.left }, right: { ...defaultDashboardChartAppearance.axes.right, ...value?.axes?.right } } };
@@ -58,6 +58,17 @@ export function isDashboardBarOrientationValid(orientation: DashboardBarOrientat
 
 export function isDashboardCategorySortValid(sort: DashboardCategorySort | string, widgetType: ChartWidgetType): boolean {
   return categorySorts.has(sort) && (sort === "source" || ["bar_chart", "choice_breakdown"].includes(widgetType));
+}
+
+export function normalizeDashboardCategoryLimit(limit: number | null, groupRemaining: boolean, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "metric">> = []): { limit: number | null; groupRemaining: boolean } {
+  const breakdown = ["bar_chart", "choice_breakdown"].includes(widgetType);
+  const normalizedLimit = breakdown && Number.isInteger(limit) && limit !== null && limit >= 1 && limit <= 12 ? limit : null;
+  return { limit: normalizedLimit, groupRemaining: normalizedLimit !== null && Boolean(groupRemaining) && series.every((item) => item.metric.type !== "average") };
+}
+
+export function isDashboardCategoryLimitValid(limit: number | null, groupRemaining: boolean, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "metric">> = []): boolean {
+  const normalized = normalizeDashboardCategoryLimit(limit, groupRemaining, widgetType, series);
+  return normalized.limit === limit && normalized.groupRemaining === groupRemaining;
 }
 
 export function isDashboardLegendPositionValid(position: DashboardLegendPosition | string, widgetType: ChartWidgetType): boolean {
