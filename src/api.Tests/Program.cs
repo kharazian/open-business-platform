@@ -4674,6 +4674,16 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Appearance: new DashboardChartAppearanceDefinition(ValuePrefix: "\u202e"))).Errors.Any(error => error.Code == "chart.appearance.value_prefix_invalid"), "Charts should reject invisible Unicode formatting controls in value affixes.");
 AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(ShowTooltips: false, TooltipContent: "series_category_value"))).Valid, "Charts should accept bounded tooltip visibility and content settings.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(TooltipContent: "html"))).Errors.Any(error => error.Code == "chart.appearance.tooltip_content_invalid"), "Charts should reject unsupported tooltip content modes.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
     ChartWidgetTypes.DateTrend,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     DateFieldId: ReportableSystemFields.CreatedAt,

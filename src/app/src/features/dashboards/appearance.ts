@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
-import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardDataLabelContent, DashboardDataLabelPosition, DashboardKpiTarget, DashboardLegendPosition, DashboardReferenceLine, DashboardSeriesColor } from "./types";
+import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardDataLabelContent, DashboardDataLabelPosition, DashboardKpiTarget, DashboardLegendPosition, DashboardReferenceLine, DashboardSeriesColor, DashboardTooltipContent } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, displayUnit: "none", valuePrefix: "", valueSuffix: "", conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", categoryLimit: null, groupRemainingCategories: false, legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, showTooltips: true, tooltipContent: "auto", cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, displayUnit: "none", valuePrefix: "", valueSuffix: "", conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", categoryLimit: null, groupRemainingCategories: false, legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [], axes: { left: { ...defaultDashboardChartAppearance.axes.left, ...value?.axes?.left }, right: { ...defaultDashboardChartAppearance.axes.right, ...value?.axes?.right } } };
@@ -78,6 +78,18 @@ export function isDashboardLegendPositionValid(position: DashboardLegendPosition
 export function isDashboardValueAffixValid(prefix?: string | null, suffix?: string | null): boolean {
   const invisibleCharacters = /[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/;
   return (prefix?.length ?? 0) <= 12 && (suffix?.length ?? 0) <= 24 && !invisibleCharacters.test(prefix ?? "") && !invisibleCharacters.test(suffix ?? "");
+}
+
+const tooltipContents = new Set<DashboardTooltipContent>(["auto", "value", "category_value", "series_category_value"]);
+
+export function isDashboardTooltipContentValid(content: DashboardTooltipContent | string): boolean { return tooltipContents.has(content as DashboardTooltipContent); }
+
+export function getDashboardTooltipText(content: DashboardTooltipContent, categoryLabel: string, seriesLabel: string, formattedValue: string, formattedPercentage: string | null = null, automaticText?: string): string {
+  const value = formattedPercentage ? `${formattedValue} (${formattedPercentage})` : formattedValue;
+  if (content === "value") return value;
+  if (content === "category_value") return `${categoryLabel}: ${value}`;
+  if (content === "series_category_value") return `${seriesLabel} · ${categoryLabel}: ${value}`;
+  return automaticText ?? `${seriesLabel}: ${value}`;
 }
 
 export function normalizeDashboardDataLabelSettings(content: DashboardDataLabelContent | string, position: DashboardDataLabelPosition | string, widgetType: ChartWidgetType, series: Array<Pick<DashboardChartSeriesDefinition, "displayType">>, barMode: DashboardBarMode): { content: DashboardDataLabelContent; position: DashboardDataLabelPosition } {

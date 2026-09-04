@@ -15,7 +15,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardCount, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, isDashboardValueAffixValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardCount, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, getDashboardTooltipText, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, isDashboardTooltipContentValid, isDashboardValueAffixValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -283,6 +283,14 @@ test("dashboard appearance helpers preserve defaults, palettes, accents, and loc
   assert.equal(isDashboardValueAffixValid("", "x".repeat(25)), false);
   assert.equal(isDashboardValueAffixValid("", "\nunsafe"), false);
   assert.equal(isDashboardValueAffixValid("\u202e", ""), false);
+  assert.equal(defaults.showTooltips, true);
+  assert.equal(defaults.tooltipContent, "auto");
+  assert.equal(getDashboardTooltipText("auto", "QAQC", "Actual", "$1.4K", null), "Actual: $1.4K");
+  assert.equal(getDashboardTooltipText("value", "QAQC", "Actual", "$1.4K", "52%"), "$1.4K (52%)");
+  assert.equal(getDashboardTooltipText("category_value", "QAQC", "Actual", "$1.4K"), "QAQC: $1.4K");
+  assert.equal(getDashboardTooltipText("series_category_value", "QAQC", "Actual", "$1.4K"), "Actual · QAQC: $1.4K");
+  assert.equal(isDashboardTooltipContentValid("series_category_value"), true);
+  assert.equal(isDashboardTooltipContentValid("html"), false);
 });
 
 test("KPI conditional formatting evaluates ordered bounded rules with a static fallback", () => {

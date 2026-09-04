@@ -71,6 +71,11 @@ public static class DashboardDisplayUnits
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "auto", "thousands", "millions", "billions" };
 }
 
+public static class DashboardTooltipContents
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "auto", "value", "category_value", "series_category_value" };
+}
+
 public static class DashboardCardAccents
 {
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "primary", "info", "success", "warning", "danger", "violet" };
@@ -164,7 +169,9 @@ public sealed record DashboardChartAppearanceDefinition(
     DashboardChartAxesDefinition? Axes = null,
     string DisplayUnit = "none",
     string ValuePrefix = "",
-    string ValueSuffix = "");
+    string ValueSuffix = "",
+    bool ShowTooltips = true,
+    string TooltipContent = "auto");
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

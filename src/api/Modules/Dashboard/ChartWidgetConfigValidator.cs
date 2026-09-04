@@ -99,6 +99,7 @@ public static class ChartWidgetConfigValidator
         if (!DashboardCardAccents.Supported.Contains(Normalize(appearance.CardAccent))) errors.Add(new("appearance.cardAccent", "chart.appearance.accent_invalid", "Card accent is not supported."));
         if (!DashboardNumberFormats.Supported.Contains(Normalize(appearance.NumberFormat))) errors.Add(new("appearance.numberFormat", "chart.appearance.number_format_invalid", "Number format is not supported."));
         if (!DashboardDisplayUnits.Supported.Contains(Normalize(appearance.DisplayUnit))) errors.Add(new("appearance.displayUnit", "chart.appearance.display_unit_invalid", "Display unit is not supported."));
+        if (!DashboardTooltipContents.Supported.Contains(Normalize(appearance.TooltipContent))) errors.Add(new("appearance.tooltipContent", "chart.appearance.tooltip_content_invalid", "Tooltip content is not supported."));
         ValidateValueAffixes(appearance.ValuePrefix, appearance.ValueSuffix, errors);
         if (appearance.DecimalPlaces is < 0 or > 4) errors.Add(new("appearance.decimalPlaces", "chart.appearance.decimals_range", "Decimal places must be between zero and four."));
         var currencyCode = Normalize(appearance.CurrencyCode);
