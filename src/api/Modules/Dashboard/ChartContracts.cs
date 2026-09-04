@@ -162,7 +162,9 @@ public sealed record DashboardChartAppearanceDefinition(
     string DataLabelContent = "auto",
     string DataLabelPosition = "auto",
     DashboardChartAxesDefinition? Axes = null,
-    string DisplayUnit = "none");
+    string DisplayUnit = "none",
+    string ValuePrefix = "",
+    string ValueSuffix = "");
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

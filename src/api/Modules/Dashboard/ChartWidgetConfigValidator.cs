@@ -99,6 +99,7 @@ public static class ChartWidgetConfigValidator
         if (!DashboardCardAccents.Supported.Contains(Normalize(appearance.CardAccent))) errors.Add(new("appearance.cardAccent", "chart.appearance.accent_invalid", "Card accent is not supported."));
         if (!DashboardNumberFormats.Supported.Contains(Normalize(appearance.NumberFormat))) errors.Add(new("appearance.numberFormat", "chart.appearance.number_format_invalid", "Number format is not supported."));
         if (!DashboardDisplayUnits.Supported.Contains(Normalize(appearance.DisplayUnit))) errors.Add(new("appearance.displayUnit", "chart.appearance.display_unit_invalid", "Display unit is not supported."));
+        ValidateValueAffixes(appearance.ValuePrefix, appearance.ValueSuffix, errors);
         if (appearance.DecimalPlaces is < 0 or > 4) errors.Add(new("appearance.decimalPlaces", "chart.appearance.decimals_range", "Decimal places must be between zero and four."));
         var currencyCode = Normalize(appearance.CurrencyCode);
         if (currencyCode.Length != 3 || !currencyCode.All(char.IsAsciiLetter)) errors.Add(new("appearance.currencyCode", "chart.appearance.currency_invalid", "Currency code must contain three letters."));
@@ -112,6 +113,13 @@ public static class ChartWidgetConfigValidator
         ValidateLegendPosition(appearance.LegendPosition, widgetType, errors);
         ValidateDataLabels(appearance.DataLabelContent, appearance.DataLabelPosition, widgetType, series, appearance.BarMode, errors);
         ValidateAxes(appearance.Axes, widgetType, series, appearance.ReferenceLines, appearance.BarMode, errors);
+    }
+
+    private static void ValidateValueAffixes(string? prefix, string? suffix, ICollection<ChartValidationError> errors)
+    {
+        static bool IsInvisible(char character) => char.IsControl(character) || System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) == System.Globalization.UnicodeCategory.Format;
+        if ((prefix?.Length ?? 0) > 12 || (prefix ?? string.Empty).Any(IsInvisible)) errors.Add(new("appearance.valuePrefix", "chart.appearance.value_prefix_invalid", "Value prefix must contain at most 12 printable characters."));
+        if ((suffix?.Length ?? 0) > 24 || (suffix ?? string.Empty).Any(IsInvisible)) errors.Add(new("appearance.valueSuffix", "chart.appearance.value_suffix_invalid", "Value suffix must contain at most 24 printable characters."));
     }
 
     private static void ValidateCategoryLimit(int? limit, bool groupRemaining, string widgetType, ChartMetricDefinition? primaryMetric, IReadOnlyList<DashboardChartSeriesDefinition>? series, ICollection<ChartValidationError> errors)

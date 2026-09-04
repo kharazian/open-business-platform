@@ -18,4 +18,4 @@ Let dashboard authors present large values compactly without changing the permis
 
 ## Boundaries
 
-Display units scale only rendered text. They do not change stored records, analytics requests or responses, sorting, thresholds, reference values, permissions, or database schema. Arbitrary suffixes and formatter functions remain unsupported.
+Display units scale only rendered text. They do not change stored records, analytics requests or responses, sorting, thresholds, reference values, permissions, or database schema. Arbitrary formatter functions remain unsupported; bounded text affixes are defined separately by Task 023.

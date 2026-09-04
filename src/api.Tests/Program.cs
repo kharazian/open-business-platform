@@ -4654,6 +4654,26 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Appearance: new DashboardChartAppearanceDefinition(DisplayUnit: "trillions"))).Errors.Any(error => error.Code == "chart.appearance.display_unit_invalid"), "Charts should reject unsupported display units.");
 AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(ValuePrefix: "~", ValueSuffix: " kg"))).Valid, "Charts should accept bounded printable value affixes.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(ValuePrefix: new string('x', 13)))).Errors.Any(error => error.Code == "chart.appearance.value_prefix_invalid"), "Charts should reject prefixes longer than twelve characters.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(ValueSuffix: "unsafe\nunit"))).Errors.Any(error => error.Code == "chart.appearance.value_suffix_invalid"), "Charts should reject control characters in value suffixes.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(ValuePrefix: "\u202e"))).Errors.Any(error => error.Code == "chart.appearance.value_prefix_invalid"), "Charts should reject invisible Unicode formatting controls in value affixes.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
     ChartWidgetTypes.DateTrend,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     DateFieldId: ReportableSystemFields.CreatedAt,
