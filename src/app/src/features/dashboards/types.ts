@@ -48,6 +48,7 @@ export type DashboardAxisAppearance = { title: string; maximum: number | null };
 export type DashboardChartAxes = { left: DashboardAxisAppearance; right: DashboardAxisAppearance };
 export type DashboardChartPalette = "theme" | "cool" | "warm" | "mono";
 export type DashboardNumberFormat = "auto" | "number" | "currency" | "percent";
+export type DashboardDisplayUnit = "none" | "auto" | "thousands" | "millions" | "billions";
 export type DashboardCardAccent = "none" | DashboardSeriesColor;
 export type DashboardConditionalOperator = "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "equal";
 export type DashboardConditionalRule = { id: string; operator: DashboardConditionalOperator; value: number; accent: DashboardSeriesColor; label?: string | null };
@@ -56,7 +57,7 @@ export type DashboardKpiGoalDirection = "higher_is_better" | "lower_is_better";
 export type DashboardKpiTarget = { enabled: boolean; value: number; label: string; direction: DashboardKpiGoalDirection };
 export type DashboardKpiComparisonPeriod = "last_7_days" | "last_30_days" | "last_90_days";
 export type DashboardKpiComparison = { enabled: boolean; dateFieldId: string; period: DashboardKpiComparisonPeriod };
-export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[]; barMode: DashboardBarMode; barOrientation: DashboardBarOrientation; categorySort: DashboardCategorySort; categoryLimit: number | null; groupRemainingCategories: boolean; legendPosition: DashboardLegendPosition; dataLabelContent: DashboardDataLabelContent; dataLabelPosition: DashboardDataLabelPosition; axes: DashboardChartAxes };
+export type DashboardChartAppearance = { palette: DashboardChartPalette; showLegend: boolean; showDataLabels: boolean; showGridlines: boolean; cardAccent: DashboardCardAccent; numberFormat: DashboardNumberFormat; currencyCode: string; decimalPlaces: number; displayUnit: DashboardDisplayUnit; conditionalFormatting: DashboardConditionalFormatting; kpiTarget: DashboardKpiTarget; referenceLines: DashboardReferenceLine[]; barMode: DashboardBarMode; barOrientation: DashboardBarOrientation; categorySort: DashboardCategorySort; categoryLimit: number | null; groupRemainingCategories: boolean; legendPosition: DashboardLegendPosition; dataLabelContent: DashboardDataLabelContent; dataLabelPosition: DashboardDataLabelPosition; axes: DashboardChartAxes };
 
 export type ChartWidgetConfig = {
   widgetType: ChartWidgetType;

@@ -66,6 +66,11 @@ public static class DashboardNumberFormats
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "auto", "number", "currency", "percent" };
 }
 
+public static class DashboardDisplayUnits
+{
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "auto", "thousands", "millions", "billions" };
+}
+
 public static class DashboardCardAccents
 {
     public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { "none", "primary", "info", "success", "warning", "danger", "violet" };
@@ -156,7 +161,8 @@ public sealed record DashboardChartAppearanceDefinition(
     string LegendPosition = "top",
     string DataLabelContent = "auto",
     string DataLabelPosition = "auto",
-    DashboardChartAxesDefinition? Axes = null);
+    DashboardChartAxesDefinition? Axes = null,
+    string DisplayUnit = "none");
 
 public sealed record ChartWidgetConfigDefinition(
     string WidgetType,

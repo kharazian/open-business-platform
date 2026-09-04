@@ -15,7 +15,7 @@ import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardL
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
 import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
-import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
+import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardCount, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
 import { appendBoundedCanvasHistory, canDuplicateDashboardSection, dashboardCanvasQualityLimits, getAdjacentDashboardSectionId, moveDashboardWidgetWithinSection, runDashboardTasksWithConcurrency, toggleDashboardWidgetSelection } from "./canvasProductivity.ts";
 import { readDashboardViewerUrlState, writeDashboardViewerUrlState } from "./viewerState.ts";
@@ -272,6 +272,10 @@ test("dashboard appearance helpers preserve defaults, palettes, accents, and loc
   assert.equal(getDashboardAccentColor("danger", "warm"), "#b91c1c");
   assert.equal(formatDashboardValue(1234.5, { ...defaults, numberFormat: "currency", currencyCode: "CAD", decimalPlaces: 2 }, "en-CA"), "$1,234.50");
   assert.equal(formatDashboardValue(92.5, { ...defaults, numberFormat: "percent", decimalPlaces: 1 }, "en-CA"), "92.5%");
+  assert.equal(formatDashboardValue(1234.5, { ...defaults, displayUnit: "auto", decimalPlaces: 1 }, "en-CA"), "1.2K");
+  assert.equal(formatDashboardValue(2_500_000, { ...defaults, numberFormat: "currency", displayUnit: "millions", currencyCode: "CAD", decimalPlaces: 1 }, "en-CA"), "$2.5M");
+  assert.equal(formatDashboardValue(125_000, { ...defaults, numberFormat: "percent", displayUnit: "thousands", decimalPlaces: 0 }, "en-CA"), "125K%");
+  assert.equal(formatDashboardCount(1_250_000, { ...defaults, numberFormat: "currency", displayUnit: "auto", decimalPlaces: 1 }, "en-CA"), "1.3M");
 });
 
 test("KPI conditional formatting evaluates ordered bounded rules with a static fallback", () => {

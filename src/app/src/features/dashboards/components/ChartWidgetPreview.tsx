@@ -1,7 +1,7 @@
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Table, type TableColumn } from "../../../components/ui/Table";
 import { useLocalization } from "../../../context/LocalizationContext";
-import { formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
+import { formatDashboardCount, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, resolveDashboardChartAppearance } from "../appearance";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, resolveDashboardAxisMaximum } from "../chartPresentation";
 import type { ChartTableRow, ChartWidgetPreview as ChartWidgetPreviewData, DashboardAnalyticsResponse, DashboardChartAppearance, DashboardLegendPosition, DashboardSeriesColor } from "../types";
 import type { DashboardPointSelection } from "../drillThrough";
@@ -17,7 +17,7 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   const conditionalResult = getDashboardConditionalResult(appearance, preview.series[0]?.value);
   const targetSummary = getDashboardKpiTargetSummary(appearance, preview.series[0]?.value, effectiveLocale);
   const formatNumber = (value: number) => formatDashboardValue(value, appearance, effectiveLocale);
-  const formatCount = (value: number) => new Intl.NumberFormat(effectiveLocale).format(value);
+  const formatCount = (value: number) => formatDashboardCount(value, appearance, effectiveLocale);
   const formatMetric = preview.metric.type === "count" ? formatCount : formatNumber;
   if ("dataSeries" in preview && (preview.dataSeries?.length ?? 0) > 1 && preview.widgetType === "summary") {
     return <MultiSeriesSummary appearance={appearance} comparison={preview.comparison} conditionalResult={conditionalResult} formatCount={formatCount} formatNumber={formatNumber} interactionLabel={interactionLabel} onSelect={onSelect ? select : undefined} selectedKey={selectedKey} series={preview.dataSeries!} targetSummary={targetSummary} />;

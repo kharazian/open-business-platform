@@ -4644,6 +4644,16 @@ AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetC
     "status",
     Appearance: new DashboardChartAppearanceDefinition(CategoryLimit: 4, GroupRemainingCategories: true))).Valid, "Breakdown charts should accept bounded Top-N categories with Other grouping.");
 AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(DisplayUnit: "millions"))).Valid, "Charts should accept bounded display-unit scaling.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.ChoiceBreakdown,
+    new ChartMetricDefinition(ChartMetricTypes.Count),
+    "status",
+    Appearance: new DashboardChartAppearanceDefinition(DisplayUnit: "trillions"))).Errors.Any(error => error.Code == "chart.appearance.display_unit_invalid"), "Charts should reject unsupported display units.");
+AssertTrue(ChartWidgetConfigValidator.Validate(reportingSchema, new ChartWidgetConfigDefinition(
     ChartWidgetTypes.DateTrend,
     new ChartMetricDefinition(ChartMetricTypes.Count),
     DateFieldId: ReportableSystemFields.CreatedAt,

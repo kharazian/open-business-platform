@@ -1,7 +1,7 @@
 import { isDashboardCircularDisplayType } from "./chartPresentation";
 import type { ChartWidgetType, DashboardBarMode, DashboardBarOrientation, DashboardCardAccent, DashboardCategorySort, DashboardChartAppearance, DashboardChartAxes, DashboardChartPalette, DashboardChartSeriesDefinition, DashboardConditionalFormatting, DashboardConditionalOperator, DashboardDataLabelContent, DashboardDataLabelPosition, DashboardKpiTarget, DashboardLegendPosition, DashboardReferenceLine, DashboardSeriesColor } from "./types";
 
-export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", categoryLimit: null, groupRemainingCategories: false, legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
+export const defaultDashboardChartAppearance: DashboardChartAppearance = { palette: "theme", showLegend: true, showDataLabels: false, showGridlines: true, cardAccent: "none", numberFormat: "auto", currencyCode: "CAD", decimalPlaces: 0, displayUnit: "none", conditionalFormatting: { enabled: false, rules: [] }, kpiTarget: { enabled: false, value: 0, label: "Target", direction: "higher_is_better" }, referenceLines: [], barMode: "grouped", barOrientation: "vertical", categorySort: "source", categoryLimit: null, groupRemainingCategories: false, legendPosition: "top", dataLabelContent: "auto", dataLabelPosition: "auto", axes: { left: { title: "", maximum: null }, right: { title: "", maximum: null } } };
 
 export function resolveDashboardChartAppearance(value?: Partial<DashboardChartAppearance> | null): DashboardChartAppearance {
   return { ...defaultDashboardChartAppearance, ...value, conditionalFormatting: { ...defaultDashboardChartAppearance.conditionalFormatting, ...value?.conditionalFormatting, rules: value?.conditionalFormatting?.rules?.map((rule) => ({ ...rule })) ?? [] }, kpiTarget: { ...defaultDashboardChartAppearance.kpiTarget, ...value?.kpiTarget }, referenceLines: value?.referenceLines?.map((line) => ({ ...line })) ?? [], axes: { left: { ...defaultDashboardChartAppearance.axes.left, ...value?.axes?.left }, right: { ...defaultDashboardChartAppearance.axes.right, ...value?.axes?.right } } };
@@ -162,9 +162,15 @@ export function getDashboardAccentColor(accent?: DashboardCardAccent | null, pal
 }
 
 export function formatDashboardValue(value: number, appearance: DashboardChartAppearance, locale: string): string {
-  if (appearance.numberFormat === "auto") return new Intl.NumberFormat(locale).format(value);
+  if (appearance.numberFormat === "auto" && appearance.displayUnit === "none") return new Intl.NumberFormat(locale).format(value);
   const options: Intl.NumberFormatOptions = { minimumFractionDigits: appearance.decimalPlaces, maximumFractionDigits: appearance.decimalPlaces };
   if (appearance.numberFormat === "currency") { options.style = "currency"; options.currency = appearance.currencyCode.toUpperCase(); }
-  if (appearance.numberFormat === "percent") return `${new Intl.NumberFormat(locale, options).format(value)}%`;
-  return new Intl.NumberFormat(locale, options).format(value);
+  if (appearance.displayUnit === "auto") options.notation = "compact";
+  const fixedUnit = appearance.displayUnit === "thousands" ? { divisor: 1_000, suffix: "K" } : appearance.displayUnit === "millions" ? { divisor: 1_000_000, suffix: "M" } : appearance.displayUnit === "billions" ? { divisor: 1_000_000_000, suffix: "B" } : null;
+  const formatted = new Intl.NumberFormat(locale, options).format(fixedUnit ? value / fixedUnit.divisor : value);
+  return `${formatted}${fixedUnit?.suffix ?? ""}${appearance.numberFormat === "percent" ? "%" : ""}`;
+}
+
+export function formatDashboardCount(value: number, appearance: DashboardChartAppearance, locale: string): string {
+  return formatDashboardValue(value, { ...appearance, numberFormat: "number" }, locale);
 }
