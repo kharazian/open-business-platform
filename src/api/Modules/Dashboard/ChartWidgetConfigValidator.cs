@@ -38,6 +38,14 @@ public static class ChartWidgetConfigValidator
         {
             errors.Add(new ChartValidationError("dateGranularity", "chart.date.granularity_invalid", "Choose day, week, month, quarter, or year for date grouping."));
         }
+        if (!DashboardEmptyPeriodBehaviors.Supported.Contains(Normalize(config.EmptyPeriodBehavior)))
+        {
+            errors.Add(new ChartValidationError("emptyPeriodBehavior", "chart.date.empty_period_behavior_invalid", "Choose omit, zero, or gap for empty trend periods."));
+        }
+        if (!DashboardNullValueBehaviors.Supported.Contains(Normalize(config.NullValueBehavior)))
+        {
+            errors.Add(new ChartValidationError("nullValueBehavior", "chart.metric.null_value_behavior_invalid", "Choose ignore or zero for null numeric values."));
+        }
 
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);

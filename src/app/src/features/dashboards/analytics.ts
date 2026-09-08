@@ -7,6 +7,8 @@ import type {
   DashboardAnalyticsResponse,
   DashboardAnalyticsWidgetType,
   DashboardDateGranularity,
+  DashboardEmptyPeriodBehavior,
+  DashboardNullValueBehavior,
   DashboardSettings,
   DashboardVisibility,
   SavedDashboardWidget
@@ -20,6 +22,8 @@ export type DashboardAnalyticsBuilderConfig = {
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
   dateGranularity?: DashboardDateGranularity;
+  emptyPeriodBehavior?: DashboardEmptyPeriodBehavior;
+  nullValueBehavior?: DashboardNullValueBehavior;
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
@@ -41,6 +45,8 @@ export function buildChartConfigFromDashboardAnalytics(config: DashboardAnalytic
     groupByFieldId: config.widgetType === "breakdown" ? normalizeOptional(config.groupByFieldId) : null,
     dateFieldId: config.widgetType === "trend" ? normalizeOptional(config.dateFieldId) : null,
     dateGranularity: config.widgetType === "trend" ? config.dateGranularity ?? "day" : "day",
+    emptyPeriodBehavior: config.widgetType === "trend" ? config.emptyPeriodBehavior ?? "omit" : "omit",
+    nullValueBehavior: config.nullValueBehavior ?? "ignore",
     columns: config.widgetType === "table" ? normalizeColumns(config.columns) : [],
     limit: config.limit ?? 10,
     reportId: config.reportId || null,
@@ -59,6 +65,8 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     groupByFieldId: chart.groupByFieldId ?? null,
     dateFieldId: chart.dateFieldId ?? null,
     dateGranularity: chart.dateGranularity ?? "day",
+    emptyPeriodBehavior: chart.emptyPeriodBehavior ?? "omit",
+    nullValueBehavior: chart.nullValueBehavior ?? "ignore",
     columns: normalizeColumns(chart.columns),
     limit: chart.limit ?? 10,
     filters: mergeDashboardAnalyticsFilters(chart.fixedFilters, filters),

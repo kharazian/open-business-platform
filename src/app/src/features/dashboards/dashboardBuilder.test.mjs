@@ -13,7 +13,7 @@ import {
 } from "./analytics.ts";
 import { getDashboardWidgetGridClass, moveDashboardLayoutWidget, orderDashboardLayoutWidgets } from "./layout.ts";
 import { cloneDashboardWidgetForEditing, isDashboardAnalyticsWidgetDraftValid } from "./components/DashboardWidgetPropertiesDrawer.tsx";
-import { shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
+import { getPresentPointSegments, shouldRenderConfiguredSeriesChart } from "./components/ChartWidgetPreview.tsx";
 import { getDashboardAxisMaximum, getDashboardCircularSegments, getDashboardDataLabelText, getDashboardOrderedCategoryKeys, getDashboardPresentedSeries, getDashboardStackedBarSegment, hasDashboardNegativeSeriesValues, isDashboardAxisClipped, isDashboardCircularDisplayType, isDashboardSeriesPresentationValid, resolveDashboardAxisMaximum } from "./chartPresentation.ts";
 import { cloneDashboardChartAppearance, defaultDashboardChartAppearance, formatDashboardCount, formatDashboardValue, getDashboardAccentColor, getDashboardConditionalResult, getDashboardEffectiveCardAccent, getDashboardKpiTargetSummary, getDashboardSeriesColor, getDashboardTooltipText, isDashboardBarModeValid, isDashboardBarOrientationValid, isDashboardCategoryLimitValid, isDashboardCategorySortValid, isDashboardChartAxesValid, isDashboardConditionalFormattingValid, isDashboardDataLabelSettingsValid, isDashboardKpiTargetValid, isDashboardLegendPositionValid, isDashboardReferenceLinesValid, isDashboardTooltipContentValid, isDashboardValueAffixValid, normalizeDashboardCategoryLimit, normalizeDashboardChartAxes, normalizeDashboardDataLabelSettings, resolveDashboardChartAppearance } from "./appearance.ts";
 import { filterDashboardVisualizations, getVisualizationAvailability, readRecentDashboardVisualizations, saveRecentDashboardVisualization } from "./addWidgetWizard.ts";
@@ -246,6 +246,8 @@ test("widget property drafts clone nested config and validate permitted fields",
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["active"], start: "2026-01-01" }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, dateGranularity: "fortnight" } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, emptyPeriodBehavior: "interpolate" } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, nullValueBehavior: "coalesce" } }, fields), false);
   const comparisonWidget = { ...widget, chart: { ...widget.chart, widgetType: "number_card", groupByFieldId: null, kpiComparison: { enabled: true, dateFieldId: "event_date", period: "last_30_days" } } };
   assert.equal(isDashboardAnalyticsWidgetDraftValid(comparisonWidget, fields), true);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...comparisonWidget, chart: { ...comparisonWidget.chart, kpiComparison: { enabled: true, dateFieldId: "status", period: "last_30_days" } } }, fields), false);
@@ -608,6 +610,8 @@ test("dashboard analytics helpers preserve saved chart compatibility", () => {
   assert.equal(request.dateFieldId, null);
   assert.deepEqual(request.columns, []);
   assert.equal(request.dateGranularity, "day");
+  assert.equal(request.emptyPeriodBehavior, "omit");
+  assert.equal(request.nullValueBehavior, "ignore");
 
   const trend = buildChartConfigFromDashboardAnalytics({
     widgetType: "trend",
@@ -617,6 +621,15 @@ test("dashboard analytics helpers preserve saved chart compatibility", () => {
   });
   assert.equal(trend.dateGranularity, "quarter");
   assert.equal(buildDashboardAnalyticsRequest("form-1", trend).dateGranularity, "quarter");
+  const missingSettingsRequest = buildDashboardAnalyticsRequest("form-1", { ...trend, emptyPeriodBehavior: "gap", nullValueBehavior: "zero" });
+  assert.equal(missingSettingsRequest.emptyPeriodBehavior, "gap");
+  assert.equal(missingSettingsRequest.nullValueBehavior, "zero");
+});
+
+test("trend presentation splits line segments around explicit missing points", () => {
+  assert.deepEqual(getPresentPointSegments([
+    { isMissing: false }, { isMissing: true }, { isMissing: false }, {}, undefined, { isMissing: false }
+  ]), [[0], [2, 3], [5]]);
 });
 
 test("dashboard analytics requests preserve fixed-filter precedence", () => {

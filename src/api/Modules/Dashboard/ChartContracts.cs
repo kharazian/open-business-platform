@@ -50,6 +50,21 @@ public static class DashboardDateGranularities
     };
 }
 
+public static class DashboardEmptyPeriodBehaviors
+{
+    public const string Omit = "omit";
+    public const string Zero = "zero";
+    public const string Gap = "gap";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Omit, Zero, Gap };
+}
+
+public static class DashboardNullValueBehaviors
+{
+    public const string Ignore = "ignore";
+    public const string Zero = "zero";
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal) { Ignore, Zero };
+}
+
 public sealed record ChartMetricDefinition(string Type, string? FieldId = null);
 
 public static class DashboardSeriesDisplayTypes
@@ -203,13 +218,15 @@ public sealed record ChartWidgetConfigDefinition(
     DashboardChartAppearanceDefinition? Appearance = null,
     IReadOnlyList<DashboardAnalyticsFilterDefinition>? FixedFilters = null,
     DashboardKpiComparisonDefinition? KpiComparison = null,
-    string DateGranularity = DashboardDateGranularities.Day);
+    string DateGranularity = DashboardDateGranularities.Day,
+    string EmptyPeriodBehavior = DashboardEmptyPeriodBehaviors.Omit,
+    string NullValueBehavior = DashboardNullValueBehaviors.Ignore);
 
 public sealed record ChartDateGroupingContext(
     string TimeZoneId = "UTC",
     int FirstDayOfWeek = 1);
 
-public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
+public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value, bool IsMissing = false);
 
 public sealed record ChartTableColumnDto(string FieldId, string Label, string Type, string Source);
 

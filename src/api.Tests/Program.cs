@@ -5076,6 +5076,41 @@ AssertFalse(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, new Chart
 AssertFalse(DashboardAnalyticsRequestValidator.Validate(sampleDashboardSchema, new DashboardAnalyticsRequest(
     DashboardAnalyticsWidgetTypes.Trend, new DashboardAnalyticsSourceDefinition(DemoDataSeeder.BusinessPerformanceFormId), new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Count), DateFieldId: "event_date", DateGranularity: "fortnight")).Valid,
     "Dashboard analytics requests should reject unsupported date granularities.");
+var sparseTrendRecords = new[]
+{
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = DateTimeOffset.UtcNow, ValuesJson = SerializeHarnessJson(new Dictionary<string, object?> { ["event_date"] = "2025-01-15", ["amount"] = 10m }) },
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = DateTimeOffset.UtcNow, ValuesJson = SerializeHarnessJson(new Dictionary<string, object?> { ["event_date"] = "2025-01-20", ["amount"] = null }) },
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = DateTimeOffset.UtcNow, ValuesJson = SerializeHarnessJson(new Dictionary<string, object?> { ["event_date"] = "2025-03-15", ["amount"] = 30m }) }
+};
+var omitEmptyMonths = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", DateGranularity: DashboardDateGranularities.Month), sampleDashboardSchema, sparseTrendRecords);
+var zeroEmptyMonths = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", DateGranularity: DashboardDateGranularities.Month, EmptyPeriodBehavior: DashboardEmptyPeriodBehaviors.Zero), sampleDashboardSchema, sparseTrendRecords);
+var gapEmptyMonths = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", DateGranularity: DashboardDateGranularities.Month, EmptyPeriodBehavior: DashboardEmptyPeriodBehaviors.Gap), sampleDashboardSchema, sparseTrendRecords);
+AssertEqual(2, omitEmptyMonths.Series.Count, "Omit behavior should return only periods with usable values.");
+AssertEqual(3, zeroEmptyMonths.Series.Count, "Zero behavior should fill bounded calendar periods between the first and latest bucket.");
+AssertEqual(0m, zeroEmptyMonths.Series.Single(point => point.Key == "2025-02").Value, "Zero-filled periods should expose a numeric zero.");
+AssertFalse(zeroEmptyMonths.Series.Single(point => point.Key == "2025-02").IsMissing, "Zero-filled periods should be presented as real zero values.");
+AssertTrue(gapEmptyMonths.Series.Single(point => point.Key == "2025-02").IsMissing, "Gap-filled periods should preserve explicit no-data metadata.");
+var ignoredNullAverage = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Average, "amount")), sampleDashboardSchema, sparseTrendRecords.Take(2).ToArray());
+var zeroNullAverage = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Average, "amount"), NullValueBehavior: DashboardNullValueBehaviors.Zero), sampleDashboardSchema, sparseTrendRecords.Take(2).ToArray());
+AssertEqual(10m, ignoredNullAverage.Series.Single().Value, "Ignored nulls should not enter the average denominator.");
+AssertEqual(5m, zeroNullAverage.Series.Single().Value, "Zero-valued nulls should enter the average denominator.");
+var ignoredNullKpi = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount")), sampleDashboardSchema, sparseTrendRecords.Skip(1).Take(1).ToArray());
+var zeroNullKpi = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), NullValueBehavior: DashboardNullValueBehaviors.Zero), sampleDashboardSchema, sparseTrendRecords.Skip(1).Take(1).ToArray());
+AssertTrue(ignoredNullKpi.Series.Single().IsMissing, "An ignored all-null numeric KPI should be marked as no data rather than a measured zero.");
+AssertFalse(zeroNullKpi.Series.Single().IsMissing, "A zero-valued null numeric KPI should remain an explicit measured zero.");
+AssertFalse(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Count), DateFieldId: "event_date", EmptyPeriodBehavior: "interpolate")).Valid,
+    "Chart configs should reject unsupported empty-period behaviors.");
+AssertFalse(DashboardAnalyticsRequestValidator.Validate(sampleDashboardSchema, new DashboardAnalyticsRequest(
+    DashboardAnalyticsWidgetTypes.Summary, new DashboardAnalyticsSourceDefinition(DemoDataSeeder.BusinessPerformanceFormId), new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Sum, "amount"), NullValueBehavior: "coalesce")).Valid,
+    "Dashboard analytics requests should reject unsupported null-value behaviors.");
 var filteredSample = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
     new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Count), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords,
     dashboardFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }), new DashboardAnalyticsFilterDefinition("event_date", Start: "2025-01-01", End: "2025-07-01") });

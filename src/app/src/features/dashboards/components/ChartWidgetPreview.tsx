@@ -14,8 +14,9 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
   const select = (selection: DashboardPointSelection) => { setSelectedKey(selection.recordId ?? selection.key); onSelect?.(selection); };
   const { effectiveLocale } = useLocalization();
   const appearance = resolveDashboardChartAppearance(appearanceInput);
-  const conditionalResult = getDashboardConditionalResult(appearance, preview.series[0]?.value);
-  const targetSummary = getDashboardKpiTargetSummary(appearance, preview.series[0]?.value, effectiveLocale);
+  const primaryValue = preview.series[0]?.isMissing ? null : preview.series[0]?.value;
+  const conditionalResult = getDashboardConditionalResult(appearance, primaryValue);
+  const targetSummary = getDashboardKpiTargetSummary(appearance, primaryValue, effectiveLocale);
   const formatNumber = (value: number) => formatDashboardValue(value, appearance, effectiveLocale);
   const formatCount = (value: number) => formatDashboardCount(value, appearance, effectiveLocale);
   const formatMetric = preview.metric.type === "count" ? formatCount : formatNumber;
@@ -31,12 +32,14 @@ export function ChartWidgetPreview({ appearance: appearanceInput, interactionLab
 
   if (preview.widgetType === "number_card" || preview.widgetType === "summary") {
     const point = preview.series[0];
-    const accent = getDashboardAccentColor(getDashboardEffectiveCardAccent(appearance, point?.value), appearance.palette);
+    const missing = Boolean(point?.isMissing);
+    const formatted = missing ? "No data" : formatNumber(point?.value ?? 0);
+    const accent = getDashboardAccentColor(getDashboardEffectiveCardAccent(appearance, missing ? null : point?.value), appearance.palette);
 
     return (
-      <button aria-label={onSelect ? `${interactionLabel}: ${point?.label ?? "Records"}, ${formatNumber(point?.value ?? 0)}` : undefined} className={`w-full rounded-lg border border-border bg-muted/30 p-4 text-left transition ${onSelect ? "cursor-pointer hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? "summary") ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} onClick={() => select({ key: point?.key ?? "summary", label: point?.label ?? "Records", value: point?.value ?? 0 })} style={accent ? { borderLeftColor: accent, borderLeftWidth: 5 } : undefined} title={appearance.showTooltips ? getDashboardTooltipText(appearance.tooltipContent, point?.label ?? "Records", point?.label ?? "Records", formatNumber(point?.value ?? 0), null, `${point?.label ?? "Records"}: ${formatNumber(point?.value ?? 0)}`) : undefined} type="button">
+      <button aria-label={onSelect && !missing ? `${interactionLabel}: ${point?.label ?? "Records"}, ${formatted}` : undefined} className={`w-full rounded-lg border border-border bg-muted/30 p-4 text-left transition ${onSelect && !missing ? "cursor-pointer hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? "summary") ? "ring-2 ring-primary" : ""}`} disabled={!onSelect || missing} onClick={() => select({ key: point?.key ?? "summary", label: point?.label ?? "Records", value: point?.value ?? 0 })} style={accent ? { borderLeftColor: accent, borderLeftWidth: 5 } : undefined} title={appearance.showTooltips ? `${point?.label ?? "Records"}: ${formatted}` : undefined} type="button">
         <p className="break-words text-sm font-bold text-muted-foreground">{point?.label ?? "Records"}</p>
-        <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatNumber(point?.value ?? 0)}</p>
+        <p className="mt-2 break-words text-3xl font-bold text-foreground tabular-nums">{formatted}</p>
         <ConditionalStatus accent={accent} label={conditionalResult?.label} />
         <KpiTargetSummary value={targetSummary} />
         <KpiComparisonSummary formatValue={formatMetric} value={"comparison" in preview ? preview.comparison : null} />
@@ -51,9 +54,19 @@ export function shouldRenderConfiguredSeriesChart(preview: WidgetPreviewData): p
   return "dataSeries" in preview && preview.widgetType !== "summary" && preview.widgetType !== "table" && Boolean(preview.dataSeries?.some((series) => series.points.length > 0));
 }
 
+export function getPresentPointSegments(points: Array<{ isMissing?: boolean } | undefined>): number[][] {
+  const segments: number[][] = [];
+  for (const [index, point] of points.entries()) {
+    if (!point || point.isMissing) continue;
+    if (index === 0 || !points[index - 1] || points[index - 1]?.isMissing) segments.push([]);
+    segments.at(-1)!.push(index);
+  }
+  return segments;
+}
+
 function MultiSeriesSummary({ appearance, comparison, conditionalResult, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey, targetSummary }: { appearance: DashboardChartAppearance; comparison?: DashboardAnalyticsResponse["comparison"]; conditionalResult: ReturnType<typeof getDashboardConditionalResult>; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null; targetSummary: ReturnType<typeof getDashboardKpiTargetSummary> }) {
   const accent = conditionalResult ? getDashboardAccentColor(conditionalResult.accent, appearance.palette) : undefined;
-  return <div className="grid gap-3"><ConditionalStatus accent={accent} label={conditionalResult?.label} /><KpiTargetSummary value={targetSummary} /><KpiComparisonSummary formatValue={series[0]?.metric.type === "count" ? formatCount : formatNumber} value={comparison} /><div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0); return <button aria-label={onSelect ? `${interactionLabel}: ${item.label}, ${formatted}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} title={appearance.showTooltips ? getDashboardTooltipText(appearance.tooltipContent, item.label, item.label, formatted, null, `${item.label}: ${formatted}`) : undefined} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{formatted}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div></div>;
+  return <div className="grid gap-3"><ConditionalStatus accent={accent} label={conditionalResult?.label} /><KpiTargetSummary value={targetSummary} /><KpiComparisonSummary formatValue={series[0]?.metric.type === "count" ? formatCount : formatNumber} value={comparison} /><div className="grid gap-3 sm:grid-cols-2">{series.map((item) => { const point = item.points[0]; const missing = Boolean(point?.isMissing); const formatted = missing ? "No data" : (item.metric.type === "count" ? formatCount : formatNumber)(point?.value ?? 0); return <button aria-label={onSelect && !missing ? `${interactionLabel}: ${item.label}, ${formatted}` : undefined} className={`rounded-lg border border-border bg-muted/20 p-4 text-left transition ${onSelect && !missing ? "hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === (point?.key ?? item.id) ? "ring-2 ring-primary" : ""}`} disabled={!onSelect || missing} key={item.id} onClick={() => onSelect?.({ key: point?.key ?? item.id, label: item.label, value: point?.value ?? 0 })} title={appearance.showTooltips ? `${item.label}: ${formatted}` : undefined} type="button"><div className="mb-3 h-1.5 rounded-full" style={{ background: getDashboardSeriesColor(item.color, appearance.palette) }} /><p className="text-xs font-bold text-muted-foreground">{item.label}</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{formatted}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.metric.type}{item.axis === "right" ? " · right axis" : ""}</p></button>;})}</div></div>;
 }
 
 function ConditionalStatus({ accent, label }: { accent?: string; label?: string | null }) { return label ? <span aria-label={`KPI status: ${label}`} className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-bold"><span className="size-2 rounded-full" style={{ background: accent }} />{label}</span> : null; }
@@ -90,6 +103,7 @@ function SeriesLegend({ appearance, series }: { appearance: DashboardChartAppear
 }
 
 function MultiSeriesChart({ appearance, series, formatCount, formatNumber, interactionLabel, onSelect, selectedKey }: { appearance: DashboardChartAppearance; series: NonNullable<DashboardAnalyticsResponse["dataSeries"]>; formatCount: (value: number) => string; formatNumber: (value: number) => string; interactionLabel: string; onSelect?: (selection: DashboardPointSelection) => void; selectedKey: string | null }) {
+  if (series.every((item) => item.points.length === 0 || item.points.every((point) => point.isMissing))) return <EmptyState title="No chart data" description="The selected source has no usable numeric values for this chart." />;
   const presentation = getDashboardPresentedSeries(series, appearance.categorySort, appearance.categoryLimit, appearance.groupRemainingCategories);
   series = presentation.series;
   const circularSeries = series.length === 1 && isDashboardCircularDisplayType(series[0].displayType) ? series[0] : null;
@@ -128,8 +142,9 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
         </g>;
       })}
       {series.map((item, seriesIndex) => {
-        const values = keys.map((key) => item.points.find((point) => point.key === key)?.value ?? 0);
-        const points = values.map((value, index) => `${x(index)},${y(value, item.axis)}`).join(" ");
+        const pointItems = keys.map((key) => item.points.find((point) => point.key === key));
+        const values = pointItems.map((point) => point?.value ?? 0);
+        const segments = getPresentPointSegments(pointItems).map((indexes) => indexes.map((index) => `${x(index)},${y(values[index], item.axis)}`).join(" "));
         const color = getDashboardSeriesColor(item.color, appearance.palette);
         const formatter = item.metric.type === "count" ? formatCount : formatNumber;
         const pointLabelY = (value: number) => appearance.dataLabelPosition === "inside" ? Math.min(plot.top + plot.height - 4, y(value, item.axis) + 12) : Math.max(28 + seriesIndex * 12, y(value, item.axis) - 5);
@@ -138,6 +153,7 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
           if (stacked) {
             const width = Math.min(42, plot.width / Math.max(keys.length, 1) * .64);
             return <g key={item.id}>{values.map((value, index) => {
+              if (pointItems[index]?.isMissing) return null;
               const segment = getDashboardStackedBarSegment(series, keys[index], seriesIndex, appearance.barMode === "stacked_percent" ? "stacked_percent" : "stacked");
               const top = y(segment.end, item.axis);
               const bottom = y(segment.start, item.axis);
@@ -152,24 +168,27 @@ function MultiSeriesChart({ appearance, series, formatCount, formatNumber, inter
           }
           const barIndex = barSeries.findIndex((seriesItem) => seriesItem.id === item.id);
           const width = Math.min(28, plot.width / Math.max(keys.length, 1) / Math.max(barSeries.length + 1, 2));
-          return <g key={item.id}>{values.map((value, index) => { const top = y(value, item.axis); const bottom = plot.top + plot.height; const inside = appearance.dataLabelPosition === "inside"; const formatted = formatter(value); const tooltip = getDashboardTooltipText(appearance.tooltipContent, labels[index], item.label, formatted, null, `${item.label}: ${formatted}`); return <g key={keys[index]}><rect data-tooltip-target="mark" fill={color} height={bottom - top} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={top}>{appearance.showTooltips ? <title>{tooltip}</title> : null}</rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline={inside ? "middle" : undefined} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={inside ? (top + bottom) / 2 : pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text> : null}</g>; })}</g>;
+          return <g key={item.id}>{values.map((value, index) => { if (pointItems[index]?.isMissing) return null; const top = y(value, item.axis); const bottom = plot.top + plot.height; const inside = appearance.dataLabelPosition === "inside"; const formatted = formatter(value); const tooltip = getDashboardTooltipText(appearance.tooltipContent, labels[index], item.label, formatted, null, `${item.label}: ${formatted}`); return <g key={keys[index]}><rect data-tooltip-target="mark" fill={color} height={bottom - top} rx="2" width={width} x={x(index) - barSeries.length * width / 2 + barIndex * width} y={top}>{appearance.showTooltips ? <title>{tooltip}</title> : null}</rect>{appearance.showDataLabels ? <text {...labelProps} dominantBaseline={inside ? "middle" : undefined} x={x(index) - barSeries.length * width / 2 + barIndex * width + width / 2} y={inside ? (top + bottom) / 2 : pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text> : null}</g>; })}</g>;
         }
-        const tooltipPoints = values.map((value, index) => { const formatted = formatter(value); const tooltip = getDashboardTooltipText(appearance.tooltipContent, labels[index], item.label, formatted, null, `${item.label}: ${formatted}`); return <circle cx={x(index)} cy={y(value, item.axis)} data-tooltip-target="mark" fill={color} key={keys[index]} r="4">{appearance.showTooltips ? <title>{tooltip}</title> : null}</circle>; });
-        if (item.displayType === "area") return <g key={item.id}><polygon fill={color} opacity=".18" points={`${x(0)},${plot.top + plot.height} ${points} ${x(Math.max(0, keys.length - 1))},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" />{tooltipPoints}{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
-        return <g key={item.id}><polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />{tooltipPoints}{appearance.showDataLabels ? values.map((value, index) => <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null}</g>;
+        const tooltipPoints = values.map((value, index) => { if (pointItems[index]?.isMissing) return null; const formatted = formatter(value); const tooltip = getDashboardTooltipText(appearance.tooltipContent, labels[index], item.label, formatted, null, `${item.label}: ${formatted}`); return <circle cx={x(index)} cy={y(value, item.axis)} data-tooltip-target="mark" fill={color} key={keys[index]} r="4">{appearance.showTooltips ? <title>{tooltip}</title> : null}</circle>; });
+        const dataLabels = appearance.showDataLabels ? values.map((value, index) => pointItems[index]?.isMissing ? null : <text {...labelProps} key={keys[index]} x={x(index)} y={pointLabelY(value)}>{getDashboardDataLabelText(appearance.dataLabelContent, value, null, formatter)}</text>) : null;
+        if (item.displayType === "area") return <g data-gap-count={pointItems.filter((point) => point?.isMissing).length} key={item.id}>{getPresentPointSegments(pointItems).map((indexes, segmentIndex) => { const points = segments[segmentIndex]; return <g key={segmentIndex}><polygon fill={color} opacity=".18" points={`${x(indexes[0])},${plot.top + plot.height} ${points} ${x(indexes[indexes.length - 1])},${plot.top + plot.height}`} /><polyline fill="none" points={points} stroke={color} strokeWidth="3" /></g>; })}{tooltipPoints}{dataLabels}</g>;
+        return <g data-gap-count={pointItems.filter((point) => point?.isMissing).length} key={item.id}>{segments.map((points, index) => <polyline fill="none" key={index} points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />)}{tooltipPoints}{dataLabels}</g>;
       })}
       {labels.map((label, index) => <text data-aggregate-category={keys[index] === presentation.aggregateKey ? "true" : undefined} data-category-key={keys[index]} fill="currentColor" fontSize="10" key={keys[index]} textAnchor="middle" x={x(index)} y="207">{label.slice(0, 10)}</text>)}
       {onSelect ? keys.map((key, index) => {
-        const point = series.flatMap((item) => item.points).find((item) => item.key === key);
+        const point = series.flatMap((item) => item.points).find((item) => item.key === key && !item.isMissing);
+        if (!point) return null;
         const width = plot.width / Math.max(keys.length, 1);
         const total = series.reduce((sum, item) => sum + Math.max(0, item.points.find((candidate) => candidate.key === key)?.value ?? 0), 0);
         const tooltip = series.map((item) => {
-          const value = item.points.find((candidate) => candidate.key === key)?.value ?? 0;
-          const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(value);
-          const percentage = appearance.barMode === "stacked_percent" ? formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0) : null;
+          const seriesPoint = item.points.find((candidate) => candidate.key === key);
+          const value = seriesPoint?.value ?? 0;
+          const formatted = seriesPoint?.isMissing ? "No data" : (item.metric.type === "count" ? formatCount : formatNumber)(value);
+          const percentage = appearance.barMode === "stacked_percent" && !seriesPoint?.isMissing ? formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0) : null;
           return getDashboardTooltipText(appearance.tooltipContent, labels[index], item.label, formatted, percentage, percentage ? `${item.label}: ${formatted} (${percentage})` : `${item.label}: ${formatted}`);
         }).join(" · ");
-        const accessibleText = series.map((item) => { const value = item.points.find((candidate) => candidate.key === key)?.value ?? 0; const formatted = (item.metric.type === "count" ? formatCount : formatNumber)(value); const percentage = appearance.barMode === "stacked_percent" ? ` (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : ""; return `${item.label}: ${formatted}${percentage}`; }).join(" · ");
+        const accessibleText = series.map((item) => { const seriesPoint = item.points.find((candidate) => candidate.key === key); const value = seriesPoint?.value ?? 0; const formatted = seriesPoint?.isMissing ? "No data" : (item.metric.type === "count" ? formatCount : formatNumber)(value); const percentage = appearance.barMode === "stacked_percent" && !seriesPoint?.isMissing ? ` (${formatPercentage(total > 0 ? Math.max(0, value) / total * 100 : 0)})` : ""; return `${item.label}: ${formatted}${percentage}`; }).join(" · ");
         const selection = { key, label: labels[index], value: point?.value ?? 0, aggregate: key === presentation.aggregateKey };
         return <rect aria-label={`${interactionLabel}: ${labels[index]}. ${accessibleText}`} fill="transparent" height={plot.height + 25} key={`interaction-${key}`} onClick={() => onSelect(selection)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(selection); } }} role="button" stroke={selectedKey === key ? "var(--color-primary)" : "transparent"} strokeWidth="2" tabIndex={0} width={width} x={plot.left + index * width} y={plot.top}>{appearance.showTooltips ? <title>{tooltip}</title> : null}</rect>;
       }) : null}
@@ -309,15 +328,16 @@ function SeriesBars({ appearance, points, formatNumber, interactionLabel, onSele
     <div className="grid max-h-72 gap-3 overflow-y-auto pr-1">
       {points.map((point) => {
         const width = `${Math.max(6, (point.value / maxValue) * 100)}%`;
+        const missing = Boolean(point.isMissing);
 
         return (
-          <button aria-label={onSelect ? `${interactionLabel}: ${point.label}, ${formatNumber(point.value)}` : undefined} className={`grid gap-2 rounded-lg p-1 text-left transition ${onSelect ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect} key={point.key || point.label} onClick={() => onSelect?.(point)} title={appearance.showTooltips ? getDashboardTooltipText(appearance.tooltipContent, point.label, point.label, formatNumber(point.value), null, `${point.label}: ${formatNumber(point.value)}`) : undefined} type="button">
+          <button aria-label={onSelect && !missing ? `${interactionLabel}: ${point.label}, ${formatNumber(point.value)}` : undefined} className={`grid gap-2 rounded-lg p-1 text-left transition ${onSelect && !missing ? "hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" : "cursor-default"} ${selectedKey === point.key ? "bg-primary/10 ring-1 ring-primary" : ""}`} disabled={!onSelect || missing} key={point.key || point.label} onClick={() => onSelect?.(point)} title={appearance.showTooltips ? `${point.label}: ${missing ? "No data" : formatNumber(point.value)}` : undefined} type="button">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
               <span className="min-w-0 truncate font-bold text-foreground">{point.label}</span>
-              <span className="font-semibold text-muted-foreground">{formatNumber(point.value)}</span>
+              <span className="font-semibold text-muted-foreground">{missing ? "No data" : formatNumber(point.value)}</span>
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full" style={{ background: getDashboardSeriesColor("primary", appearance.palette), width }} />
+              {!missing ? <div className="h-full rounded-full" style={{ background: getDashboardSeriesColor("primary", appearance.palette), width }} /> : null}
             </div>
           </button>
         );

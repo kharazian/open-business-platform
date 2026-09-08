@@ -33,7 +33,7 @@ public static class ChartAggregationEngine
 
         return normalizedConfig.WidgetType switch
         {
-            ChartWidgetTypes.NumberCard => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, [new ChartSeriesPointDto("value", GetMetricLabel(normalizedConfig, fieldsById), Aggregate(preparedRecords, normalizedConfig.Metric))]),
+            ChartWidgetTypes.NumberCard => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, [ToPoint("value", GetMetricLabel(normalizedConfig, fieldsById), Aggregate(preparedRecords, normalizedConfig.Metric, normalizedConfig.NullValueBehavior))]),
             ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, BuildGroupedSeries(preparedRecords, normalizedConfig, fieldsById)),
             ChartWidgetTypes.DateTrend => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, BuildDateTrendSeries(preparedRecords, normalizedConfig, fieldsById, dateGroupingContext)),
             ChartWidgetTypes.Table => ToTablePreview(formId, formName, normalizedConfig, preparedRecords, fieldsById),
@@ -85,6 +85,8 @@ public static class ChartAggregationEngine
             GroupByFieldId = NormalizeOptional(config.GroupByFieldId),
             DateFieldId = NormalizeOptional(config.DateFieldId),
             DateGranularity = NormalizeOptional(config.DateGranularity) ?? DashboardDateGranularities.Day,
+            EmptyPeriodBehavior = NormalizeOptional(config.EmptyPeriodBehavior) ?? DashboardEmptyPeriodBehaviors.Omit,
+            NullValueBehavior = NormalizeOptional(config.NullValueBehavior) ?? DashboardNullValueBehaviors.Ignore,
             Columns = (config.Columns ?? Array.Empty<string>())
                 .Select(column => column.Trim())
                 .Where(column => column.Length > 0)
@@ -184,10 +186,11 @@ public static class ChartAggregationEngine
 
         return records
             .GroupBy(record => ToGroupKey(GetFieldValue(record, fieldId)), StringComparer.Ordinal)
-            .Select(group => new ChartSeriesPointDto(
-                group.Key,
-                ToGroupLabel(group.Key, metadata),
-                Aggregate(group, config.Metric)))
+            .Select(group =>
+            {
+                var result = Aggregate(group, config.Metric, config.NullValueBehavior);
+                return ToPoint(group.Key, ToGroupLabel(group.Key, metadata), result);
+            })
             .OrderByDescending(point => point.Value)
             .ThenBy(point => point.Label)
             .Take(config.Limit ?? 10)
@@ -205,21 +208,61 @@ public static class ChartAggregationEngine
         var timeZone = ResolveTimeZone(context?.TimeZoneId);
         var firstDayOfWeek = context?.FirstDayOfWeek is >= 0 and <= 6 ? context.FirstDayOfWeek : 1;
 
-        return records
+        var datedRecords = records
             .Select(record => new
             {
                 Record = record,
                 Date = TryConvertLocalDate(GetFieldValue(record, fieldId), isDateOnly, timeZone, out var date) ? date : (DateTime?)null
             })
             .Where(item => item.Date is not null)
-            .GroupBy(item => GetBucketStart(item.Date!.Value, config.DateGranularity, firstDayOfWeek))
-            .OrderBy(group => group.Key)
-            .TakeLast(config.Limit ?? 10)
-            .Select(group => new ChartSeriesPointDto(
-                GetBucketKey(group.Key, config.DateGranularity),
-                GetBucketLabel(group.Key, config.DateGranularity),
-                Aggregate(group.Select(item => item.Record), config.Metric)))
+            .Select(item => new { item.Record, Bucket = GetBucketStart(item.Date!.Value, config.DateGranularity, firstDayOfWeek) })
             .ToArray();
+        if (datedRecords.Length == 0) return Array.Empty<ChartSeriesPointDto>();
+
+        var buckets = datedRecords
+            .GroupBy(item => item.Bucket)
+            .ToDictionary(group => group.Key, group => Aggregate(group.Select(item => item.Record), config.Metric, config.NullValueBehavior));
+        if (config.EmptyPeriodBehavior == DashboardEmptyPeriodBehaviors.Omit)
+        {
+            return buckets
+                .Where(pair => pair.Value.HasValue)
+                .OrderBy(pair => pair.Key)
+                .TakeLast(config.Limit ?? 10)
+                .Select(pair => ToPoint(GetBucketKey(pair.Key, config.DateGranularity), GetBucketLabel(pair.Key, config.DateGranularity), pair.Value))
+                .ToArray();
+        }
+
+        var firstBucket = buckets.Keys.Min();
+        var bucketStarts = new List<DateTime>();
+        var bucket = buckets.Keys.Max();
+        while (bucket >= firstBucket && bucketStarts.Count < (config.Limit ?? 10))
+        {
+            bucketStarts.Add(bucket);
+            if (bucket == firstBucket) break;
+            bucket = AddBucket(bucket, config.DateGranularity, -1);
+        }
+        bucketStarts.Reverse();
+        return bucketStarts.Select(bucket =>
+        {
+            var result = buckets.GetValueOrDefault(bucket, AggregationResult.Missing);
+            return new ChartSeriesPointDto(
+                GetBucketKey(bucket, config.DateGranularity),
+                GetBucketLabel(bucket, config.DateGranularity),
+                result.Value,
+                !result.HasValue && config.EmptyPeriodBehavior == DashboardEmptyPeriodBehaviors.Gap);
+        }).ToArray();
+    }
+
+    private static DateTime AddBucket(DateTime bucket, string granularity, int amount)
+    {
+        return granularity switch
+        {
+            DashboardDateGranularities.Week => bucket.AddDays(7 * amount),
+            DashboardDateGranularities.Month => bucket.AddMonths(amount),
+            DashboardDateGranularities.Quarter => bucket.AddMonths(3 * amount),
+            DashboardDateGranularities.Year => bucket.AddYears(amount),
+            _ => bucket.AddDays(amount)
+        };
     }
 
     private static DateTime GetBucketStart(DateTime date, string granularity, int firstDayOfWeek)
@@ -288,27 +331,28 @@ public static class ChartAggregationEngine
         return false;
     }
 
-    private static decimal Aggregate(IEnumerable<PreparedChartRecord> records, ChartMetricDefinition metric)
+    private static ChartSeriesPointDto ToPoint(string key, string label, AggregationResult result) => new(key, label, result.Value, !result.HasValue);
+
+    private static AggregationResult Aggregate(IEnumerable<PreparedChartRecord> records, ChartMetricDefinition metric, string nullValueBehavior)
     {
         var materializedRecords = records.ToArray();
-
-        return metric.Type switch
+        if (metric.Type == ChartMetricTypes.Count) return new AggregationResult(materializedRecords.Length, true);
+        var values = materializedRecords
+            .Select(record => TryConvertDecimal(GetFieldValue(record, metric.FieldId ?? string.Empty), out var value) ? value : (decimal?)null)
+            .ToArray();
+        if (nullValueBehavior == DashboardNullValueBehaviors.Zero && materializedRecords.Length > 0)
         {
-            ChartMetricTypes.Sum => materializedRecords.Sum(record => TryConvertDecimal(GetFieldValue(record, metric.FieldId ?? string.Empty), out var value) ? value : 0m),
-            ChartMetricTypes.Average => Average(materializedRecords, metric.FieldId ?? string.Empty),
-            _ => materializedRecords.Length
-        };
+            var sum = values.Sum(value => value ?? 0m);
+            return new AggregationResult(metric.Type == ChartMetricTypes.Average ? sum / materializedRecords.Length : sum, true);
+        }
+        var presentValues = values.Where(value => value is not null).Select(value => value!.Value).ToArray();
+        if (presentValues.Length == 0) return AggregationResult.Missing;
+        return new AggregationResult(metric.Type == ChartMetricTypes.Average ? presentValues.Average() : presentValues.Sum(), true);
     }
 
-    private static decimal Average(IReadOnlyCollection<PreparedChartRecord> records, string fieldId)
+    private sealed record AggregationResult(decimal Value, bool HasValue)
     {
-        var values = records
-            .Select(record => TryConvertDecimal(GetFieldValue(record, fieldId), out var value) ? value : (decimal?)null)
-            .Where(value => value is not null)
-            .Select(value => value!.Value)
-            .ToArray();
-
-        return values.Length == 0 ? 0m : values.Average();
+        public static AggregationResult Missing { get; } = new(0m, false);
     }
 
     private static bool MatchesSourceReportFilters(PreparedChartRecord record, ListReportConfigDefinition? sourceReportConfig)

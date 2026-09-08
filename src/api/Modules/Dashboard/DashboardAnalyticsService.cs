@@ -234,6 +234,8 @@ public sealed class DashboardAnalyticsService
             GroupByFieldId = NormalizeOptional(request.GroupByFieldId),
             DateFieldId = NormalizeOptional(request.DateFieldId),
             DateGranularity = NormalizeOptional(request.DateGranularity) ?? DashboardDateGranularities.Day,
+            EmptyPeriodBehavior = NormalizeOptional(request.EmptyPeriodBehavior) ?? DashboardEmptyPeriodBehaviors.Omit,
+            NullValueBehavior = NormalizeOptional(request.NullValueBehavior) ?? DashboardNullValueBehaviors.Ignore,
             Columns = (request.Columns ?? Array.Empty<string>())
                 .Select(column => column.Trim())
                 .Where(column => column.Length > 0)
@@ -292,7 +294,9 @@ public sealed class DashboardAnalyticsService
             request.Limit,
             request.Source.ReportId,
             request.Series,
-            DateGranularity: request.DateGranularity);
+            DateGranularity: request.DateGranularity,
+            EmptyPeriodBehavior: request.EmptyPeriodBehavior,
+            NullValueBehavior: request.NullValueBehavior);
     }
 
     private async Task<ChartDateGroupingContext> GetDateGroupingContextAsync(CancellationToken cancellationToken)

@@ -24,10 +24,14 @@ export type DashboardSummary = {
 export const chartWidgetTypes = ["number_card", "bar_chart", "date_trend", "choice_breakdown", "table"] as const;
 export const chartMetricTypes = ["count", "sum", "average"] as const;
 export const dashboardDateGranularities = ["day", "week", "month", "quarter", "year"] as const;
+export const dashboardEmptyPeriodBehaviors = ["omit", "zero", "gap"] as const;
+export const dashboardNullValueBehaviors = ["ignore", "zero"] as const;
 
 export type ChartWidgetType = (typeof chartWidgetTypes)[number];
 export type ChartMetricType = (typeof chartMetricTypes)[number];
 export type DashboardDateGranularity = (typeof dashboardDateGranularities)[number];
+export type DashboardEmptyPeriodBehavior = (typeof dashboardEmptyPeriodBehaviors)[number];
+export type DashboardNullValueBehavior = (typeof dashboardNullValueBehaviors)[number];
 
 export type ChartMetricDefinition = {
   type: ChartMetricType;
@@ -68,6 +72,8 @@ export type ChartWidgetConfig = {
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
   dateGranularity?: DashboardDateGranularity;
+  emptyPeriodBehavior?: DashboardEmptyPeriodBehavior;
+  nullValueBehavior?: DashboardNullValueBehavior;
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
@@ -81,6 +87,7 @@ export type ChartSeriesPoint = {
   key: string;
   label: string;
   value: number;
+  isMissing?: boolean;
 };
 
 export type ChartTableColumn = {
@@ -136,6 +143,8 @@ export type DashboardAnalyticsRequest = {
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
   dateGranularity?: DashboardDateGranularity;
+  emptyPeriodBehavior?: DashboardEmptyPeriodBehavior;
+  nullValueBehavior?: DashboardNullValueBehavior;
   columns?: string[] | null;
   limit?: number | null;
   filters?: DashboardAnalyticsFilterValue[];
