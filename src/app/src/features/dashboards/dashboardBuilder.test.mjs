@@ -245,6 +245,7 @@ test("widget property drafts clone nested config and validate permitted fields",
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "event_date", values: ["2026-01-01"] }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, fixedFilters: [{ fieldId: "status", values: ["active"], start: "2026-01-01" }] } }, fields), false);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, groupByFieldId: "hidden" } }, fields), false);
+  assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...widget, chart: { ...widget.chart, dateGranularity: "fortnight" } }, fields), false);
   const comparisonWidget = { ...widget, chart: { ...widget.chart, widgetType: "number_card", groupByFieldId: null, kpiComparison: { enabled: true, dateFieldId: "event_date", period: "last_30_days" } } };
   assert.equal(isDashboardAnalyticsWidgetDraftValid(comparisonWidget, fields), true);
   assert.equal(isDashboardAnalyticsWidgetDraftValid({ ...comparisonWidget, chart: { ...comparisonWidget.chart, kpiComparison: { enabled: true, dateFieldId: "status", period: "last_30_days" } } }, fields), false);
@@ -606,6 +607,16 @@ test("dashboard analytics helpers preserve saved chart compatibility", () => {
   assert.equal(request.groupByFieldId, "status");
   assert.equal(request.dateFieldId, null);
   assert.deepEqual(request.columns, []);
+  assert.equal(request.dateGranularity, "day");
+
+  const trend = buildChartConfigFromDashboardAnalytics({
+    widgetType: "trend",
+    metricType: "count",
+    dateFieldId: "created_at",
+    dateGranularity: "quarter"
+  });
+  assert.equal(trend.dateGranularity, "quarter");
+  assert.equal(buildDashboardAnalyticsRequest("form-1", trend).dateGranularity, "quarter");
 });
 
 test("dashboard analytics requests preserve fixed-filter precedence", () => {

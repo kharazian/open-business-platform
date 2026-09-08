@@ -807,13 +807,14 @@ Request:
   "metric": { "type": "count", "fieldId": null },
   "groupByFieldId": "status",
   "dateFieldId": null,
+  "dateGranularity": "day",
   "columns": [],
   "limit": 10,
   "reportId": null
 }
 ```
 
-Supported `widgetType` values are `number_card`, `bar_chart`, `date_trend`, `choice_breakdown`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field.
+Supported `widgetType` values are `number_card`, `bar_chart`, `date_trend`, `choice_breakdown`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Date trends accept `dateGranularity` values `day`, `week`, `month`, `quarter`, or `year`; omitted values default to `day`. Buckets use the workspace timezone, and weekly buckets use the workspace's configured first day of week.
 
 Response:
 
@@ -865,12 +866,13 @@ Request:
   ],
   "groupByFieldId": "status",
   "dateFieldId": null,
+  "dateGranularity": "day",
   "columns": [],
   "limit": 10
 }
 ```
 
-Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field. Non-table requests may include one to four `series` definitions. Each definition has a unique bounded ID and label, its own metric, `bar`/`line`/`area`/`pie`/`donut` display type, semantic color, and `left`/`right` axis. Pie and donut require exactly one series on a breakdown widget; the service rejects circular trend, summary, table, and mixed-series configurations. The shared preview/viewer renderer honors presentation metadata without changing the permission-scoped analytics query. Omitting `series` preserves the legacy single-metric renderer. Table requests accept at most one series.
+Supported `widgetType` values are `summary`, `breakdown`, `trend`, and `table`. Supported metric types are `count`, `sum`, and `average`; sum and average require a numeric reportable field. Breakdown widgets require a status or choice-groupable field. Trend widgets require a date or datetime field and accept `dateGranularity` values `day`, `week`, `month`, `quarter`, or `year`; omitted values default to `day`. Calendar bucketing uses the workspace timezone, and weekly bucketing uses the workspace's configured first day of week. Non-table requests may include one to four `series` definitions. Each definition has a unique bounded ID and label, its own metric, `bar`/`line`/`area`/`pie`/`donut` display type, semantic color, and `left`/`right` axis. Pie and donut require exactly one series on a breakdown widget; the service rejects circular trend, summary, table, and mixed-series configurations. The shared preview/viewer renderer honors presentation metadata without changing the permission-scoped analytics query. Omitting `series` preserves the legacy single-metric renderer. Table requests accept at most one series.
 
 Response:
 

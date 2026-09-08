@@ -4,6 +4,7 @@ type AnalyticsOptions = {
   metricFieldId?: string;
   groupByFieldId?: string;
   dateFieldId?: string;
+  dateGranularity?: "day" | "week" | "month" | "quarter" | "year";
   columns?: string[];
   limit?: number;
   subtitle?: string;
@@ -49,10 +50,10 @@ export const operationsPerformanceTemplate: DashboardTemplateDefinition = {
     analytics("loss-by-metric", "Loss by metric", "loss", "wide", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "metric_key", fixedModule: "Loss" }),
     adapter("loss-target", "Loss actual and standard", "loss", "wide", "combo", { labels: "Jan|Feb|Mar|Apr|May|Jun", primary: "8|7|9|6|5|6", secondary: "7|7|7|6|6|6", unit: "%", sourceLabel: "Illustrative Operations sample adapter" }),
     analytics("production-by-product", "Production by product", "production", "wide", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "product", fixedModule: "Production" }),
-    analytics("production-trend", "Production trend", "production", "wide", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date", fixedModule: "Production" }),
+    analytics("production-trend", "Production trend", "production", "wide", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month", fixedModule: "Production" }),
     adapter("production-stack", "Product composition", "production", "wide", "stacked_bar", { labels: "Q1|Q2|Q3|Q4", primary: "42|48|51|55", secondary: "31|34|38|41", tertiary: "18|21|24|27", unit: "t", sourceLabel: "Illustrative Operations sample adapter" }),
     analytics("engineering-by-equipment", "Engineering performance", "engineering", "wide", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "equipment", fixedModule: "Engineering" }),
-    analytics("engineering-trend", "Utilities and reliability trend", "engineering", "wide", "date_trend", "average", { metricFieldId: "actual_value", dateFieldId: "period_date", fixedModule: "Engineering" }),
+    analytics("engineering-trend", "Utilities and reliability trend", "engineering", "wide", "date_trend", "average", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month", fixedModule: "Engineering" }),
     adapter("engineering-target", "Actual versus engineering standard", "engineering", "wide", "target_line", { labels: "W1|W2|W3|W4|W5|W6", primary: "72|69|75|71|68|66", secondary: "70|70|70|70|70|70", unit: "%", sourceLabel: "Illustrative Operations sample adapter" }),
     analytics("supply-by-product", "Inventory by product", "supply-chain", "wide", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "product", fixedModule: "Supply Chain" }),
     analytics("supply-by-metric", "Supply-chain KPI families", "supply-chain", "wide", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "metric_key", fixedModule: "Supply Chain" }),
@@ -60,7 +61,7 @@ export const operationsPerformanceTemplate: DashboardTemplateDefinition = {
     analytics("qaqc-rate", "QA/QC first-time release", "qaqc", "small", "number_card", "average", { metricFieldId: "actual_value", fixedModule: "QAQC" }),
     analytics("qaqc-metrics", "Quality metrics", "qaqc", "wide", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "metric_key", fixedModule: "QAQC" }),
     analytics("qaqc-detail", "Quality detail", "qaqc", "full", "table", "count", { columns: ["period_label", "metric_key", "product", "actual_value", "target_value", "unit", "status"], limit: 20, fixedModule: "QAQC" }),
-    analytics("operations-over-time", "Operational actual over time", "trends-records", "wide", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date" }),
+    analytics("operations-over-time", "Operational actual over time", "trends-records", "wide", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month" }),
     adapter("actual-budget", "Actual and budget comparison", "trends-records", "wide", "combo", { labels: "Jan|Feb|Mar|Apr|May|Jun", primary: "31|35|39|42|46|49", secondary: "30|34|38|43|45|48", unit: "%", sourceLabel: "Illustrative Operations sample adapter" }),
     analytics("recent-operations", "Operational detail", "trends-records", "full", "table", "count", { columns: ["module", "metric_key", "period_label", "period_number", "product", "equipment", "actual_value", "target_value", "budget_value", "numerator", "denominator", "unit"], limit: 20 }),
     adapter("detail-popup", "Period detail preview", "trends-records", "wide", "detail_popup", { title: "Selected period detail", period: "2026 Q2", rows: 18, groups: "Module|Product|Equipment|Metric", sourceLabel: "Illustrative Operations sample adapter" })
@@ -86,6 +87,7 @@ function analytics(
         metric: { type: metricType, fieldId: options.metricFieldId ?? null },
         groupByFieldId: options.groupByFieldId ?? null,
         dateFieldId: options.dateFieldId ?? null,
+        dateGranularity: options.dateGranularity ?? "day",
         columns: options.columns ?? [],
         limit: options.limit ?? 12,
         fixedFilters: options.fixedModule ? [{ fieldId: "module", values: [options.fixedModule] }] : []

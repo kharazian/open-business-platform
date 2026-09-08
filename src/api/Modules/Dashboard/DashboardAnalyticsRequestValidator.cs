@@ -39,13 +39,18 @@ public static class DashboardAnalyticsRequestValidator
             errors.Add(new DashboardAnalyticsValidationError("limit", "dashboard.analytics.limit.range", "Limit must be between 1 and 50."));
         }
 
+        if (!DashboardDateGranularities.Supported.Contains(Normalize(request.DateGranularity)))
+        {
+            errors.Add(new DashboardAnalyticsValidationError("dateGranularity", "dashboard.analytics.date.granularity_invalid", "Choose day, week, month, quarter, or year for date grouping."));
+        }
+
         ValidateMetricField(request, fieldsById, errors);
         ValidateWidgetFields(request, fieldsById, errors);
         errors.AddRange(ValidateFilterValues(schema, request.Filters).Errors);
         var seriesValidation = ChartWidgetConfigValidator.Validate(schema, new ChartWidgetConfigDefinition(
             request.WidgetType switch { "summary" => ChartWidgetTypes.NumberCard, "breakdown" => ChartWidgetTypes.ChoiceBreakdown, "trend" => ChartWidgetTypes.DateTrend, "table" => ChartWidgetTypes.Table, _ => request.WidgetType },
             new ChartMetricDefinition(request.Metric?.Type ?? string.Empty, request.Metric?.FieldId),
-            request.GroupByFieldId, request.DateFieldId, request.Columns, request.Limit, request.Source?.ReportId, request.Series, KpiComparison: request.KpiComparison));
+            request.GroupByFieldId, request.DateFieldId, request.Columns, request.Limit, request.Source?.ReportId, request.Series, KpiComparison: request.KpiComparison, DateGranularity: request.DateGranularity));
         foreach (var error in seriesValidation.Errors.Where(error => error.Path.StartsWith("series", StringComparison.Ordinal) || error.Path.StartsWith("kpiComparison", StringComparison.Ordinal)))
         {
             errors.Add(new DashboardAnalyticsValidationError(error.Path, error.Code.Replace("chart.", "dashboard.analytics.", StringComparison.Ordinal), error.Message));

@@ -34,6 +34,11 @@ public static class ChartWidgetConfigValidator
             errors.Add(new ChartValidationError("limit", "chart.limit.range", "Limit must be between 1 and 50."));
         }
 
+        if (!DashboardDateGranularities.Supported.Contains(Normalize(config.DateGranularity)))
+        {
+            errors.Add(new ChartValidationError("dateGranularity", "chart.date.granularity_invalid", "Choose day, week, month, quarter, or year for date grouping."));
+        }
+
         ValidateMetricField(config, fieldsById, errors);
         ValidateWidgetFields(config, fieldsById, errors);
         ValidateSeries(config, fieldsById, errors);

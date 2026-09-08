@@ -855,7 +855,8 @@ public static class DemoDataSeeder
             spec.Item2,
             OperationalPerformanceFormId,
             new ChartWidgetConfigDefinition(spec.Item5, new ChartMetricDefinition(spec.Item6, spec.Item7), spec.Item8, spec.Item9, spec.Item10, spec.Item5 == ChartWidgetTypes.Table ? 20 : 12, null,
-                FixedFilters: fixedModules.TryGetValue(spec.Item1, out var fixedModule) ? new[] { new DashboardAnalyticsFilterDefinition("module", new[] { fixedModule }) } : null),
+                FixedFilters: fixedModules.TryGetValue(spec.Item1, out var fixedModule) ? new[] { new DashboardAnalyticsFilterDefinition("module", new[] { fixedModule }) } : null,
+                DateGranularity: spec.Item5 == ChartWidgetTypes.DateTrend ? DashboardDateGranularities.Month : DashboardDateGranularities.Day),
             spec.Item3))
             .Concat(adapterSpecs.Select(spec => new SavedDashboardWidgetDefinition(
                 $"operations-{spec.Item1}",
@@ -1005,7 +1006,8 @@ public static class DemoDataSeeder
         };
         var widgets = widgetSpecs.Select(spec => new SavedDashboardWidgetDefinition(
             $"sample-{spec.Item1}", spec.Item2, spec.Item5,
-            new ChartWidgetConfigDefinition(spec.Item6, new ChartMetricDefinition(spec.Item7, spec.Item8), spec.Item9, spec.Item10, spec.Item11, spec.Item6 == ChartWidgetTypes.Table ? 20 : 12, null),
+            new ChartWidgetConfigDefinition(spec.Item6, new ChartMetricDefinition(spec.Item7, spec.Item8), spec.Item9, spec.Item10, spec.Item11, spec.Item6 == ChartWidgetTypes.Table ? 20 : 12, null,
+                DateGranularity: spec.Item6 == ChartWidgetTypes.DateTrend ? DashboardDateGranularities.Month : DashboardDateGranularities.Day),
             spec.Item3)).ToArray();
         var adapterSpecs = new[]
         {

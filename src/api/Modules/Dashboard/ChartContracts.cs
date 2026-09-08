@@ -32,6 +32,24 @@ public static class ChartMetricTypes
     };
 }
 
+public static class DashboardDateGranularities
+{
+    public const string Day = "day";
+    public const string Week = "week";
+    public const string Month = "month";
+    public const string Quarter = "quarter";
+    public const string Year = "year";
+
+    public static IReadOnlySet<string> Supported { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Day,
+        Week,
+        Month,
+        Quarter,
+        Year
+    };
+}
+
 public sealed record ChartMetricDefinition(string Type, string? FieldId = null);
 
 public static class DashboardSeriesDisplayTypes
@@ -184,7 +202,12 @@ public sealed record ChartWidgetConfigDefinition(
     IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
     DashboardChartAppearanceDefinition? Appearance = null,
     IReadOnlyList<DashboardAnalyticsFilterDefinition>? FixedFilters = null,
-    DashboardKpiComparisonDefinition? KpiComparison = null);
+    DashboardKpiComparisonDefinition? KpiComparison = null,
+    string DateGranularity = DashboardDateGranularities.Day);
+
+public sealed record ChartDateGroupingContext(
+    string TimeZoneId = "UTC",
+    int FirstDayOfWeek = 1);
 
 public sealed record ChartSeriesPointDto(string Key, string Label, decimal Value);
 

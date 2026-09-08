@@ -23,9 +23,11 @@ export type DashboardSummary = {
 
 export const chartWidgetTypes = ["number_card", "bar_chart", "date_trend", "choice_breakdown", "table"] as const;
 export const chartMetricTypes = ["count", "sum", "average"] as const;
+export const dashboardDateGranularities = ["day", "week", "month", "quarter", "year"] as const;
 
 export type ChartWidgetType = (typeof chartWidgetTypes)[number];
 export type ChartMetricType = (typeof chartMetricTypes)[number];
+export type DashboardDateGranularity = (typeof dashboardDateGranularities)[number];
 
 export type ChartMetricDefinition = {
   type: ChartMetricType;
@@ -65,6 +67,7 @@ export type ChartWidgetConfig = {
   metric: ChartMetricDefinition;
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
+  dateGranularity?: DashboardDateGranularity;
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
@@ -132,6 +135,7 @@ export type DashboardAnalyticsRequest = {
   metric: DashboardAnalyticsMetric;
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
+  dateGranularity?: DashboardDateGranularity;
   columns?: string[] | null;
   limit?: number | null;
   filters?: DashboardAnalyticsFilterValue[];

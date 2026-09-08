@@ -7,6 +7,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Reports;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Dashboard;
 
@@ -75,6 +76,9 @@ public sealed class DashboardAnalyticsService
             PlatformPermissions.Form.View,
             cancellationToken);
         var records = await scopedRecordsQuery.ToArrayAsync(cancellationToken);
+        var dateGroupingContext = sanitizedRequest.WidgetType == DashboardAnalyticsWidgetTypes.Trend
+            ? await GetDateGroupingContextAsync(cancellationToken)
+            : null;
         var comparisonWindows = BuildComparisonWindows(sanitizedRequest, DateTimeOffset.UtcNow);
         var effectiveFilters = comparisonWindows?.CurrentFilters ?? sanitizedRequest.Filters;
         var chartConfig = ToChartConfig(sanitizedRequest);
@@ -86,13 +90,14 @@ public sealed class DashboardAnalyticsService
             records,
             sourceReportConfig,
             fieldAccess.HiddenFieldIds,
-            effectiveFilters);
+            effectiveFilters,
+            dateGroupingContext);
         var seriesDefinitions = GetEffectiveSeries(sanitizedRequest);
         var dataSeries = seriesDefinitions.Select(series =>
         {
             var result = ChartAggregationEngine.Execute(
                 form.Id, form.Name, ToChartConfig(sanitizedRequest, series.Metric), schema, records,
-                sourceReportConfig, fieldAccess.HiddenFieldIds, effectiveFilters);
+                sourceReportConfig, fieldAccess.HiddenFieldIds, effectiveFilters, dateGroupingContext);
             return new DashboardAnalyticsDataSeries(
                 series.Id, series.Label, series.DisplayType, series.Color, series.Axis,
                 new DashboardAnalyticsMetricDefinition(series.Metric.Type, series.Metric.FieldId), result.Series);
@@ -103,7 +108,7 @@ public sealed class DashboardAnalyticsService
         {
             var previous = ChartAggregationEngine.Execute(
                 form.Id, form.Name, chartConfig, schema, records, sourceReportConfig,
-                fieldAccess.HiddenFieldIds, comparisonWindows.PreviousFilters);
+                fieldAccess.HiddenFieldIds, comparisonWindows.PreviousFilters, dateGroupingContext);
             var currentValue = chartResult.Series.FirstOrDefault()?.Value ?? 0m;
             var previousValue = previous.Series.FirstOrDefault()?.Value ?? 0m;
             var difference = currentValue - previousValue;
@@ -228,6 +233,7 @@ public sealed class DashboardAnalyticsService
             Metric = new DashboardAnalyticsMetricDefinition(request.Metric.Type.Trim(), NormalizeOptional(request.Metric.FieldId)),
             GroupByFieldId = NormalizeOptional(request.GroupByFieldId),
             DateFieldId = NormalizeOptional(request.DateFieldId),
+            DateGranularity = NormalizeOptional(request.DateGranularity) ?? DashboardDateGranularities.Day,
             Columns = (request.Columns ?? Array.Empty<string>())
                 .Select(column => column.Trim())
                 .Where(column => column.Length > 0)
@@ -285,7 +291,16 @@ public sealed class DashboardAnalyticsService
             request.Columns,
             request.Limit,
             request.Source.ReportId,
-            request.Series);
+            request.Series,
+            DateGranularity: request.DateGranularity);
+    }
+
+    private async Task<ChartDateGroupingContext> GetDateGroupingContextAsync(CancellationToken cancellationToken)
+    {
+        var localization = await dbContext.WorkspaceLocalizations.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+        return new ChartDateGroupingContext(
+            localization?.DefaultTimeZone ?? LocalizationService.FallbackTimeZone,
+            localization?.FirstDayOfWeek ?? LocalizationService.FallbackFirstDayOfWeek);
     }
 
     private static string ToChartWidgetType(string widgetType)

@@ -6,6 +6,7 @@ using OpenBusinessPlatform.Api.Infrastructure.Persistence;
 using OpenBusinessPlatform.Api.Modules.Forms;
 using OpenBusinessPlatform.Api.Modules.Identity;
 using OpenBusinessPlatform.Api.Modules.Reports;
+using OpenBusinessPlatform.Api.Modules.Workspaces;
 
 namespace OpenBusinessPlatform.Api.Modules.Dashboard;
 
@@ -68,8 +69,16 @@ public sealed class ChartAggregationService
             cancellationToken);
         var records = await scopedRecordsQuery
             .ToArrayAsync(cancellationToken);
+        ChartDateGroupingContext? dateGroupingContext = null;
+        if (sanitizedRequest.WidgetType == ChartWidgetTypes.DateTrend)
+        {
+            var localization = await dbContext.WorkspaceLocalizations.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+            dateGroupingContext = new ChartDateGroupingContext(
+                localization?.DefaultTimeZone ?? LocalizationService.FallbackTimeZone,
+                localization?.FirstDayOfWeek ?? LocalizationService.FallbackFirstDayOfWeek);
+        }
 
-        return ChartAggregationEngine.Execute(form.Id, form.Name, sanitizedRequest, schema, records, sourceReportConfig, fieldAccess.HiddenFieldIds);
+        return ChartAggregationEngine.Execute(form.Id, form.Name, sanitizedRequest, schema, records, sourceReportConfig, fieldAccess.HiddenFieldIds, dateGroupingContext: dateGroupingContext);
     }
 
     private async Task<ListReportConfigDefinition?> GetSourceReportConfigAsync(

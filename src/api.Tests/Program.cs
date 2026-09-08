@@ -5033,6 +5033,10 @@ var sampleStatus = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerform
     new ChartWidgetConfigDefinition(ChartWidgetTypes.ChoiceBreakdown, new ChartMetricDefinition(ChartMetricTypes.Count), GroupByFieldId: "status", Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
 var sampleTrend = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
     new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleMonthlyTrend = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", Limit: 12, DateGranularity: DashboardDateGranularities.Month), sampleDashboardSchema, sampleAnalyticsRecords);
+var sampleQuarterlyTrend = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Sum, "amount"), DateFieldId: "event_date", Limit: 12, DateGranularity: DashboardDateGranularities.Quarter), sampleDashboardSchema, sampleAnalyticsRecords);
 AssertEqual(48m, sampleCount.Series.Single().Value, "Business Performance sample record count should remain deterministic.");
 AssertEqual(207000m, sampleSum.Series.Single().Value, "Business Performance sample total amount should remain deterministic.");
 AssertEqual(4312.5m, sampleAverage.Series.Single().Value, "Business Performance sample average amount should remain deterministic.");
@@ -5040,6 +5044,38 @@ AssertTrue(sampleStatus.Series.All(point => point.Value == 12m), "Business Perfo
 AssertEqual(12, sampleTrend.Series.Count, "Business Performance sample should produce twelve monthly trend points in the exact-date trend engine.");
 AssertEqual(6250m, sampleTrend.Series.First().Value, "Business Performance sample January amount should remain deterministic.");
 AssertEqual(28250m, sampleTrend.Series.Last().Value, "Business Performance sample December amount should remain deterministic.");
+AssertEqual("2025-01", sampleMonthlyTrend.Series.First().Key, "Monthly trends should expose stable year-month bucket keys.");
+AssertEqual("Jan 2025", sampleMonthlyTrend.Series.First().Label, "Monthly trends should expose readable month labels.");
+AssertEqual(4, sampleQuarterlyTrend.Series.Count, "Quarterly trends should combine the twelve sample months into four buckets.");
+AssertEqual("2025-Q1", sampleQuarterlyTrend.Series.First().Key, "Quarterly trends should expose stable quarter keys.");
+AssertEqual(24750m, sampleQuarterlyTrend.Series.First().Value, "Quarterly trends should aggregate every record in the bucket.");
+var weekBoundaryRecords = new[]
+{
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = new DateTimeOffset(2025, 1, 5, 12, 0, 0, TimeSpan.Zero), ValuesJson = SerializeHarnessJson(new Dictionary<string, object?>()) },
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = new DateTimeOffset(2025, 1, 6, 12, 0, 0, TimeSpan.Zero), ValuesJson = SerializeHarnessJson(new Dictionary<string, object?>()) }
+};
+var mondayWeeks = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Count), DateFieldId: ReportableSystemFields.CreatedAt, DateGranularity: DashboardDateGranularities.Week), sampleDashboardSchema, weekBoundaryRecords,
+    dateGroupingContext: new ChartDateGroupingContext("UTC", 1));
+var sundayWeeks = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Count), DateFieldId: ReportableSystemFields.CreatedAt, DateGranularity: DashboardDateGranularities.Week), sampleDashboardSchema, weekBoundaryRecords,
+    dateGroupingContext: new ChartDateGroupingContext("UTC", 0));
+AssertEqual(2, mondayWeeks.Series.Count, "Monday-first workspaces should split Sunday and Monday across weekly buckets.");
+AssertEqual(1, sundayWeeks.Series.Count, "Sunday-first workspaces should keep Sunday and Monday in the same weekly bucket.");
+var timezoneBoundaryRecord = new[]
+{
+    new FormRecord { Id = Guid.NewGuid(), FormId = DemoDataSeeder.BusinessPerformanceFormId, FormVersionId = DemoDataSeeder.BusinessPerformanceFormVersionId, Status = RecordStatuses.Active, CreatedAt = new DateTimeOffset(2025, 1, 1, 1, 0, 0, TimeSpan.Zero), ValuesJson = SerializeHarnessJson(new Dictionary<string, object?>()) }
+};
+var torontoDay = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
+    new ChartWidgetConfigDefinition(ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Count), DateFieldId: ReportableSystemFields.CreatedAt), sampleDashboardSchema, timezoneBoundaryRecord,
+    dateGroupingContext: new ChartDateGroupingContext("America/Toronto", 1));
+AssertEqual("2024-12-31", torontoDay.Series.Single().Key, "Datetime trends should convert instants into the workspace timezone before bucketing.");
+AssertFalse(ChartWidgetConfigValidator.Validate(sampleDashboardSchema, new ChartWidgetConfigDefinition(
+    ChartWidgetTypes.DateTrend, new ChartMetricDefinition(ChartMetricTypes.Count), DateFieldId: "event_date", DateGranularity: "fortnight")).Valid,
+    "Chart configs should reject unsupported date granularities.");
+AssertFalse(DashboardAnalyticsRequestValidator.Validate(sampleDashboardSchema, new DashboardAnalyticsRequest(
+    DashboardAnalyticsWidgetTypes.Trend, new DashboardAnalyticsSourceDefinition(DemoDataSeeder.BusinessPerformanceFormId), new DashboardAnalyticsMetricDefinition(DashboardAnalyticsMetricTypes.Count), DateFieldId: "event_date", DateGranularity: "fortnight")).Valid,
+    "Dashboard analytics requests should reject unsupported date granularities.");
 var filteredSample = ChartAggregationEngine.Execute(DemoDataSeeder.BusinessPerformanceFormId, "Business Performance Sample Data",
     new ChartWidgetConfigDefinition(ChartWidgetTypes.NumberCard, new ChartMetricDefinition(ChartMetricTypes.Count), Limit: 12), sampleDashboardSchema, sampleAnalyticsRecords,
     dashboardFilters: new[] { new DashboardAnalyticsFilterDefinition("region", new[] { "North" }), new DashboardAnalyticsFilterDefinition("event_date", Start: "2025-01-01", End: "2025-07-01") });

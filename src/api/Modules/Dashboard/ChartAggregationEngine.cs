@@ -18,7 +18,8 @@ public static class ChartAggregationEngine
         IReadOnlyCollection<FormRecord> records,
         ListReportConfigDefinition? sourceReportConfig = null,
         IReadOnlySet<string>? hiddenFieldIds = null,
-        IReadOnlyList<DashboardAnalyticsFilterDefinition>? dashboardFilters = null)
+        IReadOnlyList<DashboardAnalyticsFilterDefinition>? dashboardFilters = null,
+        ChartDateGroupingContext? dateGroupingContext = null)
     {
         var fieldsById = FormReportableFieldMetadata.GetReportableFieldsById(schema)
             .Where(pair => hiddenFieldIds is null || !hiddenFieldIds.Contains(pair.Key))
@@ -34,7 +35,7 @@ public static class ChartAggregationEngine
         {
             ChartWidgetTypes.NumberCard => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, [new ChartSeriesPointDto("value", GetMetricLabel(normalizedConfig, fieldsById), Aggregate(preparedRecords, normalizedConfig.Metric))]),
             ChartWidgetTypes.BarChart or ChartWidgetTypes.ChoiceBreakdown => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, BuildGroupedSeries(preparedRecords, normalizedConfig, fieldsById)),
-            ChartWidgetTypes.DateTrend => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, BuildDateTrendSeries(preparedRecords, normalizedConfig)),
+            ChartWidgetTypes.DateTrend => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, BuildDateTrendSeries(preparedRecords, normalizedConfig, fieldsById, dateGroupingContext)),
             ChartWidgetTypes.Table => ToTablePreview(formId, formName, normalizedConfig, preparedRecords, fieldsById),
             _ => ToSeriesPreview(formId, formName, normalizedConfig, preparedRecords, Array.Empty<ChartSeriesPointDto>())
         };
@@ -83,6 +84,7 @@ public static class ChartAggregationEngine
                 : new ChartMetricDefinition(config.Metric.Type.Trim(), NormalizeOptional(config.Metric.FieldId)),
             GroupByFieldId = NormalizeOptional(config.GroupByFieldId),
             DateFieldId = NormalizeOptional(config.DateFieldId),
+            DateGranularity = NormalizeOptional(config.DateGranularity) ?? DashboardDateGranularities.Day,
             Columns = (config.Columns ?? Array.Empty<string>())
                 .Select(column => column.Trim())
                 .Where(column => column.Length > 0)
@@ -194,25 +196,96 @@ public static class ChartAggregationEngine
 
     private static IReadOnlyList<ChartSeriesPointDto> BuildDateTrendSeries(
         IReadOnlyCollection<PreparedChartRecord> records,
-        ChartWidgetConfigDefinition config)
+        ChartWidgetConfigDefinition config,
+        IReadOnlyDictionary<string, ReportableFieldMetadata> fieldsById,
+        ChartDateGroupingContext? context)
     {
         var fieldId = config.DateFieldId ?? string.Empty;
+        var isDateOnly = fieldsById.TryGetValue(fieldId, out var metadata) && metadata.Type == FormFieldTypes.Date;
+        var timeZone = ResolveTimeZone(context?.TimeZoneId);
+        var firstDayOfWeek = context?.FirstDayOfWeek is >= 0 and <= 6 ? context.FirstDayOfWeek : 1;
 
         return records
             .Select(record => new
             {
                 Record = record,
-                Date = TryConvertDateTime(GetFieldValue(record, fieldId), out var dateTime) ? dateTime.Date : (DateTime?)null
+                Date = TryConvertLocalDate(GetFieldValue(record, fieldId), isDateOnly, timeZone, out var date) ? date : (DateTime?)null
             })
             .Where(item => item.Date is not null)
-            .GroupBy(item => item.Date!.Value)
+            .GroupBy(item => GetBucketStart(item.Date!.Value, config.DateGranularity, firstDayOfWeek))
             .OrderBy(group => group.Key)
             .TakeLast(config.Limit ?? 10)
             .Select(group => new ChartSeriesPointDto(
-                group.Key.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                group.Key.ToString("MMM d", CultureInfo.InvariantCulture),
+                GetBucketKey(group.Key, config.DateGranularity),
+                GetBucketLabel(group.Key, config.DateGranularity),
                 Aggregate(group.Select(item => item.Record), config.Metric)))
             .ToArray();
+    }
+
+    private static DateTime GetBucketStart(DateTime date, string granularity, int firstDayOfWeek)
+    {
+        return granularity switch
+        {
+            DashboardDateGranularities.Week => date.AddDays(-((7 + (int)date.DayOfWeek - firstDayOfWeek) % 7)),
+            DashboardDateGranularities.Month => new DateTime(date.Year, date.Month, 1),
+            DashboardDateGranularities.Quarter => new DateTime(date.Year, ((date.Month - 1) / 3) * 3 + 1, 1),
+            DashboardDateGranularities.Year => new DateTime(date.Year, 1, 1),
+            _ => date.Date
+        };
+    }
+
+    private static string GetBucketKey(DateTime start, string granularity)
+    {
+        return granularity switch
+        {
+            DashboardDateGranularities.Month => start.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+            DashboardDateGranularities.Quarter => $"{start.Year}-Q{(start.Month - 1) / 3 + 1}",
+            DashboardDateGranularities.Year => start.ToString("yyyy", CultureInfo.InvariantCulture),
+            _ => start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static string GetBucketLabel(DateTime start, string granularity)
+    {
+        return granularity switch
+        {
+            DashboardDateGranularities.Week => $"Week of {start.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)}",
+            DashboardDateGranularities.Month => start.ToString("MMM yyyy", CultureInfo.InvariantCulture),
+            DashboardDateGranularities.Quarter => $"Q{(start.Month - 1) / 3 + 1} {start.Year}",
+            DashboardDateGranularities.Year => start.ToString("yyyy", CultureInfo.InvariantCulture),
+            _ => start.ToString("MMM d", CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static TimeZoneInfo ResolveTimeZone(string? timeZoneId)
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId ?? "UTC"); }
+        catch (TimeZoneNotFoundException) { return TimeZoneInfo.Utc; }
+        catch (InvalidTimeZoneException) { return TimeZoneInfo.Utc; }
+    }
+
+    private static bool TryConvertLocalDate(object? value, bool isDateOnly, TimeZoneInfo timeZone, out DateTime date)
+    {
+        if (isDateOnly && DateTime.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateOnly))
+        {
+            date = dateOnly.Date;
+            return true;
+        }
+
+        if (value is DateTimeOffset offset)
+        {
+            date = TimeZoneInfo.ConvertTime(offset, timeZone).Date;
+            return true;
+        }
+
+        if (DateTimeOffset.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsedOffset))
+        {
+            date = TimeZoneInfo.ConvertTime(parsedOffset, timeZone).Date;
+            return true;
+        }
+
+        date = default;
+        return false;
     }
 
     private static decimal Aggregate(IEnumerable<PreparedChartRecord> records, ChartMetricDefinition metric)

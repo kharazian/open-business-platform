@@ -4,6 +4,7 @@ type AnalyticsOptions = {
   metricFieldId?: string;
   groupByFieldId?: string;
   dateFieldId?: string;
+  dateGranularity?: "day" | "week" | "month" | "quarter" | "year";
   columns?: string[];
   limit?: number;
   subtitle?: string;
@@ -52,7 +53,7 @@ export const businessPerformanceSampleTemplate: DashboardTemplateDefinition = {
     analytics("records-by-status", "Records by status", "executive", "medium", "business", "choice_breakdown", "count", { groupByFieldId: "status" }),
     adapter("executive-target", "Actual versus target", "executive", "wide", "target_attainment", { actual: 92, target: 100, unit: "%", tone: "warning", sourceLabel: "Operational Performance Sample Data" }),
     analytics("amount-by-category", "Amount by category", "financial", "wide", "business", "choice_breakdown", "sum", { metricFieldId: "amount", groupByFieldId: "category" }),
-    analytics("amount-over-time", "Amount over time", "financial", "wide", "business", "date_trend", "sum", { metricFieldId: "amount", dateFieldId: "event_date" }),
+    analytics("amount-over-time", "Amount over time", "financial", "wide", "business", "date_trend", "sum", { metricFieldId: "amount", dateFieldId: "event_date", dateGranularity: "month" }),
     adapter("finance-delta", "Net performance versus budget", "financial", "small", "kpi_delta", { actual: 207000, comparison: 198000, unit: "$", tone: "positive", sourceLabel: "Business Performance Sample Data" }),
     adapter("profitability-waterfall", "Profitability waterfall", "financial", "wide", "waterfall", { labels: "Sales|Discounts|COGS|Expenses|Net", values: "207|-12|-94|-43|58", unit: "$k", sourceLabel: "Illustrative bounded finance adapter" }),
     adapter("channel-heatmap", "Channel and product heatmap", "financial", "wide", "heatmap", { rows: "Direct|Retail|Partner", columns: "Classic|Premium|Light|Specialty", values: "82|64|58|71|61|75|68|55|49|62|78|66", sourceLabel: "Illustrative bounded finance adapter" }),
@@ -60,10 +61,10 @@ export const businessPerformanceSampleTemplate: DashboardTemplateDefinition = {
     analytics("loss-by-metric", "Loss by metric", "loss", "wide", "operations", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "metric_key" }),
     adapter("loss-target", "Loss actual and standard", "loss", "wide", "combo", { labels: "Jan|Feb|Mar|Apr|May|Jun", primary: "8|7|9|6|5|6", secondary: "7|7|7|6|6|6", unit: "%", sourceLabel: "Operational Performance Sample Data" }),
     analytics("production-by-product", "Production by product", "production", "wide", "operations", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "product" }),
-    analytics("production-trend", "Production trend", "production", "wide", "operations", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date" }),
+    analytics("production-trend", "Production trend", "production", "wide", "operations", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month" }),
     adapter("production-stack", "Product composition", "production", "wide", "stacked_bar", { labels: "Q1|Q2|Q3|Q4", primary: "42|48|51|55", secondary: "31|34|38|41", tertiary: "18|21|24|27", unit: "t", sourceLabel: "Operational Performance Sample Data" }),
     analytics("engineering-by-equipment", "Engineering performance", "engineering", "wide", "operations", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "equipment" }),
-    analytics("engineering-trend", "Utilities and reliability trend", "engineering", "wide", "operations", "date_trend", "average", { metricFieldId: "actual_value", dateFieldId: "period_date" }),
+    analytics("engineering-trend", "Utilities and reliability trend", "engineering", "wide", "operations", "date_trend", "average", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month" }),
     adapter("engineering-target", "Actual versus engineering standard", "engineering", "wide", "target_line", { labels: "W1|W2|W3|W4|W5|W6", primary: "72|69|75|71|68|66", secondary: "70|70|70|70|70|70", unit: "%", sourceLabel: "Operational Performance Sample Data" }),
     analytics("supply-by-product", "Inventory by product", "supply-chain", "wide", "operations", "choice_breakdown", "sum", { metricFieldId: "actual_value", groupByFieldId: "product" }),
     analytics("supply-by-metric", "Supply-chain KPI families", "supply-chain", "wide", "operations", "choice_breakdown", "average", { metricFieldId: "actual_value", groupByFieldId: "metric_key" }),
@@ -75,10 +76,10 @@ export const businessPerformanceSampleTemplate: DashboardTemplateDefinition = {
     analytics("incident-cost", "Incident cost", "hse", "small", "incidents", "number_card", "sum", { metricFieldId: "incident_cost" }),
     analytics("lost-hours", "Lost hours", "hse", "small", "incidents", "number_card", "sum", { metricFieldId: "lost_hours" }),
     analytics("incidents-by-location", "Incidents by location", "hse", "wide", "incidents", "choice_breakdown", "count", { groupByFieldId: "location" }),
-    analytics("injuries-over-time", "Injuries by month", "hse", "wide", "incidents", "date_trend", "count", { dateFieldId: "incident_date" }),
+    analytics("injuries-over-time", "Injuries by month", "hse", "wide", "incidents", "date_trend", "count", { dateFieldId: "incident_date", dateGranularity: "month" }),
     adapter("incident-donut", "Incident location mix", "hse", "medium", "donut", { labels: "Receiving|Processing|Packaging|Warehouse", values: "8|12|10|6", unit: "incidents", sourceLabel: "HSE Incident Sample Data" }),
-    analytics("operations-over-time", "Operational actual over time", "trends-targets", "wide", "operations", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date" }),
-    analytics("business-over-time", "Business records over time", "trends-targets", "wide", "business", "date_trend", "count", { dateFieldId: "event_date" }),
+    analytics("operations-over-time", "Operational actual over time", "trends-targets", "wide", "operations", "date_trend", "sum", { metricFieldId: "actual_value", dateFieldId: "period_date", dateGranularity: "month" }),
+    analytics("business-over-time", "Business records over time", "trends-targets", "wide", "business", "date_trend", "count", { dateFieldId: "event_date", dateGranularity: "month" }),
     adapter("actual-budget", "Actual and budget comparison", "trends-targets", "wide", "combo", { labels: "Jan|Feb|Mar|Apr|May|Jun", primary: "31|35|39|42|46|49", secondary: "30|34|38|43|45|48", unit: "$k", sourceLabel: "Business Performance Sample Data" }),
     adapter("period-diagnostic", "Actual-through period coverage", "trends-targets", "medium", "status_panel", { status: "warning", title: "Actual through June", detail: "Six future target-only periods remain visible.", count: 12, sourceLabel: "Operational Performance Sample Data" }),
     analytics("recent-business", "Recent business records", "records", "full", "business", "table", "count", { columns: ["title", "category", "region", "priority", "amount", "status", "created_at"], limit: 20 }),
@@ -109,6 +110,7 @@ function analytics(
         metric: { type: metricType, fieldId: options.metricFieldId ?? null },
         groupByFieldId: options.groupByFieldId ?? null,
         dateFieldId: options.dateFieldId ?? null,
+        dateGranularity: options.dateGranularity ?? "day",
         columns: options.columns ?? [],
         limit: options.limit ?? 12
       }

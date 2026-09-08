@@ -65,7 +65,8 @@ public sealed record DashboardAnalyticsRequest(
     int? Limit = null,
     IReadOnlyList<DashboardAnalyticsFilterDefinition>? Filters = null,
     IReadOnlyList<DashboardChartSeriesDefinition>? Series = null,
-    DashboardKpiComparisonDefinition? KpiComparison = null);
+    DashboardKpiComparisonDefinition? KpiComparison = null,
+    string DateGranularity = DashboardDateGranularities.Day);
 
 public sealed record DashboardKpiComparisonResult(decimal CurrentValue, decimal PreviousValue, decimal? ChangePercent, string Direction, string PeriodLabel);
 

@@ -6,6 +6,7 @@ import type {
   DashboardAnalyticsFilterValue,
   DashboardAnalyticsResponse,
   DashboardAnalyticsWidgetType,
+  DashboardDateGranularity,
   DashboardSettings,
   DashboardVisibility,
   SavedDashboardWidget
@@ -18,6 +19,7 @@ export type DashboardAnalyticsBuilderConfig = {
   metricFieldId?: string | null;
   groupByFieldId?: string | null;
   dateFieldId?: string | null;
+  dateGranularity?: DashboardDateGranularity;
   columns?: string[] | null;
   limit?: number | null;
   reportId?: EntityId | null;
@@ -38,6 +40,7 @@ export function buildChartConfigFromDashboardAnalytics(config: DashboardAnalytic
     },
     groupByFieldId: config.widgetType === "breakdown" ? normalizeOptional(config.groupByFieldId) : null,
     dateFieldId: config.widgetType === "trend" ? normalizeOptional(config.dateFieldId) : null,
+    dateGranularity: config.widgetType === "trend" ? config.dateGranularity ?? "day" : "day",
     columns: config.widgetType === "table" ? normalizeColumns(config.columns) : [],
     limit: config.limit ?? 10,
     reportId: config.reportId || null,
@@ -55,6 +58,7 @@ export function buildDashboardAnalyticsRequest(formId: EntityId, chart: ChartWid
     metric: chart.metric,
     groupByFieldId: chart.groupByFieldId ?? null,
     dateFieldId: chart.dateFieldId ?? null,
+    dateGranularity: chart.dateGranularity ?? "day",
     columns: normalizeColumns(chart.columns),
     limit: chart.limit ?? 10,
     filters: mergeDashboardAnalyticsFilters(chart.fixedFilters, filters),
